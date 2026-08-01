@@ -29,6 +29,19 @@ Mục tiêu: code ít lớp nhưng rõ owner, nhất quán và dễ review. Áp 
 - Null chỉ ở boundary hoặc khi framework bắt buộc; chuẩn hóa collection thành rỗng ngay tại boundary. Không trả `null` collection.
 - Mọi clock/UUID/random không cần abstraction trước; chỉ bọc khi cần deterministic test hoặc có nhiều implementation.
 
+## Tài liệu phiên bản và API
+
+- Stack hiện hành được pin ở root `pom.xml` và Compose. Với Spring Boot 4/Spring Framework 7/Spring Kafka 4,
+  Java 25, Flyway, Testcontainers, Kafka client/broker hoặc tool/library tương tự, không suy luận API từ kiến thức
+  cũ hay snippet trên mạng.
+- Trước khi viết/sửa code có chạm API signature, annotation, configuration property, lifecycle, compatibility,
+  retry/error handling, migration hoặc setup của library/tool, dùng `$find-docs`: resolve library trước, rồi đọc
+  đúng tài liệu chính thức/current cho một vấn đề cụ thể.
+- Không cần tra docs cho pure domain logic, đổi tên, format hoặc refactor không đổi behavior của framework. Khi tài
+  liệu và code mẫu cũ mâu thuẫn, version đang pin trong dự án là chuẩn; cập nhật implementation theo docs của version đó.
+- Ưu tiên capability mới khi nó làm code đúng hơn, đơn giản hơn hoặc đo được lợi ích; không thêm pattern/công nghệ chỉ
+  vì mới. Ghi vào Feature Design/Plan nếu adoption đổi contract, vận hành hoặc compatibility dài hạn.
+
 ## API, persistence và lỗi
 
 - Validate shape/range ở `adapter.in`; giữ invariant quan trọng ở application và unique/FK/check constraint ở database.

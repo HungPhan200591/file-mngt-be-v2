@@ -16,7 +16,7 @@
 3. Đổi REST, Kafka event, database ownership, migration hoặc chạm từ hai service: dùng `$cross-service-contract`; nếu skill chưa được nhận diện, đọc `.agents/skills/cross-service-contract/SKILL.md`.
 4. Tạo/sửa rule, context, template, skill hoặc router tài liệu: dùng `$maintain-ai-governance`; nếu skill chưa được nhận diện, đọc `.agents/skills/maintain-ai-governance/SKILL.md`.
 5. Task cục bộ: đọc `docs/architecture/01-SUMMARY.md` và đúng một `apps/<service>/CONTEXT.md`; chỉ mở dependency trực tiếp.
-6. Viết/review Java: đọc `docs/architecture/03-CODING_RULES.md` sau context owner; chỉ đọc contract/ADR khi task chạm đúng boundary.
+6. Viết/review Java: đọc `docs/architecture/03-CODING_RULES.md` sau context owner. Nếu chạm API, configuration hoặc hành vi phụ thuộc version của framework/tool, dùng `$find-docs` trước khi code; chỉ đọc contract/ADR khi task chạm đúng boundary.
 7. Viết/chạy E2E HTTP: đọc `tests/e2e/README.md`; chỉ đọc feature/contract của API được kiểm tra.
 
 Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về ADLC, contract và session nằm trong skill tương ứng.
