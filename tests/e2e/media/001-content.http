@@ -1,5 +1,5 @@
 @baseUrl = {{gatewayBaseUrl}}
-@fixtureIdentityKey = JOKE-001
+@fixtureIdentityKey = JOKE-011
 
 ###
 # @name SelectFixtureAsset

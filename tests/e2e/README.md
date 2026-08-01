@@ -64,7 +64,7 @@ File `query/001-detail-cache.http` tự chọn một subject, lấy baseline Act
 
 ## Kiểm tra media delivery qua Gateway
 
-Copy `apps/media-worker/src/main/resources/application-local.example.yml` thành `application-local.yml`, sau đó sửa root nếu workspace local khác. Khởi động Gateway, Catalog và Media Worker. Chạy `npm run scan:local` ít nhất một lần để fixture `JOKE-001` được persist vào Catalog, rồi tại `tests/e2e/` chạy:
+Copy template local của Scan và Media Worker thành `application-local.yml`, sau đó sửa root nếu workspace local khác. Khởi động Gateway, Catalog, Scan và Media Worker. Chạy `npm run scan:local` ít nhất một lần để fixture `JOKE-011` được persist vào Catalog, rồi tại `tests/e2e/` chạy:
 
 ```powershell
 npm run media:local

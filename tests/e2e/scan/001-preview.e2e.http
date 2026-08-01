@@ -9,6 +9,7 @@
 @rejectScanFailed = false
 @rejectScanPollAttempts = 0
 @catalogSubjectFound = false
+@catalogSubjectId = __missing__
 @catalogPollAttempts = 0
 @catalogOutboxPublished = false
 @catalogOutboxPollAttempts = 0
@@ -120,10 +121,14 @@ GET {{catalogBaseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&ide
     && subject?.region === 'JOKE'
     && subject?.subjectType === 'VIDEO'
     && Boolean(asset);
-  exports.catalogSubjectId = subject?.id;
-  exports.catalogPollAttempts = catalogSubjectFound
+  exports.catalogSubjectId = subject?.id || '__missing__';
+  const nextCatalogPollAttempt = catalogSubjectFound
     ? 40
     : Number(catalogPollAttempts) + 1;
+  exports.catalogPollAttempts = nextCatalogPollAttempt;
+  if (!catalogSubjectFound && nextCatalogPollAttempt >= 40) {
+    test('creates Catalog subject from scan event', () => false);
+  }
   if (!catalogSubjectFound) {
     await sleep(250);
   }
@@ -136,7 +141,7 @@ GET {{catalogBaseUrl}}/api/v2/catalog/operations/outbox?size=100
 
 {{response
   const page = JSON.parse(response.body);
-  const event = page.content.find(item =>
+  const event = catalogSubjectId && page.content.find(item =>
     item.subjectId === catalogSubjectId
     && item.eventType === 'media.subject.changed.v1'
     && item.publishedAt !== null);
@@ -155,7 +160,7 @@ GET {{catalogBaseUrl}}/api/v2/catalog/operations/outbox?size=100
 
 {{response
   const page = JSON.parse(response.body);
-  const event = page.content.find(item =>
+  const event = catalogSubjectId && page.content.find(item =>
     item.subjectId === catalogSubjectId
     && item.eventType === 'media.subject.changed.v1');
   test('publishes one Catalog subject changed event', () =>
