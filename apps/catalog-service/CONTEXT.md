@@ -14,7 +14,7 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 ## Invariants
 
 - Subject identity dùng key chuẩn hóa theo region/kind.
-- Mọi thay đổi publish qua transactional outbox.
+- Khi feature có business event, mọi thay đổi publish qua transactional outbox.
 - Consumer Kafka idempotent; không ghi projection Query trực tiếp.
 - Không tự scan filesystem.
 
