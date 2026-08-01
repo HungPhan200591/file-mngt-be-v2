@@ -22,10 +22,13 @@ public class CatalogFileDiscoveryService {
 
     private final ProcessedEventRepository processed;
     private final MediaSubjectRepository subjects;
+    private final CatalogSubjectOutboxService outbox;
 
-    public CatalogFileDiscoveryService(ProcessedEventRepository processed, MediaSubjectRepository subjects) {
+    public CatalogFileDiscoveryService(
+            ProcessedEventRepository processed, MediaSubjectRepository subjects, CatalogSubjectOutboxService outbox) {
         this.processed = processed;
         this.subjects = subjects;
+        this.outbox = outbox;
     }
 
     @Transactional
@@ -36,17 +39,21 @@ public class CatalogFileDiscoveryService {
         }
         var region = Region.valueOf(event.region());
         var type = SubjectType.valueOf(event.subjectType());
-        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey())
-                .orElseGet(() -> new MediaSubjectEntity(
-                        UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
-        if (event.assetRole() != null && !subject.hasAssetPath(event.sourceRelativePath())) {
+        var existing = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey());
+        var subject = existing.orElseGet(() -> new MediaSubjectEntity(
+                UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
+        boolean assetAdded = event.assetRole() != null && !subject.hasAssetPath(event.sourceRelativePath());
+        if (assetAdded) {
             subject.addAsset(new MediaAssetEntity(
                     UUID.randomUUID(),
                     MediaAssetRole.valueOf(event.assetRole()),
                     event.sourceRelativePath(),
                     Instant.now()));
         }
-        subjects.save(subject);
+        if (existing.isEmpty() || assetAdded) {
+            subjects.saveAndFlush(subject);
+            outbox.enqueue(subject);
+        }
         processed.save(new ProcessedEventEntity(event.eventId(), Instant.now()));
         LOGGER.info("Processed media discovery eventId={} subjectId={}", event.eventId(), subject.id());
     }

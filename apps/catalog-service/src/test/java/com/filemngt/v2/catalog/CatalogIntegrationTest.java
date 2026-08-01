@@ -6,8 +6,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.filemngt.v2.catalog.adapter.in.event.MediaFileDiscoveredConsumer;
+import com.filemngt.v2.catalog.adapter.out.persistence.CatalogDeadLetterRepository;
+import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventRepository;
+import com.filemngt.v2.catalog.application.CatalogDeadLetterService;
+import com.filemngt.v2.catalog.application.CatalogOutboxMetrics;
+import com.filemngt.v2.catalog.application.CatalogOutboxPublisher;
 import com.filemngt.v2.catalog.domain.MediaAssetRole;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
@@ -30,7 +35,12 @@ import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
-@SpringBootTest(properties = "catalog.kafka.consumer.enabled=false")
+@SpringBootTest(
+        properties = {
+            "catalog.kafka.consumer.enabled=false",
+            "catalog.kafka.dlt-observer.enabled=false",
+            "catalog.outbox.enabled=false"
+        })
 @AutoConfigureMockMvc
 class CatalogIntegrationTest {
 
@@ -55,6 +65,18 @@ class CatalogIntegrationTest {
     private ProcessedEventRepository processed;
 
     @Autowired
+    private CatalogOutboxEventRepository outbox;
+
+    @Autowired
+    private CatalogDeadLetterRepository deadLetters;
+
+    @Autowired
+    private CatalogDeadLetterService deadLetterService;
+
+    @Autowired
+    private CatalogOutboxMetrics outboxMetrics;
+
+    @Autowired
     private MediaSubjectRepository subjects;
 
     @Autowired
@@ -62,6 +84,7 @@ class CatalogIntegrationTest {
 
     @Test
     void createsReadsListsAndRejectsDuplicateIdentity() throws Exception {
+        long outboxBefore = outbox.count();
         String body = """
                 {"subjectType":"VIDEO","region":"JOKE","identityKey":"START-001","displayTitle":"Sample","assets":[{"role":"PRIMARY_VIDEO","relativePath":"Root/sample.mp4"}]}
                 """;
@@ -70,6 +93,7 @@ class CatalogIntegrationTest {
                         .content(body))
                 .andExpect(status().isCreated())
                 .andReturn();
+        assertThat(outbox.count()).isEqualTo(outboxBefore + 1);
         String location = created.getResponse().getHeader("Location");
         assertThat(location).isNotBlank();
         mockMvc.perform(get(location)).andExpect(status().isOk());
@@ -95,11 +119,13 @@ class CatalogIntegrationTest {
                 .andExpect(status().isBadRequest());
 
         long processedBefore = processed.count();
+        long discoveryOutboxBefore = outbox.count();
         var event = event("JOKE", "EVENT-001", "PRIMARY_VIDEO", "Root/event.mp4");
         String payload = json.writeValueAsString(event);
         consumer.consume(payload);
         consumer.consume(payload);
         assertThat(processed.count()).isEqualTo(processedBefore + 1);
+        assertThat(outbox.count()).isEqualTo(discoveryOutboxBefore + 1);
         var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, "EVENT-001")
                 .orElseThrow();
         assertThat(subject.assets()).hasSize(1);
@@ -108,6 +134,7 @@ class CatalogIntegrationTest {
     @Test
     void convergesAssetBeforeVideoAndDeduplicatesRedelivery() throws Exception {
         long processedBefore = processed.count();
+        long outboxBefore = outbox.count();
         MediaFileDiscoveredV1 image = event("USE", "use-title-studio", "IMAGE", "FullPics/sample (1).jpg");
         MediaFileDiscoveredV1 video = event("USE", "use-title-studio", "PRIMARY_VIDEO", "Syncdroid/sample.mp4");
 
@@ -122,6 +149,52 @@ class CatalogIntegrationTest {
                 .extracting(asset -> asset.role())
                 .containsExactlyInAnyOrder(MediaAssetRole.IMAGE, MediaAssetRole.PRIMARY_VIDEO);
         assertThat(processed.count()).isEqualTo(processedBefore + 2);
+        assertThat(outbox.count()).isEqualTo(outboxBefore + 2);
+    }
+
+    @Test
+    void retriesOutboxPublishingAndRecordsDeadLettersIdempotently() throws Exception {
+        String identityKey = "PUBLISH-" + UUID.randomUUID();
+        String body = """
+                {"subjectType":"VIDEO","region":"JOKE","identityKey":"%s","assets":[]}
+                """.formatted(identityKey);
+        MvcResult created = mockMvc.perform(post("/api/v2/catalog/subjects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+        UUID subjectId = UUID.fromString(json.readTree(created.getResponse().getContentAsString())
+                .get("id")
+                .asText());
+
+        var failingPublisher = new CatalogOutboxPublisher(
+                outbox,
+                (topic, key, payload) -> {
+                    throw new IllegalStateException("Kafka unavailable");
+                },
+                outboxMetrics);
+        failingPublisher.publishPending();
+        var event = outbox.findBySubjectId(subjectId).getFirst();
+        assertThat(event.attemptCount()).isEqualTo(1);
+        assertThat(event.publishedAt()).isNull();
+
+        var succeedingPublisher = new CatalogOutboxPublisher(outbox, (topic, key, payload) -> {}, outboxMetrics);
+        succeedingPublisher.publishPending();
+        assertThat(outbox.findById(event.id()).orElseThrow().publishedAt()).isNotNull();
+
+        var deadLetter = new CatalogDeadLetterService.DeadLetterCommand(
+                "media.file.discovered.v1", 1, 42L, "key", "payload", "invalid payload");
+        assertThat(deadLetterService.record(deadLetter)).isTrue();
+        assertThat(deadLetterService.record(deadLetter)).isFalse();
+        assertThat(deadLetters.count()).isEqualTo(1);
+
+        mockMvc.perform(get("/api/v2/catalog/operations/outbox").param("published", "true"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v2/catalog/operations/outbox")
+                        .param("published", "true")
+                        .param("failedOnly", "true"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v2/catalog/operations/dead-letters")).andExpect(status().isOk());
     }
 
     private MediaFileDiscoveredV1 event(String region, String identityKey, String role, String path) {

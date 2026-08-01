@@ -1,6 +1,6 @@
 # 006 Catalog subject changed outbox — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -37,4 +37,10 @@ Design: [02-design.md](./02-design.md)
 ## Tài liệu cần cập nhật
 
 - Đã tạo `docs/contracts/events/media.subject.changed.v1.md` và bổ sung operations contract vào Catalog OpenAPI.
-- Khi hoàn tất code: cập nhật `docs/STATUS.md` và evidence thực tế trong Plan. Architecture/ownership đã đúng nên không cần ADR mới.
+- Architecture/ownership đã đúng nên không cần ADR mới.
+
+## Evidence hoàn tất
+
+- Implementation đã có Catalog Flyway V3, outbox producer, DLT observer, operations API, Micrometer metrics, integration test và Scan-to-Catalog E2E extension.
+- `./mvnw.cmd spotless:apply` bằng JDK 25 đã `BUILD SUCCESS` ngày 2026-08-01.
+- Người dùng đã xác nhận Catalog Testcontainers và runtime E2E local pass sau khi triển khai.

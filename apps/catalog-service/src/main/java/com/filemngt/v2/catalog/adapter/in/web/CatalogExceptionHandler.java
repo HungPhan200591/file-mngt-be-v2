@@ -1,5 +1,6 @@
 package com.filemngt.v2.catalog.adapter.in.web;
 
+import com.filemngt.v2.catalog.application.CatalogOperationsService.InvalidOperationsFilterException;
 import com.filemngt.v2.catalog.application.CatalogService.DuplicateSubjectException;
 import com.filemngt.v2.catalog.application.CatalogService.InvalidAssetException;
 import com.filemngt.v2.catalog.application.CatalogService.InvalidListFilterException;
@@ -27,6 +28,7 @@ public class CatalogExceptionHandler {
         CatalogController.InvalidRequestException.class,
         InvalidAssetException.class,
         InvalidListFilterException.class,
+        InvalidOperationsFilterException.class,
         MethodArgumentNotValidException.class
     })
     ProblemDetail invalidRequest(Exception exception) {

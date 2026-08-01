@@ -21,9 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CatalogService {
 
     private final MediaSubjectRepository repository;
+    private final CatalogSubjectOutboxService outbox;
 
-    public CatalogService(MediaSubjectRepository repository) {
+    public CatalogService(MediaSubjectRepository repository, CatalogSubjectOutboxService outbox) {
         this.repository = repository;
+        this.outbox = outbox;
     }
 
     @Transactional
@@ -45,7 +47,9 @@ public class CatalogService {
                 .forEach(asset -> subject.addAsset(
                         new MediaAssetEntity(UUID.randomUUID(), asset.role(), asset.relativePath(), now)));
         try {
-            return toView(repository.saveAndFlush(subject));
+            var saved = repository.saveAndFlush(subject);
+            outbox.enqueue(saved);
+            return toView(saved);
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicateSubjectException(command.identityKey());
         }

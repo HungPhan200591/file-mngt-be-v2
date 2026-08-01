@@ -6,7 +6,7 @@
   },
   "scripts": {
     "catalog:local": "httpyac send \"catalog/*.http\" --all --env local --bail",
-    "scan:local": "node -e \"console.log('Running Scan-to-Catalog E2E; waiting for Kafka delivery: up to 10 seconds.')\" && httpyac send scan/001-preview.e2e.http --all --env local --bail --filter only-failed --output-failed exchange",
+    "scan:local": "node -e \"console.log('Running Scan-to-Catalog E2E; each Kafka convergence check waits up to 10 seconds.')\" && httpyac send scan/001-preview.e2e.http --all --env local --bail --filter only-failed --output-failed exchange",
     "scan:local:debug": "httpyac send scan/001-preview.e2e.http --all --env local --bail --output exchange"
   }
 }

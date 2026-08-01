@@ -79,6 +79,7 @@ Content-Type: application/json
 GET {{catalogBaseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&identityKey=JOKE-001&size=1
 
 > {%
+  client.global.set("catalogSubjectId", response.body.content[0].id);
   client.test("creates exactly one Catalog subject and asset", function() {
     client.assert(response.status === 200, "Expected 200, got " + response.status);
     client.assert(response.body.totalElements === 1, "Expected one Catalog subject");
@@ -88,6 +89,21 @@ GET {{catalogBaseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&ide
     client.assert(response.body.content[0].assets.length === 1, "Expected one Catalog asset");
     client.assert(response.body.content[0].assets[0].role === "PRIMARY_VIDEO", "Expected primary video");
     client.assert(response.body.content[0].assets[0].relativePath === "A - [JOKE-001].mp4", "Expected fixture path");
+  });
+%}
+
+###
+# @name ListCatalogOutbox
+GET {{catalogBaseUrl}}/api/v2/catalog/operations/outbox?size=100
+
+> {%
+  client.test("lists published Catalog subject event", function() {
+    var event = response.body.content.find(function(item) {
+      return item.subjectId === client.global.get("catalogSubjectId")
+        && item.eventType === "media.subject.changed.v1";
+    });
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(event && event.publishedAt !== null, "Expected a published Catalog subject event");
   });
 %}
 

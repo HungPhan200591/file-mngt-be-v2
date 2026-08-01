@@ -9,6 +9,8 @@
 @rejectScanPollAttempts = 0
 @catalogSubjectFound = false
 @catalogPollAttempts = 0
+@catalogOutboxPublished = false
+@catalogOutboxPollAttempts = 0
 
 ###
 # @name StartScanPreview
@@ -113,12 +115,46 @@ GET {{catalogBaseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&ide
     && subject?.region === 'JOKE'
     && subject?.subjectType === 'VIDEO'
     && Boolean(asset);
+  exports.catalogSubjectId = subject?.id;
   exports.catalogPollAttempts = catalogSubjectFound
     ? 40
     : Number(catalogPollAttempts) + 1;
   if (!catalogSubjectFound) {
     await sleep(250);
   }
+}}
+
+###
+# @name WaitForCatalogOutbox
+# @loop while catalogOutboxPollAttempts < 40
+GET {{catalogBaseUrl}}/api/v2/catalog/operations/outbox?size=100
+
+{{response
+  const page = JSON.parse(response.body);
+  const event = page.content.find(item =>
+    item.subjectId === catalogSubjectId
+    && item.eventType === 'media.subject.changed.v1'
+    && item.publishedAt !== null);
+  exports.catalogOutboxPublished = response.statusCode === 200 && Boolean(event);
+  exports.catalogOutboxPollAttempts = catalogOutboxPublished
+    ? 40
+    : Number(catalogOutboxPollAttempts) + 1;
+  if (!catalogOutboxPublished) {
+    await sleep(250);
+  }
+}}
+
+###
+# @name AssertCatalogOutbox
+GET {{catalogBaseUrl}}/api/v2/catalog/operations/outbox?size=100
+
+{{response
+  const page = JSON.parse(response.body);
+  const event = page.content.find(item =>
+    item.subjectId === catalogSubjectId
+    && item.eventType === 'media.subject.changed.v1');
+  test('publishes one Catalog subject changed event', () =>
+    response.statusCode === 200 && event?.publishedAt !== null);
 }}
 
 ###

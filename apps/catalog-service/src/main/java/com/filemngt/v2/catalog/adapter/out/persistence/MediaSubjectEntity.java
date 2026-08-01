@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,13 @@ public class MediaSubjectEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
+
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MediaAssetEntity> assets = new ArrayList<>();
 
@@ -57,11 +65,13 @@ public class MediaSubjectEntity {
         this.identityKey = identityKey;
         this.displayTitle = displayTitle;
         this.createdAt = createdAt;
+        this.updatedAt = createdAt;
     }
 
     public void addAsset(MediaAssetEntity asset) {
         asset.assignSubject(this);
         assets.add(asset);
+        updatedAt = Instant.now();
     }
 
     public boolean hasAssetPath(String path) {
@@ -90,6 +100,14 @@ public class MediaSubjectEntity {
 
     public Instant createdAt() {
         return createdAt;
+    }
+
+    public Instant updatedAt() {
+        return updatedAt;
+    }
+
+    public long version() {
+        return version;
     }
 
     public List<MediaAssetEntity> assets() {
