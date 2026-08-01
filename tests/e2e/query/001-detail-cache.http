@@ -1,0 +1,117 @@
+@baseUrl = {{queryBaseUrl}}
+
+###
+# @name SelectQuerySubject
+# Cần có ít nhất một Query projection; chạy npm run catalog:local trước nếu query_db đang trống.
+GET {{baseUrl}}/api/v2/query/subjects?size=1
+
+> {%
+  var subject = response.body.content && response.body.content[0];
+  if (subject) {
+    client.global.set("queryCacheSubjectId", subject.id);
+  }
+  client.test("selects one Query subject", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(Boolean(subject), "Expected at least one Query projection; run npm run catalog:local first");
+  });
+%}
+
+###
+# @name ReadCacheHitBaseline
+GET {{baseUrl}}/actuator/metrics/query.detail.cache.hit
+
+> {%
+  var measurement = response.body.measurements.find(function(item) { return item.statistic === "COUNT"; });
+  client.global.set("queryCacheHitBefore", measurement ? measurement.value : 0);
+  client.test("reads cache hit baseline", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+%}
+
+###
+# @name ReadCacheErrorBaseline
+GET {{baseUrl}}/actuator/metrics/query.detail.cache.error
+
+> {%
+  var measurement = response.body.measurements.find(function(item) { return item.statistic === "COUNT"; });
+  client.global.set("queryCacheErrorBefore", measurement ? measurement.value : 0);
+  client.test("reads cache error baseline", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+%}
+
+###
+# @name ReadDetailLatencyBaseline
+GET {{baseUrl}}/actuator/metrics/query.detail.latency
+
+> {%
+  var measurement = response.body.measurements.find(function(item) { return item.statistic === "COUNT"; });
+  client.global.set("queryDetailCountBefore", measurement ? measurement.value : 0);
+  client.test("reads detail latency baseline", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+%}
+
+###
+# @name GetSubjectDetailFirstTime
+GET {{baseUrl}}/api/v2/query/subjects/{{queryCacheSubjectId}}
+
+> {%
+  client.global.set("queryCacheExpectedIdentity", response.body.identityKey);
+  client.global.set("queryCacheExpectedVersion", response.body.projectionVersion);
+  client.test("reads subject detail first time", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.id === client.global.get("queryCacheSubjectId"), "Expected selected subject");
+  });
+%}
+
+###
+# @name GetSameSubjectDetailSecondTime
+GET {{baseUrl}}/api/v2/query/subjects/{{queryCacheSubjectId}}
+
+> {%
+  client.test("reads the same detail from cache", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.identityKey === client.global.get("queryCacheExpectedIdentity"), "Expected same identity");
+    client.assert(response.body.projectionVersion === Number(client.global.get("queryCacheExpectedVersion")), "Expected same version");
+  });
+%}
+
+###
+# @name AssertCacheHitIncreased
+GET {{baseUrl}}/actuator/metrics/query.detail.cache.hit
+
+> {%
+  var measurement = response.body.measurements.find(function(item) { return item.statistic === "COUNT"; });
+  var hitAfter = measurement ? measurement.value : 0;
+  client.test("increments cache hit count", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(hitAfter >= Number(client.global.get("queryCacheHitBefore")) + 1, "Expected at least one cache hit");
+  });
+%}
+
+###
+# @name AssertCacheErrorUnchanged
+GET {{baseUrl}}/actuator/metrics/query.detail.cache.error
+
+> {%
+  var measurement = response.body.measurements.find(function(item) { return item.statistic === "COUNT"; });
+  var errorAfter = measurement ? measurement.value : 0;
+  client.test("does not add cache errors", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(errorAfter === Number(client.global.get("queryCacheErrorBefore")), "Expected cache error count to stay unchanged");
+  });
+%}
+
+###
+# @name AssertDetailLatencyCountIncreased
+GET {{baseUrl}}/actuator/metrics/query.detail.latency
+
+> {%
+  var measurement = response.body.measurements.find(function(item) { return item.statistic === "COUNT"; });
+  var detailCountAfter = measurement ? measurement.value : 0;
+  client.test("records both detail requests", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(detailCountAfter >= Number(client.global.get("queryDetailCountBefore")) + 2, "Expected two timed detail requests");
+  });
+%}

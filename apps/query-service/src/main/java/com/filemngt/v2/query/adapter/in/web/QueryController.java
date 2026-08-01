@@ -3,6 +3,8 @@ package com.filemngt.v2.query.adapter.in.web;
 import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectEntity;
 import com.filemngt.v2.query.application.QueryProjectionService;
 import com.filemngt.v2.query.application.QuerySearchService;
+import com.filemngt.v2.query.application.QuerySubjectDetail;
+import com.filemngt.v2.query.application.QuerySubjectDetailService;
 import com.filemngt.v2.query.domain.Region;
 import com.filemngt.v2.query.domain.SubjectType;
 import java.time.Instant;
@@ -21,15 +23,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class QueryController {
     private final QueryProjectionService service;
     private final QuerySearchService searchService;
+    private final QuerySubjectDetailService detailService;
 
-    public QueryController(QueryProjectionService service, QuerySearchService searchService) {
+    public QueryController(
+            QueryProjectionService service, QuerySearchService searchService, QuerySubjectDetailService detailService) {
         this.service = service;
         this.searchService = searchService;
+        this.detailService = detailService;
     }
 
     @GetMapping("/{id}")
     public SubjectDetail get(@PathVariable UUID id) {
-        return detail(service.get(id));
+        return detail(detailService.get(id));
     }
 
     @GetMapping
@@ -100,6 +105,21 @@ public class QueryController {
                 s.projectedAt(),
                 s.assets().stream()
                         .map(a -> new Asset(a.id(), a.role().name(), a.relativePath()))
+                        .toList());
+    }
+
+    private SubjectDetail detail(QuerySubjectDetail detail) {
+        return new SubjectDetail(
+                detail.id(),
+                detail.projectionVersion(),
+                detail.subjectType(),
+                detail.region(),
+                detail.identityKey(),
+                detail.displayTitle(),
+                detail.createdAt(),
+                detail.projectedAt(),
+                detail.assets().stream()
+                        .map(asset -> new Asset(asset.id(), asset.role(), asset.relativePath()))
                         .toList());
     }
 

@@ -86,6 +86,27 @@ Lệnh rebuild tạo index physical mới, nạp Query projection, rồi atomica
 
 Sau khi năm service và Elasticsearch đều chạy, vào `tests/e2e` và dùng `npm run scan:search:local` để bắt buộc xác minh luồng Scan → Catalog → Query → Elasticsearch. `npm run scan:local` vẫn là baseline và cho phép PostgreSQL fallback.
 
+## Query detail cache Redis
+
+`GET /api/v2/query/subjects/{id}` dùng cache-aside trong Redis. PostgreSQL `query_db` vẫn là source of truth; Redis miss, timeout hoặc unavailable chỉ làm request chậm hơn một chút, không làm detail API lỗi.
+
+Cấu hình mặc định:
+
+- Redis: `localhost:18112` qua `REDIS_HOST` và `REDIS_PORT`.
+- TTL: `QUERY_DETAIL_CACHE_TTL=10m`.
+- Timeout: `QUERY_DETAIL_CACHE_CONNECT_TIMEOUT=500ms` và `QUERY_DETAIL_CACHE_COMMAND_TIMEOUT=500ms`.
+- Tắt cache để rollback/chẩn đoán: `QUERY_DETAIL_CACHE_ENABLED=false` rồi restart `QueryApplication`.
+
+Kiểm tra runtime bằng scenario dùng chung cho IntelliJ và CLI. Trong `tests/e2e` chạy:
+
+```powershell
+npm run query:cache:local
+```
+
+Hoặc mở `tests/e2e/query/001-detail-cache.http` trong IntelliJ, chọn environment `local` và chạy lần lượt từ trên xuống. Scenario tự chọn một Query subject, gọi detail hai lần và kiểm tra Actuator metrics; nếu `query_db` trống thì chạy `npm run catalog:local` để tạo subject mới rồi đợi Kafka → Query hội tụ.
+
+Các metric còn lại là `query.detail.cache.put`, `query.detail.cache.eviction` và `query.detail.cache.lookup`. Cache key có dạng `query:subject-detail:v1:<subjectId>`; không sửa/xóa thủ công trừ khi đang chẩn đoán local.
+
 ## Chạy lại hằng ngày
 
 Khởi động lại hạ tầng đã có dữ liệu:

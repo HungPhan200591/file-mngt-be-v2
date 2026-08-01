@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -26,14 +27,17 @@ public class QueryProjectionService {
     private final QuerySubjectRepository subjects;
     private final QueryProcessedEventRepository processed;
     private final QuerySearchOutboxRepository searchOutbox;
+    private final ApplicationEventPublisher events;
 
     public QueryProjectionService(
             QuerySubjectRepository subjects,
             QueryProcessedEventRepository processed,
-            QuerySearchOutboxRepository searchOutbox) {
+            QuerySearchOutboxRepository searchOutbox,
+            ApplicationEventPublisher events) {
         this.subjects = subjects;
         this.processed = processed;
         this.searchOutbox = searchOutbox;
+        this.events = events;
     }
 
     @Transactional
@@ -56,13 +60,16 @@ public class QueryProjectionService {
                             .toList());
             subjects.save(subject);
             searchOutbox.save(new QuerySearchOutboxEntity(subject.id(), subject.projectionVersion(), Instant.now()));
+            events.publishEvent(new QuerySubjectProjectionChanged(subject.id()));
         }
         processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
     }
 
     @Transactional(readOnly = true)
-    public QuerySubjectEntity get(UUID id) {
-        return subjects.findById(id).orElseThrow(() -> new ProjectionNotFoundException(id));
+    public QuerySubjectDetail getDetail(UUID id) {
+        return subjects.findById(id)
+                .map(QuerySubjectDetail::from)
+                .orElseThrow(() -> new ProjectionNotFoundException(id));
     }
 
     @Transactional(readOnly = true)

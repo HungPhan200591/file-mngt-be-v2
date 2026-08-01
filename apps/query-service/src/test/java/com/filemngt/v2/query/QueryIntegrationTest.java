@@ -29,6 +29,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(
         properties = {
             "query.kafka.consumer.enabled=false",
+            "query.detail-cache.enabled=false",
             "query.search.enabled=false",
             "query.search.publisher-enabled=false"
         })

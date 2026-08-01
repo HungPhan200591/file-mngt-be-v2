@@ -1,6 +1,6 @@
 # 009 Query detail Redis cache — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -35,3 +35,10 @@ Design: [02-design.md](./02-design.md)
 
 - `docs/STATUS.md`, `manual/operations/local-runtime.md` và Query context chỉ khi ownership/invariant thay đổi; không tạo ADR mới vì Redis cache ownership đã được kiến trúc/context chốt.
 - Không đổi Query OpenAPI hay event contract trong feature này.
+
+## Evidence hoàn tất
+
+- `spotless:apply` và compile toàn reactor đến `query-service`: pass trên JDK 25.
+- Toàn bộ test `query-service`: 3 integration tests pass với PostgreSQL, Elasticsearch và Redis Testcontainers.
+- Redis test xác minh miss → put → hit, TTL, eviction sau commit, duplicate/stale không evict và fallback PostgreSQL khi Redis unavailable.
+- `git diff --check` pass; REST/Kafka contract không đổi và không có source vượt 500 dòng.

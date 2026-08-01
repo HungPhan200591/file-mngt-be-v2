@@ -42,6 +42,16 @@ Khi đã bật Compose profile `search` và muốn bắt buộc xác minh Elasti
 
 Với IntelliJ, dùng `scan/001-preview.http`: chạy `StartScanPreview`, chạy lại `GetScanRun` đến khi status là `COMPLETED`, chạy hai request danh sách, `ApproveScanProposal`, rồi `AssertCatalogSubject`. Muốn thử decision còn lại thì tạo scan mới trước. File `001-preview.e2e.http` dành riêng cho httpYac vì dùng polling directive của CLI.
 
+## Kiểm tra Query detail cache
+
+Sau khi Query có ít nhất một projection và Redis đang chạy, dùng cùng scenario cho CLI hoặc IntelliJ:
+
+```powershell
+npm run query:cache:local
+```
+
+File `query/001-detail-cache.http` tự chọn một subject, lấy baseline Actuator metrics, gọi cùng detail hai lần rồi xác minh cache hit tăng, cache error không tăng và detail timer ghi nhận đủ hai request. Nếu `query_db` đang trống, chạy `npm run catalog:local` để tạo một subject mới rồi đợi Kafka → Query hội tụ. Trong IntelliJ, chọn environment `local` và chạy request theo thứ tự từ trên xuống.
+
 ## Quy ước viết kịch bản
 
 - Mỗi API owner có thư mục riêng; đánh số theo scenario, ví dụ `catalog/001-subject-lifecycle.http`.

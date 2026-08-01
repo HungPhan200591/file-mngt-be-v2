@@ -24,8 +24,17 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
   elasticsearch:
     uris: ${ELASTICSEARCH_URIS:http://localhost:18113}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:18112}
+      connect-timeout: ${QUERY_DETAIL_CACHE_CONNECT_TIMEOUT:500ms}
+      timeout: ${QUERY_DETAIL_CACHE_COMMAND_TIMEOUT:500ms}
 
 query:
+  detail-cache:
+    enabled: ${QUERY_DETAIL_CACHE_ENABLED:true}
+    ttl: ${QUERY_DETAIL_CACHE_TTL:10m}
   search:
     enabled: ${QUERY_SEARCH_ENABLED:true}
     publisher-enabled: ${QUERY_SEARCH_PUBLISHER_ENABLED:true}
