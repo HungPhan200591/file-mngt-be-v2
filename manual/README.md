@@ -12,10 +12,14 @@ Quy ước đặt tài liệu:
 manual/
 ├─ operations/   Chạy local, Docker, IntelliJ, thao tác vận hành
 ├─ ai-agent/     Cách người dùng giao việc và vận hành AI Agent
+├─ learning/     Tài liệu giúp chủ dự án hiểu business và technical
 ├─ checklists/   Checklist cá nhân theo việc
 └─ notes/        Ghi chú học tập hoặc deep-dive cá nhân
 ```
 
 Điểm bắt đầu để hiểu toàn bộ repository: [Bản đồ dự án Backend V2](./operations/project-map.md).
+
+Điểm bắt đầu để hiểu business, kiến trúc, database và data flow:
+[Hướng dẫn hiểu Backend V2](./learning/backend-v2/README.md).
 
 Tài liệu có chứa giá trị kỹ thuật cần chính xác (ví dụ port) phải link đến source of truth trong `docs/`, không tự trở thành source of truth mới. Quy tắc Agent thật vẫn nằm tại `AGENTS.md` và `.agents/skills/`.

@@ -63,7 +63,7 @@ Không để service đọc database/schema của service khác. Local có thể
 | `docs/adr/` | Quyết định dài hạn: boundary, data ownership, tech, port | Chỉ tạo khi có trade-off cần giữ lâu dài |
 | `docs/STATUS.md` | Snapshot ngắn của dự án và việc kế tiếp | Cập nhật khi feature/phase hoàn tất hoặc hướng đi đổi |
 | `apps/<service>/CONTEXT.md` | Scope và bất biến service | Chỉ sửa khi ownership/boundary của service đổi |
-| `manual/` | Cách chạy, checklist, ghi chú cá nhân | Cập nhật khi thao tác vận hành thay đổi; không dùng làm contract/architecture |
+| `manual/` | Cách chạy, tài liệu học, checklist và ghi chú cá nhân | Cập nhật khi cách vận hành hoặc nhu cầu hiểu dự án thay đổi; không dùng làm contract/architecture |
 | `AGENTS.md` và `.agents/skills/` | Router/workflow cho AI Agent | Chỉ sửa khi cách Agent cần tìm và tuân thủ nguồn chuẩn đổi |
 
 Không tạo thêm tài liệu chỉ để chép lại nội dung từ nguồn chuẩn. Nếu một hướng dẫn vận hành cần nói về port, link đến ADR port thay vì tự ghi lại danh sách port.
@@ -111,7 +111,7 @@ Chạy E2E theo [tests/e2e/README.md](../../tests/e2e/README.md). `.http` là k�
 | Cấu hình local mới | Thêm vào `application-local.example.yml` của service nếu cần; giữ file thật ở local |
 | Đổi port/công nghệ/ownership | Tạo hoặc cập nhật ADR trước; sau đó sửa architecture/context/code liên quan |
 | Quy tắc Agent hoặc coding rule | Sửa owner duy nhất: `AGENTS.md`, `.agents/skills/` hoặc `docs/architecture/03-CODING_RULES.md` |
-| Hướng dẫn thao tác cho bạn | Viết trong `manual/operations/`, `manual/checklists/` hoặc `manual/notes/` |
+| Hướng dẫn thao tác/học dự án cho bạn | Viết trong `manual/operations/`, `manual/learning/`, `manual/checklists/` hoặc `manual/notes/` |
 
 ## Quy tắc format và commit
 
@@ -128,3 +128,5 @@ Chạy E2E theo [tests/e2e/README.md](../../tests/e2e/README.md). `.http` là k�
 4. Muốn chạy hệ thống: mở `manual/operations/local-runtime.md`.
 5. Muốn chạy API end-to-end: mở `tests/e2e/README.md`.
 6. Muốn giao việc cho AI Agent: mở `manual/ai-agent/operating-guide.md`.
+7. Muốn hiểu business, technical, database và data flow: mở
+   [Hướng dẫn hiểu Backend V2](../learning/backend-v2/README.md).
