@@ -1,6 +1,6 @@
 # 011 Frontend Gateway cutover — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -28,6 +28,12 @@ Design: [02-design.md](./02-design.md)
 - UI: loading, empty, error, degraded, search race, pagination, direct detail URL và responsive layout.
 - Runtime: Gateway + Query đang chạy; browser gọi `18100`, không gọi `18103`; correlation ID xuất hiện trong Network và diagnostic error.
 - Regression: Gallery Web và Metadata Library V1 vẫn dùng contract cũ, không đổi setting hoặc card behavior.
+
+## Evidence
+
+- 2026-08-02: `mvnw -pl apps/catalog-service,apps/media-worker,apps/gateway-service -am spotless:apply test` PASS bằng JDK 25; Catalog 3, Gateway 7, Media Worker 2 tests.
+- Frontend static PASS: `node --check media-library/runtime-config.js`, `api-client.js`, `app.js`; source owner đều dưới 500 dòng và `git diff --check` sạch.
+- E2E runtime scenario thêm `npm run media:local`; cần chạy sau khi người dùng khởi động Gateway/Catalog/Media Worker và scan fixture theo `tests/e2e/README.md`.
 
 ## Rollout và rollback
 

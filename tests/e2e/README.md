@@ -62,6 +62,16 @@ npm run query:cache:local
 
 File `query/001-detail-cache.http` tự chọn một subject, lấy baseline Actuator metrics, gọi cùng detail hai lần rồi xác minh cache hit tăng, cache error không tăng và detail timer ghi nhận đủ hai request. Nếu `query_db` đang trống, chạy `npm run catalog:local` để tạo một subject mới rồi đợi Kafka → Query hội tụ. Trong IntelliJ, chọn environment `local` và chạy request theo thứ tự từ trên xuống.
 
+## Kiểm tra media delivery qua Gateway
+
+Copy `apps/media-worker/src/main/resources/application-local.example.yml` thành `application-local.yml`, sau đó sửa root nếu workspace local khác. Khởi động Gateway, Catalog và Media Worker. Chạy `npm run scan:local` ít nhất một lần để fixture `JOKE-001` được persist vào Catalog, rồi tại `tests/e2e/` chạy:
+
+```powershell
+npm run media:local
+```
+
+Scenario chọn canonical subject/asset qua Gateway, sau đó xác minh `206 Range` và `HEAD` ở media delivery URL. Browser/Media Library V2 chỉ gọi Gateway `18100`; không dùng direct Media Worker `18104` cho E2E này.
+
 ## Quy ước viết kịch bản
 
 - Mỗi API owner có thư mục riêng; đánh số theo scenario, ví dụ `catalog/001-subject-lifecycle.http`.

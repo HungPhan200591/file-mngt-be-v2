@@ -5,11 +5,16 @@ spring:
     default: local
 
 server:
-  port: -1
+  port: ${MEDIA_WORKER_SERVER_PORT:18104}
+
+media:
+  catalog:
+    base-url: ${CATALOG_SERVICE_URL:http://localhost:18101}
+    connect-timeout: ${MEDIA_CATALOG_CONNECT_TIMEOUT:1s}
+    read-timeout: ${MEDIA_CATALOG_READ_TIMEOUT:5s}
+  roots: []
 
 management:
-  server:
-    port: ${MEDIA_WORKER_MANAGEMENT_PORT:18104}
   endpoints:
     web:
       exposure:

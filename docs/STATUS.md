@@ -4,7 +4,7 @@ Updated: 2026-08-02
 
 ## Hiện tại
 
-- Phase: Giai đoạn 6 — Feature `011-frontend-gateway-cutover` đã READY: màn Media Library V2 subject-centric và media delivery V2 do Media Worker sở hữu. Feature `010-gateway-routing-correlation-id` đã DONE.
+- Phase: Giai đoạn 6 — Feature `011-frontend-gateway-cutover` đã DONE: Media Library V2 subject-centric dùng Gateway và media delivery V2 do Media Worker sở hữu. Feature `010-gateway-routing-correlation-id` đã DONE.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app tối thiểu, event envelope và Docker Compose PostgreSQL/Kafka/Redis đã có.
 - Kiến trúc: monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1 `002-catalog-vertical-slice` đã DONE: migration `media_subject`/`media_asset`, API create/detail/list theo OpenAPI v1.
@@ -15,9 +15,9 @@ Updated: 2026-08-02
 
 ## Việc kế tiếp
 
-1. Review và commit tài liệu FT011 READY.
-2. Triển khai FT011 qua Gateway `18100`, giữ Gallery Web/Metadata Library V1 hoạt động song song.
-3. Làm feature observability cho correlation Kafka/OpenTelemetry và structured log end-to-end sau cutover đầu tiên.
+1. Chạy `npm run media:local` sau khi cấu hình root local để xác minh delivery qua Gateway tới filesystem thực.
+2. Làm feature observability cho correlation Kafka/OpenTelemetry và structured log end-to-end sau cutover đầu tiên.
+3. Quyết định rollout entry/chuyển link từ Gallery Web sang Media Library V2 sau khi dùng thử.
 
 ## Bất biến cần nhớ
 

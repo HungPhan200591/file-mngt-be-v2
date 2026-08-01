@@ -42,12 +42,14 @@ public class CatalogFileDiscoveryService {
         var existing = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey());
         var subject = existing.orElseGet(() -> new MediaSubjectEntity(
                 UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
-        boolean assetAdded = event.assetRole() != null && !subject.hasAssetPath(event.sourceRelativePath());
+        boolean assetAdded = event.assetRole() != null
+                && !subject.hasAssetLocator(event.sourceRootKey(), event.sourceRelativePath());
         if (assetAdded) {
             subject.addAsset(new MediaAssetEntity(
                     UUID.randomUUID(),
                     MediaAssetRole.valueOf(event.assetRole()),
                     event.sourceRelativePath(),
+                    event.sourceRootKey(),
                     Instant.now()));
         }
         if (existing.isEmpty() || assetAdded) {

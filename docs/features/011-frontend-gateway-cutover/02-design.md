@@ -81,3 +81,4 @@ flowchart TB
 - Không đưa operation/Actuator endpoint vào client frontend.
 - Không tự động retry nhiều lần; người dùng có thể retry GET bằng action rõ ràng.
 - Content response dùng MIME phù hợp, `Accept-Ranges: bytes`, `Content-Length`, `Last-Modified` và cache validation; Gateway không buffer toàn bộ media trong memory.
+- Gateway chỉ mở CORS local hẹp cho `localhost:8888` và `127.0.0.1:8888`, expose correlation/content headers cần đọc từ browser; không dùng wildcard origin hay credentials.

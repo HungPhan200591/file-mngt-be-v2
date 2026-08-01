@@ -30,15 +30,19 @@ public class MediaAssetEntity {
     @Column(name = "relative_path", nullable = false)
     private String relativePath;
 
+    @Column(name = "storage_key")
+    private String storageKey;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     protected MediaAssetEntity() {}
 
-    public MediaAssetEntity(UUID id, MediaAssetRole role, String relativePath, Instant createdAt) {
+    public MediaAssetEntity(UUID id, MediaAssetRole role, String relativePath, String storageKey, Instant createdAt) {
         this.id = id;
         this.role = role;
         this.relativePath = relativePath;
+        this.storageKey = storageKey;
         this.createdAt = createdAt;
     }
 
@@ -56,5 +60,9 @@ public class MediaAssetEntity {
 
     public String relativePath() {
         return relativePath;
+    }
+
+    public String storageKey() {
+        return storageKey;
     }
 }

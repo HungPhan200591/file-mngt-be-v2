@@ -1,0 +1,45 @@
+@baseUrl = {{gatewayBaseUrl}}
+@fixtureIdentityKey = JOKE-001
+
+###
+# @name SelectFixtureAsset
+GET {{baseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&identityKey={{fixtureIdentityKey}}&size=1
+
+> {%
+  const page = response.body;
+  const subject = page.content?.[0];
+  const asset = subject?.assets?.find(item => item.role === "PRIMARY_VIDEO");
+  client.global.set("mediaSubjectId", subject?.id);
+  client.global.set("mediaAssetId", asset?.id);
+  client.test("selects the scanned fixture asset", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(Boolean(subject?.id) && Boolean(asset?.id),
+      "Run npm run scan:local after configuring Media Worker fixture root first");
+  });
+%}
+
+###
+# @name StreamsMediaThroughGateway
+GET {{baseUrl}}/api/v2/media/subjects/{{mediaSubjectId}}/assets/{{mediaAssetId}}/content
+Range: bytes=0-3
+
+> {%
+  client.test("streams an asset through Gateway with byte range", function() {
+    client.assert(response.status === 206, "Expected 206, got " + response.status);
+    client.assert(response.headers.valueOf("Accept-Ranges") === "bytes", "Expected range support");
+    client.assert(Boolean(response.headers.valueOf("Content-Range")), "Expected Content-Range");
+    client.assert(Boolean(response.headers.valueOf("X-Correlation-Id")), "Expected correlation ID");
+  });
+%}
+
+###
+# @name ReadsMediaHeadersThroughGateway
+HEAD {{baseUrl}}/api/v2/media/subjects/{{mediaSubjectId}}/assets/{{mediaAssetId}}/content
+
+> {%
+  client.test("reads media headers without body through Gateway", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(Number(response.headers.valueOf("Content-Length")) > 0, "Expected Content-Length");
+    client.assert(response.headers.valueOf("Accept-Ranges") === "bytes", "Expected range support");
+  });
+%}

@@ -3,6 +3,7 @@ package com.filemngt.v2.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.filemngt.v2.catalog.adapter.in.event.MediaFileDiscoveredConsumer;
@@ -86,7 +87,7 @@ class CatalogIntegrationTest {
     void createsReadsListsAndRejectsDuplicateIdentity() throws Exception {
         long outboxBefore = outbox.count();
         String body = """
-                {"subjectType":"VIDEO","region":"JOKE","identityKey":"START-001","displayTitle":"Sample","assets":[{"role":"PRIMARY_VIDEO","relativePath":"Root/sample.mp4"}]}
+                {"subjectType":"VIDEO","region":"JOKE","identityKey":"START-001","displayTitle":"Sample","assets":[{"role":"PRIMARY_VIDEO","relativePath":"Root/sample.mp4","storageKey":"fixture"}]}
                 """;
         MvcResult created = mockMvc.perform(post("/api/v2/catalog/subjects")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -96,7 +97,9 @@ class CatalogIntegrationTest {
         assertThat(outbox.count()).isEqualTo(outboxBefore + 1);
         String location = created.getResponse().getHeader("Location");
         assertThat(location).isNotBlank();
-        mockMvc.perform(get(location)).andExpect(status().isOk());
+        mockMvc.perform(get(location))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assets[0].storageKey").value("fixture"));
         mockMvc.perform(get("/api/v2/catalog/subjects").param("region", "JOKE").param("size", "1"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v2/catalog/subjects")
@@ -129,6 +132,7 @@ class CatalogIntegrationTest {
         var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, "EVENT-001")
                 .orElseThrow();
         assertThat(subject.assets()).hasSize(1);
+        assertThat(subject.assets().getFirst().storageKey()).isEqualTo("fixture");
     }
 
     @Test

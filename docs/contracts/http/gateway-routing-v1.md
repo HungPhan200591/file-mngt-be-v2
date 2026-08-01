@@ -14,6 +14,10 @@ Base URL local: `http://localhost:18100`
 
 Gateway không public `/api/v2/catalog/operations/**`, `/api/v2/query/operations/**` hoặc Actuator của downstream. Các endpoint đó chỉ dùng qua direct local service port cho operation/admin workflow.
 
+## Local browser CORS
+
+Gateway chỉ cho phép origin `http://localhost:8888` và `http://127.0.0.1:8888` gọi `/api/v2/**` ở local. Response expose `X-Correlation-Id` cùng các header content/range cần cho Media Library V2; không dùng wildcard origin hoặc credentials.
+
 ## Correlation header
 
 - Header: `X-Correlation-Id`.

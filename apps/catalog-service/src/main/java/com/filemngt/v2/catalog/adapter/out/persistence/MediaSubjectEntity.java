@@ -74,8 +74,10 @@ public class MediaSubjectEntity {
         updatedAt = Instant.now();
     }
 
-    public boolean hasAssetPath(String path) {
-        return assets.stream().anyMatch(asset -> asset.relativePath().equals(path));
+    public boolean hasAssetLocator(String storageKey, String relativePath) {
+        return assets.stream()
+                .anyMatch(asset -> java.util.Objects.equals(asset.storageKey(), storageKey)
+                        && asset.relativePath().equals(relativePath));
     }
 
     public UUID id() {

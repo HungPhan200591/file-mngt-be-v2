@@ -171,3 +171,15 @@ npm run gateway:local
 ```
 
 Gateway giữ nguyên `X-Correlation-Id` hợp lệ, hoặc tạo UUID khi header thiếu/trùng/sai format. Có thể override downstream URL và timeout qua `CATALOG_SERVICE_URL`, `SCAN_SERVICE_URL`, `QUERY_SERVICE_URL`, `GATEWAY_HTTP_CLIENT_CONNECT_TIMEOUT`, `GATEWAY_HTTP_CLIENT_READ_TIMEOUT`; mặc định là 1 giây connect và 30 giây read.
+
+## Media delivery V2
+
+Media Worker chạy ở `18104` và chỉ nhận request media từ Gateway. Để Worker đọc file local, copy template rồi đổi path theo máy:
+
+```powershell
+Copy-Item apps/media-worker/src/main/resources/application-local.example.yml apps/media-worker/src/main/resources/application-local.yml
+```
+
+`media.roots` là registry `key → path`; `key` phải khớp `sourceRootKey` đã scan. Không thêm raw path vào frontend hay request URL. Máy development có thể dùng `fixture-joke-video` trong template; root thực tế cần trỏ đúng folder đã scan.
+
+Media Worker gọi Catalog với timeout mặc định 1 giây connect, 5 giây read. Khi cần chẩn đoán local, có thể override `CATALOG_SERVICE_URL`, `MEDIA_CATALOG_CONNECT_TIMEOUT` và `MEDIA_CATALOG_READ_TIMEOUT`; không đổi port hay public Worker trên browser. Dùng `npm run media:local` trong `tests/e2e` sau khi Scan fixture để xác minh GET Range/HEAD đi qua Gateway.

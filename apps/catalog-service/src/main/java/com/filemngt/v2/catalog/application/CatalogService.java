@@ -44,8 +44,8 @@ public class CatalogService {
                 command.displayTitle(),
                 now);
         command.assets()
-                .forEach(asset -> subject.addAsset(
-                        new MediaAssetEntity(UUID.randomUUID(), asset.role(), asset.relativePath(), now)));
+                .forEach(asset -> subject.addAsset(new MediaAssetEntity(
+                        UUID.randomUUID(), asset.role(), asset.relativePath(), asset.storageKey(), now)));
         try {
             var saved = repository.saveAndFlush(subject);
             outbox.enqueue(saved);
@@ -88,7 +88,7 @@ public class CatalogService {
 
     private SubjectView toView(MediaSubjectEntity subject) {
         var assets = subject.assets().stream()
-                .map(asset -> new AssetView(asset.id(), asset.role(), asset.relativePath()))
+                .map(asset -> new AssetView(asset.id(), asset.role(), asset.relativePath(), asset.storageKey()))
                 .toList();
         return new SubjectView(
                 subject.id(),
@@ -107,9 +107,9 @@ public class CatalogService {
                 > 1) {
             throw new InvalidAssetException("A subject can have only one PRIMARY_VIDEO asset");
         }
-        Set<String> paths = new java.util.HashSet<>();
-        if (assets.stream().anyMatch(asset -> !paths.add(asset.relativePath()))) {
-            throw new InvalidAssetException("Asset paths must be unique within a subject");
+        Set<String> locators = new java.util.HashSet<>();
+        if (assets.stream().anyMatch(asset -> !locators.add(asset.storageKey() + "\u0000" + asset.relativePath()))) {
+            throw new InvalidAssetException("Asset locators must be unique within a subject");
         }
     }
 
@@ -120,7 +120,7 @@ public class CatalogService {
             String displayTitle,
             List<CreateAssetCommand> assets) {}
 
-    public record CreateAssetCommand(MediaAssetRole role, String relativePath) {}
+    public record CreateAssetCommand(MediaAssetRole role, String relativePath, String storageKey) {}
 
     public record SubjectView(
             UUID id,
@@ -131,7 +131,7 @@ public class CatalogService {
             Instant createdAt,
             List<AssetView> assets) {}
 
-    public record AssetView(UUID id, MediaAssetRole role, String relativePath) {}
+    public record AssetView(UUID id, MediaAssetRole role, String relativePath, String storageKey) {}
 
     public record PageView(List<SubjectView> content, int page, int size, long totalElements, int totalPages) {}
 

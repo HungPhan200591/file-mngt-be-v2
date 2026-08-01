@@ -7,6 +7,7 @@ import com.filemngt.v2.catalog.domain.SubjectType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.time.Instant;
@@ -39,7 +40,8 @@ public class CatalogController {
                 request.identityKey(),
                 request.displayTitle(),
                 request.assets().stream()
-                        .map(asset -> new CatalogService.CreateAssetCommand(asset.role(), asset.relativePath()))
+                        .map(asset -> new CatalogService.CreateAssetCommand(
+                                asset.role(), asset.relativePath(), asset.storageKey()))
                         .toList());
         var created = service.create(command);
         return ResponseEntity.created(URI.create("/api/v2/catalog/subjects/" + created.id()))
@@ -79,7 +81,8 @@ public class CatalogController {
                 subject.displayTitle(),
                 subject.createdAt(),
                 subject.assets().stream()
-                        .map(asset -> new MediaAsset(asset.id(), asset.role(), asset.relativePath()))
+                        .map(asset ->
+                                new MediaAsset(asset.id(), asset.role(), asset.relativePath(), asset.storageKey()))
                         .toList());
     }
 
@@ -96,7 +99,10 @@ public class CatalogController {
 
     public record CreateMediaAssetRequest(
             @NotNull MediaAssetRole role,
-            @NotBlank @Size(max = 2048) String relativePath) {}
+            @NotBlank @Size(max = 2048) String relativePath,
+
+            @Size(max = 128) @Pattern(regexp = "[A-Za-z0-9._-]+")
+            String storageKey) {}
 
     public record MediaSubjectDetail(
             UUID id,
@@ -107,7 +113,7 @@ public class CatalogController {
             Instant createdAt,
             List<MediaAsset> assets) {}
 
-    public record MediaAsset(UUID id, MediaAssetRole role, String relativePath) {}
+    public record MediaAsset(UUID id, MediaAssetRole role, String relativePath, String storageKey) {}
 
     public record MediaSubjectPage(
             List<MediaSubjectDetail> content, int page, int size, long totalElements, int totalPages) {}
