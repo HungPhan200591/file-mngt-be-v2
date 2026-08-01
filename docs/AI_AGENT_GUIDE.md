@@ -40,6 +40,8 @@ Nói thêm: `Handoff kèm source-of-truth audit.`
 
 Agent phải xác nhận architecture, contract, ownership hoặc rule có thực sự đổi không. Nếu có thì cập nhật owner tương ứng trong cùng task; nếu không thì nói rõ không cần cập nhật tài liệu. `docs/STATUS.md` luôn là snapshot hiện tại, không append lịch sử.
 
+Sau đó Agent luôn đề xuất 1–3 việc tiếp theo theo mức ưu tiên. Đây là đề xuất để người dùng chọn, không phải quyền tự làm tiếp ngoài task hiện tại.
+
 ## Quy ước ngắn cần nhớ
 
 - Một Agent chính, không dùng sub-agent.

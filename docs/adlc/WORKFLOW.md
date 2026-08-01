@@ -26,7 +26,7 @@ Dùng template tương ứng trong `docs/templates/`. Feature chỉ nằm một 
 
 Mặc định khi code một feature: `AGENTS.md`, `docs/STATUS.md`, architecture summary, đúng một service context và `03-plan.md` của feature. `03-plan.md` là **execution capsule**: ghi owner, scope/files, bất biến phải giữ và tài liệu chỉ đọc khi cần. Chỉ mở Brief, Design, ADR hoặc contract khi capsule chỉ đến; không nạp cả folder feature theo thói quen.
 
-Trước handoff, Agent audit source of truth. Chỉ cập nhật architecture, contract, ownership hoặc rule khi chúng thực sự đổi; nếu không, nêu rõ không cần cập nhật tài liệu. `STATUS.md` là snapshot hiện tại, không phải changelog.
+Trước handoff, Agent audit source of truth. Chỉ cập nhật architecture, contract, ownership hoặc rule khi chúng thực sự đổi; nếu không, nêu rõ không cần cập nhật tài liệu. `STATUS.md` là snapshot hiện tại, không phải changelog. Mỗi handoff phải đề xuất 1–3 việc tiếp theo theo mức ưu tiên, nhưng không tự làm tiếp ngoài phạm vi được giao.
 
 ## Trạng thái tối giản
 

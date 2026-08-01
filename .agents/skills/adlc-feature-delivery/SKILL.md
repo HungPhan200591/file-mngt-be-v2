@@ -29,4 +29,4 @@ description: Thực hiện feature Backend V2 theo ADLC, từ tạo hoặc đọ
 
 ## Bàn giao
 
-Nêu feature doc, owner thay đổi, contract có đổi hay không, kiểm tra đã chạy và việc cần người dùng cho phép.
+Nêu feature doc, owner thay đổi, contract có đổi hay không, kiểm tra đã chạy và việc cần người dùng cho phép. Luôn đề xuất 1–3 việc tiếp theo theo mức ưu tiên; không tự triển khai chúng nếu người dùng chưa yêu cầu.
