@@ -16,4 +16,6 @@ manual/
 └─ notes/        Ghi chú học tập hoặc deep-dive cá nhân
 ```
 
+Điểm bắt đầu để hiểu toàn bộ repository: [Bản đồ dự án Backend V2](./operations/project-map.md).
+
 Tài liệu có chứa giá trị kỹ thuật cần chính xác (ví dụ port) phải link đến source of truth trong `docs/`, không tự trở thành source of truth mới. Quy tắc Agent thật vẫn nằm tại `AGENTS.md` và `.agents/skills/`.
