@@ -15,7 +15,7 @@ description: Thực hiện feature Backend V2 theo ADLC, từ tạo hoặc đọ
 
 1. Tạo folder `docs/features/<feature-id>/` từ ba template.
 2. Brief ghi acceptance criteria và ngoài phạm vi.
-3. Design ghi owner, data ownership, API/event, failure/idempotency và rủi ro.
+3. Design ghi owner, High Level Design bằng Mermaid, data ownership, API/event, failure/idempotency và rủi ro; HLD dùng đúng section/template chung và skill `$mermaid-styling`.
 4. Plan ghi `Execution capsule` (owner, scope/files, must preserve, read on demand), bước file/module, verify và rollback.
 5. Chỉ đặt `Status` trong Plan: `READY` khi không còn quyết định nghiệp vụ/kiến trúc quan trọng; nếu còn thì giữ `DRAFT` và nêu câu hỏi.
 

@@ -4,7 +4,7 @@ Updated: 2026-08-01
 
 ## Hiện tại
 
-- Phase: Giai đoạn 5 — Feature `008-elasticsearch-media-search` đã hoàn tất code và Testcontainers evidence.
+- Phase: Giai đoạn 5 — Feature `008-elasticsearch-media-search` đã DONE; Feature `009-query-detail-redis-cache` có Plan `READY`, chưa triển khai code.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app tối thiểu, event envelope và Docker Compose PostgreSQL/Kafka/Redis đã có.
 - Kiến trúc: đã chốt monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1: `002-catalog-vertical-slice` đã hoàn tất. Catalog sở hữu migration `media_subject`/`media_asset` và API create/detail/list theo OpenAPI v1.
@@ -17,8 +17,8 @@ Updated: 2026-08-01
 
 ## Việc kế tiếp
 
-1. Chạy local profile `search` và `npm run scan:local` khi muốn có runtime evidence qua Kafka thật.
-2. Sau search có evidence/latency thực tế, đánh giá Redis cache thay vì cache mặc định.
+1. Khi người dùng duyệt triển khai, implement trọn Feature `009-query-detail-redis-cache` theo Plan `READY`.
+2. Đo cache hit rate và detail latency trước khi quyết định cache thêm list/search.
 
 ## Bất biến cần nhớ
 
