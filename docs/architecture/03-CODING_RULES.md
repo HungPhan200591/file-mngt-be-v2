@@ -62,6 +62,8 @@ Mục tiêu: code ít lớp nhưng rõ owner, nhất quán và dễ review. Áp 
 
 ## Test và kiểm tra
 
+- Maven của Agent luôn dùng trực tiếp IntelliJ Project SDK `corretto-25` (JDK 25); không dùng Java hệ thống hoặc JDK terminal mặc định.
+
 - Mỗi behavior mới có ít nhất happy path và failure quan trọng (validation, not-found, conflict hoặc idempotency khi áp dụng).
 - Persistence/API integration dùng Testcontainers; không phụ thuộc database local. E2E `.http` chỉ cập nhật khi public contract/flow đổi.
 - Trước handoff: test được phép chạy, `git diff --check`, source dưới 500 dòng/file, và audit contract/ownership/doc owner nếu có thay đổi.
