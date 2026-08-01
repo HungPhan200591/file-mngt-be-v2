@@ -1,6 +1,8 @@
 spring:
   application:
     name: catalog-service
+  profiles:
+    default: local
   datasource:
     url: ${CATALOG_DATASOURCE_URL:jdbc:postgresql://localhost:18110/catalog_db}
     username: ${CATALOG_DATASOURCE_USERNAME:catalog_user}

@@ -33,6 +33,8 @@ build/
 tests/e2e/http-client.env.json
 *.local.yml
 *.local.yaml
+**/application-local.yml
+**/application-local.yaml
 docker-compose.override.yml
 
 # Runtime data, generated media and reports

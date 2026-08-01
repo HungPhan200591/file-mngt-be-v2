@@ -1,6 +1,8 @@
 spring:
   application:
     name: media-worker
+  profiles:
+    default: local
 
 server:
   port: -1

@@ -36,15 +36,7 @@ Trong IntelliJ, chọn environment `local` ở HTTP Client trước khi chạy r
 
 ## Chạy Scan E2E
 
-Trước khi chạy, cấu hình Scan local trỏ đúng fixture repository:
-
-```powershell
-$env:SCAN_ROOTS_0_KEY = 'fixture-joke-video'
-$env:SCAN_ROOTS_0_PATH = 'D:\Study\Project\file_mngt_microservice\tests\fixtures\scan\joke-video'
-$env:SCAN_ROOTS_0_PROFILE = 'JOKE_VIDEO'
-```
-
-Chạy lại `scan-service` từ IntelliJ trong terminal đã có ba biến trên, sau đó tại `tests/e2e/` chạy `npm run scan:local`. Với IntelliJ, chạy `StartScanPreview` trước rồi chạy riêng các request còn lại; đợi run thành `COMPLETED` trước khi review proposals/issues.
+Copy `apps/scan-service/src/main/resources/application-local.example.yml` thành `application-local.yml` và sửa path nếu workspace của bạn khác. Spring Boot tự nạp file này khi chạy `ScanApplication`; không cần EnvFile hoặc environment variable trong IntelliJ. Sau đó tại `tests/e2e/` chạy `npm run scan:local`. Với IntelliJ, chạy `StartScanPreview` trước rồi chạy riêng các request còn lại; đợi run thành `COMPLETED` trước khi review proposals/issues.
 
 ## Quy ước viết kịch bản
 

@@ -1,6 +1,8 @@
 spring:
   application:
     name: scan-service
+  profiles:
+    default: local
   datasource:
     url: ${SCAN_DATASOURCE_URL:jdbc:postgresql://localhost:18110/scan_db}
     username: ${SCAN_DATASOURCE_USERNAME:scan_user}

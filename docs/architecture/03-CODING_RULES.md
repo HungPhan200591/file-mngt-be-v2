@@ -33,6 +33,12 @@ Mục tiêu: code ít lớp nhưng rõ owner, nhất quán và dễ review. Áp 
 - Lỗi nghiệp vụ dự đoán được map `ProblemDetail` tại advice chung của service; không catch `Exception` chung hoặc nuốt lỗi.
 - Flyway migration append-only, tên `V<version>__<meaning>.sql`; entity phải validate được với schema. Không dùng `ddl-auto` để tạo schema.
 
+## Local configuration
+
+- Mọi service mặc định profile `local`. Dùng `src/main/resources/application-local.yml` cho path/config local; file này bị gitignore.
+- Commit `application-local.example.yml` khi service cần local setting mới. Không dùng `.env`/plugin IDE làm cơ chế runtime chuẩn.
+- Environment variable vẫn được phép override cho Docker/CI; không commit secret hoặc machine-specific path.
+
 ## Test và kiểm tra
 
 - Mỗi behavior mới có ít nhất happy path và failure quan trọng (validation, not-found, conflict hoặc idempotency khi áp dụng).

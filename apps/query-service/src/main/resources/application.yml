@@ -1,6 +1,8 @@
 spring:
   application:
     name: query-service
+  profiles:
+    default: local
 
 server:
   port: ${QUERY_SERVER_PORT:18103}
