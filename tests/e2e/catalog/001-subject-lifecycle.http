@@ -1,8 +1,5 @@
 @baseUrl = {{catalogBaseUrl}}
-
-{{
-  exports.catalogIdentity = `E2E-${Date.now()}`;
-}}
+@newCatalogIdentity = E2E-{{$timestamp}}
 
 ###
 # @name CreateSubject
@@ -12,46 +9,63 @@ Content-Type: application/json
 {
   "subjectType": "VIDEO",
   "region": "JOKE",
-  "identityKey": "{{catalogIdentity}}",
+  "identityKey": "{{newCatalogIdentity}}",
   "displayTitle": "E2E Catalog subject",
   "assets": [
     {
       "role": "PRIMARY_VIDEO",
-      "relativePath": "Root/{{catalogIdentity}}.mp4"
+      "relativePath": "Root/{{newCatalogIdentity}}.mp4"
     }
   ]
 }
 
-?? status == 201
-?? body $.region == JOKE
-?? body $.identityKey == {{catalogIdentity}}
+> {%
+  client.global.set("catalogSubjectId", response.body.id);
+  client.global.set("catalogSubjectIdentity", response.body.identityKey);
+  client.test("creates subject", function() {
+    client.assert(response.status === 201, "Expected 201, got " + response.status);
+    client.assert(response.body.region === "JOKE", "Expected JOKE region");
+  });
+%}
 
 ###
 # @name GetCreatedSubject
-# @ref CreateSubject
-GET {{baseUrl}}/api/v2/catalog/subjects/{{CreateSubject.body.id}}
+# Chạy CreateSubject trước để lưu catalogSubjectId.
+GET {{baseUrl}}/api/v2/catalog/subjects/{{catalogSubjectId}}
 
-?? status == 200
-?? body $.id == {{CreateSubject.body.id}}
+> {%
+  client.test("reads created subject", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.region === "JOKE", "Expected JOKE region");
+  });
+%}
 
 ###
 # @name ListCreatedSubject
 GET {{baseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&size=1
 
-?? status == 200
-?? body $.size == 1
+> {%
+  client.test("lists filtered subjects", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.size === 1, "Expected page size 1");
+  });
+%}
 
 ###
 # @name RejectDuplicateIdentity
-# @ref CreateSubject
+# Chạy CreateSubject trước để lưu catalogSubjectIdentity.
 POST {{baseUrl}}/api/v2/catalog/subjects
 Content-Type: application/json
 
 {
   "subjectType": "VIDEO",
   "region": "JOKE",
-  "identityKey": "{{catalogIdentity}}",
+  "identityKey": "{{catalogSubjectIdentity}}",
   "assets": []
 }
 
-?? status == 409
+> {%
+  client.test("rejects duplicate identity", function() {
+    client.assert(response.status === 409, "Expected 409, got " + response.status);
+  });
+%}

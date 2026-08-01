@@ -13,7 +13,7 @@ Copy-Item http-client.env.example.json http-client.env.json
 npm install
 ```
 
-`http-client.env.json` là local-only và bị gitignore. Không đặt secret vào file `*.example.json` hay request đã commit.
+`http-client.env.json` là local-only và bị gitignore. Biến của môi trường `local` phải nằm trong block `local`; không đặt secret vào file `*.example.json` hay request đã commit.
 
 ## Chạy Catalog E2E
 
@@ -30,10 +30,14 @@ Hoặc mở file `.http` trong IntelliJ và chạy từng request. Agent dùng c
 npx httpyac send catalog/001-subject-lifecycle.http --name CreateSubject --env local
 ```
 
+Trong IntelliJ, chọn environment `local` ở HTTP Client trước khi chạy request để nạp `catalogBaseUrl`.
+
+`CreateSubject` lưu `catalogSubjectId` và `catalogSubjectIdentity` vào HTTP Client global storage. Vì vậy sau khi chạy Create một lần, bạn có thể chạy riêng `GetCreatedSubject` hoặc `RejectDuplicateIdentity`. Nếu mở IntelliJ/clear HTTP Client storage mới, chạy Create lại trước.
+
 ## Quy ước viết kịch bản
 
 - Mỗi API owner có thư mục riêng; đánh số theo scenario, ví dụ `catalog/001-subject-lifecycle.http`.
-- Dùng dữ liệu có tiền tố `E2E-` và identity sinh động để chạy lại không đụng dữ liệu thật.
-- Thêm assertion `??` cho status và dữ liệu quan trọng; create/đổi API phải có success, validation và conflict/not-found nếu contract có.
+- Dùng dữ liệu có tiền tố `E2E-` và built-in variable như `{{$timestamp}}` để sinh identity; không dùng JavaScript block đầu file.
+- Dùng response handler JetBrains `> {% client.test(...); %}` cho status và dữ liệu quan trọng; không dùng assertion `??` riêng của httpYac. Create/đổi API phải có success, validation và conflict/not-found nếu contract có.
 - Chỉ chạy khi người dùng đã chủ động khởi động runtime. Catalog hiện không có delete API, nên scenario create để lại dữ liệu E2E trong `catalog_db` local.
 - Khi REST contract đổi: cập nhật OpenAPI trước, sau đó cập nhật đúng file `.http` bị ảnh hưởng.
