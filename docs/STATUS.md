@@ -4,17 +4,18 @@ Updated: 2026-08-01
 
 ## Hiện tại
 
-- Phase: Giai đoạn 0 — Bootstrap đã verified ở local.
+- Phase: Giai đoạn 2 — Scan preview đang được chuẩn bị.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app tối thiểu, event envelope và Docker Compose PostgreSQL/Kafka/Redis đã có.
 - Kiến trúc: đã chốt monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1: `002-catalog-vertical-slice` đã hoàn tất. Catalog sở hữu migration `media_subject`/`media_asset` và API create/detail/list theo OpenAPI v1.
 - E2E HTTP: `003-e2e-http-harness` đã hoàn tất; `.http` là kịch bản chung cho IntelliJ và Agent CLI.
+- Feature active: `004-scan-preview` (Plan READY).
 
 ## Việc kế tiếp
 
-1. Chạy lại `catalog-service` từ IntelliJ để áp dụng Flyway V1 lên `catalog_db` local, sau đó chạy E2E Catalog theo `tests/e2e/README.md`.
+1. Triển khai `004-scan-preview` theo Plan READY.
 2. Giữ guide local hiện hành khi thay đổi Compose/port/runtime.
-3. Chọn feature kế tiếp: Scan preview hoặc Catalog outbox/Kafka.
+3. Sau Scan preview, làm approval + Outbox/Kafka theo phase 3.
 
 ## Bất biến cần nhớ
 

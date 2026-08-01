@@ -1,0 +1,190 @@
+openapi: 3.1.1
+info:
+  title: Scan Service API
+  version: v1
+  description: Read-only filesystem scan preview for Backend V2.
+security: []
+servers:
+  - url: http://localhost:18102
+    description: Local Scan theo ADR-004
+paths:
+  /api/v2/scans/previews:
+    post:
+      operationId: startScanPreview
+      summary: Start a configured root scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartScanRequest'
+      responses:
+        '202':
+          description: Scan accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanRun'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
+  /api/v2/scans/{scanId}:
+    get:
+      operationId: getScanRun
+      summary: Get scan run summary
+      parameters:
+        - $ref: '#/components/parameters/ScanId'
+      responses:
+        '200':
+          description: Scan run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanRun'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+  /api/v2/scans/{scanId}/proposals:
+    get:
+      operationId: listScanProposals
+      summary: List proposals of a scan run
+      parameters:
+        - $ref: '#/components/parameters/ScanId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of proposals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanProposalPage'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+  /api/v2/scans/{scanId}/issues:
+    get:
+      operationId: listScanIssues
+      summary: List issues of a scan run
+      parameters:
+        - $ref: '#/components/parameters/ScanId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of issues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanIssuePage'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+components:
+  parameters:
+    ScanId:
+      name: scanId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+  responses:
+    ValidationProblem:
+      description: Invalid root key or request
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    ConflictProblem:
+      description: A scan is already running for the root
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    NotFoundProblem:
+      description: Scan run does not exist
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+  schemas:
+    StartScanRequest:
+      type: object
+      required: [rootKey]
+      properties:
+        rootKey: { type: string, minLength: 1, maxLength: 100 }
+    ScanRun:
+      type: object
+      required: [id, rootKey, profile, status, startedAt, scannedFileCount, proposalCount, issueCount]
+      properties:
+        id: { type: string, format: uuid }
+        rootKey: { type: string }
+        profile: { $ref: '#/components/schemas/ScanProfile' }
+        status: { $ref: '#/components/schemas/ScanRunStatus' }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        scannedFileCount: { type: integer, format: int64 }
+        proposalCount: { type: integer, format: int64 }
+        issueCount: { type: integer, format: int64 }
+        lastError: { type: [string, 'null'] }
+    ScanProposal:
+      type: object
+      required: [id, sourceRelativePath, profile, candidateType, identityKey]
+      properties:
+        id: { type: string, format: uuid }
+        sourceRelativePath: { type: string }
+        profile: { $ref: '#/components/schemas/ScanProfile' }
+        candidateType: { type: string, enum: [VIDEO, ASSET, ALBUM] }
+        identityKey: { type: string }
+        displayTitle: { type: [string, 'null'] }
+        assetRole: { type: [string, 'null'], enum: [PRIMARY_VIDEO, VIDEO, IMAGE, GIF, null] }
+        evidence: { type: object, additionalProperties: true }
+    ScanIssue:
+      type: object
+      required: [id, sourceRelativePath, code, detail]
+      properties:
+        id: { type: string, format: uuid }
+        sourceRelativePath: { type: string }
+        code: { type: string, enum: [UNPARSEABLE, AMBIGUOUS, IO_ERROR] }
+        detail: { type: string }
+    ScanProposalPage:
+      $ref: '#/components/schemas/PageScanProposal'
+    ScanIssuePage:
+      $ref: '#/components/schemas/PageScanIssue'
+    PageScanProposal:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/ScanProposal' } }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    PageScanIssue:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/ScanIssue' } }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    ScanProfile:
+      type: string
+      enum: [JOKE_VIDEO, JOKE_ASSET, USE_VIDEO, USE_ASSET, USE_ALBUM]
+    ScanRunStatus:
+      type: string
+      enum: [RUNNING, COMPLETED, FAILED]
+    ProblemDetail:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
