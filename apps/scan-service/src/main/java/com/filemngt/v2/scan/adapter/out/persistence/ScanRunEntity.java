@@ -13,10 +13,17 @@ import java.util.UUID;
 @Entity
 @Table(name = "scan_run")
 public class ScanRunEntity {
-    @Id private UUID id;
+    @Id
+    private UUID id;
+
     private String rootKey;
-    @Enumerated(EnumType.STRING) private ScanProfile profile;
-    @Enumerated(EnumType.STRING) private ScanRunStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private ScanProfile profile;
+
+    @Enumerated(EnumType.STRING)
+    private ScanRunStatus status;
+
     private Instant startedAt;
     private Instant finishedAt;
     private long scannedFileCount;
@@ -25,14 +32,66 @@ public class ScanRunEntity {
     private String lastError;
 
     protected ScanRunEntity() {}
+
     public ScanRunEntity(UUID id, String rootKey, ScanProfile profile, Instant startedAt) {
-        this.id = id; this.rootKey = rootKey; this.profile = profile; this.startedAt = startedAt; this.status = ScanRunStatus.RUNNING;
+        this.id = id;
+        this.rootKey = rootKey;
+        this.profile = profile;
+        this.startedAt = startedAt;
+        this.status = ScanRunStatus.RUNNING;
     }
+
     public void complete(long files, long proposals, long issues) {
-        scannedFileCount = files; proposalCount = proposals; issueCount = issues; finishedAt = Instant.now(); status = ScanRunStatus.COMPLETED;
+        scannedFileCount = files;
+        proposalCount = proposals;
+        issueCount = issues;
+        finishedAt = Instant.now();
+        status = ScanRunStatus.COMPLETED;
     }
-    public void fail(String error) { finishedAt = Instant.now(); lastError = error; status = ScanRunStatus.FAILED; }
-    public UUID id() { return id; } public String rootKey() { return rootKey; } public ScanProfile profile() { return profile; }
-    public ScanRunStatus status() { return status; } public Instant startedAt() { return startedAt; } public Instant finishedAt() { return finishedAt; }
-    public long scannedFileCount() { return scannedFileCount; } public long proposalCount() { return proposalCount; } public long issueCount() { return issueCount; } public String lastError() { return lastError; }
+
+    public void fail(String error) {
+        finishedAt = Instant.now();
+        lastError = error;
+        status = ScanRunStatus.FAILED;
+    }
+
+    public UUID id() {
+        return id;
+    }
+
+    public String rootKey() {
+        return rootKey;
+    }
+
+    public ScanProfile profile() {
+        return profile;
+    }
+
+    public ScanRunStatus status() {
+        return status;
+    }
+
+    public Instant startedAt() {
+        return startedAt;
+    }
+
+    public Instant finishedAt() {
+        return finishedAt;
+    }
+
+    public long scannedFileCount() {
+        return scannedFileCount;
+    }
+
+    public long proposalCount() {
+        return proposalCount;
+    }
+
+    public long issueCount() {
+        return issueCount;
+    }
+
+    public String lastError() {
+        return lastError;
+    }
 }

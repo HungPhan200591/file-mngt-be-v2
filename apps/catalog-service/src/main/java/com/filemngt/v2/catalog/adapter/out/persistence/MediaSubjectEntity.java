@@ -42,10 +42,15 @@ public class MediaSubjectEntity {
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MediaAssetEntity> assets = new ArrayList<>();
 
-    protected MediaSubjectEntity() {
-    }
+    protected MediaSubjectEntity() {}
 
-    public MediaSubjectEntity(UUID id, SubjectType subjectType, Region region, String identityKey, String displayTitle, Instant createdAt) {
+    public MediaSubjectEntity(
+            UUID id,
+            SubjectType subjectType,
+            Region region,
+            String identityKey,
+            String displayTitle,
+            Instant createdAt) {
         this.id = id;
         this.subjectType = subjectType;
         this.region = region;
@@ -59,11 +64,31 @@ public class MediaSubjectEntity {
         assets.add(asset);
     }
 
-    public UUID id() { return id; }
-    public SubjectType subjectType() { return subjectType; }
-    public Region region() { return region; }
-    public String identityKey() { return identityKey; }
-    public String displayTitle() { return displayTitle; }
-    public Instant createdAt() { return createdAt; }
-    public List<MediaAssetEntity> assets() { return List.copyOf(assets); }
+    public UUID id() {
+        return id;
+    }
+
+    public SubjectType subjectType() {
+        return subjectType;
+    }
+
+    public Region region() {
+        return region;
+    }
+
+    public String identityKey() {
+        return identityKey;
+    }
+
+    public String displayTitle() {
+        return displayTitle;
+    }
+
+    public Instant createdAt() {
+        return createdAt;
+    }
+
+    public List<MediaAssetEntity> assets() {
+        return List.copyOf(assets);
+    }
 }

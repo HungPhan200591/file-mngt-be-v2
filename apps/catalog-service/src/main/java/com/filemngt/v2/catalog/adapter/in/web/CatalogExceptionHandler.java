@@ -22,7 +22,11 @@ public class CatalogExceptionHandler {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
-    @ExceptionHandler({CatalogController.InvalidRequestException.class, InvalidAssetException.class, MethodArgumentNotValidException.class})
+    @ExceptionHandler({
+        CatalogController.InvalidRequestException.class,
+        InvalidAssetException.class,
+        MethodArgumentNotValidException.class
+    })
     ProblemDetail invalidRequest(Exception exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage());
     }

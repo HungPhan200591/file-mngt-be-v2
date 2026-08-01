@@ -19,6 +19,10 @@ Mục tiêu: code ít lớp nhưng rõ owner, nhất quán và dễ review. Áp 
 ## Cách viết Java
 
 - Java 25, constructor injection; không field injection, service locator, static mutable state hoặc `Optional` field/parameter.
+- Format Java là **Palantir Java Format**, chạy bằng `./mvnw spotless:apply`; Maven tự chạy `spotless:check` ở phase `validate`. Không sửa format thủ công theo sở thích cá nhân.
+- Source dùng UTF-8, LF, 4 spaces, không tab, không trailing whitespace; dòng dài để formatter tự wrap (mục tiêu 120 ký tự). `.editorconfig` là cấu hình IDE nền.
+- Import không wildcard; để formatter tối ưu thứ tự import. Annotation, field, method, control flow và brace theo output formatter; không nén nhiều statement/khai báo vào một dòng.
+- Trước handoff, Agent chạy formatter cho file Java đã chạm; với IntelliJ, bật EditorConfig và dùng `Ctrl+Alt+L` trước khi lưu nếu cần đọc diff ngay.
 - Dùng `record` cho command/query/view/DTO immutable; dùng class cho entity, service, adapter và exception có hành vi.
 - Tên thể hiện vai trò: `*Controller`, `*Service`, `*Repository`, `*Entity`, `*Request`, `*Response`, `*Exception`. Một public type chính mỗi file.
 - Method ngắn, một mục đích; ưu tiên guard clause. Không tạo utility/generic abstraction khi chỉ dùng một lần.

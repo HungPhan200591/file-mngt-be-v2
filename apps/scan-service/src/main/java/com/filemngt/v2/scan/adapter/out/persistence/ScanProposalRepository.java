@@ -5,4 +5,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity, UUID> { Page<ScanProposalEntity> findByScanRunId(UUID scanRunId, Pageable pageable); }
+public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity, UUID> {
+    Page<ScanProposalEntity> findByScanRunId(UUID scanRunId, Pageable pageable);
+}

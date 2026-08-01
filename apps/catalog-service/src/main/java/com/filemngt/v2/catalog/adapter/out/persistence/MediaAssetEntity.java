@@ -33,8 +33,7 @@ public class MediaAssetEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    protected MediaAssetEntity() {
-    }
+    protected MediaAssetEntity() {}
 
     public MediaAssetEntity(UUID id, MediaAssetRole role, String relativePath, Instant createdAt) {
         this.id = id;
@@ -47,7 +46,15 @@ public class MediaAssetEntity {
         this.subject = subject;
     }
 
-    public UUID id() { return id; }
-    public MediaAssetRole role() { return role; }
-    public String relativePath() { return relativePath; }
+    public UUID id() {
+        return id;
+    }
+
+    public MediaAssetRole role() {
+        return role;
+    }
+
+    public String relativePath() {
+        return relativePath;
+    }
 }
