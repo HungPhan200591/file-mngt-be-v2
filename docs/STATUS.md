@@ -5,6 +5,7 @@ Updated: 2026-08-02
 ## Hiện tại
 
 - Phase: Phase 6 chỉ mới có delivery foundation; quay lại hoàn thiện backend theo thứ tự Phase 4 → Phase 7 → Phase 8 trước Gallery V2.
+- Active feature: `013-media-worker-processing-foundation` đã `READY`; phạm vi là technical metadata + vòng Kafka completion, chưa gồm thumbnail/GIF/hash.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app tối thiểu, event envelope và Docker Compose PostgreSQL/Kafka/Redis đã có.
 - Kiến trúc: monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1 `002-catalog-vertical-slice` đã DONE: migration `media_subject`/`media_asset`, API create/detail/list theo OpenAPI v1.
@@ -23,7 +24,7 @@ Updated: 2026-08-02
 
 ## Việc kế tiếp
 
-1. Hoàn thiện **Phase 4 — Media Worker processing** theo feature riêng, bắt đầu technical metadata + completion event; chưa làm frontend.
+1. Triển khai **FT013 — Media Worker processing foundation** theo Plan `READY`, hoàn tất technical metadata + completion event; chưa làm frontend.
 2. Tạo feature **Phase 7 — Import/backfill V1 foundation**: inventory root, canonical locator, dry-run và reconciliation.
 3. Sau hai phase trên, bổ sung Query read model theo data mới và làm **Phase 8 observability** cho luồng backfill/processing.
 
