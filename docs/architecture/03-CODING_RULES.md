@@ -43,6 +43,10 @@ Mục tiêu: code ít lớp nhưng rõ owner, nhất quán và dễ review. Áp 
 - Commit `application-local.example.yml` khi service cần local setting mới. Không dùng `.env`/plugin IDE làm cơ chế runtime chuẩn.
 - Environment variable vẫn được phép override cho Docker/CI; không commit secret hoặc machine-specific path.
 
+## Dependency version
+
+- Version third-party dùng từ hai module trở lên phải pin một lần tại root `pom.xml` (property hoặc imported BOM); service POM chỉ khai báo dependency không lặp version. Version chỉ dùng riêng một service có thể ở POM owner khi có lý do rõ ràng.
+
 ## Test và kiểm tra
 
 - Mỗi behavior mới có ít nhất happy path và failure quan trọng (validation, not-found, conflict hoặc idempotency khi áp dụng).
