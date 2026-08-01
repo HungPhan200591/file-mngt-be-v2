@@ -60,15 +60,20 @@ public class CatalogService {
     }
 
     @Transactional(readOnly = true)
-    public PageView list(Region region, SubjectType subjectType, int page, int size) {
+    public PageView list(Region region, SubjectType subjectType, String identityKey, int page, int size) {
+        if (identityKey != null && (region == null || subjectType == null)) {
+            throw new InvalidListFilterException("identityKey requires both region and subjectType");
+        }
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<MediaSubjectEntity> result = region != null && subjectType != null
-                ? repository.findByRegionAndSubjectType(region, subjectType, pageable)
-                : region != null
-                        ? repository.findByRegion(region, pageable)
-                        : subjectType != null
-                                ? repository.findBySubjectType(subjectType, pageable)
-                                : repository.findAll(pageable);
+        Page<MediaSubjectEntity> result = identityKey != null
+                ? repository.findByRegionAndSubjectTypeAndIdentityKey(region, subjectType, identityKey, pageable)
+                : region != null && subjectType != null
+                        ? repository.findByRegionAndSubjectType(region, subjectType, pageable)
+                        : region != null
+                                ? repository.findByRegion(region, pageable)
+                                : subjectType != null
+                                        ? repository.findBySubjectType(subjectType, pageable)
+                                        : repository.findAll(pageable);
         return new PageView(
                 result.map(this::toView).getContent(),
                 result.getNumber(),
@@ -140,6 +145,12 @@ public class CatalogService {
 
     public static class InvalidAssetException extends RuntimeException {
         public InvalidAssetException(String detail) {
+            super(detail);
+        }
+    }
+
+    public static class InvalidListFilterException extends RuntimeException {
+        public InvalidListFilterException(String detail) {
             super(detail);
         }
     }

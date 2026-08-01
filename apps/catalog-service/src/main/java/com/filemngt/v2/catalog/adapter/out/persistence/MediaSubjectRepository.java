@@ -17,6 +17,10 @@ public interface MediaSubjectRepository extends JpaRepository<MediaSubjectEntity
     Optional<MediaSubjectEntity> findByRegionAndSubjectTypeAndIdentityKey(
             Region region, SubjectType subjectType, String identityKey);
 
+    @EntityGraph(attributePaths = "assets")
+    Page<MediaSubjectEntity> findByRegionAndSubjectTypeAndIdentityKey(
+            Region region, SubjectType subjectType, String identityKey, Pageable pageable);
+
     Page<MediaSubjectEntity> findByRegionAndSubjectType(Region region, SubjectType subjectType, Pageable pageable);
 
     Page<MediaSubjectEntity> findByRegion(Region region, Pageable pageable);

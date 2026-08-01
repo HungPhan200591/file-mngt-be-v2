@@ -55,12 +55,13 @@ public class CatalogController {
     public MediaSubjectPage list(
             @RequestParam(required = false) Region region,
             @RequestParam(required = false) SubjectType subjectType,
+            @RequestParam(required = false) String identityKey,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         if (page < 0 || size < 1 || size > 100) {
             throw new InvalidRequestException("page must be >= 0 and size must be between 1 and 100");
         }
-        var result = service.list(region, subjectType, page, size);
+        var result = service.list(region, subjectType, identityKey, page, size);
         return new MediaSubjectPage(
                 result.content().stream().map(this::toDetail).toList(),
                 result.page(),

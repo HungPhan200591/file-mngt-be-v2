@@ -6,7 +6,7 @@ Design: [02-design.md](./02-design.md)
 ## Execution capsule
 
 - Owner: `scan-service`/`scan_db` producer; `catalog-service`/`catalog_db` consumer; Scan OpenAPI và event contract.
-- Scope/files: Flyway và source/test hai service, Kafka/outbox config, `docs/contracts/openapi/scan-v1.yaml`, `docs/contracts/events/media.file.discovered.v1.md`, `tests/e2e/scan/` và `docs/STATUS.md`.
+- Scope/files: Flyway và source/test hai service, Kafka/outbox config, Scan/Catalog OpenAPI, `docs/contracts/events/media.file.discovered.v1.md`, `tests/e2e/scan/` và `docs/STATUS.md`.
 - Must preserve: Scan preview read-only filesystem; Catalog là canonical write owner; không cross-database access; no file mutation; port ADR-004; source dưới 500 dòng/file; ít status.
 - Read on demand: [Design](./02-design.md), `apps/scan-service/CONTEXT.md`, `apps/catalog-service/CONTEXT.md`, Scan/Catalog OpenAPI, event contract, `docs/architecture/03-CODING_RULES.md`.
 
@@ -25,7 +25,7 @@ Design: [02-design.md](./02-design.md)
 - `./mvnw spotless:apply` và `./mvnw test -pl apps/catalog-service,apps/scan-service -am` bằng JDK 25: `BUILD SUCCESS` ngày 2026-08-01.
 - Catalog: 2 integration test pass cho REST, duplicate event và asset-before-video. Scan: 2 integration test approval/reject và 2 unit test publisher pass.
 - `git diff --check` sạch, không có wildcard import trong source đã chạm và mọi file thay đổi đều dưới 500 dòng.
-- E2E CLI/IntelliJ đã có approve idempotent và reject. Runtime E2E với Kafka/Catalog cần chạy sau khi người dùng restart hai service để Flyway áp dụng migration mới nhất.
+- Runtime E2E local đã pass ngày 2026-08-01: `npm run scan:local` xử lý 21 request thành công, xác minh approval idempotent phát event qua Kafka và Catalog tạo đúng một `subject` cùng một `asset`; reject không tạo event.
 - Runtime local đã áp dụng V2 trước khi constraint bổ sung được thêm. V2 được giữ nguyên checksum `596466511`; cột `event_id` và constraint bổ sung chuyển sang V3 theo nguyên tắc migration append-only.
 
 ## Kiểm tra
@@ -42,4 +42,4 @@ Design: [02-design.md](./02-design.md)
 
 ## Source-of-truth audit
 
-- Cập nhật Scan OpenAPI, thêm event contract. Architecture/service ownership giữ nguyên nên không cần ADR mới.
+- Cập nhật Scan/Catalog OpenAPI và event contract. Architecture/service ownership giữ nguyên nên không cần ADR mới.

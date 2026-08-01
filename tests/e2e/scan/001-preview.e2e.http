@@ -1,4 +1,5 @@
 @baseUrl = {{scanBaseUrl}}
+@catalogBaseUrl = {{catalogBaseUrl}}
 
 @scanCompleted = false
 @scanFailed = false
@@ -6,6 +7,8 @@
 @rejectScanCompleted = false
 @rejectScanFailed = false
 @rejectScanPollAttempts = 0
+@catalogSubjectFound = false
+@catalogPollAttempts = 0
 
 ###
 # @name StartScanPreview
@@ -50,7 +53,11 @@ GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals
 
 {{response
   const page = JSON.parse(response.body);
-  exports.scanProposalId = page.content[0]?.id;
+  const proposal = page.content[0];
+  exports.scanProposalId = proposal?.id;
+  exports.scanIdentityKey = proposal?.identityKey;
+  exports.scanAssetRole = proposal?.assetRole;
+  exports.scanRelativePath = proposal?.sourceRelativePath;
   test('lists one proposal', () => response.statusCode === 200 && page.totalElements === 1);
 }}
 
@@ -88,6 +95,49 @@ Content-Type: application/json
   const decision = JSON.parse(response.body);
   test('returns the same approval', () =>
     response.statusCode === 200 && decision.eventId === approvedEventId);
+}}
+
+###
+# @name WaitForCatalogSubject
+# @loop while catalogPollAttempts < 40
+GET {{catalogBaseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&identityKey={{scanIdentityKey}}&size=1
+
+{{response
+  const page = JSON.parse(response.body);
+  const subject = page.content[0];
+  const asset = subject?.assets?.find(item =>
+    item.role === scanAssetRole && item.relativePath === scanRelativePath);
+  exports.catalogSubjectFound = response.statusCode === 200
+    && page.totalElements === 1
+    && subject?.identityKey === scanIdentityKey
+    && subject?.region === 'JOKE'
+    && subject?.subjectType === 'VIDEO'
+    && Boolean(asset);
+  exports.catalogPollAttempts = catalogSubjectFound
+    ? 40
+    : Number(catalogPollAttempts) + 1;
+  if (!catalogSubjectFound) {
+    await sleep(250);
+  }
+}}
+
+###
+# @name AssertCatalogSubject
+GET {{catalogBaseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&identityKey={{scanIdentityKey}}&size=1
+
+{{response
+  const page = JSON.parse(response.body);
+  const subject = page.content[0];
+  const matchingAssets = subject?.assets?.filter(item =>
+    item.role === scanAssetRole && item.relativePath === scanRelativePath) ?? [];
+  test('creates exactly one Catalog subject and asset', () =>
+    response.statusCode === 200
+    && page.totalElements === 1
+    && subject?.identityKey === scanIdentityKey
+    && subject?.region === 'JOKE'
+    && subject?.subjectType === 'VIDEO'
+    && subject?.assets?.length === 1
+    && matchingAssets.length === 1);
 }}
 
 ###

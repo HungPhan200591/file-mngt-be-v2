@@ -74,6 +74,24 @@ Content-Type: application/json
 %}
 
 ###
+# Catalog consumer xử lý bất đồng bộ; chạy lại request này nếu Kafka chưa kịp publish/consume.
+# @name AssertCatalogSubject
+GET {{catalogBaseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&identityKey=JOKE-001&size=1
+
+> {%
+  client.test("creates exactly one Catalog subject and asset", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.totalElements === 1, "Expected one Catalog subject");
+    client.assert(response.body.content[0].identityKey === "JOKE-001", "Expected fixture identity");
+    client.assert(response.body.content[0].region === "JOKE", "Expected JOKE region");
+    client.assert(response.body.content[0].subjectType === "VIDEO", "Expected VIDEO subject");
+    client.assert(response.body.content[0].assets.length === 1, "Expected one Catalog asset");
+    client.assert(response.body.content[0].assets[0].role === "PRIMARY_VIDEO", "Expected primary video");
+    client.assert(response.body.content[0].assets[0].relativePath === "A - [JOKE-001].mp4", "Expected fixture path");
+  });
+%}
+
+###
 # Chỉ chạy sau khi đã tạo một scan/proposal mới chưa có decision.
 # @name RejectScanProposal
 POST {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals/{{scanProposalId}}/decision

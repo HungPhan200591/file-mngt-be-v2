@@ -75,6 +75,13 @@ class CatalogIntegrationTest {
         mockMvc.perform(get(location)).andExpect(status().isOk());
         mockMvc.perform(get("/api/v2/catalog/subjects").param("region", "JOKE").param("size", "1"))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v2/catalog/subjects")
+                        .param("region", "JOKE")
+                        .param("subjectType", "VIDEO")
+                        .param("identityKey", "START-001"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v2/catalog/subjects").param("identityKey", "START-001"))
+                .andExpect(status().isBadRequest());
         mockMvc.perform(post("/api/v2/catalog/subjects")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
