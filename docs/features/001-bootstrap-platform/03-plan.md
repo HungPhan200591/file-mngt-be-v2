@@ -22,7 +22,7 @@ Design: [02-design.md](./02-design.md)
 
 ## Kiểm tra
 
-- Đã chạy static: XML hợp lệ cho 8 POM, đủ 7 module trong aggregator, đủ package entry cho 5 app, Maven Wrapper pin `3.9.16`, không có image `latest` và `git diff --check` đạt.
+- Đã chạy static: XML hợp lệ cho 8 POM, đủ 7 module trong aggregator, đủ package entry cho 5 app, Maven Wrapper pin `3.9.16`, không có image `latest` và `git diff --check` đạt. Compose có `kafka-volume-init` để cấp quyền volume cho UID/GID Kafka `1000`.
 - Chưa chạy compile/test, `docker compose config` hoặc health runtime: máy hiện có JDK 22 trong khi feature yêu cầu Java 25, đồng thời các lệnh runtime cần người dùng cho phép.
 - Static: kiểm tra Maven module graph, file naming, `.gitignore`, compose syntax và không có image `latest`.
 - Khi người dùng cho phép: `./mvnw test` hoặc compile, `docker compose config`, rồi khởi động local để gọi health của từng service.

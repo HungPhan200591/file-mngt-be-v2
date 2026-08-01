@@ -25,8 +25,21 @@ services:
       timeout: 5s
       retries: 10
 
+  kafka-volume-init:
+    image: apache/kafka:3.9.0
+    user: "0:0"
+    entrypoint:
+      - sh
+      - -ec
+      - mkdir -p /tmp/kraft-combined-logs && chown -R 1000:1000 /tmp/kraft-combined-logs
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
+
   kafka:
     image: apache/kafka:3.9.0
+    depends_on:
+      kafka-volume-init:
+        condition: service_completed_successfully
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
