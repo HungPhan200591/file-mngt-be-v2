@@ -33,7 +33,7 @@ Design: [02-design.md](./02-design.md)
 
 - 2026-08-02: `mvnw -pl apps/catalog-service,apps/media-worker,apps/gateway-service -am spotless:apply test` PASS bằng JDK 25; Catalog 3, Gateway 7, Media Worker 2 tests.
 - Frontend static PASS: `node --check media-library/runtime-config.js`, `api-client.js`, `app.js`; source owner đều dưới 500 dòng và `git diff --check` sạch.
-- E2E runtime scenario thêm `npm run media:local`; cần chạy sau khi người dùng khởi động Gateway/Catalog/Media Worker và scan fixture theo `tests/e2e/README.md`.
+- E2E runtime PASS: `npm run scan:local` (29 requests) rồi `npm run media:local`; fixture `JOKE-011` trả đúng `206 Range` và `200 HEAD` qua Gateway.
 
 ## Rollout và rollback
 
