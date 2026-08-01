@@ -9,6 +9,9 @@ hs_err_pid*
 replay_pid*
 .mvn/timing.properties
 
+# Node-based local test tooling
+node_modules/
+
 # Gradle artifacts (only if a future lab uses Gradle)
 .gradle/
 build/
@@ -27,6 +30,7 @@ build/
 .env
 .env.*
 !.env.example
+tests/e2e/http-client.env.json
 *.local.yml
 *.local.yaml
 docker-compose.override.yml

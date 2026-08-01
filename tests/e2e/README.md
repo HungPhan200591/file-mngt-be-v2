@@ -1,0 +1,39 @@
+# E2E HTTP harness
+
+## Mục đích
+
+- OpenAPI trong `docs/contracts/openapi/` là contract source of truth.
+- File `.http` trong thư mục này là source of truth cho kịch bản E2E: chạy được bằng IntelliJ và bằng Agent/CLI.
+- Postman chỉ dùng để khám phá thủ công hoặc import OpenAPI; không duy trì Postman collection song song.
+
+## Chuẩn bị một lần
+
+```powershell
+Copy-Item http-client.env.example.json http-client.env.json
+npm install
+```
+
+`http-client.env.json` là local-only và bị gitignore. Không đặt secret vào file `*.example.json` hay request đã commit.
+
+## Chạy Catalog E2E
+
+1. Khởi động PostgreSQL Compose và `catalog-service` bằng IntelliJ; kiểm tra `http://localhost:18101/actuator/health/readiness` trả `UP`.
+2. Tại `tests/e2e/`, chạy:
+
+```powershell
+npm run catalog:local
+```
+
+Hoặc mở file `.http` trong IntelliJ và chạy từng request. Agent dùng cùng lệnh trên; có thể lọc một request theo tên:
+
+```powershell
+npx httpyac send catalog/001-subject-lifecycle.http --name CreateSubject --env local
+```
+
+## Quy ước viết kịch bản
+
+- Mỗi API owner có thư mục riêng; đánh số theo scenario, ví dụ `catalog/001-subject-lifecycle.http`.
+- Dùng dữ liệu có tiền tố `E2E-` và identity sinh động để chạy lại không đụng dữ liệu thật.
+- Thêm assertion `??` cho status và dữ liệu quan trọng; create/đổi API phải có success, validation và conflict/not-found nếu contract có.
+- Chỉ chạy khi người dùng đã chủ động khởi động runtime. Catalog hiện không có delete API, nên scenario create để lại dữ liệu E2E trong `catalog_db` local.
+- Khi REST contract đổi: cập nhật OpenAPI trước, sau đó cập nhật đúng file `.http` bị ảnh hưởng.

@@ -1,0 +1,10 @@
+{
+  "name": "file-mngt-v2-e2e",
+  "private": true,
+  "devDependencies": {
+    "httpyac": "6.16.7"
+  },
+  "scripts": {
+    "catalog:local": "httpyac send \"catalog/*.http\" --all --env local --bail"
+  }
+}

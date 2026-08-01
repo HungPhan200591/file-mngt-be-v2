@@ -1,0 +1,18 @@
+@baseUrl = {{catalogBaseUrl}}
+
+###
+# @name RejectMultiplePrimaryVideo
+POST {{baseUrl}}/api/v2/catalog/subjects
+Content-Type: application/json
+
+{
+  "subjectType": "VIDEO",
+  "region": "USE",
+  "identityKey": "E2E-invalid-assets",
+  "assets": [
+    { "role": "PRIMARY_VIDEO", "relativePath": "Syncdroid/one.mp4" },
+    { "role": "PRIMARY_VIDEO", "relativePath": "Syncdroid/two.mp4" }
+  ]
+}
+
+?? status == 400

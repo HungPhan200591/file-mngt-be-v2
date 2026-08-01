@@ -10,7 +10,7 @@ Backend V2 phục vụ hai mục tiêu: chuẩn hóa media data và học micros
 4. Chọn đúng context service trong `apps/*/CONTEXT.md`.
 5. Với feature mới, tạo docs theo [ADLC workflow](./docs/adlc/WORKFLOW.md) trước khi code.
 
-Hướng dẫn chạy thủ công bằng IntelliJ và Docker: [Vận hành local](./manual/operations/local-runtime.md).
+Hướng dẫn chạy thủ công bằng IntelliJ và Docker: [Vận hành local](./manual/operations/local-runtime.md). Kịch bản E2E dùng chung cho IntelliJ và CLI: [E2E HTTP harness](./tests/e2e/README.md).
 
 ## Cấu trúc
 
@@ -21,4 +21,4 @@ infra/      Docker Compose, observability và cấu hình local
 docs/       Architecture, ADLC, contracts, ADR và feature docs
 ```
 
-P0 đã bootstrap Maven multi-module, năm service Spring Boot tối thiểu và Compose local. Compile/test/Docker runtime chưa được chạy; implementation tiếp theo phải tuân thủ `AGENTS.md`.
+P0 đã được xác minh local với năm service Spring Boot và Compose. Implementation tiếp theo phải tuân thủ `AGENTS.md`.

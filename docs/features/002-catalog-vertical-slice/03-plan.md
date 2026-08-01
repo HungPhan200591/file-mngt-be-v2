@@ -1,6 +1,6 @@
 # 002 Catalog vertical slice — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -12,12 +12,12 @@ Design: [02-design.md](./02-design.md)
 
 ## Bước triển khai
 
-1. Xác minh P0 bằng JDK 25 của IntelliJ: Maven Wrapper, compile/test baseline và `docker compose config`; chỉ sửa bootstrap nếu P0 không đạt.
+1. Xác minh P0 bằng JDK 25 của IntelliJ: Maven Wrapper, compile/test baseline và `docker compose config`; chỉ sửa bootstrap nếu P0 không đạt. Hoàn tất: năm service và hạ tầng P0 đã được xác minh local.
 2. Bổ sung dependency Catalog tối thiểu: web, validation, JPA, Flyway, PostgreSQL driver, test và Testcontainers PostgreSQL; cấu hình datasource qua environment variable với default local theo Compose/ADR-004.
 3. Tạo Flyway migration cho `media_subject`, `media_asset`, UUID, audit timestamp, unique constraint/index; không tạo outbox hay business topic.
 4. Cài domain/application/adapter theo contract: create transaction, get detail, list pagination/filter; map validation/not-found/conflict sang Problem Details.
 5. Viết integration test Testcontainers cho migration, create/detail, identity conflict, asset constraint và pagination/filter.
-6. Chạy kiểm tra được cho phép, cập nhật Plan `DONE` và `docs/STATUS.md`; không chạy migration/import V1.
+6. Chạy kiểm tra được cho phép, cập nhật Plan `DONE` và `docs/STATUS.md`; không chạy migration/import V1. Hoàn tất: `./mvnw test -pl apps/catalog-service -am` bằng JDK 25, với PostgreSQL Testcontainers, đạt 1/1 test.
 
 ## Kiểm tra
 

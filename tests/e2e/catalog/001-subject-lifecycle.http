@@ -1,0 +1,57 @@
+@baseUrl = {{catalogBaseUrl}}
+
+{{
+  exports.catalogIdentity = `E2E-${Date.now()}`;
+}}
+
+###
+# @name CreateSubject
+POST {{baseUrl}}/api/v2/catalog/subjects
+Content-Type: application/json
+
+{
+  "subjectType": "VIDEO",
+  "region": "JOKE",
+  "identityKey": "{{catalogIdentity}}",
+  "displayTitle": "E2E Catalog subject",
+  "assets": [
+    {
+      "role": "PRIMARY_VIDEO",
+      "relativePath": "Root/{{catalogIdentity}}.mp4"
+    }
+  ]
+}
+
+?? status == 201
+?? body $.region == JOKE
+?? body $.identityKey == {{catalogIdentity}}
+
+###
+# @name GetCreatedSubject
+# @ref CreateSubject
+GET {{baseUrl}}/api/v2/catalog/subjects/{{CreateSubject.body.id}}
+
+?? status == 200
+?? body $.id == {{CreateSubject.body.id}}
+
+###
+# @name ListCreatedSubject
+GET {{baseUrl}}/api/v2/catalog/subjects?region=JOKE&subjectType=VIDEO&size=1
+
+?? status == 200
+?? body $.size == 1
+
+###
+# @name RejectDuplicateIdentity
+# @ref CreateSubject
+POST {{baseUrl}}/api/v2/catalog/subjects
+Content-Type: application/json
+
+{
+  "subjectType": "VIDEO",
+  "region": "JOKE",
+  "identityKey": "{{catalogIdentity}}",
+  "assets": []
+}
+
+?? status == 409
