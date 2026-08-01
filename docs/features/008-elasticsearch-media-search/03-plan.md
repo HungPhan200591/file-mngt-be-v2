@@ -1,6 +1,6 @@
 # 008 Elasticsearch media search — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -22,9 +22,9 @@ Design: [02-design.md](./02-design.md)
 ## Kiểm tra
 
 - Static: `spotless:apply`, `git diff --check`, OpenAPI/mapping parse, source dưới 500 dòng và audit version/port.
-- Query Testcontainers PostgreSQL + Elasticsearch: version `0`, retry/out-of-order, bulk partial failure, fuzzy/filter/order/page, suggestion, hydrate order, fallback và rebuild alias.
+- Query Testcontainers PostgreSQL + Elasticsearch: fuzzy search, suggestion, hydrate order, rebuild nhiều batch và alias swap đã pass. Query integration regression xác minh fallback PostgreSQL khi search tắt và pagination PostgreSQL không bị giới hạn 10.000.
 - Regression: chạy toàn bộ Query/Feature 007 integration test để detail/list PostgreSQL không đổi.
-- Runtime sau khi người dùng khởi động/restart: Compose profile `search`, Query readiness/search health và `npm run scan:local` mở rộng với search + suggestion.
+- Runtime: người dùng bật Compose profile `search`, chạy Query rồi `npm run scan:local`; E2E chấp nhận fallback khi profile không bật.
 
 ## Rollout và rollback
 

@@ -21,7 +21,7 @@ paths:
             $ref: '#/components/schemas/SubjectType'
         - name: search
           in: query
-          description: Case-insensitive contains search on identity key and display title.
+          description: Fuzzy full-text search on identity key and display title; falls back to case-insensitive PostgreSQL contains search when Elasticsearch is unavailable.
           schema:
             type: string
             minLength: 1
@@ -30,7 +30,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [CREATED_AT, TITLE]
+            enum: [CREATED_AT, TITLE, RELEVANCE]
             default: CREATED_AT
         - name: page
           in: query
@@ -74,6 +74,39 @@ paths:
                 $ref: '#/components/schemas/QuerySubjectDetail'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v2/query/subjects/suggestions:
+    get:
+      operationId: suggestQuerySubjects
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: region
+          in: query
+          schema: { $ref: '#/components/schemas/Region' }
+        - name: subjectType
+          in: query
+          schema: { $ref: '#/components/schemas/SubjectType' }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 10 }
+      responses:
+        '200':
+          description: Identity key suggestions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Suggestions' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /api/v2/query/operations/search-index/rebuild:
+    post:
+      operationId: rebuildQuerySearchIndex
+      responses:
+        '200':
+          description: Rebuilt index was swapped to the query search alias
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RebuildResponse' }
 components:
   responses:
     BadRequest:
@@ -148,7 +181,7 @@ components:
             $ref: '#/components/schemas/QueryAsset'
     QuerySubjectPage:
       type: object
-      required: [content, page, size, totalElements, totalPages]
+      required: [content, page, size, totalElements, totalPages, searchBackend, degraded]
       properties:
         content:
           type: array
@@ -167,6 +200,24 @@ components:
         totalPages:
           type: integer
           minimum: 0
+        searchBackend:
+          type: string
+          enum: [POSTGRESQL, ELASTICSEARCH, POSTGRESQL_FALLBACK]
+        degraded:
+          type: boolean
+    Suggestions:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: array
+          items: { type: string }
+    RebuildResponse:
+      type: object
+      required: [index, indexedCount]
+      properties:
+        index: { type: string }
+        indexedCount: { type: integer, minimum: 0 }
     ProblemDetail:
       type: object
       properties:

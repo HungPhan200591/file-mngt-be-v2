@@ -21,7 +21,7 @@ Mọi **host port** của Backend V2 nằm trong dải dành riêng `18100–181
 | PostgreSQL | 18110 |
 | Kafka external listener | 18111 |
 | Redis | 18112 |
-| Elasticsearch (future) | 18113 |
+| Elasticsearch | 18113 |
 | Kibana (future) | 18114 |
 | Logstash input (future) | 18115 |
 | Prometheus (future) | 18116 |

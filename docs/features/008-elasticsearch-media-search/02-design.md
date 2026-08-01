@@ -10,7 +10,7 @@ ADR: [ADR-003](../../adr/ADR-003-elasticsearch-media-search.md), [ADR-004](../..
 - Dùng official Elasticsearch Java Client do Spring Boot 4.0.3 quản lý ở version `9.2.5`; local server image cũng pin `9.2.5`. Không khai báo lại version trong service POM.
 - Alias đọc/ghi ổn định là `media-subject-search`; physical index có dạng `media-subject-v1-<timestamp>`. Mapping version nằm trong resource của Query.
 - Document ID là `subjectId`. Elasticsearch external version dùng `projectionVersion + 1`, cho phép event version `0` và ngăn retry/out-of-order ghi đè snapshot mới hơn.
-- Mapping tối thiểu: exact keyword cho `region`, `subjectType`, `identityKey.raw`; full-text/search-as-you-type cho `identityKey` và `displayTitle`; date cho `createdAt`/`projectedAt`; assets chỉ giữ dữ liệu cần hydrate/search, không làm canonical data.
+- Mapping tối thiểu: exact keyword cho `region`, `subjectType`, `identityKey.keyword`; text có `index_prefixes` cho `identityKey` và `displayTitle`; date cho `createdAt`/`projectedAt`; assets chỉ giữ dữ liệu cần hydrate/search, không làm canonical data.
 
 ## Domain và data ownership
 
@@ -31,12 +31,12 @@ ADR: [ADR-003](../../adr/ADR-003-elasticsearch-media-search.md), [ADR-004](../..
 ## Luồng lỗi, idempotency và consistency
 
 - Elasticsearch lỗi không rollback Query projection. Outbox giữ pending để retry; text search tạm fallback PostgreSQL và trả `degraded=true`.
-- Fuzzy search dùng `multi_match`, boost `identityKey`, fuzziness `AUTO`; autocomplete dùng field `search_as_you_type`. Exact filters luôn là keyword filter.
-- Rebuild tạo physical index mới, bulk toàn bộ PostgreSQL theo batch, catch-up record có `projectedAt >= rebuildStartedAt`, khóa ngắn publisher trong lần catch-up cuối và alias swap. Bất kỳ bulk item nào lỗi thì không đổi alias và xóa index candidate.
+- Fuzzy search dùng `multi_match`, boost `identityKey`, fuzziness `AUTO`; autocomplete dùng `bool_prefix` trên text field có `index_prefixes`. Exact filters luôn là keyword filter.
+- Rebuild giữ transaction PostgreSQL `REPEATABLE_READ`, khóa chung với search publisher, tạo physical index mới và bulk toàn bộ snapshot theo batch trước khi alias swap. Projection update vẫn ghi PostgreSQL/outbox trong lúc rebuild; publisher xử lý pending trên alias mới sau khi khóa được nhả. Bất kỳ batch nào lỗi thì không đổi alias và xóa index candidate.
 - Feature này vận hành một instance `query-service` local. Distributed rebuild lock chỉ bổ sung khi triển khai nhiều instance.
 
 ## Hiệu năng, quan sát và bảo mật tối thiểu
 
-- Bulk index theo batch cấu hình được; không gửi từng document khi rebuild. Search chỉ hydrate PostgreSQL cho ID của đúng một page.
-- Metrics: pending outbox, bulk success/failure, index lag, search latency và fallback count. Health readiness của Query không phụ thuộc Elasticsearch; health detail riêng báo search component.
+- Bulk index theo batch cấu hình được; không gửi từng document khi rebuild. Search chỉ hydrate PostgreSQL cho ID của đúng một page. Publisher retry exponential backoff từ 5 giây đến 5 phút khi Elasticsearch unavailable.
+- Metrics: pending outbox, bulk indexed/failure, search latency, search failure và fallback count. Spring Boot Elasticsearch health contributor báo search component; readiness group mặc định của Query không lấy Elasticsearch làm điều kiện nhận request.
 - Compose dùng profile `search`, single-node, security disabled chỉ cho local, host port `18113`; frontend không truy cập trực tiếp.

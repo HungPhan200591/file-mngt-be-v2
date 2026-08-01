@@ -14,6 +14,8 @@
 @catalogOutboxPollAttempts = 0
 @queryProjectionFound = false
 @queryPollAttempts = 0
+@querySearchFound = false
+@querySearchPollAttempts = 0
 
 ###
 # @name StartScanPreview
@@ -188,6 +190,60 @@ GET {{queryBaseUrl}}/api/v2/query/subjects/{{catalogSubjectId}}
     && subject.projectionVersion === 0
     && subject.identityKey === scanIdentityKey
     && subject.assets?.some(item => item.relativePath === scanRelativePath));
+}}
+
+###
+# @name SearchQueryProjection
+# @loop while querySearchFound !== true && querySearchPollAttempts < 40
+GET {{queryBaseUrl}}/api/v2/query/subjects?search={{scanIdentityKey}}&order=RELEVANCE&size=1
+
+{{response
+  const page = JSON.parse(response.body);
+  const strictSearch = typeof querySearchRequired !== 'undefined'
+    && String(querySearchRequired) === 'true';
+  const backendMatches = strictSearch
+    ? page.searchBackend === 'ELASTICSEARCH'
+    : ['ELASTICSEARCH', 'POSTGRESQL_FALLBACK'].includes(page.searchBackend);
+  exports.querySearchFound = response.statusCode === 200
+    && page.totalElements >= 1
+    && page.content[0]?.id === catalogSubjectId
+    && backendMatches;
+  exports.querySearchPollAttempts = querySearchFound ? 40 : Number(querySearchPollAttempts) + 1;
+  if (!querySearchFound) {
+    await sleep(250);
+  }
+}}
+
+###
+# @name AssertQuerySearch
+GET {{queryBaseUrl}}/api/v2/query/subjects?search={{scanIdentityKey}}&order=RELEVANCE&size=1
+
+{{response
+  const page = JSON.parse(response.body);
+  const strictSearch = typeof querySearchRequired !== 'undefined'
+    && String(querySearchRequired) === 'true';
+  test('searches Query projection through the required backend', () =>
+    response.statusCode === 200
+    && page.totalElements >= 1
+    && page.content[0]?.id === catalogSubjectId
+    && (strictSearch
+      ? page.searchBackend === 'ELASTICSEARCH' && page.degraded === false
+      : ['ELASTICSEARCH', 'POSTGRESQL_FALLBACK'].includes(page.searchBackend)));
+}}
+
+###
+# @name SuggestQueryProjection
+GET {{queryBaseUrl}}/api/v2/query/subjects/suggestions?q={{scanIdentityKey}}&size=5
+
+{{response
+  const suggestions = JSON.parse(response.body);
+  const strictSearch = typeof querySearchRequired !== 'undefined'
+    && String(querySearchRequired) === 'true';
+  test('suggests Query identity when Elasticsearch is required', () =>
+    response.statusCode === 200
+    && (strictSearch
+      ? suggestions.content?.includes(scanIdentityKey)
+      : Array.isArray(suggestions.content)));
 }}
 
 ###

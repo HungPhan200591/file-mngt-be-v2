@@ -26,7 +26,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
-@SpringBootTest(properties = "query.kafka.consumer.enabled=false")
+@SpringBootTest(
+        properties = {
+            "query.kafka.consumer.enabled=false",
+            "query.search.enabled=false",
+            "query.search.publisher-enabled=false"
+        })
 @AutoConfigureMockMvc
 class QueryIntegrationTest {
     @Container
@@ -121,10 +126,17 @@ class QueryIntegrationTest {
                         .queryParam("page", "0")
                         .queryParam("size", "1"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.searchBackend").value("POSTGRESQL_FALLBACK"))
+                .andExpect(jsonPath("$.degraded").value(true))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].id").value(subjectId.toString()))
                 .andExpect(jsonPath("$.content[0].assets.length()").value(2));
         mockMvc.perform(get("/api/v2/query/subjects").queryParam("search", " ")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v2/query/subjects")
+                        .queryParam("page", "10000")
+                        .queryParam("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.searchBackend").value("POSTGRESQL"));
         mockMvc.perform(get("/api/v2/query/subjects/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
 
         assertThat(environment.getProperty("spring.kafka.producer.key-serializer"))

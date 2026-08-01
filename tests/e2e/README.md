@@ -38,6 +38,8 @@ Trong IntelliJ, chọn environment `local` ở HTTP Client trước khi chạy r
 
 Copy `apps/scan-service/src/main/resources/application-local.example.yml` thành `application-local.yml` và sửa path nếu workspace của bạn khác. Khởi động Kafka Compose, `scan-service`, `catalog-service` và `query-service`; Spring Boot tự nạp file local khi chạy application nên không cần EnvFile hoặc environment variable trong IntelliJ. Sau đó tại `tests/e2e/` chạy `npm run scan:local`; scenario CLI tự poll đến `COMPLETED`, kiểm tra proposals/issues, approve idempotent, Catalog tạo đúng một subject/asset, phát `media.subject.changed.v1`, Query dựng projection và reject không có event. Sau approve, runner chờ Kafka tối đa 10 giây (40 lượt, mỗi lượt 250 ms) cho từng bước eventual-consistency và dừng sớm khi đã có kết quả. Runner mặc định chỉ in exchange khi fail; dùng `npm run scan:local:debug` khi cần xem từng request/poll.
 
+Khi đã bật Compose profile `search` và muốn bắt buộc xác minh Elasticsearch thay vì chấp nhận PostgreSQL fallback, chạy `npm run scan:search:local`. Environment `local-search` dùng cùng service URL nhưng yêu cầu `searchBackend=ELASTICSEARCH`, `degraded=false`, đồng thời poll tối đa 10 giây cho search outbox hội tụ trước khi kiểm tra autocomplete.
+
 Với IntelliJ, dùng `scan/001-preview.http`: chạy `StartScanPreview`, chạy lại `GetScanRun` đến khi status là `COMPLETED`, chạy hai request danh sách, `ApproveScanProposal`, rồi `AssertCatalogSubject`. Muốn thử decision còn lại thì tạo scan mới trước. File `001-preview.e2e.http` dành riêng cho httpYac vì dùng polling directive của CLI.
 
 ## Quy ước viết kịch bản

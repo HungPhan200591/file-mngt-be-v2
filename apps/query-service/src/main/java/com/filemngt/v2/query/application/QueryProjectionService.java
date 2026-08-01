@@ -4,6 +4,8 @@ import com.filemngt.v2.contracts.events.MediaSubjectChangedV1;
 import com.filemngt.v2.query.adapter.out.persistence.QueryAssetEntity;
 import com.filemngt.v2.query.adapter.out.persistence.QueryProcessedEventEntity;
 import com.filemngt.v2.query.adapter.out.persistence.QueryProcessedEventRepository;
+import com.filemngt.v2.query.adapter.out.persistence.QuerySearchOutboxEntity;
+import com.filemngt.v2.query.adapter.out.persistence.QuerySearchOutboxRepository;
 import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectEntity;
 import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectRepository;
 import com.filemngt.v2.query.domain.MediaAssetRole;
@@ -23,10 +25,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class QueryProjectionService {
     private final QuerySubjectRepository subjects;
     private final QueryProcessedEventRepository processed;
+    private final QuerySearchOutboxRepository searchOutbox;
 
-    public QueryProjectionService(QuerySubjectRepository subjects, QueryProcessedEventRepository processed) {
+    public QueryProjectionService(
+            QuerySubjectRepository subjects,
+            QueryProcessedEventRepository processed,
+            QuerySearchOutboxRepository searchOutbox) {
         this.subjects = subjects;
         this.processed = processed;
+        this.searchOutbox = searchOutbox;
     }
 
     @Transactional
@@ -48,6 +55,7 @@ public class QueryProjectionService {
                                     asset.assetId(), MediaAssetRole.valueOf(asset.role()), asset.relativePath()))
                             .toList());
             subjects.save(subject);
+            searchOutbox.save(new QuerySearchOutboxEntity(subject.id(), subject.projectionVersion(), Instant.now()));
         }
         processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
     }
@@ -59,7 +67,9 @@ public class QueryProjectionService {
 
     @Transactional(readOnly = true)
     public Page<QuerySubjectEntity> list(Region region, SubjectType type, String search, Pageable pageable) {
-        var subjectPage = subjects.search(region, type, search, pageable);
+        var subjectPage = search == null
+                ? subjects.filter(region, type, pageable)
+                : subjects.search(region, type, search, pageable);
         if (subjectPage.isEmpty()) return subjectPage;
 
         var subjectsWithAssets =

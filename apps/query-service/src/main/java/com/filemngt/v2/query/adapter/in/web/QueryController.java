@@ -2,6 +2,7 @@ package com.filemngt.v2.query.adapter.in.web;
 
 import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectEntity;
 import com.filemngt.v2.query.application.QueryProjectionService;
+import com.filemngt.v2.query.application.QuerySearchService;
 import com.filemngt.v2.query.domain.Region;
 import com.filemngt.v2.query.domain.SubjectType;
 import java.time.Instant;
@@ -19,9 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v2/query/subjects")
 public class QueryController {
     private final QueryProjectionService service;
+    private final QuerySearchService searchService;
 
-    public QueryController(QueryProjectionService service) {
+    public QueryController(QueryProjectionService service, QuerySearchService searchService) {
         this.service = service;
+        this.searchService = searchService;
     }
 
     @GetMapping("/{id}")
@@ -40,16 +43,33 @@ public class QueryController {
         if (page < 0 || size < 1 || size > 100)
             throw new InvalidQueryRequestException("page must be >= 0 and size must be between 1 and 100");
         var normalizedSearch = normalizeSearch(search);
+        if (order == Order.RELEVANCE && normalizedSearch == null)
+            throw new InvalidQueryRequestException("RELEVANCE order requires search");
+        if (normalizedSearch != null && (long) page * size + size > 10_000)
+            throw new InvalidQueryRequestException("page and size must not exceed 10000 search results");
         var sort = order == Order.TITLE
                 ? Sort.by("displayTitle").ascending()
                 : Sort.by("createdAt").descending();
-        var result = service.list(region, subjectType, normalizedSearch, PageRequest.of(page, size, sort));
+        var result = searchService.list(
+                region, subjectType, normalizedSearch, order.name(), PageRequest.of(page, size, sort));
         return new SubjectPage(
-                result.map(this::detail).getContent(),
-                result.getNumber(),
-                result.getSize(),
-                result.getTotalElements(),
-                result.getTotalPages());
+                result.subjects().map(this::detail).getContent(),
+                result.subjects().getNumber(),
+                result.subjects().getSize(),
+                result.subjects().getTotalElements(),
+                result.subjects().getTotalPages(),
+                result.backend(),
+                result.degraded());
+    }
+
+    @GetMapping("/suggestions")
+    public Suggestions suggest(
+            @RequestParam(name = "q") String query,
+            @RequestParam(required = false) Region region,
+            @RequestParam(required = false) SubjectType subjectType,
+            @RequestParam(defaultValue = "10") int size) {
+        var normalized = normalizeSuggestion(query, size);
+        return new Suggestions(searchService.suggest(normalized, region, subjectType, size));
     }
 
     private String normalizeSearch(String search) {
@@ -57,6 +77,14 @@ public class QueryController {
         var normalized = search.trim();
         if (normalized.isEmpty() || normalized.length() > 512)
             throw new InvalidQueryRequestException("search must contain between 1 and 512 characters");
+        return normalized;
+    }
+
+    private String normalizeSuggestion(String query, int size) {
+        var normalized = query == null ? "" : query.trim();
+        if (normalized.isEmpty() || normalized.length() > 100 || size < 1 || size > 20)
+            throw new InvalidQueryRequestException(
+                    "q must contain 1 to 100 characters and size must be between 1 and 20");
         return normalized;
     }
 
@@ -77,7 +105,8 @@ public class QueryController {
 
     public enum Order {
         CREATED_AT,
-        TITLE
+        TITLE,
+        RELEVANCE
     }
 
     public record SubjectDetail(
@@ -93,7 +122,16 @@ public class QueryController {
 
     public record Asset(UUID id, String role, String relativePath) {}
 
-    public record SubjectPage(List<SubjectDetail> content, int page, int size, long totalElements, int totalPages) {}
+    public record SubjectPage(
+            List<SubjectDetail> content,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            String searchBackend,
+            boolean degraded) {}
+
+    public record Suggestions(List<String> content) {}
 
     public static class InvalidQueryRequestException extends RuntimeException {
         public InvalidQueryRequestException(String detail) {

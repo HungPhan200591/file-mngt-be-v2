@@ -5,7 +5,7 @@ Tài liệu này dành cho người vận hành project bằng IntelliJ và Dock
 ## Mục tiêu runtime
 
 - Năm app Spring Boot chạy từ IntelliJ.
-- PostgreSQL, Kafka KRaft và Redis chạy bằng Docker Compose.
+- PostgreSQL, Kafka KRaft và Redis chạy bằng Docker Compose; Elasticsearch chạy khi bật profile `search`.
 - Port host V2 luôn theo [ADR-004](../../docs/adr/ADR-004-local-port-allocation.md). Không dùng lại port V1.
 
 ## Chuẩn bị lần đầu
@@ -28,6 +28,12 @@ Từ root project:
 docker compose --env-file .env -f infra/compose/compose.yaml config
 docker compose --env-file .env -f infra/compose/compose.yaml up -d
 docker compose --env-file .env -f infra/compose/compose.yaml ps -a
+```
+
+Khi cần fuzzy search/autocomplete của Query, bật Elasticsearch thay vì lệnh `up` thường:
+
+```powershell
+docker compose --profile search --env-file .env -f infra/compose/compose.yaml up -d
 ```
 
 Trạng thái mong đợi:
@@ -65,6 +71,20 @@ Invoke-RestMethod http://localhost:18104/actuator/health/liveness
 ```
 
 Mỗi lệnh phải trả `status: UP`. Dùng endpoint `readiness` thay `liveness` khi cần kiểm tra sẵn sàng nhận request.
+
+## Media search Elasticsearch
+
+Query vẫn phục vụ detail/list từ PostgreSQL khi Elasticsearch chưa chạy hoặc lỗi. Request có `search` khi đó trả `searchBackend: POSTGRESQL_FALLBACK`, `degraded: true`; autocomplete trả danh sách rỗng. Search outbox retry theo exponential backoff từ 5 giây đến tối đa 5 phút và tự hội tụ sau khi Elasticsearch ready, tránh ghi DB/log mỗi giây khi profile `search` đang tắt.
+
+Khởi tạo hoặc thay mapping index một lần sau khi bật profile `search`:
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:18103/api/v2/query/operations/search-index/rebuild
+```
+
+Lệnh rebuild tạo index physical mới, nạp Query projection, rồi atomically chuyển alias. Nếu lỗi, alias cũ không bị thay. Không xóa volume `elasticsearch-data` trừ khi chủ động muốn build lại toàn bộ index.
+
+Sau khi năm service và Elasticsearch đều chạy, vào `tests/e2e` và dùng `npm run scan:search:local` để bắt buộc xác minh luồng Scan → Catalog → Query → Elasticsearch. `npm run scan:local` vẫn là baseline và cho phép PostgreSQL fallback.
 
 ## Chạy lại hằng ngày
 

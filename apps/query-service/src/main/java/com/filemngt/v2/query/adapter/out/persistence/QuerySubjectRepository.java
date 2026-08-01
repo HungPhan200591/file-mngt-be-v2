@@ -19,12 +19,16 @@ public interface QuerySubjectRepository extends JpaRepository<QuerySubjectEntity
     Optional<QuerySubjectEntity> findById(UUID id);
 
     @Query(
-            "select s from QuerySubjectEntity s where (:region is null or s.region = :region) and (:type is null or s.subjectType = :type) and (:search is null or lower(s.identityKey) like lower(concat('%', :search, '%')) or lower(coalesce(s.displayTitle, '')) like lower(concat('%', :search, '%')))")
+            "select s from QuerySubjectEntity s where (:region is null or s.region = :region) and (:type is null or s.subjectType = :type) and (lower(s.identityKey) like lower(concat('%', :search, '%')) or lower(coalesce(s.displayTitle, '')) like lower(concat('%', :search, '%')))")
     Page<QuerySubjectEntity> search(
             @Param("region") Region region,
             @Param("type") SubjectType type,
             @Param("search") String search,
             Pageable pageable);
+
+    @Query(
+            "select s from QuerySubjectEntity s where (:region is null or s.region = :region) and (:type is null or s.subjectType = :type)")
+    Page<QuerySubjectEntity> filter(@Param("region") Region region, @Param("type") SubjectType type, Pageable pageable);
 
     @EntityGraph(attributePaths = "assets")
     @Query("select distinct s from QuerySubjectEntity s where s.id in :ids")

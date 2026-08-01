@@ -22,8 +22,17 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://localhost:18113}
 
 query:
+  search:
+    enabled: ${QUERY_SEARCH_ENABLED:true}
+    publisher-enabled: ${QUERY_SEARCH_PUBLISHER_ENABLED:true}
+    publish-delay: ${QUERY_SEARCH_PUBLISH_DELAY:1000}
+    retry-initial-delay: ${QUERY_SEARCH_RETRY_INITIAL_DELAY:5s}
+    retry-max-delay: ${QUERY_SEARCH_RETRY_MAX_DELAY:5m}
+    rebuild-batch-size: ${QUERY_SEARCH_REBUILD_BATCH_SIZE:500}
   kafka:
     consumer:
       enabled: ${QUERY_KAFKA_CONSUMER_ENABLED:true}
