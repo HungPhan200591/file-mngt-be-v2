@@ -1,9 +1,11 @@
 # 012 Gallery V2 parity foundation — Plan
 
-Status: READY
+Status: DRAFT
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
+
+- Quyết định ưu tiên: tạm hoãn implementation frontend đến khi Backend V2 đủ data/query/media parity; tài liệu này chỉ giữ thiết kế đã chốt.
 
 - Owner: `file_mngt_FE/gallery-v2`; V2 read boundary qua Gateway, Query và Media Worker.
 - Scope/files: `gallery-v2/` context/entry/core owner, parity reference, module router; không sửa Gallery V1.
