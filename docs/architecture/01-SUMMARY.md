@@ -25,7 +25,7 @@ Spring Boot 4.0.3 được chọn vì tài liệu chính thức xác nhận hỗ
 - `gateway-service`: cổng API cho frontend, routing và correlation ID.
 - `catalog-service`: nguồn dữ liệu chuẩn cho subject, asset, actress, studio và tag.
 - `scan-service`: scan filesystem, parse filename và tạo proposal review.
-- `media-worker`: xử lý thumbnail, GIF, metadata kỹ thuật và hash file.
+- `media-worker`: xử lý thumbnail, GIF, metadata kỹ thuật, hash file và phát read-only media content qua Gateway.
 - `query-service`: read model tối ưu cho Gallery Web, Media Library và filter.
 
 Kafka làm event bus và work queue. Redis chỉ là cache/read optimization. PostgreSQL là source of truth; mỗi service sở hữu database/user riêng trong cùng một PostgreSQL instance để local đơn giản.

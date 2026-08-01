@@ -10,6 +10,7 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Command tạo/sửa subject và metadata.
 - API write/read canonical ở mức domain.
 - Event `media.subject.changed.v1`, `media.metadata.changed.v1`.
+- Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 
 ## Invariants
 

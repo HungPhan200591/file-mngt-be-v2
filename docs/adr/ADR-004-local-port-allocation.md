@@ -17,7 +17,7 @@ Mọi **host port** của Backend V2 nằm trong dải dành riêng `18100–181
 | Catalog HTTP | 18101 |
 | Scan HTTP | 18102 |
 | Query HTTP | 18103 |
-| Media Worker management | 18104 |
+| Media Worker HTTP + management | 18104 |
 | PostgreSQL | 18110 |
 | Kafka external listener | 18111 |
 | Redis | 18112 |

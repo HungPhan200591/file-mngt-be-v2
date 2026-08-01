@@ -1,0 +1,89 @@
+openapi: 3.1.1
+info:
+  title: Media Delivery API
+  version: v1
+servers:
+  - url: http://localhost:18100
+    description: Local V2 Gateway
+paths:
+  /api/v2/media/subjects/{subjectId}/assets/{assetId}/content:
+    parameters:
+      - $ref: '#/components/parameters/SubjectId'
+      - $ref: '#/components/parameters/AssetId'
+    get:
+      operationId: getMediaAssetContent
+      summary: Stream one media asset through the Gateway
+      parameters:
+        - name: Range
+          in: header
+          schema: { type: string }
+          description: Optional single HTTP byte range.
+        - name: If-None-Match
+          in: header
+          schema: { type: string }
+        - name: If-Modified-Since
+          in: header
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Content' }
+        '206': { $ref: '#/components/responses/PartialContent' }
+        '304': { description: Cached representation is still valid }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '416': { description: Requested byte range is not satisfiable }
+    head:
+      operationId: headMediaAssetContent
+      summary: Read media headers without a response body
+      responses:
+        '200': { $ref: '#/components/responses/ContentHeaders' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  parameters:
+    SubjectId:
+      name: subjectId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Content:
+      description: Full media content
+      headers:
+        Accept-Ranges: { schema: { type: string, const: bytes } }
+        Content-Length: { schema: { type: integer, format: int64 } }
+        Last-Modified: { schema: { type: string } }
+        ETag: { schema: { type: string } }
+      content:
+        application/octet-stream:
+          schema: { type: string, format: binary }
+    PartialContent:
+      description: One byte range of media content
+      headers:
+        Accept-Ranges: { schema: { type: string, const: bytes } }
+        Content-Range: { schema: { type: string } }
+        Content-Length: { schema: { type: integer, format: int64 } }
+      content:
+        application/octet-stream:
+          schema: { type: string, format: binary }
+    ContentHeaders:
+      description: Media metadata headers without a body
+      headers:
+        Accept-Ranges: { schema: { type: string, const: bytes } }
+        Content-Length: { schema: { type: integer, format: int64 } }
+        Last-Modified: { schema: { type: string } }
+        ETag: { schema: { type: string } }
+    NotFound:
+      description: Subject, asset, configured root or physical file is unavailable
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }

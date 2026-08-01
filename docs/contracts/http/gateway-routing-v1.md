@@ -10,6 +10,7 @@ Base URL local: `http://localhost:18100`
 | `/api/v2/catalog/subjects`, `/api/v2/catalog/subjects/**` | Catalog | Không đổi |
 | `/api/v2/scans/**` | Scan | Không đổi |
 | `/api/v2/query/subjects`, `/api/v2/query/subjects/**` | Query | Không đổi |
+| `/api/v2/media/subjects/**` | Media Worker | Không đổi; chỉ content API đã định nghĩa |
 
 Gateway không public `/api/v2/catalog/operations/**`, `/api/v2/query/operations/**` hoặc Actuator của downstream. Các endpoint đó chỉ dùng qua direct local service port cho operation/admin workflow.
 

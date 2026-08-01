@@ -205,6 +205,12 @@ components:
           type: string
           minLength: 1
           maxLength: 2048
+        storageKey:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 128
+          pattern: '^[A-Za-z0-9._-]+$'
+          description: Optional logical root key; omitted requests remain valid but their assets are not deliverable.
     MediaSubjectDetail:
       type: object
       required: [id, subjectType, region, identityKey, createdAt, assets]
@@ -238,6 +244,12 @@ components:
           $ref: '#/components/schemas/MediaAssetRole'
         relativePath:
           type: string
+        storageKey:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 128
+          pattern: '^[A-Za-z0-9._-]+$'
+          description: Logical configured root key used by Media Worker; null assets are not deliverable.
     MediaSubjectPage:
       type: object
       required: [content, page, size, totalElements, totalPages]

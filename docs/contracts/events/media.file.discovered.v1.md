@@ -38,5 +38,5 @@
 ## Mapping Catalog
 
 - `region`, `subjectType`, `identityKey`, `displayTitle` tạo/tìm canonical subject.
-- Nếu có `assetRole`, thêm asset từ `sourceRelativePath` khi chưa tồn tại cùng role/path.
-- `sourceRootKey` giữ provenance cho tương lai; Catalog không đọc filesystem root của Scan.
+- Nếu có `assetRole`, thêm asset từ `sourceRootKey + sourceRelativePath` khi chưa tồn tại cùng locator trong subject.
+- Catalog persist `sourceRootKey` thành nullable `storageKey` của asset; Catalog không đọc filesystem root của Scan.
