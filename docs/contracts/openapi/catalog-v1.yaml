@@ -72,6 +72,48 @@ paths:
                 $ref: '#/components/schemas/MediaSubjectDetail'
         '404':
           $ref: '#/components/responses/NotFoundProblem'
+  /api/v2/catalog/operations/outbox:
+    get:
+      operationId: listCatalogOutboxEvents
+      summary: List Catalog outbox records for local operations
+      parameters:
+        - name: published
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: failedOnly
+          in: query
+          required: false
+          description: When true, returns unpublished records with attemptCount greater than zero. Cannot be combined with published=true.
+          schema:
+            type: boolean
+            default: false
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of outbox records without event payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogOutboxEventPage'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+  /api/v2/catalog/operations/dead-letters:
+    get:
+      operationId: listCatalogDeadLetters
+      summary: List dead-letter records observed by Catalog
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of dead-letter records with bounded previews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogDeadLetterPage'
 components:
   parameters:
     Region:
@@ -213,6 +255,92 @@ components:
           format: int64
         totalPages:
           type: integer
+    CatalogOutboxEventPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogOutboxEvent'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+    CatalogOutboxEvent:
+      type: object
+      required: [eventId, subjectId, subjectVersion, eventType, createdAt, attemptCount]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        subjectVersion:
+          type: integer
+          format: int64
+        eventType:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: [string, 'null']
+          format: date-time
+        attemptCount:
+          type: integer
+          minimum: 0
+        lastError:
+          type: [string, 'null']
+          maxLength: 1024
+    CatalogDeadLetterPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogDeadLetter'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+    CatalogDeadLetter:
+      type: object
+      required: [id, originalTopic, originalPartition, originalOffset, receivedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalTopic:
+          type: string
+        originalPartition:
+          type: integer
+        originalOffset:
+          type: integer
+          format: int64
+        eventKey:
+          type: [string, 'null']
+        payloadPreview:
+          type: [string, 'null']
+          maxLength: 2048
+        errorDetail:
+          type: [string, 'null']
+          maxLength: 1024
+        receivedAt:
+          type: string
+          format: date-time
     SubjectType:
       type: string
       enum: [VIDEO, ALBUM]
