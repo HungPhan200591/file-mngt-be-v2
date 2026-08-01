@@ -3,6 +3,42 @@
 Owner: `scan-service` (Scan API, `scan_db`, producer) và `catalog-service` (`catalog_db`, consumer)
 Brief: [01-brief.md](./01-brief.md)
 
+## High Level Design
+
+Diagram trả lời câu hỏi: Luồng duyệt proposal với Transactional Outbox từ Scan Service qua Kafka đến idempotent consumer tại Catalog Service diễn ra như thế nào?
+
+```mermaid
+flowchart TB
+    UI["Reviewer UI / Client"] --> API["Scan Decision API<br/>(POST /scans/.../decision)"]
+    API --> SVC["ScanDecisionService"]
+
+    subgraph SCAN_SERVICE["Scan Service Boundary (scan_db)"]
+        SVC -->|Save Decision| DEC[("scan_decision")]
+        SVC -->|Save Outbox Event<br/>Same Transaction| OUTBOX[("scan_outbox_event")]
+    end
+
+    PUB["Scan Outbox Publisher"] -->|Poll Unpublished| OUTBOX
+    PUB -->|Publish Event| KAFKA["Kafka Event Bus<br/>(media.file.discovered.v1)"]
+
+    subgraph CATALOG_SERVICE["Catalog Service Boundary (catalog_db)"]
+        CONSUMER["DiscoveredFileConsumer"] -->|Idempotent Check| DEDUPE[("catalog_processed_event")]
+        CONSUMER -->|Upsert Subject/Asset| CAT_DB[("media_subject & media_asset")]
+    end
+
+    KAFKA --> CONSUMER
+
+    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style SVC fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style DEC fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style DEDUPE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style CAT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+```
+
 ## Quyết định
 
 - Scan là owner của review decision và outbox; Catalog là owner duy nhất của canonical subject/asset.

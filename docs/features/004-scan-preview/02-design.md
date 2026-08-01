@@ -3,6 +3,36 @@
 Owner: `scan-service` / `scan_db`
 Brief: [01-brief.md](./01-brief.md)
 
+## High Level Design
+
+Diagram trả lời câu hỏi: Luồng scan preview filesystem không đồng bộ từ API request đến parser profile và lưu trữ proposal/issue diễn ra như thế nào?
+
+```mermaid
+flowchart TB
+    CLIENT["API Client"] --> API["Scan REST Controller<br/>(POST /scans/previews)"]
+    API --> SVC["ScanApplicationService"]
+    SVC -->|Async Task<br/>Virtual Threads| SCANNER["Filesystem Scanner Engine"]
+
+    SCANNER -->|Read Metadata| FS[("Local Filesystem<br/>Media Folders")]
+    SCANNER -->|Parse Path/Filename| PARSER["Parser Strategy Registry<br/>(JOKE / USE Profiles)"]
+
+    PARSER -->|Valid Candidate| PROP["Scan Proposal"]
+    PARSER -->|Error / Ambiguous| ISS["Scan Issue"]
+
+    PROP --> DB[("PostgreSQL scan_db<br/>scan_run, scan_proposal, scan_issue")]
+    ISS --> DB
+
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style SVC fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style SCANNER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style FS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style PARSER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style PROP fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style ISS fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+```
+
 ## Boundary và consistency
 
 - `scan-service` là owner duy nhất của `scan_db`; không join/ghi `catalog_db`.

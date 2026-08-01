@@ -3,6 +3,28 @@
 Owner: `catalog-service`
 Brief: [01-brief.md](./01-brief.md)
 
+## High Level Design
+
+Diagram trả lời câu hỏi: Cấu trúc vertical slice Hexagonal/DDD của Catalog Service tiếp nhận API OpenAPI và persist canonical `media_subject`/`media_asset` vào PostgreSQL như thế nào?
+
+```mermaid
+flowchart TB
+    CLIENT["API Client / Web UI"] --> OPENAPI["Catalog OpenAPI v1<br/>(/api/v2/catalog/subjects)"]
+    OPENAPI --> CTRL["CatalogSubjectController<br/>(adapter.in.web)"]
+    CTRL --> APP["CatalogSubjectApplicationService<br/>(application)"]
+    APP --> DOMAIN["MediaSubject & MediaAsset Aggregate<br/>(domain)"]
+    APP --> REPO["CatalogSubjectRepository<br/>(adapter.out.persistence)"]
+    REPO --> DB[("PostgreSQL catalog_db<br/>media_subject & media_asset")]
+
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style OPENAPI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style CTRL fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style APP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style DOMAIN fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style REPO fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+```
+
 ## Quyết định
 
 - Catalog là canonical write/read owner duy nhất cho subject và asset trong feature này.

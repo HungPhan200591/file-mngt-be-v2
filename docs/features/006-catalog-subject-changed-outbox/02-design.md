@@ -3,6 +3,44 @@
 Owner: `catalog-service`; `query-service` là consumer dự kiến ở feature sau
 Brief: [01-brief.md](./01-brief.md)
 
+## High Level Design
+
+Diagram trả lời câu hỏi: Catalog Service thực thi Transactional Outbox cho event snapshot `media.subject.changed.v1` kèm versioning và DLT monitoring như thế nào?
+
+```mermaid
+flowchart TB
+    TRIGGER["Mutation Request<br/>(REST API / Kafka Discovered Consumer)"] --> APP["CatalogSubjectMutationService"]
+
+    subgraph CATALOG_DB["catalog_db Boundary"]
+        APP -->|1. Mutate & Bump subject_version| SUBJ[("media_subject & media_asset")]
+        APP -->|2. Save Outbox Event<br/>Same Transaction| OUTBOX[("catalog_outbox_event")]
+    end
+
+    PUB["Catalog Outbox Publisher"] -->|Poll Unpublished| OUTBOX
+    PUB -->|Publish Event| KAFKA["Kafka Event Bus<br/>(media.subject.changed.v1)"]
+
+    OPS["Operations Controller<br/>(/api/v2/catalog/operations/*)"] -->|Read Status| OUTBOX
+    OPS -->|Read Failures| DLT_DB[("catalog_dead_letter_event")]
+
+    INBOUND["Kafka Event<br/>(media.file.discovered.v1)"] --> DISCOVERED["Discovered File Consumer"]
+    DISCOVERED -->|Retries exhausted| DLT_TOPIC["Kafka DLT<br/>(media.file.discovered.v1.DLT)"]
+    DLT_TOPIC --> OBSERVER["Dead Letter Observer"]
+    OBSERVER -->|Persist failure| DLT_DB
+
+    style TRIGGER fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style APP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style SUBJ fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style OPS fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style INBOUND fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DISCOVERED fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style DLT_TOPIC fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DLT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style OBSERVER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+```
+
 ## Quyết định
 
 - Catalog là producer duy nhất của `media.subject.changed.v1`; canonical write và outbox được commit trong cùng transaction.

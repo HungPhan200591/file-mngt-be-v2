@@ -17,7 +17,8 @@ flowchart TB
     PG -->|Detail DTO| USECASE
     USECASE -->|SET + TTL| REDIS
 
-    EVENT["Catalog snapshot<br/>Kafka consumer"] --> PROJECT["Apply newer<br/>projection"]
+    EVENT["Kafka Event<br/>(media.subject.changed.v1)"] --> CONSUMER["MediaSubjectChanged<br/>Consumer"]
+    CONSUMER --> PROJECT["Apply newer<br/>projection"]
     PROJECT --> PG
     PROJECT -->|After commit evict| REDIS
 
@@ -27,6 +28,7 @@ flowchart TB
     style REDIS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style PG fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style PROJECT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
 ```
 

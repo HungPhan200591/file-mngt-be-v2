@@ -4,6 +4,34 @@ Owner: `query-service`
 Brief: [01-brief.md](./01-brief.md)
 ADR: [ADR-003](../../adr/ADR-003-elasticsearch-media-search.md), [ADR-004](../../adr/ADR-004-local-port-allocation.md)
 
+## High Level Design
+
+Diagram trả lời câu hỏi: Query Service duy trì search projection trên Elasticsearch qua Transactional Outbox và xử lý REST search request kèm fallback PostgreSQL như thế nào?
+
+```mermaid
+flowchart TB
+    PROJ["Query Projection Service<br/>(Projection Update)"] -->|1. Save Search Outbox<br/>Same DB Transaction| OUTBOX[("query_search_outbox<br/>(query_db)")]
+
+    PUB["Search Index Outbox Publisher"] -->|2. Batch Poll Pending| OUTBOX
+    PUB -->|3. Bulk Index| ES[("Elasticsearch Search Index<br/>(media-subject-search alias)")]
+
+    CLIENT["Gallery / Library UI"] --> SEARCH_API["Query Search API<br/>(GET /subjects?search=...)"]
+    SEARCH_API -->|4. Search Hit IDs| ES
+    SEARCH_API -->|5. Hydrate Cards by IDs| PG_PROJ[("query_media_subject & asset<br/>(query_db)")]
+
+    SEARCH_API -->|Fallback on ES Error| PG_FALLBACK["PostgreSQL Text Fallback"]
+    PG_FALLBACK --> PG_PROJ
+
+    style PROJ fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style ES fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style SEARCH_API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style PG_PROJ fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style PG_FALLBACK fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+```
+
 ## Quyết định
 
 - PostgreSQL `query_db` tiếp tục là durable projection; Elasticsearch là rebuildable search projection do Query sở hữu.
