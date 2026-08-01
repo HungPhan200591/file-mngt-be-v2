@@ -27,6 +27,7 @@ Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về 
 - Feature đang làm: `docs/features/<feature-id>/`.
 - REST và Kafka contract: `docs/contracts/`.
 - Quyết định dài hạn: `docs/adr/`.
+- Tài liệu cá nhân: `manual/` không phải source of truth hay context mặc định; chỉ đọc khi người dùng gọi tên hoặc yêu cầu sửa.
 
 Khi đổi contract hoặc boundary, cập nhật source of truth tương ứng trong cùng task; không sao chép rule sang nhiều nơi.
 
