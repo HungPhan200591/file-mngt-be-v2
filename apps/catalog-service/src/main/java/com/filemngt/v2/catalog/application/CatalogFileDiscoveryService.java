@@ -1,0 +1,53 @@
+package com.filemngt.v2.catalog.application;
+
+import com.filemngt.v2.catalog.adapter.out.persistence.MediaAssetEntity;
+import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectEntity;
+import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectRepository;
+import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventEntity;
+import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventRepository;
+import com.filemngt.v2.catalog.domain.MediaAssetRole;
+import com.filemngt.v2.catalog.domain.Region;
+import com.filemngt.v2.catalog.domain.SubjectType;
+import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
+import java.time.Instant;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class CatalogFileDiscoveryService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CatalogFileDiscoveryService.class);
+
+    private final ProcessedEventRepository processed;
+    private final MediaSubjectRepository subjects;
+
+    public CatalogFileDiscoveryService(ProcessedEventRepository processed, MediaSubjectRepository subjects) {
+        this.processed = processed;
+        this.subjects = subjects;
+    }
+
+    @Transactional
+    public void handle(MediaFileDiscoveredV1 event) {
+        if (processed.existsById(event.eventId())) {
+            LOGGER.debug("Ignored duplicate media discovery eventId={}", event.eventId());
+            return;
+        }
+        var region = Region.valueOf(event.region());
+        var type = SubjectType.valueOf(event.subjectType());
+        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey())
+                .orElseGet(() -> new MediaSubjectEntity(
+                        UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
+        if (event.assetRole() != null && !subject.hasAssetPath(event.sourceRelativePath())) {
+            subject.addAsset(new MediaAssetEntity(
+                    UUID.randomUUID(),
+                    MediaAssetRole.valueOf(event.assetRole()),
+                    event.sourceRelativePath(),
+                    Instant.now()));
+        }
+        subjects.save(subject);
+        processed.save(new ProcessedEventEntity(event.eventId(), Instant.now()));
+        LOGGER.info("Processed media discovery eventId={} subjectId={}", event.eventId(), subject.id());
+    }
+}

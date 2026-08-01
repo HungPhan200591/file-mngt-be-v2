@@ -32,7 +32,8 @@
 
 - Delivery at-least-once. Catalog dedupe bằng `eventId` trong transaction với upsert canonical subject/asset.
 - Producer lưu outbox trước khi publish; `published_at` chỉ được set sau broker acknowledgement. Retry dùng cùng `eventId`.
-- Consumer lỗi thì retry theo Kafka policy; sau giới hạn đưa DLT theo convention implementation. Không sửa payload v1 theo cách breaking; thay đổi breaking tạo event version mới.
+- Consumer lỗi thì xử lý tối đa 3 lần với backoff 1 giây, sau đó publish record gốc sang
+  `media.file.discovered.v1.DLT`. Không sửa payload v1 theo cách breaking; thay đổi breaking tạo event version mới.
 
 ## Mapping Catalog
 

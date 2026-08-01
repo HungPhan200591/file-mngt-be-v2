@@ -1,6 +1,6 @@
 # 005 Scan approval outbox — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -19,6 +19,14 @@ Design: [02-design.md](./02-design.md)
 5. Cài Catalog Kafka consumer idempotent, map event sang subject/asset và persist dedupe + upsert trong một transaction.
 6. Thêm Testcontainers integration: same/conflicting decision, outbox atomicity, publish retry, Catalog duplicate event và asset-before-video. Thêm Scan E2E approve/reject fixture.
 7. Chạy kiểm tra được phép; cập nhật Plan `DONE` và `docs/STATUS.md` với evidence thực tế.
+
+## Evidence hoàn tất
+
+- `./mvnw spotless:apply` và `./mvnw test -pl apps/catalog-service,apps/scan-service -am` bằng JDK 25: `BUILD SUCCESS` ngày 2026-08-01.
+- Catalog: 2 integration test pass cho REST, duplicate event và asset-before-video. Scan: 2 integration test approval/reject và 2 unit test publisher pass.
+- `git diff --check` sạch, không có wildcard import trong source đã chạm và mọi file thay đổi đều dưới 500 dòng.
+- E2E CLI/IntelliJ đã có approve idempotent và reject. Runtime E2E với Kafka/Catalog cần chạy sau khi người dùng restart hai service để Flyway áp dụng migration mới nhất.
+- Runtime local đã áp dụng V2 trước khi constraint bổ sung được thêm. V2 được giữ nguyên checksum `596466511`; cột `event_id` và constraint bổ sung chuyển sang V3 theo nguyên tắc migration append-only.
 
 ## Kiểm tra
 

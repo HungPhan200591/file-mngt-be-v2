@@ -1,9 +1,14 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
-import com.filemngt.v2.scan.application.ScanService.*;
-import org.springframework.http.*;
+import com.filemngt.v2.scan.application.ScanDecisionService;
+import com.filemngt.v2.scan.application.ScanService.InvalidScanException;
+import com.filemngt.v2.scan.application.ScanService.ScanNotFoundException;
+import com.filemngt.v2.scan.application.ScanService.ScanRunningException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ScanExceptionHandler {
@@ -14,6 +19,11 @@ public class ScanExceptionHandler {
 
     @ExceptionHandler(ScanRunningException.class)
     ProblemDetail conflict(RuntimeException e) {
+        return problem(HttpStatus.CONFLICT, e);
+    }
+
+    @ExceptionHandler(ScanDecisionService.DecisionConflictException.class)
+    ProblemDetail decisionConflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e);
     }
 

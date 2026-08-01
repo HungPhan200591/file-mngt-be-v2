@@ -3,6 +3,9 @@
 @scanCompleted = false
 @scanFailed = false
 @scanPollAttempts = 0
+@rejectScanCompleted = false
+@rejectScanFailed = false
+@rejectScanPollAttempts = 0
 
 ###
 # @name StartScanPreview
@@ -47,6 +50,7 @@ GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals
 
 {{response
   const page = JSON.parse(response.body);
+  exports.scanProposalId = page.content[0]?.id;
   test('lists one proposal', () => response.statusCode === 200 && page.totalElements === 1);
 }}
 
@@ -57,4 +61,84 @@ GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/issues
 {{response
   const page = JSON.parse(response.body);
   test('lists one issue', () => response.statusCode === 200 && page.totalElements === 1);
+}}
+
+###
+# @name ApproveScanProposal
+POST {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals/{{scanProposalId}}/decision
+Content-Type: application/json
+
+{ "decision": "APPROVE" }
+
+{{response
+  const decision = JSON.parse(response.body);
+  exports.approvedEventId = decision.eventId;
+  test('approves proposal with outbox event', () =>
+    response.statusCode === 200 && decision.decision === 'APPROVE' && Boolean(decision.eventId));
+}}
+
+###
+# @name RepeatApproveScanProposal
+POST {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals/{{scanProposalId}}/decision
+Content-Type: application/json
+
+{ "decision": "APPROVE" }
+
+{{response
+  const decision = JSON.parse(response.body);
+  test('returns the same approval', () =>
+    response.statusCode === 200 && decision.eventId === approvedEventId);
+}}
+
+###
+# @name StartRejectScanPreview
+POST {{baseUrl}}/api/v2/scans/previews
+Content-Type: application/json
+
+{ "rootKey": "{{scanFixtureRootKey}}" }
+
+{{response
+  const run = JSON.parse(response.body);
+  exports.rejectScanRunId = run.id;
+  test('accepts second scan', () => response.statusCode === 202);
+}}
+
+###
+# @name WaitForRejectScanCompletion
+# @loop while rejectScanCompleted !== true && rejectScanFailed !== true && rejectScanPollAttempts < 50
+GET {{baseUrl}}/api/v2/scans/{{rejectScanRunId}}
+
+{{response
+  const run = JSON.parse(response.body);
+  exports.rejectScanCompleted = run.status === 'COMPLETED';
+  exports.rejectScanFailed = run.status === 'FAILED';
+  exports.rejectScanPollAttempts = Number(rejectScanPollAttempts) + 1;
+  if (!rejectScanCompleted && !rejectScanFailed) {
+    await sleep(100);
+  }
+}}
+
+###
+# @name ListRejectScanProposals
+GET {{baseUrl}}/api/v2/scans/{{rejectScanRunId}}/proposals
+
+{{response
+  const page = JSON.parse(response.body);
+  const proposalId = page.content[0]?.id;
+  exports.rejectScanProposalId = proposalId;
+  test('lists proposal for rejection', () =>
+    response.statusCode === 200 && page.totalElements === 1 && Boolean(proposalId));
+}}
+
+###
+# @name RejectScanProposal
+POST {{baseUrl}}/api/v2/scans/{{rejectScanRunId}}/proposals/{{rejectScanProposalId}}/decision
+Content-Type: application/json
+
+{ "decision": "REJECT" }
+
+{{response
+  const decision = JSON.parse(response.body);
+  test('rejects proposal without event', () =>
+    response.statusCode === 200 && decision.decision === 'REJECT' && decision.eventId === null);
 }}

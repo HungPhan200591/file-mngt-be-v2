@@ -1,6 +1,11 @@
 package com.filemngt.v2.scan.application;
 
-import com.filemngt.v2.scan.adapter.out.persistence.*;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanRunEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanRunRepository;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.ScanProfile;
 import com.filemngt.v2.scan.domain.ScanRunStatus;
@@ -9,6 +14,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -28,7 +34,7 @@ public class ScanService {
             ScanRunRepository runs,
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
-            TaskExecutor taskExecutor) {
+            @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor) {
         this.properties = properties;
         this.runs = runs;
         this.proposals = proposals;
@@ -41,7 +47,9 @@ public class ScanService {
                 .filter(item -> item.key().equals(rootKey))
                 .findFirst()
                 .orElseThrow(() -> new InvalidScanException("Unknown root key: " + rootKey));
-        if (runs.existsByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING)) throw new ScanRunningException(rootKey);
+        if (runs.existsByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING)) {
+            throw new ScanRunningException(rootKey);
+        }
         var run = runs.saveAndFlush(new ScanRunEntity(UUID.randomUUID(), root.key(), root.profile(), Instant.now()));
         taskExecutor.execute(() -> execute(run.id(), root));
         return view(run);
@@ -109,7 +117,9 @@ public class ScanService {
     }
 
     private void ensure(UUID id) {
-        if (!runs.existsById(id)) throw new ScanNotFoundException(id);
+        if (!runs.existsById(id)) {
+            throw new ScanNotFoundException(id);
+        }
     }
 
     private Parsed parse(ScanProfile profile, String path) {

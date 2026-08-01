@@ -44,6 +44,10 @@ public class ScanProposalEntity {
         return id;
     }
 
+    public UUID scanRunId() {
+        return scanRunId;
+    }
+
     public String sourceRelativePath() {
         return sourceRelativePath;
     }

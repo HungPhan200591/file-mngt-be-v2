@@ -29,10 +29,61 @@ GET {{baseUrl}}/api/v2/scans/{{scanRunId}}
 # @name ListScanProposals
 GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals
 
-> {% client.test("lists proposals", function() { client.assert(response.status === 200, "Expected 200, got " + response.status); }); %}
+> {%
+  client.global.set("scanProposalId", response.body.content[0].id);
+  client.test("lists proposals", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.content.length > 0, "Expected at least one proposal");
+  });
+%}
 
 ###
 # @name ListScanIssues
 GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/issues
 
 > {% client.test("lists issues", function() { client.assert(response.status === 200, "Expected 200, got " + response.status); }); %}
+
+###
+# Chọn một decision cho proposal hiện tại. Muốn thử decision còn lại, chạy lại từ StartScanPreview để có proposal mới.
+# @name ApproveScanProposal
+POST {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals/{{scanProposalId}}/decision
+Content-Type: application/json
+
+{ "decision": "APPROVE" }
+
+> {%
+  client.global.set("scanApprovedEventId", response.body.eventId);
+  client.test("approves proposal", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.eventId !== null, "Expected an outbox eventId");
+  });
+%}
+
+###
+# @name RepeatApproveScanProposal
+POST {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals/{{scanProposalId}}/decision
+Content-Type: application/json
+
+{ "decision": "APPROVE" }
+
+> {%
+  client.test("returns the same approval", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.eventId === client.global.get("scanApprovedEventId"), "Expected the same eventId");
+  });
+%}
+
+###
+# Chỉ chạy sau khi đã tạo một scan/proposal mới chưa có decision.
+# @name RejectScanProposal
+POST {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals/{{scanProposalId}}/decision
+Content-Type: application/json
+
+{ "decision": "REJECT" }
+
+> {%
+  client.test("rejects proposal without event", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(response.body.eventId === null, "Expected no eventId");
+  });
+%}

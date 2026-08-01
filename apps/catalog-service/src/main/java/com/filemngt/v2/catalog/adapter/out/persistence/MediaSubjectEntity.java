@@ -64,6 +64,10 @@ public class MediaSubjectEntity {
         assets.add(asset);
     }
 
+    public boolean hasAssetPath(String path) {
+        return assets.stream().anyMatch(asset -> asset.relativePath().equals(path));
+    }
+
     public UUID id() {
         return id;
     }
