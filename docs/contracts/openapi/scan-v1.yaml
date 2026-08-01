@@ -78,10 +78,43 @@ paths:
                 $ref: '#/components/schemas/ScanIssuePage'
         '404':
           $ref: '#/components/responses/NotFoundProblem'
+  /api/v2/scans/{scanId}/proposals/{proposalId}/decision:
+    post:
+      operationId: decideScanProposal
+      summary: Approve or reject a scan proposal
+      parameters:
+        - $ref: '#/components/parameters/ScanId'
+        - $ref: '#/components/parameters/ProposalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanProposalDecisionRequest'
+      responses:
+        '200':
+          description: Existing or newly persisted decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanProposalDecision'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
 components:
   parameters:
     ScanId:
       name: scanId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProposalId:
+      name: proposalId
       in: path
       required: true
       schema:
@@ -102,7 +135,7 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
     ConflictProblem:
-      description: A scan is already running for the root
+      description: Request conflicts with existing Scan state
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -151,6 +184,21 @@ components:
         sourceRelativePath: { type: string }
         code: { type: string, enum: [UNPARSEABLE, AMBIGUOUS, IO_ERROR] }
         detail: { type: string }
+    ScanProposalDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+    ScanProposalDecision:
+      type: object
+      required: [proposalId, decision, decidedAt]
+      properties:
+        proposalId: { type: string, format: uuid }
+        decision: { type: string, enum: [APPROVE, REJECT] }
+        decidedAt: { type: string, format: date-time }
+        eventId: { type: [string, 'null'], format: uuid }
     ScanProposalPage:
       $ref: '#/components/schemas/PageScanProposal'
     ScanIssuePage:
