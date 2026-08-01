@@ -2,15 +2,22 @@
 
 Backend V2 phục vụ hai mục tiêu: chuẩn hóa media data và học microservice/event-driven trên bài toán thật.
 
+## Bắt đầu cho chủ dự án
+
+- [Manual cá nhân](./manual/README.md): mục lục đọc trên GitHub Mobile — business, technical, database, data flow, vận hành và cách làm việc với AI.
+- [Bản đồ dự án](./manual/operations/project-map.md): code/tài liệu nằm ở đâu.
+- [Vận hành local](./manual/operations/local-runtime.md): IntelliJ, Docker và E2E.
+
+`manual/` chỉ dành cho người dùng đọc; không phải source of truth và không phải context mặc định của AI Agent.
+
 ## Bắt đầu cho AI Agent
 
 1. Đọc [AGENTS.md](./AGENTS.md).
-2. Dùng [guide vận hành AI Agent](./manual/ai-agent/operating-guide.md) để gọi đúng workflow mà không phải nhắc lại toàn bộ rule.
-3. Đọc [tóm tắt kiến trúc](./docs/architecture/01-SUMMARY.md).
-4. Chọn đúng context service trong `apps/*/CONTEXT.md`.
-5. Với feature mới, tạo docs theo [ADLC workflow](./docs/adlc/WORKFLOW.md) trước khi code.
+2. Đọc [tóm tắt kiến trúc](./docs/architecture/01-SUMMARY.md).
+3. Chọn đúng context service trong `apps/*/CONTEXT.md`.
+4. Với feature mới, tạo docs theo [ADLC workflow](./docs/adlc/WORKFLOW.md) trước khi code.
 
-Hướng dẫn chạy thủ công bằng IntelliJ và Docker: [Vận hành local](./manual/operations/local-runtime.md). Kịch bản E2E dùng chung cho IntelliJ và CLI: [E2E HTTP harness](./tests/e2e/README.md).
+Kịch bản E2E dùng chung cho IntelliJ và CLI: [E2E HTTP harness](./tests/e2e/README.md).
 
 ## Cấu trúc
 
