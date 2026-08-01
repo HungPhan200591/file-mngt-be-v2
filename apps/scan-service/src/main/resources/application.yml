@@ -1,6 +1,19 @@
 spring:
   application:
     name: scan-service
+  datasource:
+    url: ${SCAN_DATASOURCE_URL:jdbc:postgresql://localhost:18110/scan_db}
+    username: ${SCAN_DATASOURCE_USERNAME:scan_user}
+    password: ${SCAN_DATASOURCE_PASSWORD:change-me-scan}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+scan:
+  roots: []
 
 server:
   port: ${SCAN_SERVER_PORT:18102}

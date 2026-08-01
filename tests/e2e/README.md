@@ -34,6 +34,18 @@ Trong IntelliJ, chọn environment `local` ở HTTP Client trước khi chạy r
 
 `CreateSubject` lưu `catalogSubjectId` và `catalogSubjectIdentity` vào HTTP Client global storage. Vì vậy sau khi chạy Create một lần, bạn có thể chạy riêng `GetCreatedSubject` hoặc `RejectDuplicateIdentity`. Nếu mở IntelliJ/clear HTTP Client storage mới, chạy Create lại trước.
 
+## Chạy Scan E2E
+
+Trước khi chạy, cấu hình Scan local trỏ đúng fixture repository:
+
+```powershell
+$env:SCAN_ROOTS_0_KEY = 'fixture-joke-video'
+$env:SCAN_ROOTS_0_PATH = 'D:\Study\Project\file_mngt_microservice\tests\fixtures\scan\joke-video'
+$env:SCAN_ROOTS_0_PROFILE = 'JOKE_VIDEO'
+```
+
+Chạy lại `scan-service` từ IntelliJ trong terminal đã có ba biến trên, sau đó tại `tests/e2e/` chạy `npm run scan:local`. Với IntelliJ, chạy `StartScanPreview` trước rồi chạy riêng các request còn lại; đợi run thành `COMPLETED` trước khi review proposals/issues.
+
 ## Quy ước viết kịch bản
 
 - Mỗi API owner có thư mục riêng; đánh số theo scenario, ví dụ `catalog/001-subject-lifecycle.http`.

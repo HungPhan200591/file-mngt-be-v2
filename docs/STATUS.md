@@ -9,13 +9,13 @@ Updated: 2026-08-01
 - Kiến trúc: đã chốt monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1: `002-catalog-vertical-slice` đã hoàn tất. Catalog sở hữu migration `media_subject`/`media_asset` và API create/detail/list theo OpenAPI v1.
 - E2E HTTP: `003-e2e-http-harness` đã hoàn tất; `.http` là kịch bản chung cho IntelliJ và Agent CLI.
-- Feature active: `004-scan-preview` (Plan READY).
+- Scan P2: `004-scan-preview` đã hoàn tất code, Testcontainers và E2E fixture; chỉ còn runtime E2E local do user cấu hình root fixture.
 
 ## Việc kế tiếp
 
-1. Triển khai `004-scan-preview` theo Plan READY.
+1. Chạy E2E Scan local theo `tests/e2e/README.md` với fixture root.
 2. Giữ guide local hiện hành khi thay đổi Compose/port/runtime.
-3. Sau Scan preview, làm approval + Outbox/Kafka theo phase 3.
+3. Tạo `005-scan-approval-outbox` cho phase 3.
 
 ## Bất biến cần nhớ
 

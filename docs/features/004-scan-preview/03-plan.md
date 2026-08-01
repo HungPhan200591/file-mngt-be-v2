@@ -1,6 +1,6 @@
 # 004 Scan preview — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -17,7 +17,7 @@ Design: [02-design.md](./02-design.md)
 3. Cài domain profile/run status/proposal/issue; parser Strategy + Registry theo root profile; parse ambiguity thành issue.
 4. Cài application background run, API create/get/list theo OpenAPI và Problem Details.
 5. Viết Testcontainers integration cho migration, root missing, duplicate running root, JOKE/USE proposal, issue và pagination.
-6. Thêm fixture filesystem + E2E `.http`; chạy kiểm tra được cho phép, rồi chuyển Plan `DONE` và cập nhật status.
+6. Thêm fixture filesystem + E2E `.http`; chạy Testcontainers integration đạt 1/1. E2E local cần user cấu hình fixture root rồi chạy service, không tự quét media thật.
 
 ## Kiểm tra
 

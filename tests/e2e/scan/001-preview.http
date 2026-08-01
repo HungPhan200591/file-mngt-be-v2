@@ -1,0 +1,38 @@
+@baseUrl = {{scanBaseUrl}}
+
+###
+# @name StartScanPreview
+POST {{baseUrl}}/api/v2/scans/previews
+Content-Type: application/json
+
+{ "rootKey": "{{scanFixtureRootKey}}" }
+
+> {%
+  client.global.set("scanRunId", response.body.id);
+  client.test("accepts scan", function() {
+    client.assert(response.status === 202, "Expected 202, got " + response.status);
+  });
+%}
+
+###
+# Chạy StartScanPreview trước để lưu scanRunId.
+# @name GetScanRun
+GET {{baseUrl}}/api/v2/scans/{{scanRunId}}
+
+> {%
+  client.test("gets scan run", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+%}
+
+###
+# @name ListScanProposals
+GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals
+
+> {% client.test("lists proposals", function() { client.assert(response.status === 200, "Expected 200, got " + response.status); }); %}
+
+###
+# @name ListScanIssues
+GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/issues
+
+> {% client.test("lists issues", function() { client.assert(response.status === 200, "Expected 200, got " + response.status); }); %}

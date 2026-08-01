@@ -1,0 +1,38 @@
+package com.filemngt.v2.scan.adapter.out.persistence;
+
+import com.filemngt.v2.scan.domain.ScanProfile;
+import com.filemngt.v2.scan.domain.ScanRunStatus;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.UUID;
+
+@Entity
+@Table(name = "scan_run")
+public class ScanRunEntity {
+    @Id private UUID id;
+    private String rootKey;
+    @Enumerated(EnumType.STRING) private ScanProfile profile;
+    @Enumerated(EnumType.STRING) private ScanRunStatus status;
+    private Instant startedAt;
+    private Instant finishedAt;
+    private long scannedFileCount;
+    private long proposalCount;
+    private long issueCount;
+    private String lastError;
+
+    protected ScanRunEntity() {}
+    public ScanRunEntity(UUID id, String rootKey, ScanProfile profile, Instant startedAt) {
+        this.id = id; this.rootKey = rootKey; this.profile = profile; this.startedAt = startedAt; this.status = ScanRunStatus.RUNNING;
+    }
+    public void complete(long files, long proposals, long issues) {
+        scannedFileCount = files; proposalCount = proposals; issueCount = issues; finishedAt = Instant.now(); status = ScanRunStatus.COMPLETED;
+    }
+    public void fail(String error) { finishedAt = Instant.now(); lastError = error; status = ScanRunStatus.FAILED; }
+    public UUID id() { return id; } public String rootKey() { return rootKey; } public ScanProfile profile() { return profile; }
+    public ScanRunStatus status() { return status; } public Instant startedAt() { return startedAt; } public Instant finishedAt() { return finishedAt; }
+    public long scannedFileCount() { return scannedFileCount; } public long proposalCount() { return proposalCount; } public long issueCount() { return issueCount; } public String lastError() { return lastError; }
+}
