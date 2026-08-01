@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: scan-service
+
+server:
+  port: ${SCAN_SERVER_PORT:18102}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

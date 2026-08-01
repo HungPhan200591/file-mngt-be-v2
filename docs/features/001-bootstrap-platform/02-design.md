@@ -18,11 +18,11 @@ Brief: [01-brief.md](./01-brief.md)
 
 | Module | Artifact dự kiến | Port local | Persistence P0 |
 | --- | --- | --- | --- |
-| `apps/gateway-service` | `gateway-service` | 8080 | Không |
-| `apps/catalog-service` | `catalog-service` | 8081 | `catalog_db` sau P1 |
-| `apps/scan-service` | `scan-service` | 8082 | `scan_db` sau P2 |
-| `apps/query-service` | `query-service` | 8083 | `query_db` sau P5 |
-| `apps/media-worker` | `media-worker` | 8084 management | Không |
+| `apps/gateway-service` | `gateway-service` | Theo [ADR-004](../../adr/ADR-004-local-port-allocation.md) | Không |
+| `apps/catalog-service` | `catalog-service` | Theo ADR-004 | `catalog_db` sau P1 |
+| `apps/scan-service` | `scan-service` | Theo ADR-004 | `scan_db` sau P2 |
+| `apps/query-service` | `query-service` | Theo ADR-004 | `query_db` sau P5 |
+| `apps/media-worker` | `media-worker` | Theo ADR-004 | Không |
 | `platform/event-contracts` | `event-contracts` | — | Không |
 | `platform/test-support` | `test-support` | — | Không |
 

@@ -22,6 +22,8 @@ Nói: `Sửa <task> ở <service/module>; đọc AGENTS và context owner trư�
 
 Agent chỉ cần architecture summary và đúng một `apps/<service>/CONTEXT.md`, sau đó mở file owner cùng dependency trực tiếp. Không cần nạp `STATUS.md` hoặc feature docs nếu task không thuộc feature đang làm.
 
+Nếu task chạm port local, Agent phải đọc [ADR-004](./adr/ADR-004-local-port-allocation.md) trước; không dùng port mặc định hoặc đoán theo service.
+
 ## Khi thay boundary hoặc contract
 
 Nói: `Dùng cross-service-contract để thiết kế/thay đổi <REST | Kafka | database ownership | migration>.`

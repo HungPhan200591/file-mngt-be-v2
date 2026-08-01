@@ -16,6 +16,8 @@ V2 chạy song song với V1. Không xóa hay sửa dữ liệu V1 trong quá tr
 - OpenAPI, Testcontainers, JUnit 5, AssertJ.
 - Micrometer, OpenTelemetry, Prometheus/Grafana và ELK (Elasticsearch, Logstash, Kibana) ở giai đoạn observability.
 
+Port local V2 dùng dải riêng theo [ADR-004](../adr/ADR-004-local-port-allocation.md); không dùng lại port V1 hay port host mặc định của hạ tầng.
+
 Spring Boot 4.0.3 được chọn vì tài liệu chính thức xác nhận hỗ trợ đến Java 25 và có integration sẵn cho Kafka, Redis cùng Docker Compose service connections.
 
 ## Kiến trúc mục tiêu

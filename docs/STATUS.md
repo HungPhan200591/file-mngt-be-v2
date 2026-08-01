@@ -4,16 +4,16 @@ Updated: 2026-08-01
 
 ## Hiện tại
 
-- Phase: chuẩn bị Giai đoạn 0 — Bootstrap.
-- Code: chưa bootstrap Maven, Java service hoặc Docker Compose.
-- Kiến trúc: đã chốt monorepo 5 service, PostgreSQL, Kafka, Redis và ADLC.
-- Feature active: `001-bootstrap-platform` (sẵn sàng code, chưa có source).
+- Phase: Giai đoạn 0 — Bootstrap source hoàn tất; chờ kiểm tra runtime.
+- Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app tối thiểu, event envelope và Docker Compose PostgreSQL/Kafka/Redis đã có.
+- Kiến trúc: đã chốt monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
+- Feature active: không có; `001-bootstrap-platform` đã DONE.
 
 ## Việc kế tiếp
 
-1. Triển khai `001-bootstrap-platform` khi người dùng yêu cầu code bootstrap.
-2. Chạy kiểm tra build/Docker theo Plan khi được người dùng cho phép.
-3. Sau P0, tạo feature `002-catalog-vertical-slice`.
+1. Cài/chọn JDK 25 rồi chạy kiểm tra build/Docker theo Plan khi được người dùng cho phép.
+2. Tạo feature `002-catalog-vertical-slice`.
+3. Chỉ sau khi P0 được xác minh mới thêm Flyway và database logic vào Catalog.
 
 ## Bất biến cần nhớ
 

@@ -19,4 +19,4 @@ infra/      Docker Compose, observability và cấu hình local
 docs/       Architecture, ADLC, contracts, ADR và feature docs
 ```
 
-Mã nguồn chưa được bootstrap ở repository này. Tài liệu là contract khởi đầu; implementation Agent phải tuân thủ `AGENTS.md`.
+P0 đã bootstrap Maven multi-module, năm service Spring Boot tối thiểu và Compose local. Compile/test/Docker runtime chưa được chạy; implementation tiếp theo phải tuân thủ `AGENTS.md`.

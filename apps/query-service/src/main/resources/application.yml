@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: query-service
+
+server:
+  port: ${QUERY_SERVER_PORT:18103}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

@@ -1,6 +1,6 @@
 # 001 Bootstrap platform — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -22,6 +22,8 @@ Design: [02-design.md](./02-design.md)
 
 ## Kiểm tra
 
+- Đã chạy static: XML hợp lệ cho 8 POM, đủ 7 module trong aggregator, đủ package entry cho 5 app, Maven Wrapper pin `3.9.16`, không có image `latest` và `git diff --check` đạt.
+- Chưa chạy compile/test, `docker compose config` hoặc health runtime: máy hiện có JDK 22 trong khi feature yêu cầu Java 25, đồng thời các lệnh runtime cần người dùng cho phép.
 - Static: kiểm tra Maven module graph, file naming, `.gitignore`, compose syntax và không có image `latest`.
 - Khi người dùng cho phép: `./mvnw test` hoặc compile, `docker compose config`, rồi khởi động local để gọi health của từng service.
 - Kiểm tra service chưa tạo bảng nghiệp vụ, không có business topic và không gọi chéo service/database.
@@ -35,5 +37,6 @@ Design: [02-design.md](./02-design.md)
 ## Tài liệu cần cập nhật
 
 - `docs/STATUS.md`.
+- `docs/adr/ADR-004-local-port-allocation.md` khi thay đổi phân bổ host port local.
 - `apps/<service>/CONTEXT.md` chỉ khi entry path/config owner thực tế khác Design.
 - `docs/contracts/` chỉ khi tạo public API hoặc event thật.
