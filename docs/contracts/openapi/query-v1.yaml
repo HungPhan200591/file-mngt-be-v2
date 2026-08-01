@@ -1,0 +1,184 @@
+openapi: 3.1.1
+info:
+  title: Query Service API
+  version: v1
+servers:
+  - url: http://localhost:18103
+    description: Local V2 Query Service
+paths:
+  /api/v2/query/subjects:
+    get:
+      operationId: listQuerySubjects
+      summary: Search the subject projection
+      parameters:
+        - name: region
+          in: query
+          schema:
+            $ref: '#/components/schemas/Region'
+        - name: subjectType
+          in: query
+          schema:
+            $ref: '#/components/schemas/SubjectType'
+        - name: search
+          in: query
+          description: Case-insensitive contains search on identity key and display title.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [CREATED_AT, TITLE]
+            default: CREATED_AT
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Projection page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuerySubjectPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/v2/query/subjects/{subjectId}:
+    get:
+      operationId: getQuerySubject
+      summary: Get one subject projection
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Projection detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuerySubjectDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  responses:
+    BadRequest:
+      description: Invalid filter or pagination input
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    NotFound:
+      description: Projection not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+  schemas:
+    Region:
+      type: string
+      enum: [JOKE, USE]
+    SubjectType:
+      type: string
+      enum: [VIDEO, ALBUM]
+    MediaAssetRole:
+      type: string
+      enum: [PRIMARY_VIDEO, VIDEO, IMAGE, GIF]
+    QueryAsset:
+      type: object
+      required: [id, role, relativePath]
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/MediaAssetRole'
+        relativePath:
+          type: string
+    QuerySubjectDetail:
+      type: object
+      required:
+        - id
+        - projectionVersion
+        - subjectType
+        - region
+        - identityKey
+        - createdAt
+        - projectedAt
+        - assets
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectionVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        subjectType:
+          $ref: '#/components/schemas/SubjectType'
+        region:
+          $ref: '#/components/schemas/Region'
+        identityKey:
+          type: string
+        displayTitle:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+        projectedAt:
+          type: string
+          format: date-time
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryAsset'
+    QuerySubjectPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuerySubjectDetail'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri

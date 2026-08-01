@@ -1,5 +1,6 @@
 @baseUrl = {{scanBaseUrl}}
 @catalogBaseUrl = {{catalogBaseUrl}}
+@queryBaseUrl = {{queryBaseUrl}}
 
 @scanCompleted = false
 @scanFailed = false
@@ -11,6 +12,8 @@
 @catalogPollAttempts = 0
 @catalogOutboxPublished = false
 @catalogOutboxPollAttempts = 0
+@queryProjectionFound = false
+@queryPollAttempts = 0
 
 ###
 # @name StartScanPreview
@@ -155,6 +158,36 @@ GET {{catalogBaseUrl}}/api/v2/catalog/operations/outbox?size=100
     && item.eventType === 'media.subject.changed.v1');
   test('publishes one Catalog subject changed event', () =>
     response.statusCode === 200 && event?.publishedAt !== null);
+}}
+
+###
+# @name WaitForQueryProjection
+# @loop while queryPollAttempts < 40
+GET {{queryBaseUrl}}/api/v2/query/subjects/{{catalogSubjectId}}
+
+{{response
+  const subject = JSON.parse(response.body);
+  exports.queryProjectionFound = response.statusCode === 200
+    && subject.id === catalogSubjectId
+    && subject.projectionVersion === 0
+    && subject.assets?.some(item => item.relativePath === scanRelativePath);
+  exports.queryPollAttempts = queryProjectionFound ? 40 : Number(queryPollAttempts) + 1;
+  if (!queryProjectionFound) {
+    await sleep(250);
+  }
+}}
+
+###
+# @name AssertQueryProjection
+GET {{queryBaseUrl}}/api/v2/query/subjects/{{catalogSubjectId}}
+
+{{response
+  const subject = JSON.parse(response.body);
+  test('projects Catalog subject for Query', () =>
+    response.statusCode === 200
+    && subject.projectionVersion === 0
+    && subject.identityKey === scanIdentityKey
+    && subject.assets?.some(item => item.relativePath === scanRelativePath));
 }}
 
 ###

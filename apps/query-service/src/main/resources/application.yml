@@ -3,6 +3,30 @@ spring:
     name: query-service
   profiles:
     default: local
+  datasource:
+    url: ${QUERY_DATASOURCE_URL:jdbc:postgresql://localhost:18110/query_db}
+    username: ${QUERY_DATASOURCE_USERNAME:query_user}
+    password: ${QUERY_DATASOURCE_PASSWORD:change-me-query}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:18111}
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+query:
+  kafka:
+    consumer:
+      enabled: ${QUERY_KAFKA_CONSUMER_ENABLED:true}
 
 server:
   port: ${QUERY_SERVER_PORT:18103}
@@ -11,7 +35,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       probes:
