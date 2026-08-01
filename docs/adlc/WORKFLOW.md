@@ -22,6 +22,12 @@ docs/features/<feature-id>/
 
 Dùng template tương ứng trong `docs/templates/`. Feature chỉ nằm một folder; không copy cùng rule vào context service.
 
+## Context để triển khai
+
+Mặc định khi code một feature: `AGENTS.md`, `docs/STATUS.md`, architecture summary, đúng một service context và `03-plan.md` của feature. `03-plan.md` là **execution capsule**: ghi owner, scope/files, bất biến phải giữ và tài liệu chỉ đọc khi cần. Chỉ mở Brief, Design, ADR hoặc contract khi capsule chỉ đến; không nạp cả folder feature theo thói quen.
+
+Trước handoff, Agent audit source of truth. Chỉ cập nhật architecture, contract, ownership hoặc rule khi chúng thực sự đổi; nếu không, nêu rõ không cần cập nhật tài liệu. `STATUS.md` là snapshot hiện tại, không phải changelog.
+
 ## Trạng thái tối giản
 
 - Chỉ `03-plan.md` có `Status`.

@@ -16,6 +16,7 @@ description: Duy trì hệ thống context, rule, template và skill của Backe
 3. Link thay vì copy rule. Khi di chuyển owner, xóa tham chiếu cũ trong cùng task.
 4. Chỉ tạo skill khi có workflow lặp lại, rủi ro cao hoặc cần trigger riêng; body skill giữ dưới 120 dòng.
 5. Giữ `AGENTS.md` dưới 80 dòng, `docs/STATUS.md` dưới 80 dòng và mỗi service context dưới 120 dòng. Nếu chi tiết hiếm dùng tăng lên, đặt thành reference một cấp từ owner/skill.
-6. Kiểm tra link, tên skill router, line cap và whitespace trước khi bàn giao.
+6. Plan `READY` phải có `Execution capsule` đủ owner, scope/files, must preserve và read on demand. `STATUS.md` là snapshot thay thế, không append lịch sử.
+7. Kiểm tra link, tên skill router, line cap và whitespace trước khi bàn giao.
 
 Không tạo changelog, wiki tổng hợp, snapshot code hoặc tài liệu chỉ lặp lại source code.

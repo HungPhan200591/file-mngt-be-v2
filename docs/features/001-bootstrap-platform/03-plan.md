@@ -3,6 +3,13 @@
 Status: READY
 Design: [02-design.md](./02-design.md)
 
+## Execution capsule
+
+- Owner: Platform và boundary dùng chung của năm service.
+- Scope/files: root Maven, `apps/*` bootstrap, `platform/*`, `infra/compose`, `.gitignore` và README local.
+- Must preserve: Không đụng V1; PostgreSQL tách database/user theo service; chưa tạo business table, topic hoặc cross-service call.
+- Read on demand: [Design](./02-design.md), `docs/adr/ADR-001-v2-service-and-data-ownership.md`, `infra/compose/README.md`.
+
 ## Bước triển khai
 
 1. Tạo Maven Wrapper, root parent/aggregator POM và module `apps/*`, `platform/*` theo Design.

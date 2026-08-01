@@ -5,9 +5,10 @@ Backend V2 phục vụ hai mục tiêu: chuẩn hóa media data và học micros
 ## Bắt đầu cho AI Agent
 
 1. Đọc [AGENTS.md](./AGENTS.md).
-2. Đọc [tóm tắt kiến trúc](./docs/architecture/01-SUMMARY.md).
-3. Chọn đúng context service trong `apps/*/CONTEXT.md`.
-4. Với feature mới, tạo docs theo [ADLC workflow](./docs/adlc/WORKFLOW.md) trước khi code.
+2. Dùng [guide vận hành AI Agent](./docs/AI_AGENT_GUIDE.md) để gọi đúng workflow mà không phải nhắc lại toàn bộ rule.
+3. Đọc [tóm tắt kiến trúc](./docs/architecture/01-SUMMARY.md).
+4. Chọn đúng context service trong `apps/*/CONTEXT.md`.
+5. Với feature mới, tạo docs theo [ADLC workflow](./docs/adlc/WORKFLOW.md) trước khi code.
 
 ## Cấu trúc
 
