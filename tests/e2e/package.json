@@ -6,6 +6,6 @@
   },
   "scripts": {
     "catalog:local": "httpyac send \"catalog/*.http\" --all --env local --bail",
-    "scan:local": "httpyac send \"scan/*.http\" --all --env local --bail"
+    "scan:local": "httpyac send scan/001-preview.e2e.http --all --env local --bail"
   }
 }

@@ -1,0 +1,60 @@
+@baseUrl = {{scanBaseUrl}}
+
+@scanCompleted = false
+@scanFailed = false
+@scanPollAttempts = 0
+
+###
+# @name StartScanPreview
+POST {{baseUrl}}/api/v2/scans/previews
+Content-Type: application/json
+
+{ "rootKey": "{{scanFixtureRootKey}}" }
+
+{{response
+  const run = JSON.parse(response.body);
+  exports.scanRunId = run.id;
+  test('accepts scan', () => response.statusCode === 202);
+}}
+
+###
+# @name WaitForScanCompletion
+# @loop while scanCompleted !== true && scanFailed !== true && scanPollAttempts < 50
+GET {{baseUrl}}/api/v2/scans/{{scanRunId}}
+
+{{response
+  const run = JSON.parse(response.body);
+  exports.scanCompleted = run.status === 'COMPLETED';
+  exports.scanFailed = run.status === 'FAILED';
+  exports.scanPollAttempts = Number(scanPollAttempts) + 1;
+  if (!scanCompleted && !scanFailed) {
+    await sleep(100);
+  }
+}}
+
+###
+# @name AssertScanCompleted
+GET {{baseUrl}}/api/v2/scans/{{scanRunId}}
+
+{{response
+  const run = JSON.parse(response.body);
+  test('completes scan', () => run.status === 'COMPLETED');
+}}
+
+###
+# @name ListScanProposals
+GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/proposals
+
+{{response
+  const page = JSON.parse(response.body);
+  test('lists one proposal', () => response.statusCode === 200 && page.totalElements === 1);
+}}
+
+###
+# @name ListScanIssues
+GET {{baseUrl}}/api/v2/scans/{{scanRunId}}/issues
+
+{{response
+  const page = JSON.parse(response.body);
+  test('lists one issue', () => response.statusCode === 200 && page.totalElements === 1);
+}}

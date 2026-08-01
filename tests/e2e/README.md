@@ -36,7 +36,9 @@ Trong IntelliJ, chọn environment `local` ở HTTP Client trước khi chạy r
 
 ## Chạy Scan E2E
 
-Copy `apps/scan-service/src/main/resources/application-local.example.yml` thành `application-local.yml` và sửa path nếu workspace của bạn khác. Spring Boot tự nạp file này khi chạy `ScanApplication`; không cần EnvFile hoặc environment variable trong IntelliJ. Sau đó tại `tests/e2e/` chạy `npm run scan:local`. Với IntelliJ, chạy `StartScanPreview` trước rồi chạy riêng các request còn lại; đợi run thành `COMPLETED` trước khi review proposals/issues.
+Copy `apps/scan-service/src/main/resources/application-local.example.yml` thành `application-local.yml` và sửa path nếu workspace của bạn khác. Spring Boot tự nạp file này khi chạy `ScanApplication`; không cần EnvFile hoặc environment variable trong IntelliJ. Sau đó tại `tests/e2e/` chạy `npm run scan:local`; scenario CLI tự poll đến `COMPLETED` trước khi kiểm tra proposals/issues.
+
+Với IntelliJ, dùng `scan/001-preview.http`: chạy `StartScanPreview`, chạy lại `GetScanRun` đến khi status là `COMPLETED`, rồi chạy hai request danh sách. File `001-preview.e2e.http` dành riêng cho httpYac vì dùng polling directive của CLI.
 
 ## Quy ước viết kịch bản
 
