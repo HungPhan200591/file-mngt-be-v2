@@ -4,6 +4,7 @@ Thư mục này là nguồn chuẩn cho contract liên service.
 
 ```text
 events/<event-type>.md    Event Kafka: producer, consumer, schema, version, retry
+http/<contract>.md        Contract HTTP cross-cutting qua Gateway
 openapi/<service>.yaml    REST contract public của service
 ```
 

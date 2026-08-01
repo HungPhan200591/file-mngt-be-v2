@@ -1,10 +1,10 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-01
+Updated: 2026-08-02
 
 ## Hiện tại
 
-- Phase: Giai đoạn 5 — Query + Redis đã hoàn tất qua Feature `007`, `008` và `009`; sẵn sàng sang Gateway ở Giai đoạn 6.
+- Phase: Giai đoạn 6 — Feature `010-gateway-routing-correlation-id` có Plan `READY`, chưa triển khai code.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app tối thiểu, event envelope và Docker Compose PostgreSQL/Kafka/Redis đã có.
 - Kiến trúc: đã chốt monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1: `002-catalog-vertical-slice` đã hoàn tất. Catalog sở hữu migration `media_subject`/`media_asset` và API create/detail/list theo OpenAPI v1.
@@ -18,8 +18,8 @@ Updated: 2026-08-01
 
 ## Việc kế tiếp
 
-1. Tạo Feature `010-gateway-routing-correlation-id` cho Giai đoạn 6, bắt đầu bằng route public `/api/v2/catalog`, `/scan`, `/query` và correlation ID xuyên HTTP.
-2. Sau khi chạy runtime Query mới, đo cache hit rate và detail latency trước khi quyết định cache thêm list/search.
+1. Khi người dùng duyệt triển khai, implement trọn Feature `010-gateway-routing-correlation-id` theo Plan `READY`.
+2. Sau FT010, tạo feature frontend cutover nhỏ cho Media Library; Kafka correlation/observability để feature riêng.
 
 ## Bất biến cần nhớ
 
