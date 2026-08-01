@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,11 +33,14 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String correlationId = canonicalCorrelationId(request);
         MDC.put(MDC_KEY, correlationId);
-        response.setHeader(HEADER, correlationId);
+        var canonicalResponse = new CanonicalCorrelationResponse(response, correlationId);
+        canonicalResponse.setHeader(HEADER, correlationId);
         try {
-            filterChain.doFilter(new CanonicalCorrelationRequest(request, correlationId), response);
+            filterChain.doFilter(new CanonicalCorrelationRequest(request, correlationId), canonicalResponse);
         } finally {
-            response.setHeader(HEADER, correlationId);
+            if (!canonicalResponse.isCommitted()) {
+                canonicalResponse.setHeader(HEADER, correlationId);
+            }
             MDC.remove(MDC_KEY);
         }
     }
@@ -76,6 +80,34 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
                     .forEach(names::add);
             names.add(HEADER);
             return Collections.enumeration(new ArrayList<>(names));
+        }
+
+        private boolean isCorrelationHeader(String name) {
+            return HEADER.equalsIgnoreCase(name);
+        }
+    }
+
+    private static final class CanonicalCorrelationResponse extends HttpServletResponseWrapper {
+
+        private final String correlationId;
+
+        private CanonicalCorrelationResponse(HttpServletResponse response, String correlationId) {
+            super(response);
+            this.correlationId = correlationId;
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            super.setHeader(name, isCorrelationHeader(name) ? correlationId : value);
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            if (isCorrelationHeader(name)) {
+                super.setHeader(HEADER, correlationId);
+                return;
+            }
+            super.addHeader(name, value);
         }
 
         private boolean isCorrelationHeader(String name) {

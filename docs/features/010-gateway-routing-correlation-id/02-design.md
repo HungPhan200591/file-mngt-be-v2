@@ -64,7 +64,7 @@ Contract ingress: [gateway-routing-v1.md](../../contracts/http/gateway-routing-v
 
 - Correlation filter set MDC trước routing, thêm response header và cleanup trong `finally`, kể cả route 404 hoặc downstream lỗi.
 - Downstream trả 4xx/5xx thì Gateway chuyển nguyên status/body, không biến lỗi thành response thành công.
-- Connect failure trả `502`; response timeout trả `504`; cả hai vẫn có `X-Correlation-Id`. Timeout cấu hình mặc định connect 1 giây, response 30 giây.
+- Connect failure trả `502`; response timeout trước commit trả `504`; cả hai vẫn có `X-Correlation-Id`. Nếu body đã được forward một phần thì Gateway đóng response thay vì phát status thứ hai không hợp lệ. Timeout cấu hình mặc định connect 1 giây, response 30 giây.
 - Không có distributed transaction hay eventual-consistency mới. Gateway không retry nên một client request tạo tối đa một downstream attempt.
 
 ## Hiệu năng, quan sát và bảo mật tối thiểu

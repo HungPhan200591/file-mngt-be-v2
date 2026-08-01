@@ -25,6 +25,6 @@ Gateway không public `/api/v2/catalog/operations/**`, `/api/v2/query/operations
 ## Compatibility và error
 
 - Gateway giữ nguyên HTTP method, path, query, request body/content type và downstream business status/body.
-- Connect failure trả `502`; response timeout trả `504`. Gateway không retry trong contract v1.
+- Connect failure trả `502`; response timeout trước khi response commit trả `504`. Nếu downstream treo sau khi Gateway đã forward một phần body thì Gateway đóng response vì HTTP không còn cho phép đổi status. Gateway không retry trong contract v1.
 - Contract này additive; direct service URLs và business OpenAPI v1 vẫn hợp lệ trong giai đoạn chuyển tiếp.
 - Correlation ID Kafka header, trace/span và authentication không thuộc contract v1 này.

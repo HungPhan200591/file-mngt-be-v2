@@ -14,6 +14,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -75,6 +77,16 @@ class GatewayRoutingIntegrationTest {
 
     @Test
     @Order(2)
+    void replacesDownstreamCorrelationHeaderWithCanonicalValue() throws Exception {
+        var response = exchange(
+                "GET", "/api/v2/catalog/subjects?response-correlation=true", "", List.of("canonical-response-id"));
+
+        assertThat(response.statusCode()).isEqualTo(201);
+        assertThat(response.headers().allValues(CorrelationIdFilter.HEADER)).containsExactly("canonical-response-id");
+    }
+
+    @Test
+    @Order(3)
     void generatesOneCorrelationIdForMissingInvalidAndDuplicateHeaders() throws Exception {
         var missing = exchange("GET", "/api/v2/catalog/subjects", "", List.of());
         String missingResponseId =
@@ -96,7 +108,7 @@ class GatewayRoutingIntegrationTest {
     }
 
     @Test
-    @Order(3)
+    @Order(4)
     void rejectsUnroutedOperationAtGatewayWithCorrelationHeader() throws Exception {
         int catalogRequestsBefore = CATALOG.requestCount.get();
 
@@ -108,7 +120,7 @@ class GatewayRoutingIntegrationTest {
     }
 
     @Test
-    @Order(4)
+    @Order(5)
     void mapsResponseTimeoutToGatewayTimeoutWithoutRetry() throws Exception {
         int catalogRequestsBefore = CATALOG.requestCount.get();
 
@@ -120,7 +132,19 @@ class GatewayRoutingIntegrationTest {
     }
 
     @Test
-    @Order(5)
+    @Order(6)
+    void mapsBodyReadTimeoutBeforeCommitToGatewayTimeout() throws Exception {
+        int catalogRequestsBefore = CATALOG.requestCount.get();
+
+        var response = exchange("GET", "/api/v2/catalog/subjects?body-timeout=true", "", List.of());
+
+        assertThat(response.statusCode()).isEqualTo(504);
+        assertThat(response.headers().firstValue(CorrelationIdFilter.HEADER)).isPresent();
+        assertThat(CATALOG.requestCount.get()).isEqualTo(catalogRequestsBefore + 1);
+    }
+
+    @Test
+    @Order(7)
     void mapsConnectFailureToBadGatewayWithoutRetry() throws Exception {
         SCAN.stop();
         int scanRequestsBefore = SCAN.requestCount.get();
@@ -147,19 +171,23 @@ class GatewayRoutingIntegrationTest {
 
         private final String name;
         private final HttpServer server;
+        private final ExecutorService executor;
         private final AtomicInteger requestCount = new AtomicInteger();
         private RequestSnapshot lastRequest = new RequestSnapshot("", "", "", List.of());
 
-        private DownstreamStub(String name, HttpServer server) {
+        private DownstreamStub(String name, HttpServer server, ExecutorService executor) {
             this.name = name;
             this.server = server;
+            this.executor = executor;
         }
 
         static DownstreamStub start(String name) {
             try {
                 var server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
-                var stub = new DownstreamStub(name, server);
+                var executor = Executors.newVirtualThreadPerTaskExecutor();
+                var stub = new DownstreamStub(name, server, executor);
                 server.createContext("/", stub::respond);
+                server.setExecutor(executor);
                 server.start();
                 return stub;
             } catch (IOException exception) {
@@ -173,6 +201,7 @@ class GatewayRoutingIntegrationTest {
 
         void stop() {
             server.stop(0);
+            executor.close();
         }
 
         private void respond(HttpExchange exchange) throws IOException {
@@ -182,19 +211,33 @@ class GatewayRoutingIntegrationTest {
                     exchange.getRequestURI().toString(),
                     new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8),
                     exchange.getRequestHeaders().getOrDefault(CorrelationIdFilter.HEADER, List.of()));
-            if (exchange.getRequestURI().getQuery() != null
-                    && exchange.getRequestURI().getQuery().contains("timeout=true")) {
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                }
+            if (hasQueryFlag(exchange, "timeout=true")) {
+                delayResponse();
+            }
+            if (hasQueryFlag(exchange, "response-correlation=true")) {
+                exchange.getResponseHeaders().set(CorrelationIdFilter.HEADER, "downstream-response-id");
             }
             byte[] response = (name + "-response").getBytes(StandardCharsets.UTF_8);
             int status = name.equals("catalog") ? 201 : name.equals("scan") ? 202 : 404;
             exchange.sendResponseHeaders(status, response.length);
+            if (hasQueryFlag(exchange, "body-timeout=true")) {
+                delayResponse();
+            }
             exchange.getResponseBody().write(response);
             exchange.close();
+        }
+
+        private void delayResponse() {
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        private boolean hasQueryFlag(HttpExchange exchange, String expectedFlag) {
+            String query = exchange.getRequestURI().getQuery();
+            return query != null && List.of(query.split("&")).contains(expectedFlag);
         }
     }
 
