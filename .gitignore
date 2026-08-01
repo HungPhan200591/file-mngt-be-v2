@@ -1,0 +1,46 @@
+# Java and Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+.mvn/timing.properties
+
+# Gradle artifacts (only if a future lab uses Gradle)
+.gradle/
+build/
+
+# IDE and editor files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.yaml
+docker-compose.override.yml
+
+# Runtime data, generated media and reports
+logs/
+tmp/
+coverage/
+test-output/
+infra/compose/data/
+infra/compose/volumes/
+infra/observability/data/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
