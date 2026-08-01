@@ -32,10 +32,16 @@
         <java.version>25</java.version>
         <spotless.version>3.9.0</spotless.version>
         <testcontainers.version>2.0.5</testcontainers.version>
+        <spring-cloud-gateway.version>5.0.2</spring-cloud-gateway.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-starter-gateway-server-webmvc</artifactId>
+                <version>${spring-cloud-gateway.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>

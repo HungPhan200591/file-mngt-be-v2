@@ -33,9 +33,9 @@ flowchart TB
 
 ## Quyết định
 
-- Dùng Spring Cloud Gateway Server Web MVC 5.0.3 với starter `spring-cloud-starter-gateway-server-webmvc`. Gateway 5.0 được xây trên Spring Framework 7 và Spring Boot 4; chọn MVC để phù hợp stack Servlet hiện tại, không đưa Reactor/WebFlux vào chỉ để routing.
+- Dùng Spring Cloud Gateway Server Web MVC 5.0.2 với starter `spring-cloud-starter-gateway-server-webmvc`. Gateway 5.0 được xây trên Spring Framework 7 và Spring Boot 4; chọn MVC để phù hợp stack Servlet hiện tại, không đưa Reactor/WebFlux vào chỉ để routing.
 - Pin version tại Maven root; `gateway-service` thay `spring-boot-starter-web` bằng Gateway MVC starter và giữ Actuator.
-- Route tĩnh bằng cấu hình `spring.cloud.gateway.mvc.routes`; downstream URI lấy từ environment, không hard-code trong Java và không thêm service registry ở local.
+- Route tĩnh bằng cấu hình `spring.cloud.gateway.server.webmvc.routes`; downstream URI lấy từ environment, không hard-code trong Java và không thêm service registry ở local.
 - Giữ nguyên path khi proxy, không `StripPrefix`/`RewritePath`. Direct service URL vẫn hoạt động trong giai đoạn chuyển tiếp.
 - Không route operations endpoint. Việc không có route là deny-by-default và trả `404` tại Gateway.
 - Không retry tự động vì cùng route có cả GET lẫn mutation; retry có điều kiện cho idempotent request sẽ là feature riêng nếu có số liệu cần thiết.
@@ -69,7 +69,7 @@ Contract ingress: [gateway-routing-v1.md](../../contracts/http/gateway-routing-v
 
 ## Hiệu năng, quan sát và bảo mật tối thiểu
 
-- Dùng `http.server.requests` của Actuator cho Gateway; log route ID, method, path, downstream status và `correlationId`, không log request body hay dữ liệu nhạy cảm.
+- Dùng `http.server.requests` của Actuator cho Gateway; `correlationId` nằm trong MDC request scope để feature logging/trace sau dùng lại, không log request body hay dữ liệu nhạy cảm ở FT010.
 - Giới hạn format/độ dài correlation ID để tránh log injection và header abuse; outbound header luôn replace, không append.
 - Gateway readiness chỉ phản ánh Gateway; không aggregate health downstream để một service lỗi không làm mất route còn lại.
 - Chưa mở CORS rộng, auth hay public internet. V2 local vẫn chạy song song V1.

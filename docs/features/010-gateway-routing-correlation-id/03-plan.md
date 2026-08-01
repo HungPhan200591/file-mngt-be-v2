@@ -1,6 +1,11 @@
 # 010 Gateway routing và correlation ID — Plan
 
-Status: READY
+Status: DONE
+
+## Evidence
+
+- `mvnw -pl apps/gateway-service -am test` pass với JDK 25: 5 integration tests cho routing, canonical correlation ID, deny operation, 504 timeout, 502 connect failure và không retry.
+- Runtime E2E đã thêm `gateway/001-routing-correlation.http` và `npm run gateway:local`; chạy sau khi khởi động Gateway, Catalog và Query.
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule

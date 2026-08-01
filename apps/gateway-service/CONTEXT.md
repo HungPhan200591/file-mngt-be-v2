@@ -2,13 +2,13 @@
 
 ## Scope
 
-Route API V2 cho frontend, propagation correlation ID, timeout và cross-cutting tối thiểu.
+Route API V2 cho frontend, propagation HTTP correlation ID, timeout và cross-cutting tối thiểu.
 
 ## Owns
 
 - Route configuration.
 - API composition chỉ khi không thể để frontend gọi các query endpoint riêng.
-- Correlation ID HTTP/Kafka header.
+- Correlation ID HTTP: canonical `X-Correlation-Id`, MDC request scope và cleanup.
 
 ## Does not own
 
@@ -17,10 +17,11 @@ Route API V2 cho frontend, propagation correlation ID, timeout và cross-cutting
 
 ## Dependencies
 
-- Downstream REST contract trong `docs/contracts/openapi/`.
+- Downstream REST contract trong `docs/contracts/openapi/` và ingress contract trong `docs/contracts/http/gateway-routing-v1.md`.
 - Gateway không truy cập PostgreSQL/Redis business data.
 
 ## Invariants
 
 - Không che lỗi downstream bằng response thành công giả.
-- Timeout/retry phải explicit và chỉ áp dụng cho request idempotent.
+- Chỉ route path được liệt kê trong ingress contract; operation/downstream Actuator không đi qua Gateway.
+- Timeout phải explicit; Gateway v1 không retry request.

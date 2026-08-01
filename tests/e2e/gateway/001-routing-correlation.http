@@ -1,0 +1,38 @@
+@baseUrl = {{gatewayBaseUrl}}
+@acceptedCorrelationId = E2E-gateway-accepted
+
+###
+# @name RoutesCatalogSubjects
+GET {{baseUrl}}/api/v2/catalog/subjects?size=1
+X-Correlation-Id: {{acceptedCorrelationId}}
+
+> {%
+  var correlationId = response.headers.valueOf("X-Correlation-Id");
+  client.test("routes Catalog and preserves correlation ID", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(correlationId === "E2E-gateway-accepted", "Expected preserved X-Correlation-Id");
+  });
+%}
+
+###
+# @name RoutesQuerySubjects
+GET {{baseUrl}}/api/v2/query/subjects?size=1
+
+> {%
+  var correlationId = response.headers.valueOf("X-Correlation-Id");
+  client.test("routes Query and generates correlation ID", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(/^[A-Za-z0-9._-]{1,64}$/.test(correlationId), "Expected generated X-Correlation-Id");
+  });
+%}
+
+###
+# @name RejectsUnroutedCatalogOperation
+GET {{baseUrl}}/api/v2/catalog/operations/outbox
+
+> {%
+  client.test("rejects unrouted operation at Gateway", function() {
+    client.assert(response.status === 404, "Expected 404, got " + response.status);
+    client.assert(Boolean(response.headers.valueOf("X-Correlation-Id")), "Expected X-Correlation-Id");
+  });
+%}

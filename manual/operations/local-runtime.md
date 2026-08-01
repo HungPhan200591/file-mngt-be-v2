@@ -159,3 +159,15 @@ Get-NetTCPConnection -State Listen | Sort-Object LocalPort
 ```
 
 Nếu cần đổi/mở rộng dải port V2, cập nhật ADR-004 trước.
+
+## Gateway routing và correlation ID
+
+Gateway nghe tại `http://localhost:18100` và route Catalog subjects, Scan API, Query subjects theo [gateway HTTP contract](../../docs/contracts/http/gateway-routing-v1.md). Gateway không public operation endpoint hay downstream Actuator; dùng direct service port cho công việc operation/admin.
+
+Sau khi Gateway, Catalog và Query đã chạy, tại `tests/e2e` chạy:
+
+```powershell
+npm run gateway:local
+```
+
+Gateway giữ nguyên `X-Correlation-Id` hợp lệ, hoặc tạo UUID khi header thiếu/trùng/sai format. Có thể override downstream URL và timeout qua `CATALOG_SERVICE_URL`, `SCAN_SERVICE_URL`, `QUERY_SERVICE_URL`, `GATEWAY_HTTP_CLIENT_CONNECT_TIMEOUT`, `GATEWAY_HTTP_CLIENT_READ_TIMEOUT`; mặc định là 1 giây connect và 30 giây read.

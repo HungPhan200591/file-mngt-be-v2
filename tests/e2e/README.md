@@ -1,5 +1,15 @@
 # E2E HTTP harness
 
+## Gateway routing và correlation ID
+
+Sau khi khởi động `GatewayApplication`, `CatalogApplication` và `QueryApplication` trong IntelliJ, chạy:
+
+```powershell
+npm run gateway:local
+```
+
+Hoặc mở `gateway/001-routing-correlation.http`, chọn environment `local` và chạy từ trên xuống. Scenario xác minh Gateway `18100` route đúng Catalog/Query, preserve hoặc generate `X-Correlation-Id` và không public Catalog operation endpoint. Direct service URL vẫn dùng cho scenario owner tương ứng.
+
 ## Mục đích
 
 - OpenAPI trong `docs/contracts/openapi/` là contract source of truth.
