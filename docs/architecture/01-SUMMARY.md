@@ -46,6 +46,8 @@ Kafka làm event bus và work queue. Redis chỉ là cache/read optimization. Po
 
 ## Pattern và Java 25
 
+Quy ước triển khai Java nằm tại [03-CODING_RULES.md](./03-CODING_RULES.md); đọc khi viết hoặc review code, không cần nạp cho task tài liệu thuần túy.
+
 - Hexagonal Architecture và DDD ở mức vừa đủ.
 - Strategy + Registry cho parser JOKE/USE.
 - Factory, Repository, Specification, Adapter.
