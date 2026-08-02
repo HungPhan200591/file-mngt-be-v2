@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mermaid Styling"
+  short_description: "Create width-safe, readable Mermaid diagrams"
+  default_prompt: "Use $mermaid-styling to create a width-safe Mermaid diagram with readable layout and high-contrast styling."

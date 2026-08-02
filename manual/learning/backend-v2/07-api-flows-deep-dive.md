@@ -1,356 +1,272 @@
-# Deep-Dive Các Luồng API Trong Hệ Thống Backend V2
+# Deep-dive các luồng API theo hành trình người dùng
 
-Tài liệu này tổng hợp chi tiết chuyên sâu (Deep-Dive) toàn bộ các **Luồng API V2** hiện có trong hệ thống `file_mngt_microservice`.
+Tài liệu này giải thích các API đã có của Backend V2 theo một hành trình nghiệp vụ hoàn chỉnh. Các màn hình Admin và Gallery được nhắc đến là **hành vi FE mục tiêu**; chúng không khẳng định FE V2 đã hoàn thiện.
 
----
+## Hành trình tổng quát
 
-## 1. Tổng quan Ma trận Luồng API (API Flow Matrix)
+| Bước | Hành vi FE mục tiêu | API/luồng hiện có | Owner | Dữ liệu chính |
+| --- | --- | --- | --- | --- |
+| 1 | Admin quét root đã cấu hình | Scan preview | `scan-service` | `scan_db` |
+| 2 | Admin duyệt proposal | Scan → Kafka → Catalog → Query | `scan-service`, `catalog-service`, `query-service` | Outbox, Kafka, `catalog_db`, `query_db` |
+| 3 | Admin tạo subject thủ công | Catalog subject lifecycle | `catalog-service` | `catalog_db` |
+| 4 | User tìm kiếm, mở chi tiết | Query search và detail cache | `query-service` | Elasticsearch, Redis, `query_db` |
+| 5 | User xem/phát media | Range media delivery | `media-worker` | Catalog + filesystem |
+| 6 | FE gọi API | Gateway routing và correlation ID | `gateway-service` | HTTP header, log |
 
-| STT | Tên luồng API | Primary Services | OpenAPI Contract | Event / Outbox | Data Store & Fixtures |
-|:---:|---|---|---|---|---|
-| **1** | **API Gateway Routing & Correlation ID** | [`gateway-service`](../../../apps/gateway-service/CONTEXT.md) | [gateway-routing-v1.md](../../../docs/contracts/http/gateway-routing-v1.md) | `X-Correlation-Id` Header | N/A |
-| **2** | **Catalog Subject Lifecycle** | [`catalog-service`](../../../apps/catalog-service/CONTEXT.md) | [catalog-v1.yaml](../../../docs/contracts/openapi/catalog-v1.yaml) | `media.subject.changed.v1` (Outbox) | PostgreSQL (`catalog_db`) |
-| **3** | **Filesystem Scan & Proposal Approval** | [`scan-service`](../../../apps/scan-service/CONTEXT.md), [`catalog-service`](../../../apps/catalog-service/CONTEXT.md) | [scan-v1.yaml](../../../docs/contracts/openapi/scan-v1.yaml) | `media.scan.approved.v1` (Outbox Kafka) | PostgreSQL (`scan_db`, `catalog_db`) |
-| **4** | **Query Search & Redis Detail Cache** | [`query-service`](../../../apps/query-service/CONTEXT.md) | [query-v1.yaml](../../../docs/contracts/openapi/query-v1.yaml) | Ingest `media.subject.changed.v1` | PostgreSQL (`query_db`), Redis, Elasticsearch |
-| **5** | **Media Content Serving (Streaming)** | [`gateway-service`](../../../apps/gateway-service/CONTEXT.md), [`media-worker`](../../../apps/media-worker/CONTEXT.md) | [media-delivery-v1.yaml](../../../docs/contracts/openapi/media-delivery-v1.yaml) | N/A | Filesystem (Media Roots) |
-
----
-
-## 2. Chi tiết từng Luồng API (Deep-Dive API Flow)
+Các browser-facing business request đi qua Gateway `http://localhost:18100`. Direct service URLs vẫn hợp lệ cho vận hành, test và giai đoạn chuyển tiếp theo [gateway contract](../../../docs/contracts/http/gateway-routing-v1.md).
 
 ---
 
-### 🌊 Luồng 1: API Gateway Routing & Correlation ID Propagation
+## 1. Scan preview
 
-#### 1.1 Ý nghĩa Nghiệp vụ (Business Intent)
-- [`gateway-service`](../../../apps/gateway-service/CONTEXT.md) làm Cổng vào tập trung duy nhất (`http://localhost:18100`) cho Frontend và Client.
-- Chịu trách nhiệm theo [gateway-routing-v1.md](../../../docs/contracts/http/gateway-routing-v1.md):
-  - Routing URL prefix `/api/v2/...` tới đúng Microservice phía sau.
-  - Chuẩn hóa và lan truyền mã vết **Correlation ID** (`X-Correlation-Id`) xuyên suốt các HTTP call và Log traces.
-  - Chặn không cho Client công khai truy cập các endpoint nội bộ (Actuator, Operations API).
+### Hành vi
 
-#### 1.2 Sơ đồ Luồng (Sequence Diagram)
+Admin chọn một **root đã được cấu hình** bằng `rootKey`, bắt đầu scan read-only, polling `ScanRun`, rồi xem proposals và issues. API không nhận absolute path hay `targetPath` từ FE.
+
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Client as "Frontend / Client"
-    participant GW as "API Gateway (18100)"
-    participant CAT as "Catalog Service (18101)"
-    participant QRY as "Query Service (18103)"
+flowchart TB
+    A["Admin<br/>chọn rootKey"] --> B["Gateway<br/>POST /scans/previews"]
+    B --> C["Scan service<br/>tạo ScanRun RUNNING"]
+    C --> D[("scan_db<br/>run, proposal, issue")]
+    C --> E["202 Accepted<br/>ScanRun"]
+    A --> F["Polling và xem<br/>proposals/issues"]
+    F --> B
 
-    Note over Client, GW: Client gửi request tới Gateway URL (Port 18100)
-    Client->>GW: GET /api/v2/catalog/subjects<br/>(Optional: X-Correlation-Id)
-    
-    Note over GW: 1. Validate routing path<br/>2. Preserve hoặc sinh mới UUID X-Correlation-Id
-    
-    GW->>CAT: GET /api/v2/catalog/subjects<br/>Header: X-Correlation-Id = [uuid]
-    CAT-->>GW: 200 OK + JSON Body
-    GW-->>Client: 200 OK + Header X-Correlation-Id = [uuid]
-
-    Client->>GW: GET /api/v2/catalog/operations/outbox
-    Note over GW: Operation endpoint bị chặn tại Gateway
-    GW-->>Client: 404 Not Found (Bảo vệ nội bộ)
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style F fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-#### 1.3 Thông số API Call
-- **OpenAPI Contract**: [catalog-v1.yaml](../../../docs/contracts/openapi/catalog-v1.yaml) & [query-v1.yaml](../../../docs/contracts/openapi/query-v1.yaml)
-- **Endpoint công khai qua Gateway**:
-  - `GET http://localhost:18100/api/v2/catalog/subjects`
-  - `GET http://localhost:18100/api/v2/query/subjects`
-  - `POST http://localhost:18100/api/v2/scans/previews`
-- **Headers**:
-  - `X-Correlation-Id`: String UUID (Tùy chọn, nếu không gửi Gateway tự tạo).
+**Contract:** [scan-v1.yaml](../../../docs/contracts/openapi/scan-v1.yaml)
 
-#### 1.4 Thực thi Test E2E & Kết quả mong muốn
-- **File HTTP Client Test**: [tests/e2e/gateway/001-routing-correlation.http](../../../tests/e2e/gateway/001-routing-correlation.http)
-- **Lệnh NPM CLI**:
-  ```powershell
-  cd tests/e2e
-  npm run gateway:local
-  ```
-- **Kết quả mong muốn (Expected Output)**:
-  - Status code: `200 OK`.
-  - Header Response chứa `X-Correlation-Id` đúng với giá trị client gửi lên (hoặc UUID mới).
-  - Request tới `/api/v2/catalog/operations/...` bị trả về `404 Not Found`.
+- Start: `POST /api/v2/scans/previews`, body `{"rootKey":"fixture-joke-video"}`.
+- Polling: `GET /api/v2/scans/{scanId}`.
+- Proposals: `GET /api/v2/scans/{scanId}/proposals`.
+- Issues: `GET /api/v2/scans/{scanId}/issues`.
+- `ScanRun.status`: `RUNNING`, `COMPLETED` hoặc `FAILED`.
+
+**E2E:** [001-preview.e2e.http](../../../tests/e2e/scan/001-preview.e2e.http), chạy `npm run scan:local` trong `tests/e2e`.
 
 ---
 
-### 📦 Luồng 2: Catalog Subject Canonical Lifecycle (Create & Detail)
+## 2. Duyệt proposal và ingest bất đồng bộ
 
-#### 2.1 Ý nghĩa Nghiệp vụ (Business Intent)
-- [`catalog-service`](../../../apps/catalog-service/CONTEXT.md) là **Canonical Write Model** — nguồn dữ liệu chuẩn duy nhất quản lý `media_subject` (Video / Album) và `media_asset` (Video file, Image, GIF).
-- Đảm bảo tính toàn vẹn dữ liệu: Identity Key (Mã định danh nghiệp vụ) không được trùng lặp. Mỗi khi Subject tạo mới hoặc thay đổi, lưu event vào **Transactional Outbox** để sẵn sàng bắn Kafka event `media.subject.changed.v1`.
+### Hành vi
 
-#### 2.2 Sơ đồ Luồng (Sequence Diagram)
+Admin duyệt hoặc từ chối một proposal. Quyết định `APPROVE` được lưu cùng Scan outbox; Catalog nhận event, idempotent upsert canonical subject/asset; sau đó Catalog phát event cho Query dựng read model.
+
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Admin as "Admin / Service Client"
-    participant GW as "API Gateway (18100)"
-    participant CAT as "Catalog Service (18101)"
-    participant PG as "PostgreSQL (catalog_db)"
+flowchart TB
+    A["Admin duyệt proposal"] --> B["Gateway<br/>POST decision"]
+    B --> C["Scan service<br/>lưu decision + outbox"]
+    C --> D[("scan_db")]
+    C --> E["200 OK"]
+    E --> A
 
-    Admin->>GW: POST /api/v2/catalog/subjects<br/>Body: { identityKey, title, subjectType, region }
-    GW->>CAT: Forward Request (Port 18101)
-    
-    Note over CAT: 1. Validate schema & check trùng identityKey<br/>2. Ghi DB catalog_db (subject + outbox record)
-    
-    alt Identity Key chưa tồn tại
-        CAT->>PG: INSERT INTO media_subject ...<br/>INSERT INTO catalog_outbox ...
-        PG-->>CAT: Transaction Committed
-        CAT-->>GW: 201 Created<br/>Location: /api/v2/catalog/subjects/{subjectId}
-        GW-->>Admin: 201 Created + Subject Detail JSON
-    else Identity Key đã tồn tại
-        CAT->>PG: SELECT check identity_key
-        PG-->>CAT: Duplicate found
-        CAT-->>GW: 409 Conflict (Identity already exists)
-        GW-->>Admin: 409 Conflict
-    end
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-#### 2.3 Thông số API Call
-- **OpenAPI Contract**: [catalog-v1.yaml](../../../docs/contracts/openapi/catalog-v1.yaml)
-- **Tạo mới Subject**:
-  - `POST http://localhost:18100/api/v2/catalog/subjects`
-  - Body mẫu:
-    ```json
-    {
-      "identityKey": "E2E-JOKE-001",
-      "title": "E2E Test Subject Video",
-      "subjectType": "VIDEO",
-      "region": "JAV"
-    }
-    ```
-- **Lấy Chi tiết Subject**:
-  - `GET http://localhost:18100/api/v2/catalog/subjects/{subjectId}`
-
-#### 2.4 Thực thi Test E2E & Kết quả mong muốn
-- **File HTTP Client Test**: [tests/e2e/catalog/001-subject-lifecycle.http](../../../tests/e2e/catalog/001-subject-lifecycle.http)
-- **Lệnh NPM CLI**:
-  ```powershell
-  cd tests/e2e
-  npm run catalog:local
-  ```
-- **Kết quả mong muốn (Expected Output)**:
-  - Request Create lần 1: Status `201 Created`, Header `Location` chứa URI của Subject.
-  - Request Create lần 2 trùng `identityKey`: Status `409 Conflict`.
-  - Request Get Detail: Status `200 OK`, trả về chi tiết JSON object của subject.
-
----
-
-### 🔬 Luồng 3: Filesystem Scan & Idempotent Proposal Approval (Scan → Outbox → Kafka → Catalog)
-
-#### 3.1 Ý nghĩa Nghiệp vụ (Business Intent)
-- Khởi động lượt scan folder đọc file vật lý (Read-only) trên ổ đĩa từ [`scan-service`](../../../apps/scan-service/CONTEXT.md).
-- Parse tên file theo quy tắc (JOKE / USE) tạo danh sách **Proposals**.
-- Admin xem danh sách proposals và thực hiện **Approve Proposal**.
-- **Tính Idempotent & Event-Driven**: Khi Approve, `scan-service` ghi event vào Outbox (`scan_outbox`), Outbox Publisher đẩy Kafka event `media.scan.approved.v1`. [`catalog-service`](../../../apps/catalog-service/CONTEXT.md) nghe Kafka event và tự động Ingest thông tin vào `catalog_db`. Duyệt nhiều lần 1 proposal không làm nhân bản dữ liệu.
-
-#### 3.2 Sơ đồ Luồng (Sequence Diagram)
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Admin as "Admin / User"
-    participant SCAN as "Scan Service (18102)"
-    participant SCAN_DB as "Postgres (scan_db)"
-    participant KAFKA as "Kafka Event Bus"
-    participant CAT as "Catalog Service (18101)"
-    participant CAT_DB as "Postgres (catalog_db)"
+flowchart TB
+    A["Scan outbox"] -->|"media.file.discovered.v1"| B["Kafka"]
+    B --> C["Catalog service<br/>idempotent upsert"]
+    C --> D[("catalog_db")]
+    C --> E["Catalog outbox"]
+    E -->|"media.subject.changed.v1"| F["Query service<br/>projection"]
+    F --> G[("query_db")]
 
-    Admin->>SCAN: POST /api/v2/scans/previews (Start Scan)
-    SCAN-->>Admin: 202 Accepted (ScanRun ID)
-    
-    loop Poll Scan Status
-        Admin->>SCAN: GET /api/v2/scans/{scanId}
-        SCAN-->>Admin: status: "COMPLETED"
-    end
-
-    Admin->>SCAN: GET /api/v2/scans/{scanId}/proposals
-    SCAN-->>Admin: List of proposals JSON
-
-    Admin->>SCAN: POST /api/v2/scans/{scanId}/proposals/{proposalId}/approve
-    SCAN->>SCAN_DB: Update proposal status = APPROVED<br/>INSERT INTO scan_outbox (media.scan.approved.v1)
-    SCAN-->>Admin: 200 OK (Proposal Approved)
-
-    Note over SCAN, KAFKA: Scan Outbox Publisher đọc outbox & phát Kafka Event
-    SCAN->>KAFKA: Publish event: media.scan.approved.v1
-    
-    KAFKA->>CAT: Consume event: media.scan.approved.v1
-    Note over CAT: Ingest Idempotent vào Catalog
-    CAT->>CAT_DB: INSERT INTO media_subject & media_asset<br/>INSERT INTO catalog_outbox (media.subject.changed.v1)
+    style A fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style F fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style G fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-#### 3.3 Thông số API Call
-- **OpenAPI Contract**: [scan-v1.yaml](../../../docs/contracts/openapi/scan-v1.yaml)
-- **Khởi chạy Scan**:
-  - `POST http://localhost:18100/api/v2/scans/previews`
-  - Body: `{"sourceRootKey": "fixture-joke-video", "targetPath": "/"}`
-- **Xem danh sách Proposal**:
-  - `GET http://localhost:18100/api/v2/scans/{scanId}/proposals`
-- **Duyệt Proposal**:
-  - `POST http://localhost:18100/api/v2/scans/{scanId}/proposals/{proposalId}/approve`
+**Contract:**
 
-#### 3.4 Thực thi Test E2E & Kết quả mong muốn
-- **File HTTP Client Test**: [tests/e2e/scan/001-preview.http](../../../tests/e2e/scan/001-preview.http)
-- **Lệnh NPM CLI**:
-  ```powershell
-  cd tests/e2e
-  npm run scan:local
-  ```
-- **Kết quả mong muốn (Expected Output)**:
-  - `StartScan`: Status `202 Accepted`.
-  - Polling `ScanRun`: `status: "COMPLETED"`.
-  - `Approve`: Status `200 OK`. Gọi Approve lần 2 vẫn trả về `200 OK` (idempotent).
-  - Tự động kiểm tra sau max 10s: Subject & Asset mới xuất hiện chính xác trong Catalog.
+- `POST /api/v2/scans/{scanId}/proposals/{proposalId}/decision`
+- Body: `{"decision":"APPROVE"}` hoặc `{"decision":"REJECT"}`.
+- Scan phát [media.file.discovered.v1](../../../docs/contracts/events/media.file.discovered.v1.md).
+- Catalog phát [media.subject.changed.v1](../../../docs/contracts/events/media.subject.changed.v1.md).
+
+Proposal decision idempotent: gửi lại cùng quyết định không tạo subject/asset trùng. Đây là eventual consistency; E2E hiện chờ Kafka convergence tối đa 10 giây, không phải một cam kết UI latency.
+
+**E2E:** [001-preview.e2e.http](../../../tests/e2e/scan/001-preview.e2e.http), chạy `npm run scan:local`.
 
 ---
 
-### ⚡ Luồng 4: Query Search & Redis Detail Cache (CQRS Read Model)
+## 3. Tạo Catalog Subject thủ công
 
-#### 4.1 Ý nghĩa Nghiệp vụ (Business Intent)
-- Áp dụng mô hình **CQRS (Command Query Responsibility Segregation)** tại [`query-service`](../../../apps/query-service/CONTEXT.md):
-  - `catalog-service` đảm nhận Ghi (Write Model).
-  - `query-service` đảm nhận Đọc/Tìm kiếm (Read Model).
-- Lắng nghe Kafka event `media.subject.changed.v1` để đồng bộ data sang `query_db` và **Elasticsearch**.
-- **Full-Text Search & Fallback**: Khi client tìm kiếm từ khóa, `query-service` ưu tiên tra cứu Elasticsearch; nếu Elasticsearch offline, tự động fallback sang PostgreSQL `ILIKE` contains search mà không báo lỗi 500.
-- **Cache-Aside Pattern với Redis**: Lần đầu lấy chi tiết Subject (`GET /api/v2/query/subjects/{id}`), đọc từ DB và lưu vào Redis Cache (`Cache Miss`). Các lần tiếp theo đọc trực tiếp từ Redis (`Cache Hit`).
+### Hành vi
 
-#### 4.2 Sơ đồ Luồng (Sequence Diagram)
+FE Admin mục tiêu có thể tạo VIDEO hoặc ALBUM không qua scan. Subject định danh duy nhất theo bộ `(region, subjectType, identityKey)`, không phải chỉ `identityKey`.
+
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor User as "Frontend / User"
-    participant QRY as "Query Service (18103)"
-    participant REDIS as "Redis Cache (18112)"
-    participant ES as "Elasticsearch (18113)"
-    participant QRY_DB as "Postgres (query_db)"
+flowchart TB
+    A["Admin tạo subject"] --> B["Gateway<br/>POST /catalog/subjects"]
+    B --> C["Catalog service<br/>kiểm tra identity"]
+    C --> D{"Đã tồn tại?"}
+    D -->|"Không"| E[("catalog_db<br/>subject + outbox")]
+    E --> F["201 Created"]
+    D -->|"Có"| G["409 Conflict"]
 
-    Note over User, QRY: 1. LUỒNG FULL-TEXT SEARCH
-    User->>QRY: GET /api/v2/query/subjects?search=JOKE
-    alt Elasticsearch Normal
-        QRY->>ES: Fuzzy query index media-search-v1
-        ES-->>QRY: Search Hits
-    else Elasticsearch Down / Fallback
-        QRY->>QRY_DB: SELECT ... WHERE identity_key ILIKE '%JOKE%'
-        QRY_DB-->>QRY: DB Results
-    end
-    QRY-->>User: 200 OK + QuerySubjectPage JSON
-
-    Note over User, QRY: 2. LUỒNG DETAIL CACHE-ASIDE (REDIS)
-    User->>QRY: GET /api/v2/query/subjects/{subjectId}
-    QRY->>REDIS: GET query:subject-detail:v1:<subjectId>
-    
-    alt Cache Miss (Lần gọi 1)
-        REDIS-->>QRY: Key not found (Miss)
-        QRY->>QRY_DB: SELECT subject projection detail
-        QRY_DB-->>QRY: Detail record
-        QRY->>REDIS: SET query:subject-detail:v1:<subjectId> (TTL 1 hour)
-        QRY-->>User: 200 OK + Subject Detail
-    else Cache Hit (Lần gọi 2 trở đi)
-        REDIS-->>QRY: Subject JSON String (Hit)
-        QRY-->>User: 200 OK + Subject Detail (Phản hồi tức thì)
-    end
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style F fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style G fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-#### 4.3 Thông số API Call
-- **OpenAPI Contract**: [query-v1.yaml](../../../docs/contracts/openapi/query-v1.yaml)
-- **Tìm kiếm Subject (Search Projection)**:
-  - `GET http://localhost:18100/api/v2/query/subjects?search=JOKE-011&order=CREATED_AT&page=0&size=20`
-- **Lấy Chi tiết Subject (Detail Cache)**:
-  - `GET http://localhost:18100/api/v2/query/subjects/{subjectId}`
+**Contract:** [catalog-v1.yaml](../../../docs/contracts/openapi/catalog-v1.yaml)
 
-#### 4.4 Thực thi Test E2E & Kết quả mong muốn
-- **File HTTP Client Test**: [tests/e2e/query/001-detail-cache.http](../../../tests/e2e/query/001-detail-cache.http)
-- **Lệnh NPM CLI Kiểm tra Cache**:
-  ```powershell
-  cd tests/e2e
-  npm run query:cache:local
-  ```
-- **Lệnh NPM CLI Kiểm tra Elasticsearch Search**:
-  ```powershell
-  cd tests/e2e
-  npm run scan:search:local
-  ```
-- **Kết quả mong muốn (Expected Output)**:
-  - Cache Test: Gọi lần 1 `Cache Miss`, gọi lần 2 `Cache Hit`. Actuator metric `query.detail.cache.lookup` ghi nhận đúng `cache hit` tăng +1.
-  - Search Test với `local-search` env: Trả về `searchBackend: "ELASTICSEARCH"`, `degraded: false`.
-
----
-
-### 🎥 Luồng 5: Media Asset Content Delivery (Streaming Content)
-
-#### 5.1 Ý nghĩa Nghiệp vụ (Business Intent)
-- Cung cấp luồng đọc/phát file phương tiện (Video MP4, Ảnh Preview) từ [`media-worker`](../../../apps/media-worker/CONTEXT.md) cho giao diện Web Gallery V2.
-- Yêu cầu bắt buộc:
-  - Luồng truyền dữ liệu đi qua [`gateway-service`](../../../apps/gateway-service/CONTEXT.md) (`18100`) proxy sang `media-worker` (`18104`).
-  - Hỗ trợ HTTP **Range Requests** (Header `Range: bytes=0-1023`) phục vụ tua video/stream từng phần (`206 Partial Content`).
-  - Hỗ trợ HTTP **HEAD Request** để trình duyệt lấy `Content-Length` và `Content-Type` trước khi tải.
-
-#### 5.2 Sơ đồ Luồng (Sequence Diagram)
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Player as "HTML5 Video Player"
-    participant GW as "API Gateway (18100)"
-    participant WRK as "Media Worker (18104)"
-    participant CAT as "Catalog Service (18101)"
-    participant FS as "Local Filesystem"
-
-    Player->>GW: GET /api/v2/media/subjects/{sId}/assets/{aId}/content<br/>Header Range: bytes=0-1023
-    GW->>WRK: Proxy Request to Worker (Port 18104)
-    
-    Note over WRK: 1. Validate Asset & Root Key từ Catalog<br/>2. Locate file path trên filesystem
-    WRK->>CAT: Verify Asset ownership & file status
-    CAT-->>WRK: Asset Validated
-
-    WRK->>FS: Read byte range 0..1023
-    FS-->>WRK: Byte Array Chunk
-    
-    WRK-->>GW: 206 Partial Content<br/>Header Content-Range: bytes 0-1023/10485760
-    GW-->>Player: 206 Partial Content (Stream Video Chunk)
+```json
+{
+  "subjectType": "VIDEO",
+  "region": "JOKE",
+  "identityKey": "E2E-JOKE-001",
+  "displayTitle": "E2E Test Subject Video"
+}
 ```
 
-#### 5.3 Thông số API Call
-- **OpenAPI Contract**: [media-delivery-v1.yaml](../../../docs/contracts/openapi/media-delivery-v1.yaml)
-- **Stream Content (Range GET)**:
-  - `GET http://localhost:18100/api/v2/media/subjects/{subjectId}/assets/{assetId}/content`
-  - Header: `Range: bytes=0-1023`
-- **Kiểm tra Metadata (HEAD)**:
-  - `HEAD http://localhost:18100/api/v2/media/subjects/{subjectId}/assets/{assetId}/content`
+`region` hiện chỉ nhận `JOKE` hoặc `USE`; `displayTitle` là field hiển thị tùy chọn. Xem chi tiết bằng `GET /api/v2/catalog/subjects/{subjectId}`.
 
-#### 5.4 Thực thi Test E2E & Kết quả mong muốn
-- **File HTTP Client Test**: [tests/e2e/media/001-content-delivery.http](../../../tests/e2e/media/001-content-delivery.http)
-- **Lệnh NPM CLI**:
-  ```powershell
-  cd tests/e2e
-  npm run media:local
-  ```
-- **Kết quả mong muốn (Expected Output)**:
-  - Request GET Range: Status `206 Partial Content`, Header `Content-Range: bytes 0-1023/...`, `Accept-Ranges: bytes`.
-  - Request HEAD: Status `200 OK`, `Content-Type: video/mp4`, `Content-Length` chính xác với dung lượng file vật lý.
+**E2E:** [001-subject-lifecycle.http](../../../tests/e2e/catalog/001-subject-lifecycle.http), chạy `npm run catalog:local`.
 
 ---
 
-## 3. Tóm tắt Hướng dẫn Chạy Toàn bộ E2E Verification
+## 4. Tìm kiếm và xem chi tiết
 
-Các file hạ tầng và port liên quan:
-- File Docker Compose: [compose.yaml](../../../infra/compose/compose.yaml)
-- Quy định Port: [ADR-004-local-port-allocation.md](../../../docs/adr/ADR-004-local-port-allocation.md)
-- Swagger UI local: [http://localhost:18118](http://localhost:18118) (Xem [swagger-ui-openapi.md](../../operations/swagger-ui-openapi.md))
+### Hành vi
 
-Để xác minh toàn bộ 5 luồng API trên ở môi trường local, thực hiện theo thứ tự:
+Gallery/Media Library V2 sẽ gọi Query API. Search ưu tiên Elasticsearch alias `media-subject-*`; khi search backend không sẵn sàng, API phản hồi trạng thái degraded và dùng PostgreSQL fallback theo contract hiện tại. Detail dùng Redis cache-aside; TTL mặc định là 10 phút và có thể đổi qua `QUERY_DETAIL_CACHE_TTL`.
 
-1. **Khởi động Container Hạ tầng**:
-   ```powershell
-   docker compose --env-file .env -f infra/compose/compose.yaml up -d
-   ```
-2. **Khởi động 5 Application trong IntelliJ**: `GatewayApplication`, `CatalogApplication`, `ScanApplication`, `QueryApplication`, `MediaWorkerApplication`.
-3. **Chạy các kịch bản E2E Test tại thư mục [tests/e2e](../../../tests/e2e/README.md)**:
-   ```powershell
-   cd tests/e2e
-   npm run gateway:local
-   npm run catalog:local
-   npm run scan:local
-   npm run query:cache:local
-   npm run media:local
-   ```
+```mermaid
+flowchart TB
+    A["User tìm kiếm"] --> B["Gateway<br/>GET /query/subjects"]
+    B --> C["Query service"]
+    C --> D{"Search backend sẵn sàng?"}
+    D -->|"Có"| E[("Elasticsearch<br/>media-subject-*")]
+    D -->|"Không"| F[("query_db<br/>fallback")]
+    E --> G["Danh sách + trạng thái backend"]
+    F --> G
+
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style F fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style G fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+```mermaid
+flowchart TB
+    A["User mở detail"] --> B["Query service"]
+    B --> C[("Redis<br/>detail cache")]
+    C --> D{"Cache hit?"}
+    D -->|"Có"| E["200 detail"]
+    D -->|"Không"| F[("query_db")]
+    F --> G["Ghi cache<br/>TTL mặc định 10 phút"]
+    G --> E
+
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style F fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style G fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+**Contract:** [query-v1.yaml](../../../docs/contracts/openapi/query-v1.yaml)
+
+- Search: `GET /api/v2/query/subjects?search=JOKE-011&order=CREATED_AT&page=0&size=20`.
+- Detail: `GET /api/v2/query/subjects/{subjectId}`.
+- Theo dõi cache bằng Actuator metrics; không cam kết latency cố định như `<5ms` khi chưa benchmark.
+
+**E2E:** [001-detail-cache.http](../../../tests/e2e/query/001-detail-cache.http), chạy `npm run query:cache:local`. Search E2E: `npm run scan:search:local`.
+
+---
+
+## 5. Xem và phát media
+
+### Hành vi
+
+HTML5 player hoặc thẻ ảnh gọi Gateway. Gateway chuyển request tới Media Worker; Worker kiểm tra Catalog, resolve `storageKey` và relative path, rồi stream read-only từ filesystem. Range GET trả `206 Partial Content`; HEAD chỉ trả metadata headers.
+
+```mermaid
+flowchart TB
+    A["Player hoặc ảnh FE"] --> B["Gateway<br/>Range GET / HEAD"]
+    B --> C["Media worker"]
+    C --> D["Catalog<br/>xác thực asset"]
+    C --> E[("Filesystem<br/>đọc media")]
+    E --> F["206 Range hoặc<br/>200 HEAD"]
+    F --> A
+
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style F fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+**Contract:** [media-delivery-v1.yaml](../../../docs/contracts/openapi/media-delivery-v1.yaml)
+
+- `GET /api/v2/media/subjects/{subjectId}/assets/{assetId}/content` với `Range: bytes=0-1023`.
+- `HEAD /api/v2/media/subjects/{subjectId}/assets/{assetId}/content`.
+
+**E2E:** [001-content.http](../../../tests/e2e/media/001-content.http), chạy `npm run media:local`.
+
+---
+
+## 6. Gateway và correlation ID
+
+Gateway là entry point của browser-facing API. Nó định tuyến theo path, giữ nguyên method/path/query/body và canonicalize `X-Correlation-Id` rồi trả header đó về client. Correlation Kafka header, tracing và authentication không thuộc gateway HTTP contract v1.
+
+```mermaid
+flowchart TB
+    A["Frontend"] --> B["Gateway<br/>route + correlation ID"]
+    B --> C["Catalog / Scan / Query<br/>hoặc Media Worker"]
+    C --> D["Response +<br/>X-Correlation-Id"]
+    D --> A
+
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+**E2E:** [001-routing-correlation.http](../../../tests/e2e/gateway/001-routing-correlation.http), chạy `npm run gateway:local`.
+
+---
+
+## Chạy toàn bộ E2E local
+
+Tham khảo [compose.yaml](../../../infra/compose/compose.yaml), [ADR-004 về port](../../../docs/adr/ADR-004-local-port-allocation.md), và [Swagger UI](http://localhost:18118).
+
+```powershell
+# Hạ tầng Docker
+docker compose --env-file .env -f infra/compose/compose.yaml up -d
+
+# Chạy 5 service bằng IntelliJ: Gateway, Catalog, Scan, Query, Media Worker
+cd tests/e2e
+npm run scan:local
+npm run catalog:local
+npm run query:cache:local
+npm run media:local
+npm run gateway:local
+```
+
+Nếu cần kiểm tra Elasticsearch search projection, chạy thêm `npm run scan:search:local`.
