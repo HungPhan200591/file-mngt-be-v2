@@ -9,50 +9,50 @@ Diagram trả lời câu hỏi: Cấu trúc monorepo multi-module Maven và môi
 
 ```mermaid
 flowchart TB
-    ROOT["Maven Monorepo Root<br/>(file_mngt_microservice)"] --> PLATFORM["Platform Modules"]
-    ROOT --> APPS["Application Services"]
-    ROOT --> INFRA["Local Infrastructure"]
+    ROOT["<font color='white'>Maven Monorepo Root<br/>(file_mngt_microservice)</font>"] --> PLATFORM["<font color='white'>Platform Modules</font>"]
+    ROOT --> APPS["<font color='white'>Application Services</font>"]
+    ROOT --> INFRA["<font color='white'>Local Infrastructure</font>"]
 
     subgraph PLATFORM_MOD["Platform Modules"]
         direction TB
-        EC[":platform:event-contracts"]
-        TS[":platform:test-support"]
+        EC["<font color='white'>:platform:event-contracts</font>"]
+        TS["<font color='white'>:platform:test-support</font>"]
     end
 
     subgraph APP_MOD["Applications"]
         direction TB
-        GW[":apps:gateway-service"]
-        CAT[":apps:catalog-service"]
-        SCAN[":apps:scan-service"]
-        QUERY[":apps:query-service"]
-        WORKER[":apps:media-worker"]
+        GW["<font color='white'>:apps:gateway-service</font>"]
+        CAT["<font color='white'>:apps:catalog-service</font>"]
+        SCAN["<font color='white'>:apps:scan-service</font>"]
+        QUERY["<font color='white'>:apps:query-service</font>"]
+        WORKER["<font color='white'>:apps:media-worker</font>"]
     end
 
     subgraph INFRA_CONTAINERS["Docker Compose Local"]
         direction TB
-        PG["PostgreSQL<br/>(catalog_db, scan_db, query_db)"]
-        KAFKA["Apache Kafka<br/>(KRaft Mode)"]
-        REDIS["Redis Cache"]
+        PG["<font color='white'>PostgreSQL<br/>(catalog_db, scan_db, query_db)</font>"]
+        KAFKA["<font color='white'>Apache Kafka<br/>(KRaft Mode)</font>"]
+        REDIS["<font color='white'>Redis Cache</font>"]
     end
 
     PLATFORM --> PLATFORM_MOD
     APPS --> APP_MOD
     INFRA --> INFRA_CONTAINERS
 
-    style ROOT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style PLATFORM fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style APPS fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style INFRA fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style EC fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style TS fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style GW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style REDIS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style ROOT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style PLATFORM fill:#2196F3,stroke:#fff,stroke-width:2px
+    style APPS fill:#2196F3,stroke:#fff,stroke-width:2px
+    style INFRA fill:#FF9800,stroke:#fff,stroke-width:2px
+    style EC fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style TS fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style GW fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
+    style REDIS fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

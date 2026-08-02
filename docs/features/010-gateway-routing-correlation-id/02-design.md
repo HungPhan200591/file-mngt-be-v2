@@ -9,26 +9,26 @@ Diagram trả lời câu hỏi: Gateway chuẩn hóa correlation ID và chuyển
 
 ```mermaid
 flowchart TB
-    CLIENT["Frontend / E2E Client"] --> CORR["Correlation ID Filter<br/>normalize + MDC"]
-    CORR --> ROUTER["Gateway MVC Routes<br/>port 18100"]
-    CORR -->|Request scope| LOGCTX["Gateway Log Context<br/>correlationId"]
+    CLIENT["<font color='white'>Frontend / E2E Client</font>"] --> CORR["<font color='white'>Correlation ID Filter<br/>normalize + MDC</font>"]
+    CORR --> ROUTER["<font color='white'>Gateway MVC Routes<br/>port 18100</font>"]
+    CORR -->|Request scope| LOGCTX["<font color='white'>Gateway Log Context<br/>correlationId</font>"]
 
-    ROUTER --> CAT["Catalog subjects<br/>port 18101"]
-    ROUTER --> SCAN["Scan API<br/>port 18102"]
-    ROUTER --> QUERY["Query subjects<br/>port 18103"]
+    ROUTER --> CAT["<font color='white'>Catalog subjects<br/>port 18101</font>"]
+    ROUTER --> SCAN["<font color='white'>Scan API<br/>port 18102</font>"]
+    ROUTER --> QUERY["<font color='white'>Query subjects<br/>port 18103</font>"]
 
-    CAT --> RESULT["Preserved response<br/>+ correlation header"]
+    CAT --> RESULT["<font color='white'>Preserved response<br/>+ correlation header</font>"]
     SCAN --> RESULT
     QUERY --> RESULT
 
-    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style CORR fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style ROUTER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style LOGCTX fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style RESULT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style CORR fill:#FF9800,stroke:#fff,stroke-width:2px
+    style ROUTER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style LOGCTX fill:#009688,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style RESULT fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

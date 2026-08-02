@@ -9,36 +9,36 @@ Diagram trả lời câu hỏi: Catalog Service thực thi Transactional Outbox 
 
 ```mermaid
 flowchart TB
-    TRIGGER["Mutation Request<br/>(REST API / Kafka Discovered Consumer)"] --> APP["CatalogSubjectMutationService"]
+    TRIGGER["<font color='white'>Mutation Request<br/>(REST API / Kafka Discovered Consumer)</font>"] --> APP["<font color='white'>CatalogSubjectMutationService</font>"]
 
     subgraph CATALOG_DB["catalog_db Boundary"]
-        APP -->|1. Mutate & Bump subject_version| SUBJ[("media_subject & media_asset")]
-        APP -->|2. Save Outbox Event<br/>Same Transaction| OUTBOX[("catalog_outbox_event")]
+        APP -->|1. Mutate & Bump subject_version| SUBJ[("<font color='white'>media_subject & media_asset</font>")]
+        APP -->|2. Save Outbox Event<br/>Same Transaction| OUTBOX[("<font color='white'>catalog_outbox_event</font>")]
     end
 
-    PUB["Catalog Outbox Publisher"] -->|Poll Unpublished| OUTBOX
-    PUB -->|Publish Event| KAFKA["Kafka Event Bus<br/>(media.subject.changed.v1)"]
+    PUB["<font color='white'>Catalog Outbox Publisher</font>"] -->|Poll Unpublished| OUTBOX
+    PUB -->|Publish Event| KAFKA["<font color='white'>Kafka Event Bus<br/>(media.subject.changed.v1)</font>"]
 
-    OPS["Operations Controller<br/>(/api/v2/catalog/operations/*)"] -->|Read Status| OUTBOX
-    OPS -->|Read Failures| DLT_DB[("catalog_dead_letter_event")]
+    OPS["<font color='white'>Operations Controller<br/>(/api/v2/catalog/operations/*)</font>"] -->|Read Status| OUTBOX
+    OPS -->|Read Failures| DLT_DB[("<font color='white'>catalog_dead_letter_event</font>")]
 
-    INBOUND["Kafka Event<br/>(media.file.discovered.v1)"] --> DISCOVERED["Discovered File Consumer"]
-    DISCOVERED -->|Retries exhausted| DLT_TOPIC["Kafka DLT<br/>(media.file.discovered.v1.DLT)"]
-    DLT_TOPIC --> OBSERVER["Dead Letter Observer"]
+    INBOUND["<font color='white'>Kafka Event<br/>(media.file.discovered.v1)</font>"] --> DISCOVERED["<font color='white'>Discovered File Consumer</font>"]
+    DISCOVERED -->|Retries exhausted| DLT_TOPIC["<font color='white'>Kafka DLT<br/>(media.file.discovered.v1.DLT)</font>"]
+    DLT_TOPIC --> OBSERVER["<font color='white'>Dead Letter Observer</font>"]
     OBSERVER -->|Persist failure| DLT_DB
 
-    style TRIGGER fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style APP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SUBJ fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style OPS fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style INBOUND fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style DISCOVERED fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style DLT_TOPIC fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style DLT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OBSERVER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style TRIGGER fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style APP fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SUBJ fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
+    style OPS fill:#2196F3,stroke:#fff,stroke-width:2px
+    style INBOUND fill:#E91E63,stroke:#fff,stroke-width:2px
+    style DISCOVERED fill:#2196F3,stroke:#fff,stroke-width:2px
+    style DLT_TOPIC fill:#E91E63,stroke:#fff,stroke-width:2px
+    style DLT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style OBSERVER fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

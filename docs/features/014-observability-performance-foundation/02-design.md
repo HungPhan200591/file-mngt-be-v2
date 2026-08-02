@@ -7,24 +7,24 @@ Brief: [01-brief.md](./01-brief.md)
 
 ```mermaid
 flowchart TB
-    LOAD["Người dùng<br/>gọi API V2"] --> GATEWAY["Gateway<br/>correlation ID"]
-    GATEWAY --> APPS["Catalog · Scan · Query<br/>Media Worker"]
+    LOAD["<font color='white'>Người dùng<br/>gọi API V2</font>"] --> GATEWAY["<font color='white'>Gateway<br/>correlation ID</font>"]
+    GATEWAY --> APPS["<font color='white'>Catalog · Scan · Query<br/>Media Worker</font>"]
 
-    APPS -->|Actuator scrape| PROM["Prometheus<br/>time-series metrics"]
-    PROM --> GRAFANA["Grafana<br/>service overview"]
+    APPS -->|Actuator scrape| PROM["<font color='white'>Prometheus<br/>time-series metrics</font>"]
+    PROM --> GRAFANA["<font color='white'>Grafana<br/>service overview</font>"]
 
-    APPS -->|ECS JSON file| LOGSTASH["Logstash<br/>parse + ship"]
-    LOGSTASH --> ES["Elasticsearch<br/>logs data stream"]
-    ES --> KIBANA["Kibana<br/>search correlation ID"]
+    APPS -->|ECS JSON file| LOGSTASH["<font color='white'>Logstash<br/>parse + ship</font>"]
+    LOGSTASH --> ES["<font color='white'>Elasticsearch<br/>logs data stream</font>"]
+    ES --> KIBANA["<font color='white'>Kibana<br/>search correlation ID</font>"]
 
-    style LOAD fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style GATEWAY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style APPS fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style PROM fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style GRAFANA fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style LOGSTASH fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style ES fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style KIBANA fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style LOAD fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style GATEWAY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style APPS fill:#2196F3,stroke:#fff,stroke-width:2px
+    style PROM fill:#E91E63,stroke:#fff,stroke-width:2px
+    style GRAFANA fill:#FF9800,stroke:#fff,stroke-width:2px
+    style LOGSTASH fill:#E91E63,stroke:#fff,stroke-width:2px
+    style ES fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style KIBANA fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

@@ -9,28 +9,28 @@ Diagram trả lời câu hỏi: Luồng scan preview filesystem không đồng b
 
 ```mermaid
 flowchart TB
-    CLIENT["API Client"] --> API["Scan REST Controller<br/>(POST /scans/previews)"]
-    API --> SVC["ScanApplicationService"]
-    SVC -->|Async Task<br/>Virtual Threads| SCANNER["Filesystem Scanner Engine"]
+    CLIENT["<font color='white'>API Client</font>"] --> API["<font color='white'>Scan REST Controller<br/>(POST /scans/previews)</font>"]
+    API --> SVC["<font color='white'>ScanApplicationService</font>"]
+    SVC -->|Async Task<br/>Virtual Threads| SCANNER["<font color='white'>Filesystem Scanner Engine</font>"]
 
-    SCANNER -->|Read Metadata| FS[("Local Filesystem<br/>Media Folders")]
-    SCANNER -->|Parse Path/Filename| PARSER["Parser Strategy Registry<br/>(JOKE / USE Profiles)"]
+    SCANNER -->|Read Metadata| FS[("<font color='white'>Local Filesystem<br/>Media Folders</font>")]
+    SCANNER -->|Parse Path/Filename| PARSER["<font color='white'>Parser Strategy Registry<br/>(JOKE / USE Profiles)</font>"]
 
-    PARSER -->|Valid Candidate| PROP["Scan Proposal"]
-    PARSER -->|Error / Ambiguous| ISS["Scan Issue"]
+    PARSER -->|Valid Candidate| PROP["<font color='white'>Scan Proposal</font>"]
+    PARSER -->|Error / Ambiguous| ISS["<font color='white'>Scan Issue</font>"]
 
-    PROP --> DB[("PostgreSQL scan_db<br/>scan_run, scan_proposal, scan_issue")]
+    PROP --> DB[("<font color='white'>PostgreSQL scan_db<br/>scan_run, scan_proposal, scan_issue</font>")]
     ISS --> DB
 
-    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SVC fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SCANNER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style FS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style PARSER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style PROP fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style ISS fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style API fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SVC fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SCANNER fill:#FF9800,stroke:#fff,stroke-width:2px
+    style FS fill:#009688,stroke:#fff,stroke-width:2px
+    style PARSER fill:#FF9800,stroke:#fff,stroke-width:2px
+    style PROP fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style ISS fill:#E91E63,stroke:#fff,stroke-width:2px
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ## Boundary và consistency

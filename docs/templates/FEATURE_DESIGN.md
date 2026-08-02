@@ -9,10 +9,10 @@ Brief: [01-brief.md](./01-brief.md)
 
 ```mermaid
 flowchart TB
-    A["Caller"] --> B["Owner service"]
+    A["<font color='white'>Caller</font>"] --> B["<font color='white'>Owner service</font>"]
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

@@ -7,23 +7,23 @@ Brief: [01-brief.md](./01-brief.md)
 
 ```mermaid
 flowchart TB
-    V1["Gallery Web V1<br/>visual reference only"]
-    UI["Shared UI<br/>tokens + primitives"]
-    V2["Gallery V2<br/>independent core"]
-    API["V2 API boundary<br/>Gateway client"]
-    GW["Gateway V2<br/>port 18100"]
-    READ["Query<br/>read model"]
+    V1["<font color='white'>Gallery Web V1<br/>visual reference only</font>"]
+    UI["<font color='white'>Shared UI<br/>tokens + primitives</font>"]
+    V2["<font color='white'>Gallery V2<br/>independent core</font>"]
+    API["<font color='white'>V2 API boundary<br/>Gateway client</font>"]
+    GW["<font color='white'>Gateway V2<br/>port 18100</font>"]
+    READ["<font color='white'>Query<br/>read model</font>"]
 
     V1 -. parity checks .-> V2
     UI --> V2
     V2 --> API --> GW --> READ
 
-    style V1 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style V2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style GW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style READ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style V1 fill:#FF9800,stroke:#fff,stroke-width:2px
+    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style V2 fill:#FF9800,stroke:#fff,stroke-width:2px
+    style API fill:#2196F3,stroke:#fff,stroke-width:2px
+    style GW fill:#2196F3,stroke:#fff,stroke-width:2px
+    style READ fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

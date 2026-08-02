@@ -8,27 +8,27 @@ Diagram trả lời câu hỏi: Query Service tiêu thụ event snapshot từ Ka
 
 ```mermaid
 flowchart TB
-    KAFKA["Kafka Event Bus<br/>(media.subject.changed.v1)"] --> CONSUMER["MediaSubjectChanged<br/>Consumer"]
+    KAFKA["<font color='white'>Kafka Event Bus<br/>(media.subject.changed.v1)</font>"] --> CONSUMER["<font color='white'>MediaSubjectChanged<br/>Consumer</font>"]
 
     subgraph QUERY_SERVICE["Query Service Boundary (query_db)"]
-        CONSUMER -->|Dedupe event_id| DEDUPE[("query_processed_event")]
-        CONSUMER -->|Compare subjectVersion & Reconcile| PROJ_SVC["QueryProjectionService"]
-        PROJ_SVC -->|Upsert Read Model| READ_DB[("query_media_subject & query_media_asset")]
+        CONSUMER -->|Dedupe event_id| DEDUPE[("<font color='white'>query_processed_event</font>")]
+        CONSUMER -->|Compare subjectVersion & Reconcile| PROJ_SVC["<font color='white'>QueryProjectionService</font>"]
+        PROJ_SVC -->|Upsert Read Model| READ_DB[("<font color='white'>query_media_subject & query_media_asset</font>")]
     end
 
-    CONSUMER -->|Processing Error after Retries| DLT["Kafka DLT Topic<br/>(media.subject.changed.v1.DLT)"]
+    CONSUMER -->|Processing Error after Retries| DLT["<font color='white'>Kafka DLT Topic<br/>(media.subject.changed.v1.DLT)</font>"]
 
-    CLIENT["Gallery Web / Client"] --> REST["Query REST Controller<br/>(GET /api/v2/query/subjects)"]
+    CLIENT["<font color='white'>Gallery Web / Client</font>"] --> REST["<font color='white'>Query REST Controller<br/>(GET /api/v2/query/subjects)</font>"]
     REST -->|Two-step Paged Fetch| READ_DB
 
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style DEDUPE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROJ_SVC fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style READ_DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style DLT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style REST fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style DEDUPE fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PROJ_SVC fill:#FF9800,stroke:#fff,stroke-width:2px
+    style READ_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style DLT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style REST fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

@@ -9,27 +9,27 @@ Diagram trả lời câu hỏi: asset mới đi qua work queue, được xử l�
 
 ```mermaid
 flowchart TB
-    SOURCE["Scan / Catalog API<br/>new asset"] --> CAT["Catalog<br/>canonical mutation"]
-    CAT --> CDB["catalog_db<br/>asset + outbox"]
-    CDB --> REQUEST["Kafka<br/>processing.requested.v1"]
-    REQUEST --> WORKER["Media Worker<br/>metadata processor"]
-    WORKER --> FS["Media filesystem<br/>safe read-only resolve"]
-    WORKER --> COMPLETE["Kafka<br/>processing.completed.v1"]
-    COMPLETE --> APPLY["Catalog<br/>idempotent completion"]
+    SOURCE["<font color='white'>Scan / Catalog API<br/>new asset</font>"] --> CAT["<font color='white'>Catalog<br/>canonical mutation</font>"]
+    CAT --> CDB["<font color='white'>catalog_db<br/>asset + outbox</font>"]
+    CDB --> REQUEST["<font color='white'>Kafka<br/>processing.requested.v1</font>"]
+    REQUEST --> WORKER["<font color='white'>Media Worker<br/>metadata processor</font>"]
+    WORKER --> FS["<font color='white'>Media filesystem<br/>safe read-only resolve</font>"]
+    WORKER --> COMPLETE["<font color='white'>Kafka<br/>processing.completed.v1</font>"]
+    COMPLETE --> APPLY["<font color='white'>Catalog<br/>idempotent completion</font>"]
     APPLY --> CDB
-    APPLY --> SNAPSHOT["Kafka<br/>subject.changed.v1"]
-    SNAPSHOT --> QUERY["Query<br/>projection + API"]
+    APPLY --> SNAPSHOT["<font color='white'>Kafka<br/>subject.changed.v1</font>"]
+    SNAPSHOT --> QUERY["<font color='white'>Query<br/>projection + API</font>"]
 
-    style SOURCE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CDB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style REQUEST fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style FS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style APPLY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SNAPSHOT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style SOURCE fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CDB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style REQUEST fill:#E91E63,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style FS fill:#009688,stroke:#fff,stroke-width:2px
+    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px
+    style APPLY fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SNAPSHOT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

@@ -11,28 +11,28 @@ Diagram trả lời câu hỏi: cutover V2 tách khỏi màn V1 hiện hành và
 
 ```mermaid
 flowchart TB
-    USER["Người dùng"] --> V2UI["Media Library V2<br/>subject-centric"]
-    USER --> V1UI["Gallery Web + Metadata Library<br/>giữ nguyên V1"]
+    USER["<font color='white'>Người dùng</font>"] --> V2UI["<font color='white'>Media Library V2<br/>subject-centric</font>"]
+    USER --> V1UI["<font color='white'>Gallery Web + Metadata Library<br/>giữ nguyên V1</font>"]
 
-    V2UI --> CLIENT["Shared V2 API Client<br/>runtime base URL"]
-    CLIENT --> GATEWAY["Gateway V2<br/>port 18100"]
-    GATEWAY --> QUERY["Query subjects<br/>search + detail"]
-    GATEWAY --> MEDIA["Media Worker HTTP<br/>content + Range"]
+    V2UI --> CLIENT["<font color='white'>Shared V2 API Client<br/>runtime base URL</font>"]
+    CLIENT --> GATEWAY["<font color='white'>Gateway V2<br/>port 18100</font>"]
+    GATEWAY --> QUERY["<font color='white'>Query subjects<br/>search + detail</font>"]
+    GATEWAY --> MEDIA["<font color='white'>Media Worker HTTP<br/>content + Range</font>"]
 
-    MEDIA --> CATALOG["Catalog subject<br/>asset locator"]
-    MEDIA --> ROOTS["Configured media roots<br/>safe file resolve"]
-    V1UI --> V1API["Backend V1<br/>port 8081"]
+    MEDIA --> CATALOG["<font color='white'>Catalog subject<br/>asset locator</font>"]
+    MEDIA --> ROOTS["<font color='white'>Configured media roots<br/>safe file resolve</font>"]
+    V1UI --> V1API["<font color='white'>Backend V1<br/>port 8081</font>"]
 
-    style USER fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style V2UI fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style V1UI fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style GATEWAY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style V1API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style MEDIA fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CATALOG fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style ROOTS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style USER fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style V2UI fill:#FF9800,stroke:#fff,stroke-width:2px
+    style V1UI fill:#FF9800,stroke:#fff,stroke-width:2px
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style GATEWAY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style V1API fill:#2196F3,stroke:#fff,stroke-width:2px
+    style MEDIA fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CATALOG fill:#2196F3,stroke:#fff,stroke-width:2px
+    style ROOTS fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

@@ -9,20 +9,20 @@ Diagram trả lời câu hỏi: Cấu trúc vertical slice Hexagonal/DDD của C
 
 ```mermaid
 flowchart TB
-    CLIENT["API Client / Web UI"] --> OPENAPI["Catalog OpenAPI v1<br/>(/api/v2/catalog/subjects)"]
-    OPENAPI --> CTRL["CatalogSubjectController<br/>(adapter.in.web)"]
-    CTRL --> APP["CatalogSubjectApplicationService<br/>(application)"]
-    APP --> DOMAIN["MediaSubject & MediaAsset Aggregate<br/>(domain)"]
-    APP --> REPO["CatalogSubjectRepository<br/>(adapter.out.persistence)"]
-    REPO --> DB[("PostgreSQL catalog_db<br/>media_subject & media_asset")]
+    CLIENT["<font color='white'>API Client / Web UI</font>"] --> OPENAPI["<font color='white'>Catalog OpenAPI v1<br/>(/api/v2/catalog/subjects)</font>"]
+    OPENAPI --> CTRL["<font color='white'>CatalogSubjectController<br/>(adapter.in.web)</font>"]
+    CTRL --> APP["<font color='white'>CatalogSubjectApplicationService<br/>(application)</font>"]
+    APP --> DOMAIN["<font color='white'>MediaSubject & MediaAsset Aggregate<br/>(domain)</font>"]
+    APP --> REPO["<font color='white'>CatalogSubjectRepository<br/>(adapter.out.persistence)</font>"]
+    REPO --> DB[("<font color='white'>PostgreSQL catalog_db<br/>media_subject & media_asset</font>")]
 
-    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style OPENAPI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style CTRL fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style APP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DOMAIN fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style REPO fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style OPENAPI fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style CTRL fill:#2196F3,stroke:#fff,stroke-width:2px
+    style APP fill:#FF9800,stroke:#fff,stroke-width:2px
+    style DOMAIN fill:#FF9800,stroke:#fff,stroke-width:2px
+    style REPO fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

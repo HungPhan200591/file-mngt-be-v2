@@ -9,27 +9,27 @@ Diagram trả lời câu hỏi: detail request đọc qua cache như thế nào 
 
 ```mermaid
 flowchart TB
-    UI["Gallery / Library<br/>detail request"] --> API["Query detail API"]
-    API --> USECASE["Detail cache-aside<br/>use case"]
-    USECASE -->|GET| REDIS["Redis<br/>detail cache"]
+    UI["<font color='white'>Gallery / Library<br/>detail request</font>"] --> API["<font color='white'>Query detail API</font>"]
+    API --> USECASE["<font color='white'>Detail cache-aside<br/>use case</font>"]
+    USECASE -->|GET| REDIS["<font color='white'>Redis<br/>detail cache</font>"]
     REDIS -->|Hit| USECASE
-    USECASE -->|Miss / error| PG["query_db<br/>subject projection"]
+    USECASE -->|Miss / error| PG["<font color='white'>query_db<br/>subject projection</font>"]
     PG -->|Detail DTO| USECASE
     USECASE -->|SET + TTL| REDIS
 
-    EVENT["Kafka Event<br/>(media.subject.changed.v1)"] --> CONSUMER["MediaSubjectChanged<br/>Consumer"]
-    CONSUMER --> PROJECT["Apply newer<br/>projection"]
+    EVENT["<font color='white'>Kafka Event<br/>(media.subject.changed.v1)</font>"] --> CONSUMER["<font color='white'>MediaSubjectChanged<br/>Consumer</font>"]
+    CONSUMER --> PROJECT["<font color='white'>Apply newer<br/>projection</font>"]
     PROJECT --> PG
     PROJECT -->|After commit evict| REDIS
 
-    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style USECASE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style REDIS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style PROJECT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style API fill:#2196F3,stroke:#fff,stroke-width:2px
+    style USECASE fill:#FF9800,stroke:#fff,stroke-width:2px
+    style REDIS fill:#009688,stroke:#fff,stroke-width:2px
+    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style PROJECT fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

@@ -9,27 +9,27 @@ Diagram trả lời câu hỏi: Harness E2E HTTP được tổ chức và thực
 
 ```mermaid
 flowchart TB
-    DEV["Developer / Agent"] --> IDE["IntelliJ HTTP Client<br/>(.http files)"]
-    DEV --> CLI["httpyac CLI Runner<br/>(npm run e2e)"]
+    DEV["<font color='white'>Developer / Agent</font>"] --> IDE["<font color='white'>IntelliJ HTTP Client<br/>(.http files)</font>"]
+    DEV --> CLI["<font color='white'>httpyac CLI Runner<br/>(npm run e2e)</font>"]
 
     subgraph HARNESS["E2E HTTP Test Harness"]
-        ENV["Environment Config<br/>(http-client.env.json)"]
-        SUITE["HTTP Test Scripts<br/>(tests/e2e/**/*.http)"]
+        ENV["<font color='white'>Environment Config<br/>(http-client.env.json)</font>"]
+        SUITE["<font color='white'>HTTP Test Scripts<br/>(tests/e2e/**/*.http)</font>"]
     end
 
     IDE --> HARNESS
     CLI --> HARNESS
 
-    HARNESS -->|HTTP REST Requests| SERVICES["Catalog / Scan / Query<br/>local service endpoints"]
-    SERVICES -->|Persist test records| DB[("Service-owned PostgreSQL<br/>databases")]
+    HARNESS -->|HTTP REST Requests| SERVICES["<font color='white'>Catalog / Scan / Query<br/>local service endpoints</font>"]
+    SERVICES -->|Persist test records| DB[("<font color='white'>Service-owned PostgreSQL<br/>databases</font>")]
 
-    style DEV fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style IDE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CLI fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style ENV fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style SUITE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style SERVICES fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style DEV fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style IDE fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CLI fill:#2196F3,stroke:#fff,stroke-width:2px
+    style ENV fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style SUITE fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style SERVICES fill:#2196F3,stroke:#fff,stroke-width:2px
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

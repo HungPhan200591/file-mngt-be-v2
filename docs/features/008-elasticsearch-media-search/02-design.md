@@ -10,26 +10,26 @@ Diagram trả lời câu hỏi: Query Service duy trì search projection trên E
 
 ```mermaid
 flowchart TB
-    PROJ["Query Projection Service<br/>(Projection Update)"] -->|1. Save Search Outbox<br/>Same DB Transaction| OUTBOX[("query_search_outbox<br/>(query_db)")]
+    PROJ["<font color='white'>Query Projection Service<br/>(Projection Update)</font>"] -->|1. Save Search Outbox<br/>Same DB Transaction| OUTBOX[("<font color='white'>query_search_outbox<br/>(query_db)</font>")]
 
-    PUB["Search Index Outbox Publisher"] -->|2. Batch Poll Pending| OUTBOX
-    PUB -->|3. Bulk Index| ES[("Elasticsearch Search Index<br/>(media-subject-search alias)")]
+    PUB["<font color='white'>Search Index Outbox Publisher</font>"] -->|2. Batch Poll Pending| OUTBOX
+    PUB -->|3. Bulk Index| ES[("<font color='white'>Elasticsearch Search Index<br/>(media-subject-search alias)</font>")]
 
-    CLIENT["Gallery / Library UI"] --> SEARCH_API["Query Search API<br/>(GET /subjects?search=...)"]
+    CLIENT["<font color='white'>Gallery / Library UI</font>"] --> SEARCH_API["<font color='white'>Query Search API<br/>(GET /subjects?search=...)</font>"]
     SEARCH_API -->|4. Search Hit IDs| ES
-    SEARCH_API -->|5. Hydrate Cards by IDs| PG_PROJ[("query_media_subject & asset<br/>(query_db)")]
+    SEARCH_API -->|5. Hydrate Cards by IDs| PG_PROJ[("<font color='white'>query_media_subject & asset<br/>(query_db)</font>")]
 
-    SEARCH_API -->|Fallback on ES Error| PG_FALLBACK["PostgreSQL Text Fallback"]
+    SEARCH_API -->|Fallback on ES Error| PG_FALLBACK["<font color='white'>PostgreSQL Text Fallback</font>"]
     PG_FALLBACK --> PG_PROJ
 
-    style PROJ fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style ES fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style SEARCH_API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style PG_PROJ fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PG_FALLBACK fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style PROJ fill:#FF9800,stroke:#fff,stroke-width:2px
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px
+    style ES fill:#009688,stroke:#fff,stroke-width:2px
+    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style SEARCH_API fill:#2196F3,stroke:#fff,stroke-width:2px
+    style PG_PROJ fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PG_FALLBACK fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định

@@ -9,34 +9,34 @@ Diagram trả lời câu hỏi: Luồng duyệt proposal với Transactional Out
 
 ```mermaid
 flowchart TB
-    UI["Reviewer UI / Client"] --> API["Scan Decision API<br/>(POST /scans/.../decision)"]
-    API --> SVC["ScanDecisionService"]
+    UI["<font color='white'>Reviewer UI / Client</font>"] --> API["<font color='white'>Scan Decision API<br/>(POST /scans/.../decision)</font>"]
+    API --> SVC["<font color='white'>ScanDecisionService</font>"]
 
     subgraph SCAN_SERVICE["Scan Service Boundary (scan_db)"]
-        SVC -->|Save Decision| DEC[("scan_decision")]
-        SVC -->|Save Outbox Event<br/>Same Transaction| OUTBOX[("scan_outbox_event")]
+        SVC -->|Save Decision| DEC[("<font color='white'>scan_decision</font>")]
+        SVC -->|Save Outbox Event<br/>Same Transaction| OUTBOX[("<font color='white'>scan_outbox_event</font>")]
     end
 
-    PUB["Scan Outbox Publisher"] -->|Poll Unpublished| OUTBOX
-    PUB -->|Publish Event| KAFKA["Kafka Event Bus<br/>(media.file.discovered.v1)"]
+    PUB["<font color='white'>Scan Outbox Publisher</font>"] -->|Poll Unpublished| OUTBOX
+    PUB -->|Publish Event| KAFKA["<font color='white'>Kafka Event Bus<br/>(media.file.discovered.v1)</font>"]
 
     subgraph CATALOG_SERVICE["Catalog Service Boundary (catalog_db)"]
-        CONSUMER["DiscoveredFileConsumer"] -->|Idempotent Check| DEDUPE[("catalog_processed_event")]
-        CONSUMER -->|Upsert Subject/Asset| CAT_DB[("media_subject & media_asset")]
+        CONSUMER["<font color='white'>DiscoveredFileConsumer</font>"] -->|Idempotent Check| DEDUPE[("<font color='white'>catalog_processed_event</font>")]
+        CONSUMER -->|Upsert Subject/Asset| CAT_DB[("<font color='white'>media_subject & media_asset</font>")]
     end
 
     KAFKA --> CONSUMER
 
-    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SVC fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DEC fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style DEDUPE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style API fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SVC fill:#FF9800,stroke:#fff,stroke-width:2px
+    style DEC fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CONSUMER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style DEDUPE fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style CAT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ## Quyết định
