@@ -50,7 +50,3 @@ infra/observability/data/
 .DS_Store
 Thumbs.db
 Desktop.ini
-
-# Generated Docsify files at root
-index.html
-_sidebar.md

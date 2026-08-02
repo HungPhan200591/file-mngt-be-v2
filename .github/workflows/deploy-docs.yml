@@ -31,12 +31,10 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Auto-Generate Sidebar
-        run: node .docsify/generate-sidebar.js
+        run: node generate-sidebar.js
 
       - name: Prepare Docsify Files
-        run: |
-          cp .docsify/index.html ./index.html
-          touch .nojekyll
+        run: touch .nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

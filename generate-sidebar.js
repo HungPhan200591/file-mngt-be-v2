@@ -79,19 +79,7 @@ function generateMarkdown(items, indentLevel = 0) {
 const structure = scanDir(ROOT_DIR);
 const markdown = `* [🏠 Trang chủ](README.md)\n\n` + generateMarkdown(structure);
 
-// Write _sidebar.md to root
 const outputPath = path.join(ROOT_DIR, '_sidebar.md');
 fs.writeFileSync(outputPath, markdown);
 
-// Write _sidebar.md to .docsify
-const localSidebarPath = path.join(ROOT_DIR, '.docsify', '_sidebar.md');
-fs.writeFileSync(localSidebarPath, markdown);
-
-// Also sync index.html to root for local serving
-const indexSource = path.join(ROOT_DIR, '.docsify', 'index.html');
-const indexDest = path.join(ROOT_DIR, 'index.html');
-if (fs.existsSync(indexSource)) {
-  fs.copyFileSync(indexSource, indexDest);
-}
-
-console.log('Sidebar and root index.html prepared successfully!');
+console.log('Sidebar generated successfully at ' + outputPath);
