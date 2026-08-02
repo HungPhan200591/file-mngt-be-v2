@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: gateway-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [host.docker.internal:18100]
+
+  - job_name: catalog-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [host.docker.internal:18101]
+
+  - job_name: scan-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [host.docker.internal:18102]
+
+  - job_name: query-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [host.docker.internal:18103]
+
+  - job_name: media-worker
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [host.docker.internal:18104]

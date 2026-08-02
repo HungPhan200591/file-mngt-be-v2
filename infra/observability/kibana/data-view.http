@@ -1,0 +1,16 @@
+@kibanaBaseUrl = http://localhost:18114
+
+### Create the local logs data view once Kibana and Logstash are ready
+# @name CreateLogsDataView
+POST {{kibanaBaseUrl}}/api/data_views/data_view
+kbn-xsrf: true
+Content-Type: application/json
+
+{
+  "data_view": {
+    "id": "file-mngt-v2-logs",
+    "name": "File Management V2 logs",
+    "title": "logs-file_mngt_v2-*",
+    "timeFieldName": "@timestamp"
+  }
+}

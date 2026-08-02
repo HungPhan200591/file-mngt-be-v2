@@ -19,3 +19,6 @@ Read model tối ưu cho Gallery Web, Media Library, filter, card và search.
 - Elasticsearch là search projection, không phải canonical data. UI chỉ gọi Query API, không gọi Elasticsearch trực tiếp.
 - Redis miss hoặc Redis hỏng vẫn đọc PostgreSQL.
 - Không join chéo schema/service lúc request.
+- Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
+  service port. Custom cache/search metrics phải dùng label cardinality thấp.
+- ECS logs data stream tách biệt Elasticsearch media index; ELK ingest lỗi không được làm Query API lỗi.

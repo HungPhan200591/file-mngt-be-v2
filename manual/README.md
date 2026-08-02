@@ -17,6 +17,7 @@ Thư mục này chứa tài liệu dành cho **chủ dự án đọc**: giải t
 - Muốn hiểu dự án: [Hướng dẫn hiểu Backend V2](./learning/backend-v2/README.md).
 - Muốn biết code/tài liệu nằm ở đâu: [Bản đồ dự án Backend V2](./operations/project-map.md).
 - Muốn chạy hệ thống: [Vận hành Backend V2 ở local](./operations/local-runtime.md).
+- Muốn xem metrics/log: [Quan sát Backend V2 ở local](./operations/observability-local.md).
 - Muốn biết cách giao việc cho AI: [Hướng dẫn vận hành AI Agent](./ai-agent/operating-guide.md).
 
 ## Danh sách toàn bộ manual
@@ -29,11 +30,14 @@ Thư mục này chứa tài liệu dành cho **chủ dự án đọc**: giải t
 - [3. Use case và data flow](./learning/backend-v2/03-use-cases-data-flow.md) — use case hiện tại, FT013 và toàn bộ roadmap dự kiến.
 - [4. Database Map chi tiết](./learning/backend-v2/04-database-map.md) — table, ID, transaction và một file đi xuyên database như thế nào.
 - [5. FT013 primer](./learning/backend-v2/05-ft013-primer.md) — FT013 sẽ code gì và chưa làm gì.
+- [6. Đọc flow bằng Grafana/Kibana](./learning/backend-v2/06-observability-scan-to-query.md) — lần theo một
+  Scan E2E qua Scan, Catalog và Query.
 
 ### Vận hành dự án
 
 - [Bản đồ dự án Backend V2](./operations/project-map.md) — folder/file nào lưu gì và khi nào cập nhật.
 - [Vận hành Backend V2 ở local](./operations/local-runtime.md) — Docker, IntelliJ, service, health check và E2E.
+- [Quan sát Backend V2 ở local](./operations/observability-local.md) — Prometheus, Grafana, ECS log và Kibana.
 - [Docsify và GitHub Pages](./operations/docsify-github-pages.md) — xem local, deploy và xử lý 404.
 
 ### Làm việc với AI Agent

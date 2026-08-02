@@ -18,3 +18,6 @@ Xử lý nền cho technical media metadata, thumbnail, GIF preview và hash fil
 - Job phải idempotent theo file/version và có retry/DLT.
 - Concurrency giới hạn theo I/O thực tế, không tạo virtual thread vô hạn.
 - Không ghi Catalog database trực tiếp; chỉ publish event.
+- Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
+  service port và không dùng storage key/path làm metric label.
+- ECS JSON log không được chứa absolute media path; ELK lỗi không được chặn content delivery.

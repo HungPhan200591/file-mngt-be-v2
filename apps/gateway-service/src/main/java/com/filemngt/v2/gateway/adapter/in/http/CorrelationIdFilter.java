@@ -1,5 +1,6 @@
 package com.filemngt.v2.gateway.adapter.in.http;
 
+import com.filemngt.v2.observability.CorrelationId;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,8 +13,9 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.UUID;
-import java.util.regex.Pattern;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -24,33 +26,50 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
-    public static final String HEADER = "X-Correlation-Id";
-    private static final String MDC_KEY = "correlationId";
-    private static final Pattern VALID_VALUE = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+    public static final String HEADER = CorrelationId.HEADER;
+    private static final Logger LOGGER = LoggerFactory.getLogger(CorrelationIdFilter.class);
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String correlationId = canonicalCorrelationId(request);
-        MDC.put(MDC_KEY, correlationId);
+        long startedAt = System.nanoTime();
+        boolean completed = false;
+        MDC.put(CorrelationId.MDC_KEY, correlationId);
         var canonicalResponse = new CanonicalCorrelationResponse(response, correlationId);
         canonicalResponse.setHeader(HEADER, correlationId);
         try {
             filterChain.doFilter(new CanonicalCorrelationRequest(request, correlationId), canonicalResponse);
+            completed = true;
         } finally {
-            if (!canonicalResponse.isCommitted()) {
-                canonicalResponse.setHeader(HEADER, correlationId);
+            try {
+                if (!canonicalResponse.isCommitted()) {
+                    canonicalResponse.setHeader(HEADER, correlationId);
+                }
+                logRequestCompletion(request, canonicalResponse, startedAt, completed);
+            } finally {
+                MDC.remove(CorrelationId.MDC_KEY);
             }
-            MDC.remove(MDC_KEY);
         }
+    }
+
+    private void logRequestCompletion(
+            HttpServletRequest request, HttpServletResponse response, long startedAt, boolean completed) {
+        if (request.getRequestURI().startsWith("/actuator/")) {
+            return;
+        }
+        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+        LOGGER.info(
+                "HTTP request completed method={} path={} status={} durationMs={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                completed ? response.getStatus() : 500,
+                durationMs);
     }
 
     private String canonicalCorrelationId(HttpServletRequest request) {
         List<String> values = Collections.list(request.getHeaders(HEADER));
-        if (values.size() == 1 && VALID_VALUE.matcher(values.getFirst()).matches()) {
-            return values.getFirst();
-        }
-        return UUID.randomUUID().toString();
+        return CorrelationId.canonicalOrGenerate(values);
     }
 
     private static final class CanonicalCorrelationRequest extends HttpServletRequestWrapper {

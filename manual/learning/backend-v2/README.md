@@ -40,6 +40,8 @@ FT013 hiện mới có tài liệu `READY`, chưa có code. Trạng thái mới 
 3. [Use case và data flow](./03-use-cases-data-flow.md): một file đi qua hệ thống như thế nào.
 4. [Database map](./04-database-map.md): mỗi database có bảng gì và dữ liệu nào là nguồn chuẩn.
 5. [FT013 primer](./05-ft013-primer.md): chính xác feature tiếp theo sẽ bổ sung gì.
+6. [Đọc flow bằng Grafana/Kibana](./06-observability-scan-to-query.md): dùng một Scan E2E thật để kiểm tra
+   Scan → Catalog → Query.
 
 Không cần đọc toàn bộ source code trước. Sau năm chương trên, dùng phần “Đường đọc code” trong FT013 primer để lần theo một flow thật.
 

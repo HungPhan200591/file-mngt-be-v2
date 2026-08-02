@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: File Management V2
+    folder: File Management V2
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

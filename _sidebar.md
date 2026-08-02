@@ -11,10 +11,12 @@
       * [3. Use case và data flow](/manual/learning/backend-v2/03-use-cases-data-flow.md)
       * [4. Database map chi tiết](/manual/learning/backend-v2/04-database-map.md)
       * [5. FT013 primer](/manual/learning/backend-v2/05-ft013-primer.md)
+      * [6. Đọc flow Scan → Catalog → Query bằng Grafana và Kibana](/manual/learning/backend-v2/06-observability-scan-to-query.md)
       * [Hướng dẫn hiểu Backend V2](/manual/learning/backend-v2/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
+    * [Quan sát Backend V2 ở local](/manual/operations/observability-local.md)
     * [Bản đồ dự án Backend V2](/manual/operations/project-map.md)
 * **docs**
   * [Trạng thái Backend V2](/docs/STATUS.md)

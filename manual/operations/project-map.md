@@ -28,6 +28,7 @@ file_mngt_microservice/
 | `apps/media-worker/` | Job nền: metadata kỹ thuật, thumbnail, GIF, hash | Khi thêm một loại xử lý media bất đồng bộ |
 | `apps/query-service/` | Read model cho Gallery Web/Library, filter, search, cache | Khi thêm màn hình đọc, filter, search, projection |
 | `platform/event-contracts/` | Type envelope tối thiểu dùng chung cho event | Chỉ sửa khi shape hạ tầng event dùng chung thật sự đổi |
+| `platform/observability/` | Correlation/MDC và technical convention quan sát dùng chung | Khi ít nhất hai service cần cùng cross-cutting observability behavior |
 | `platform/test-support/` | Test utility dùng lại giữa nhiều service | Chỉ tạo sau khi ít nhất hai service cần cùng helper |
 
 Mỗi service có cấu trúc cùng ý nghĩa:

@@ -18,6 +18,9 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Khi feature có business event, mọi thay đổi publish qua transactional outbox.
 - Consumer Kafka idempotent; không ghi projection Query trực tiếp.
 - Không tự scan filesystem.
+- Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
+  service port và không đưa identity/path vào metric label.
+- ECS JSON log không được chứa secret hoặc absolute media path; ELK lỗi không được chặn Catalog flow.
 
 ## Read when needed
 

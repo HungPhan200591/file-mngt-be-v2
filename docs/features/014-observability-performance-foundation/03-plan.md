@@ -1,6 +1,6 @@
 # 014 Observability và performance foundation — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -39,3 +39,17 @@ Design: [02-design.md](./02-design.md)
 - Khi implementation: `infra/compose/README.md`, `manual/operations/local-runtime.md`, năm owner `CONTEXT.md`, `docs/STATUS.md` và evidence trong Plan.
 - ADR-002/003 giữ quyết định ELK/search đã chốt; ADR-004 đã dành đủ port nên không cần ADR mới hoặc đổi port.
 - Không cập nhật REST/Kafka contract vì FT014 không đổi business boundary.
+
+## Implementation handoff — 2026-08-02
+
+- Đã thêm `platform/observability`, correlation/MDC cleanup test và dùng chung canonical validation với Gateway.
+- Đã thêm Prometheus registry, common `application` tag, HTTP histogram và ECS JSON file logging cho năm app.
+- Đã thêm Compose profile `observability`, Prometheus targets, Grafana datasource/dashboard, Logstash ECS pipeline,
+  Kibana data-view request và named volumes.
+- Đã thêm `tests/e2e/observability/001-foundation.http` cùng script `npm run observability:local`.
+- Static evidence đã pass: Maven POM XML parse, Grafana dashboard JSON parse, `git diff --check`, không có image
+  `latest`, source mới dưới 500 dòng. Người dùng đã chạy `npm run observability:local` và toàn bộ E2E pass.
+- Runtime evidence đã pass: Grafana health/database `ok`, dashboard UID `file-mngt-v2-overview` được provision;
+  Prometheus có năm target; Elasticsearch logs data stream có hai log `E2E-observability-001` từ
+  `gateway-service` và `query-service`; Kibana data view `logs-file_mngt_v2-*` đã được tạo.
+- Không đổi REST, Kafka event, database ownership hoặc migration trong FT014.

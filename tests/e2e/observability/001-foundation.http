@@ -1,0 +1,89 @@
+@correlationId = E2E-observability-001
+
+###
+# @name GatewayPrometheus
+GET {{gatewayBaseUrl}}/actuator/prometheus
+
+> {%
+  client.test("exposes Gateway Prometheus metrics", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(String(response.body).includes("jvm_info"), "Expected JVM metrics");
+  });
+%}
+
+###
+# @name CatalogPrometheus
+GET {{catalogBaseUrl}}/actuator/prometheus
+
+> {%
+  client.test("exposes Catalog Prometheus metrics", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(String(response.body).includes("application=\"catalog-service\""), "Expected application tag");
+  });
+%}
+
+###
+# @name ScanPrometheus
+GET {{scanBaseUrl}}/actuator/prometheus
+
+> {%
+  client.test("exposes Scan Prometheus metrics", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(String(response.body).includes("application=\"scan-service\""), "Expected application tag");
+  });
+%}
+
+###
+# @name QueryPrometheus
+GET {{queryBaseUrl}}/actuator/prometheus
+
+> {%
+  client.test("exposes Query Prometheus metrics", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(String(response.body).includes("application=\"query-service\""), "Expected application tag");
+  });
+%}
+
+###
+# @name MediaWorkerPrometheus
+GET {{mediaWorkerBaseUrl}}/actuator/prometheus
+
+> {%
+  client.test("exposes Media Worker Prometheus metrics", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(String(response.body).includes("application=\"media-worker\""), "Expected application tag");
+  });
+%}
+
+###
+# @name PrometheusTargets
+GET {{prometheusBaseUrl}}/api/v1/targets?state=active
+
+> {%
+  var expectedJobs = ["gateway-service", "catalog-service", "scan-service", "query-service", "media-worker"];
+  var targets = response.body.data && response.body.data.activeTargets || [];
+  var healthyJobs = targets
+    .filter(function(target) { return target.health === "up"; })
+    .map(function(target) { return target.labels.job; });
+  client.test("scrapes all five services", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    expectedJobs.forEach(function(job) {
+      client.assert(healthyJobs.includes(job), "Expected healthy Prometheus target " + job);
+    });
+  });
+%}
+
+###
+# @name CorrelatedGatewayRequest
+GET {{gatewayBaseUrl}}/api/v2/query/subjects?size=1
+X-Correlation-Id: {{correlationId}}
+
+> {%
+  client.test("preserves correlation ID for log lookup", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+    client.assert(
+      response.headers.valueOf("X-Correlation-Id") === "E2E-observability-001",
+      "Expected preserved X-Correlation-Id"
+    );
+  });
+%}

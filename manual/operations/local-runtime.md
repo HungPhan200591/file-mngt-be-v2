@@ -183,3 +183,9 @@ Copy-Item apps/media-worker/src/main/resources/application-local.example.yml app
 `media.roots` là registry `key → path`; `key` phải khớp `sourceRootKey` đã scan. Không thêm raw path vào frontend hay request URL. Máy development có thể dùng `fixture-joke-video` trong template; root thực tế cần trỏ đúng folder đã scan.
 
 Media Worker gọi Catalog với timeout mặc định 1 giây connect, 5 giây read. Khi cần chẩn đoán local, có thể override `CATALOG_SERVICE_URL`, `MEDIA_CATALOG_CONNECT_TIMEOUT` và `MEDIA_CATALOG_READ_TIMEOUT`; không đổi port hay public Worker trên browser. Dùng `npm run media:local` trong `tests/e2e` sau khi Scan fixture để xác minh GET Range/HEAD đi qua Gateway.
+
+## Observability local
+
+Khi cần xem metrics/dashboard hoặc tìm structured log theo correlation ID, dùng
+[Quan sát Backend V2 ở local](./observability-local.md). Stack này là profile Compose opt-in; không cần
+bật để chạy business flow thông thường.

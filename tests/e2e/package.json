@@ -8,6 +8,7 @@
     "catalog:local": "httpyac send \"catalog/*.http\" --all --env local --bail",
     "gateway:local": "httpyac send gateway/001-routing-correlation.http --all --env local --bail",
     "media:local": "httpyac send media/001-content.http --all --env local --bail",
+    "observability:local": "httpyac send observability/001-foundation.http --all --env local --bail",
     "query:cache:local": "httpyac send query/001-detail-cache.http --all --env local --bail",
     "scan:local": "node -e \"console.log('Running Scan-to-Catalog E2E; each Kafka convergence check waits up to 10 seconds.')\" && httpyac send scan/001-preview.e2e.http --all --env local --bail --filter only-failed --output-failed exchange",
     "scan:search:local": "node -e \"console.log('Running Scan-to-Elasticsearch E2E; search convergence waits up to 10 seconds.')\" && httpyac send scan/001-preview.e2e.http --all --env local-search --bail --filter only-failed --output-failed exchange",

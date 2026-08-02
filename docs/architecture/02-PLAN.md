@@ -82,7 +82,7 @@ Log mang `correlationId`, service name, environment, level và exception fields.
 
 ```text
 apps/                 gateway, catalog, scan, query, media-worker
-platform/             event-contracts, test-support
+platform/             event-contracts, observability, test-support
 infra/                compose và observability
 docs/                 architecture, ADLC, contracts, ADR, feature docs
 ```

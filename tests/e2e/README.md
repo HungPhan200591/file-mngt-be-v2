@@ -72,6 +72,18 @@ npm run media:local
 
 Scenario chọn canonical subject/asset qua Gateway, sau đó xác minh `206 Range` và `HEAD` ở media delivery URL. Browser/Media Library V2 chỉ gọi Gateway `18100`; không dùng direct Media Worker `18104` cho E2E này.
 
+## Kiểm tra observability foundation
+
+Sau khi năm app và Compose profile `observability` đã chạy, dùng:
+
+```powershell
+npm run observability:local
+```
+
+File `observability/001-foundation.http` xác minh năm `/actuator/prometheus`, năm Prometheus target `UP`
+và một business request giữ nguyên correlation ID để tìm trong Kibana. Chọn environment `local` khi chạy
+từ IntelliJ.
+
 ## Quy ước viết kịch bản
 
 - Mỗi API owner có thư mục riêng; đánh số theo scenario, ví dụ `catalog/001-subject-lifecycle.http`.

@@ -78,8 +78,8 @@ services:
       retries: 10
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.5
-    profiles: ["search"]
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_STACK_VERSION:-9.2.5}
+    profiles: ["search", "observability"]
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"
@@ -94,8 +94,74 @@ services:
       timeout: 5s
       retries: 20
 
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_STACK_VERSION:-9.2.5}
+    profiles: ["observability"]
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      XPACK_MONITORING_ENABLED: "false"
+      PIPELINE_ECS_COMPATIBILITY: v8
+    ports:
+      - "${LOGSTASH_INPUT_PORT:-18115}:5044"
+    volumes:
+      - ../observability/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ../../logs:/workspace/logs/root:ro
+      - ../../apps/gateway-service/logs:/workspace/logs/gateway:ro
+      - ../../apps/catalog-service/logs:/workspace/logs/catalog:ro
+      - ../../apps/scan-service/logs:/workspace/logs/scan:ro
+      - ../../apps/query-service/logs:/workspace/logs/query:ro
+      - ../../apps/media-worker/logs:/workspace/logs/media-worker:ro
+      - logstash-data:/usr/share/logstash/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_STACK_VERSION:-9.2.5}
+    profiles: ["observability"]
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "${KIBANA_PORT:-18114}:5601"
+
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION:-v3.5.0}
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "${PROMETHEUS_PORT:-18116}:9090"
+    volumes:
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-12.1.0}
+    profiles: ["observability"]
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "${GRAFANA_PORT:-18117}:3000"
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
 volumes:
   postgres-data:
   kafka-data:
   redis-data:
   elasticsearch-data:
+  logstash-data:
+  prometheus-data:
+  grafana-data:

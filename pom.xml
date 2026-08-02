@@ -25,6 +25,7 @@
         <module>apps/query-service</module>
         <module>apps/media-worker</module>
         <module>platform/event-contracts</module>
+        <module>platform/observability</module>
         <module>platform/test-support</module>
     </modules>
 

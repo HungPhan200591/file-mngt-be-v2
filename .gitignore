@@ -38,7 +38,8 @@ tests/e2e/http-client.env.json
 docker-compose.override.yml
 
 # Runtime data, generated media and reports
-logs/
+logs/*
+!logs/.gitkeep
 tmp/
 _site/
 coverage/
