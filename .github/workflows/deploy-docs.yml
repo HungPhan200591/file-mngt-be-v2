@@ -25,13 +25,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
+      - name: Auto-Generate Sidebar
+        run: node .docsify/generate-sidebar.js
 
       - name: Prepare Docsify Files
         run: |
           cp .docsify/index.html ./index.html
-          if [ -f .docsify/_sidebar.md ]; then cp .docsify/_sidebar.md ./_sidebar.md; fi
           touch .nojekyll
 
       - name: Upload artifact
