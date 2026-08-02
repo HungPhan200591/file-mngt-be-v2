@@ -44,7 +44,7 @@ docker compose --env-file .env -f infra/compose/compose.yaml up -d --force-recre
 - **Catalog API**: Quản lý canonical subject, asset (`/api/v2/catalog/...`).
 - **Scan API**: Khởi tạo scan folder, xem preview và approve proposals (`/api/v2/scans/...`).
 - **Query API**: Read model search (Elasticsearch + PostgreSQL fallback + Redis cache) (`/api/v2/query/...`).
-- **Media Delivery API**: Serving static media assets qua Gateway (`/api/v2/media/...`).
+- **Media Delivery API**: contract legacy FT011; static media mới được Nginx phục vụ trực tiếp theo [ADR-005](../../docs/adr/ADR-005-nginx-direct-media-delivery.md).
 
 ### 4.2 Lựa chọn Target Server (Gateway vs Direct Microservice)
 Mỗi OpenAPI spec cung cấp sẵn 2 tùy chọn Server trong mục **Servers**:

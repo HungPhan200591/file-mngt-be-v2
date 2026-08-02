@@ -1,5 +1,7 @@
 # 011 Frontend Gateway cutover
 
+> Historical feature. Phần Media Delivery qua Gateway/Media Worker đã bị thay thế bởi [ADR-005](../../adr/ADR-005-nginx-direct-media-delivery.md). Chỉ dùng tài liệu này để hiểu implementation FT011, không dùng làm source of truth cho delivery mới.
+
 Owner: `file_mngt_FE` (frontend) phối hợp `gateway-service` và `query-service`
 
 ## Vấn đề

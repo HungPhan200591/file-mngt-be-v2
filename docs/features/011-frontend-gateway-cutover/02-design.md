@@ -1,5 +1,7 @@
 # 011 Frontend Gateway cutover — Design
 
+> Historical design. Sơ đồ và quyết định Media Worker HTTP content bên dưới bị thay thế bởi [ADR-005](../../adr/ADR-005-nginx-direct-media-delivery.md).
+
 Owner: `file_mngt_FE` (frontend) phối hợp `gateway-service` và `query-service`
 Brief: [01-brief.md](./01-brief.md)
 

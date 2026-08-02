@@ -10,13 +10,13 @@ Base URL local: `http://localhost:18100`
 | `/api/v2/catalog/subjects`, `/api/v2/catalog/subjects/**` | Catalog | Không đổi |
 | `/api/v2/scans/**` | Scan | Không đổi |
 | `/api/v2/query/subjects`, `/api/v2/query/subjects/**` | Query | Không đổi |
-| `/api/v2/media/subjects/**` | Media Worker | Không đổi; chỉ content API đã định nghĩa |
+| `/api/v2/media/subjects/**` | Media Worker | Legacy FT011; deprecated theo ADR-005, chờ feature migration gỡ code |
 
 Gateway không public `/api/v2/catalog/operations/**`, `/api/v2/query/operations/**` hoặc Actuator của downstream. Các endpoint đó chỉ dùng qua direct local service port cho operation/admin workflow.
 
 ## Local browser CORS
 
-Gateway chỉ cho phép origin `http://localhost:8888` và `http://127.0.0.1:8888` gọi `/api/v2/**` ở local. Response expose `X-Correlation-Id` cùng các header content/range cần cho Media Library V2; không dùng wildcard origin hoặc credentials.
+Gateway chỉ cho phép origin `http://localhost:8888` và `http://127.0.0.1:8888` gọi `/api/v2/**` ở local. Response expose `X-Correlation-Id`; media file được browser tải trực tiếp từ Nginx theo ADR-005, không qua Gateway. Không dùng wildcard origin hoặc credentials.
 
 ## Correlation header
 

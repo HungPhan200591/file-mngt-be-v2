@@ -202,13 +202,13 @@ flowchart TB
 
 Hiện đã có subject list/detail, filter nền, full-text/fuzzy/autocomplete, PostgreSQL fallback và Redis detail cache. Sau khi business metadata đầy đủ, Query dự kiến mở rộng filter/order theo Actress, Studio, Tag, media dimensions, availability và Album relation.
 
-## UC07 — Media Delivery (ĐÃ CÓ)
+## UC07 — Direct media delivery (TARGET theo ADR-005)
 
-1. Browser gọi Gateway bằng `subjectId + assetId`.
-2. Gateway route sang Media Worker.
-3. Worker gọi Catalog API để xác minh Asset và lấy locator hiện tại.
-4. Worker resolve `storageKey + relativePath` trong root registry.
-5. Worker trả GET/HEAD/Range với MIME và header phù hợp.
+1. Browser nhận `mediaUrl` do V2 tạo từ asset locator và root map đáng tin cậy.
+2. Browser gọi trực tiếp Nginx bằng URL tương thích V1 `/files/<drive>:/...`.
+3. Nginx resolve URL bằng `alias` read-only rồi tự phục vụ full response, HEAD hoặc byte range.
+4. Media Worker chỉ dùng `storageKey + relativePath` cho processing nền, không nằm trên đường phát file.
+5. Nginx tự trả MIME/header phù hợp.
 
 `Range` cho phép video player tải từng đoạn. Frontend không nhận raw filesystem path.
 

@@ -172,9 +172,11 @@ npm run gateway:local
 
 Gateway giữ nguyên `X-Correlation-Id` hợp lệ, hoặc tạo UUID khi header thiếu/trùng/sai format. Có thể override downstream URL và timeout qua `CATALOG_SERVICE_URL`, `SCAN_SERVICE_URL`, `QUERY_SERVICE_URL`, `GATEWAY_HTTP_CLIENT_CONNECT_TIMEOUT`, `GATEWAY_HTTP_CLIENT_READ_TIMEOUT`; mặc định là 1 giây connect và 30 giây read.
 
-## Media delivery V2
+## Media delivery V2 (legacy FT011)
 
-Media Worker chạy ở `18104` và chỉ nhận request media từ Gateway. Để Worker đọc file local, copy template rồi đổi path theo máy:
+> Bị thay thế bởi Nginx direct media delivery trong [ADR-005](../../docs/adr/ADR-005-nginx-direct-media-delivery.md). Giữ phần này chỉ để chạy/đọc lại FT011 legacy, không dùng cho feature mới.
+
+Media Worker chạy ở `18104` và từng chỉ nhận request media từ Gateway. Để Worker đọc file local, copy template rồi đổi path theo máy:
 
 ```powershell
 Copy-Item apps/media-worker/src/main/resources/application-local.example.yml apps/media-worker/src/main/resources/application-local.yml

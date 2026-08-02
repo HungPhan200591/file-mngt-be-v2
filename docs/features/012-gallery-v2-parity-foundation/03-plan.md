@@ -7,9 +7,9 @@ Design: [02-design.md](./02-design.md)
 
 - Quyết định ưu tiên: tạm hoãn implementation frontend đến khi Backend V2 đủ data/query/media parity; tài liệu này chỉ giữ thiết kế đã chốt.
 
-- Owner: `file_mngt_FE/gallery-v2`; V2 read boundary qua Gateway, Query và Media Worker.
+- Owner: `file_mngt_FE/gallery-v2`; V2 business read boundary qua Gateway/Query, media delivery trực tiếp qua Nginx theo ADR-005.
 - Scope/files: `gallery-v2/` context/entry/core owner, parity reference, module router; không sửa Gallery V1.
-- Must preserve: V1 runtime/API/settings không đổi; V2 không import V1 logic; chỉ reuse `asset/` và `utils/` Shared UI; browser chỉ gọi Gateway `18100`.
+- Must preserve: V1 runtime/API/settings không đổi; V2 không import V1 logic; chỉ reuse `asset/` và `utils/` Shared UI; browser gọi Gateway `18100` cho business API và Nginx cho media URL.
 - Read on demand: `gallery-v2/CONTEXT_GALLERY_V2.md`, `docs/ui-reference/GALLERY_V2_PARITY.md`, `PROJECT_UI_PATTERN.md`, đúng V2 owner; chỉ mở Gallery V1 owner khi parity mismatch.
 
 ## Bước triển khai

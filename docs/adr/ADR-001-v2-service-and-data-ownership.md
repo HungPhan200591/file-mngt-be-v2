@@ -10,8 +10,8 @@ Backend V2 cần học microservice/event-driven nhưng vẫn dễ chạy local.
 ## Decision
 
 - Giữ năm deployable: Gateway, Catalog, Scan, Query, Media Worker.
-- Catalog sở hữu write model và asset locator chuẩn; Scan sở hữu proposal; Query sở hữu projection; Media Worker sở hữu processing cùng filesystem content delivery; Gateway chỉ cross-cutting/routing.
-- Media Worker có thể nhận GET/HEAD content qua Gateway, nhưng không có database và phải tra `storageKey + relativePath` canonical qua Catalog trước khi resolve trong root registry của mình.
+- Catalog sở hữu write model và asset locator chuẩn; Scan sở hữu proposal; Query sở hữu projection; Media Worker sở hữu processing filesystem nền; Gateway chỉ cross-cutting/routing.
+- Nginx sở hữu direct static delivery theo ADR-005. Media Worker không public GET/HEAD content và không có database.
 - Dùng một PostgreSQL instance local nhưng database/user riêng theo service; không cross-database read/write trong application code.
 - Đồng bộ business state xuyên service bằng Kafka event + transactional outbox; Query chấp nhận eventual consistency.
 - V1 và V2 chạy song song cho đến khi từng luồng V2 được xác minh.

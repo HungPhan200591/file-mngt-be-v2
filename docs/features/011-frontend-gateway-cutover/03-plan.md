@@ -1,5 +1,7 @@
 # 011 Frontend Gateway cutover — Plan
 
+> Historical execution record. Gateway media route, Media Worker content controller và E2E delivery bên dưới là legacy sau [ADR-005](../../adr/ADR-005-nginx-direct-media-delivery.md).
+
 Status: DONE
 Design: [02-design.md](./02-design.md)
 

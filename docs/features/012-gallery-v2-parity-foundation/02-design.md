@@ -12,7 +12,7 @@ flowchart TB
     V2["Gallery V2<br/>independent core"]
     API["V2 API boundary<br/>Gateway client"]
     GW["Gateway V2<br/>port 18100"]
-    READ["Query + Media Worker<br/>read and content"]
+    READ["Query<br/>read model"]
 
     V1 -. parity checks .-> V2
     UI --> V2

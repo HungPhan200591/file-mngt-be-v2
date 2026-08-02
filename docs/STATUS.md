@@ -14,7 +14,7 @@ Updated: 2026-08-02
 - Scan P2/P3 (`004`, `005`) đã DONE: scan preview, approve idempotent, transactional outbox, Kafka publisher, Catalog consumer, retry/DLT, fixture E2E.
 - Catalog P4 `006-catalog-subject-changed-outbox` đã DONE: full snapshot event versioned, outbox, DLT observer, operations API và metrics.
 - Query P1/P2/P3 (`007`–`009`) đã DONE: projection versioned, Elasticsearch search/fallback, Redis detail cache + metrics.
-- Phase 6 foundation (`010`, `011`) đã DONE: Gateway/correlation, Media Delivery qua Gateway và Media Library smoke UI.
+- Phase 6 foundation (`010`, `011`) đã DONE: Gateway/correlation và Media Library smoke UI. Gateway Media Delivery của FT011 còn trong code như legacy proof-of-concept nhưng đã bị thay thế kiến trúc bởi [ADR-005](./adr/ADR-005-nginx-direct-media-delivery.md); không dùng cho feature mới.
 - Gallery V2 (`012`) đã chốt thiết kế nhưng `DRAFT`; không triển khai frontend trước backend parity.
 
 ## Gap trước khi cutover frontend

@@ -1,23 +1,23 @@
 openapi: 3.1.1
 info:
-  title: Media Delivery API
+  title: Legacy Gateway Media Delivery API
   version: v1
-servers:
-  - url: http://localhost:18100
-    description: Local V2 Gateway
+  description: >-
+    Deprecated by ADR-005. Browser media delivery is direct Nginx static delivery;
+    this file remains as the historical FT011 contract until the legacy code is removed.
 paths:
   /api/v2/media/subjects/{subjectId}/assets/{assetId}/content:
     parameters:
       - $ref: '#/components/parameters/SubjectId'
       - $ref: '#/components/parameters/AssetId'
     get:
+      deprecated: true
       operationId: getMediaAssetContent
-      summary: Stream one media asset through the Gateway
+      summary: Legacy stream through Gateway and Media Worker
       parameters:
         - name: Range
           in: header
           schema: { type: string }
-          description: Optional single HTTP byte range.
         - name: If-None-Match
           in: header
           schema: { type: string }
@@ -31,8 +31,9 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '416': { description: Requested byte range is not satisfiable }
     head:
+      deprecated: true
       operationId: headMediaAssetContent
-      summary: Read media headers without a response body
+      summary: Legacy media headers through Gateway and Media Worker
       responses:
         '200': { $ref: '#/components/responses/ContentHeaders' }
         '404': { $ref: '#/components/responses/NotFound' }

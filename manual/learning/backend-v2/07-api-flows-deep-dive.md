@@ -199,35 +199,28 @@ flowchart TB
 
 ---
 
-## 5. Xem và phát media
+## 5. Xem và phát media qua Nginx
 
 ### Hành vi
 
-HTML5 player hoặc thẻ ảnh gọi Gateway. Gateway chuyển request tới Media Worker; Worker kiểm tra Catalog, resolve `storageKey` và relative path, rồi stream read-only từ filesystem. Range GET trả `206 Partial Content`; HEAD chỉ trả metadata headers.
+HTML5 player hoặc thẻ ảnh tải trực tiếp URL Nginx. Nginx map `storageKey` logical sang root read-only và tự phục vụ static file, byte range, cache validation. Media Worker không nằm trên playback hot path; nó chỉ xử lý background job.
 
 ```mermaid
 flowchart TB
-    A["Player hoặc ảnh FE"] --> B["Gateway<br/>Range GET / HEAD"]
-    B --> C["Media worker"]
-    C --> D["Catalog<br/>xác thực asset"]
-    C --> E[("Filesystem<br/>đọc media")]
-    E --> F["206 Range hoặc<br/>200 HEAD"]
-    F --> A
+    A["Player hoặc ảnh FE"] --> B["Nginx<br/>direct media URL"]
+    B --> C[("Read-only root<br/>theo storageKey")]
+    C --> D["200 / 206 Range<br/>hoặc HEAD headers"]
+    D --> A
 
     style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style F fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-**Contract:** [media-delivery-v1.yaml](../../../docs/contracts/openapi/media-delivery-v1.yaml)
+**Delivery contract:** [ADR-005](../../../docs/adr/ADR-005-nginx-direct-media-delivery.md). URL public tương thích V1 có dạng `http://localhost:8888/files/<drive>:/<path-encoded>`; V2 tạo URL từ locator và deployment root map, FE không ghép path thô. Request không qua Gateway hoặc Media Worker.
 
-- `GET /api/v2/media/subjects/{subjectId}/assets/{assetId}/content` với `Range: bytes=0-1023`.
-- `HEAD /api/v2/media/subjects/{subjectId}/assets/{assetId}/content`.
-
-**E2E:** [001-content.http](../../../tests/e2e/media/001-content.http), chạy `npm run media:local`.
+E2E Nginx direct delivery sẽ thay `media:local` của FT011 trong feature migration riêng.
 
 ---
 

@@ -22,13 +22,13 @@ Spring Boot 4.0.3 được chọn vì tài liệu chính thức xác nhận hỗ
 
 ## Kiến trúc mục tiêu
 
-- `gateway-service`: cổng API cho frontend, routing và correlation ID.
+- `gateway-service`: cổng business API cho frontend, routing và correlation ID.
 - `catalog-service`: nguồn dữ liệu chuẩn cho subject, asset, actress, studio và tag.
 - `scan-service`: scan filesystem, parse filename và tạo proposal review.
-- `media-worker`: xử lý thumbnail, GIF, metadata kỹ thuật, hash file và phát read-only media content qua Gateway.
+- `media-worker`: xử lý nền cho thumbnail, GIF, metadata kỹ thuật và hash file.
 - `query-service`: read model tối ưu cho Gallery Web, Media Library và filter.
 
-Kafka làm event bus và work queue. Redis chỉ là cache/read optimization. PostgreSQL là source of truth; mỗi service sở hữu database/user riêng trong cùng một PostgreSQL instance để local đơn giản.
+Kafka làm event bus và work queue. Redis chỉ là cache/read optimization. PostgreSQL là source of truth; mỗi service sở hữu database/user riêng trong cùng một PostgreSQL instance để local đơn giản. Nginx là media delivery plane read-only: browser tải IMAGE/GIF/VIDEO trực tiếp từ root map logical theo [ADR-005](../adr/ADR-005-nginx-direct-media-delivery.md), không qua Gateway hoặc Media Worker.
 
 ## Mô hình nghiệp vụ lõi
 

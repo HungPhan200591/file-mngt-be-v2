@@ -5,10 +5,10 @@
 ```mermaid
 flowchart TB
     UI["Frontend V2"] --> GW["Gateway<br/>routing + correlation"]
+    UI --> NGINX["Nginx<br/>direct media delivery"]
     GW --> SCAN["Scan<br/>discover + review"]
     GW --> CAT["Catalog<br/>canonical write model"]
     GW --> QUERY["Query<br/>read/search model"]
-    GW --> WORKER["Media Worker<br/>content + processing"]
     SCAN --> KAFKA["Kafka<br/>events + work queue"]
     CAT --> KAFKA
     KAFKA --> CAT
@@ -21,6 +21,7 @@ flowchart TB
     style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style NGINX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
@@ -32,7 +33,8 @@ flowchart TB
 | Scan | Đọc filesystem, parse, proposal/issue, decision | Ghi trực tiếp Catalog hoặc sửa file |
 | Catalog | Subject/Asset canonical, business write, outbox | Scan filesystem hoặc ghi Query DB |
 | Query | Projection, list/filter/search/detail/cache | Ghi ngược Catalog |
-| Media Worker | Đọc/phát file và processing nền | Nhận raw path từ frontend hoặc ghi Catalog DB |
+| Media Worker | Processing nền: metadata, thumbnail, GIF, hash | Phát file cho browser, nhận raw path từ frontend hoặc ghi Catalog DB |
+| Nginx | Phát static IMAGE/GIF/VIDEO từ root read-only | Business logic, Catalog/Query write |
 
 Ownership nghĩa là service khác phải gọi API hoặc nhận event, không được đọc trộm database.
 
@@ -109,7 +111,7 @@ Redis hoặc Elasticsearch tắt không được làm mất canonical data. Quer
 
 ## Root registry và bảo vệ filesystem
 
-Frontend chỉ biết `subjectId` và `assetId`. Catalog lưu locator logic; Media Worker ánh xạ `storageKey` sang absolute root trong cấu hình local.
+Catalog lưu locator logic; deployment root map ánh xạ `storageKey` sang local root và public prefix Nginx. V2 trả `mediaUrl` đã được tạo từ mapping này, frontend không nhận absolute filesystem path.
 
 ```text
 storageKey = fixture-joke-video

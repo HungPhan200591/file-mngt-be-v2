@@ -29,9 +29,9 @@ Một câu tóm tắt:
 | Catalog lưu Subject/Asset canonical | Actress/Studio/Tag canonical đầy đủ |
 | Catalog event → Query projection | Import/backfill toàn bộ dữ liệu V1 |
 | Query PostgreSQL, Elasticsearch search, Redis detail cache | Observability ELK/OpenTelemetry hoàn chỉnh |
-| Gateway, correlation ID và Media Delivery Range | Gallery V2 hoàn chỉnh |
+| Gateway, correlation ID và Media Delivery Range legacy | Gallery V2 hoàn chỉnh |
 
-FT013 hiện mới có tài liệu `READY`, chưa có code. Trạng thái mới nhất luôn xem tại [STATUS.md](../../../docs/STATUS.md).
+FT013 hiện mới có tài liệu `READY`, chưa có code. Media delivery mới dùng Nginx direct theo [ADR-005](../../../docs/adr/ADR-005-nginx-direct-media-delivery.md); Gateway Media Delivery là legacy FT011. Trạng thái mới nhất luôn xem tại [STATUS.md](../../../docs/STATUS.md).
 
 ## Thứ tự đọc đề xuất
 

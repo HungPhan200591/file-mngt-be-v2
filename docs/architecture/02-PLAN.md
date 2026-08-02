@@ -4,7 +4,8 @@
 
 ```mermaid
 flowchart TB
-    FE["Gallery Web / Admin<br/>Metadata Library"] --> GW["API Gateway<br/>REST / API v2"]
+    FE["Gallery Web / Admin<br/>Metadata Library"] --> GW["API Gateway<br/>business API v2"]
+    FE --> NGINX["Nginx<br/>direct media delivery"]
 
     subgraph Services["Backend V2 services"]
         direction LR
@@ -30,6 +31,7 @@ flowchart TB
     QUERY --> REDIS["Redis<br/>query cache"]
     SCAN --> FS["Media filesystem"]
     WORKER --> FS
+    NGINX --> FS
 
     style FE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style GW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
@@ -42,6 +44,7 @@ flowchart TB
     style SEARCH fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style REDIS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style FS fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style NGINX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ## Contract event chung
