@@ -5,6 +5,7 @@
   * **ai-agent**
     * [Guide vận hành với AI Agent](/manual/ai-agent/operating-guide.md)
   * **learning**
+    * [📖 Từ vựng Kỹ thuật & Nghiệp vụ Dự án (Technical Glossary)](/manual/learning/technical-glossary.md)
     * **backend-v2**
       * [1. Business model](/manual/learning/backend-v2/01-business-model.md)
       * [2. Kiến trúc và technical concept](/manual/learning/backend-v2/02-architecture-technical.md)
@@ -12,8 +13,11 @@
       * [4. Database map chi tiết](/manual/learning/backend-v2/04-database-map.md)
       * [5. FT013 primer](/manual/learning/backend-v2/05-ft013-primer.md)
       * [6. Đọc flow Scan → Catalog → Query bằng Grafana và Kibana](/manual/learning/backend-v2/06-observability-scan-to-query.md)
-      * [Deep-Dive Các Luồng API Trong Hệ Thống Backend V2](/manual/learning/backend-v2/07-api-flows-deep-dive.md)
+      * [Deep-dive các luồng API theo hành trình người dùng](/manual/learning/backend-v2/07-api-flows-deep-dive.md)
       * [Hướng dẫn hiểu Backend V2](/manual/learning/backend-v2/README.md)
+    * **deep-dive**
+      * [📊 Deep-Dive Observability Architecture & Operations](/manual/learning/deep-dive/01-observability-deep-dive.md)
+      * [📦 Deep-Dive Transactional Outbox Pattern](/manual/learning/deep-dive/02-transactional-outbox-pattern-deep-dive.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
@@ -29,6 +33,7 @@
     * [ADR-002: ELK cho structured logging](/docs/adr/ADR-002-elk-structured-logging.md)
     * [ADR-003: Elasticsearch cho media search](/docs/adr/ADR-003-elasticsearch-media-search.md)
     * [ADR-004: Dải port local riêng cho Backend V2](/docs/adr/ADR-004-local-port-allocation.md)
+    * [ADR-005: Nginx direct media delivery](/docs/adr/ADR-005-nginx-direct-media-delivery.md)
     * [Architecture Decision Records](/docs/adr/README.md)
   * **architecture**
     * [Backend V2 — Tóm tắt](/docs/architecture/01-SUMMARY.md)
