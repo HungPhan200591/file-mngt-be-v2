@@ -4,47 +4,47 @@
 
 ```mermaid
 flowchart TB
-    FE["Gallery Web / Admin<br/>Metadata Library"] --> GW["API Gateway<br/>business API v2"]
-    FE --> NGINX["Nginx<br/>direct media delivery"]
+    FE["<font color='white'>Gallery Web / Admin<br/>Metadata Library</font>"] --> GW["<font color='white'>API Gateway<br/>business API v2</font>"]
+    FE --> NGINX["<font color='white'>Nginx<br/>direct media delivery</font>"]
 
     subgraph Services["Backend V2 services"]
         direction LR
-        CAT["Catalog<br/>write model"]
-        SCAN["Scan<br/>filesystem proposal"]
-        QUERY["Query<br/>read model"]
-        WORKER["Media Worker<br/>background jobs"]
+        CAT["<font color='white'>Catalog<br/>write model</font>"]
+        SCAN["<font color='white'>Scan<br/>filesystem proposal</font>"]
+        QUERY["<font color='white'>Query<br/>read model</font>"]
+        WORKER["<font color='white'>Media Worker<br/>background jobs</font>"]
     end
 
     GW --> CAT
     GW --> SCAN
     GW --> QUERY
-    SCAN -->|discovered| KAFKA["Kafka<br/>events and jobs"]
+    SCAN -->|discovered| KAFKA["<font color='white'>Kafka<br/>events and jobs</font>"]
     CAT -->|outbox events| KAFKA
     KAFKA --> CAT
     KAFKA --> QUERY
     KAFKA --> WORKER
     WORKER -->|processed| KAFKA
-    CAT --> PG["PostgreSQL instance<br/>database per service"]
+    CAT --> PG["<font color='white'>PostgreSQL instance<br/>database per service</font>"]
     SCAN --> PG
     QUERY --> PG
-    QUERY --> SEARCH["Elasticsearch<br/>media search index"]
-    QUERY --> REDIS["Redis<br/>query cache"]
-    SCAN --> FS["Media filesystem"]
+    QUERY --> SEARCH["<font color='white'>Elasticsearch<br/>media search index</font>"]
+    QUERY --> REDIS["<font color='white'>Redis<br/>query cache</font>"]
+    SCAN --> FS["<font color='white'>Media filesystem</font>"]
     WORKER --> FS
     NGINX --> FS
 
-    style FE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style GW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SEARCH fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style REDIS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style FS fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style NGINX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style FE fill:#FF9800,stroke:#fff,stroke-width:2px
+    style GW fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
+    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SEARCH fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style REDIS fill:#009688,stroke:#fff,stroke-width:2px
+    style FS fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style NGINX fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ## Contract event chung
@@ -69,14 +69,14 @@ Producer ghi business data và outbox trong cùng transaction. Relay publish Kaf
 
 ```mermaid
 flowchart TB
-    APP["V2 services<br/>structured JSON logs"] --> LS["Logstash<br/>collect and enrich"]
-    LS --> ES["Elasticsearch<br/>logs data stream"]
-    ES --> KB["Kibana<br/>search and dashboard"]
+    APP["<font color='white'>V2 services<br/>structured JSON logs</font>"] --> LS["<font color='white'>Logstash<br/>collect and enrich</font>"]
+    LS --> ES["<font color='white'>Elasticsearch<br/>logs data stream</font>"]
+    ES --> KB["<font color='white'>Kibana<br/>search and dashboard</font>"]
 
-    style APP fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style LS fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style ES fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style KB fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style APP fill:#2196F3,stroke:#fff,stroke-width:2px
+    style LS fill:#E91E63,stroke:#fff,stroke-width:2px
+    style ES fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style KB fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 Log mang `correlationId`, service name, environment, level và exception fields. Log shipping không được chặn request nghiệp vụ; logs data stream chỉ phục vụ quan sát/debug, tách khỏi media search index.
