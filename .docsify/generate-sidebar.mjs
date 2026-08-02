@@ -48,7 +48,7 @@ function addFile(root, file) {
 function renderTree(node, prefix = '') {
   const lines = [];
   for (const file of [...node.files].sort((a, b) => a.sortName.localeCompare(b.sortName))) {
-    lines.push(`${prefix}* [${file.title}](${file.relativePath})`);
+    lines.push(`${prefix}* [${file.title}](/${file.relativePath})`);
   }
   for (const folder of [...node.folders.values()].sort((a, b) => a.sortName.localeCompare(b.sortName))) {
     lines.push(`${prefix}* **${folder.name.toLowerCase()}**`);
