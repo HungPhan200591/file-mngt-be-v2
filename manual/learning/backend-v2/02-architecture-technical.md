@@ -4,25 +4,25 @@
 
 ```mermaid
 flowchart TB
-    UI["Frontend V2"] --> GW["Gateway<br/>routing + correlation"]
-    UI --> NGINX["Nginx<br/>direct media delivery"]
-    GW --> SCAN["Scan<br/>discover + review"]
-    GW --> CAT["Catalog<br/>canonical write model"]
-    GW --> QUERY["Query<br/>read/search model"]
-    SCAN --> KAFKA["Kafka<br/>events + work queue"]
+    UI["<font color='white'>Frontend V2</font>"] --> GW["<font color='white'>Gateway<br/>routing + correlation</font>"]
+    UI --> NGINX["<font color='white'>Nginx<br/>direct media delivery</font>"]
+    GW --> SCAN["<font color='white'>Scan<br/>discover + review</font>"]
+    GW --> CAT["<font color='white'>Catalog<br/>canonical write model</font>"]
+    GW --> QUERY["<font color='white'>Query<br/>read/search model</font>"]
+    SCAN --> KAFKA["<font color='white'>Kafka<br/>events + work queue</font>"]
     CAT --> KAFKA
     KAFKA --> CAT
     KAFKA --> QUERY
     KAFKA --> WORKER
 
-    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style GW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style NGINX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style GW fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style NGINX fill:#2196F3,stroke:#fff,stroke-width:2px
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
 ```
 
 ## Năm service và ownership
@@ -56,16 +56,16 @@ Catalog và Query giữ hai mô hình khác nhau:
 
 ```mermaid
 flowchart TB
-    COMMAND["Command / Event<br/>thay đổi dữ liệu"] --> CAT["Catalog<br/>canonical model"]
-    CAT --> EVENT["Subject snapshot<br/>Kafka"]
-    EVENT --> QUERY["Query<br/>read projection"]
-    QUERY --> READ["List / Search / Detail<br/>cho UI"]
+    COMMAND["<font color='white'>Command / Event<br/>thay đổi dữ liệu</font>"] --> CAT["<font color='white'>Catalog<br/>canonical model</font>"]
+    CAT --> EVENT["<font color='white'>Subject snapshot<br/>Kafka</font>"]
+    EVENT --> QUERY["<font color='white'>Query<br/>read projection</font>"]
+    QUERY --> READ["<font color='white'>List / Search / Detail<br/>cho UI</font>"]
 
-    style COMMAND fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style READ fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style COMMAND fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style READ fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 - Catalog tối ưu cho tính đúng của business write.

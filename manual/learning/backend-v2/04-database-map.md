@@ -10,19 +10,19 @@ Local dùng một PostgreSQL instance để nhẹ, nhưng mỗi service có data
 
 ```mermaid
 flowchart TB
-    PG["PostgreSQL instance"] --> SDB["scan_db<br/>Scan owns"]
-    PG --> CDB["catalog_db<br/>Catalog owns"]
-    PG --> QDB["query_db<br/>Query owns"]
-    WORKER["Media Worker"] --> NODB["No database<br/>hiện tại + FT013"]
-    GATEWAY["Gateway"] --> NODB
+    PG["<font color='white'>PostgreSQL instance</font>"] --> SDB["<font color='white'>scan_db<br/>Scan owns</font>"]
+    PG --> CDB["<font color='white'>catalog_db<br/>Catalog owns</font>"]
+    PG --> QDB["<font color='white'>query_db<br/>Query owns</font>"]
+    WORKER["<font color='white'>Media Worker</font>"] --> NODB["<font color='white'>No database<br/>hiện tại + FT013</font>"]
+    GATEWAY["<font color='white'>Gateway</font>"] --> NODB
 
-    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SDB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style CDB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style QDB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style GATEWAY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style NODB fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SDB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style CDB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style QDB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style GATEWAY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style NODB fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 `catalog_user` không đọc `query_db`; `query_user` không đọc `catalog_db`. Đồng bộ đi qua Kafka snapshot, không join chéo database.
@@ -67,26 +67,26 @@ storageKey   = fixture-joke-video
 
 ```mermaid
 flowchart TB
-    FILE["Physical file"] --> RUN["scan_run<br/>run-01"]
-    RUN --> PROP["scan_proposal<br/>proposal-01"]
-    PROP --> DEC["scan_decision<br/>APPROVE"]
-    DEC --> SEVENT["scan_outbox_event<br/>discovery-event-01"]
-    SEVENT --> SUBJECT["media_subject<br/>subject-01"]
-    SUBJECT --> ASSET["media_asset<br/>asset-01"]
-    SUBJECT --> CEVENT["catalog_outbox_event<br/>subject version 0/1"]
-    CEVENT --> QSUB["query_media_subject<br/>subject-01"]
-    QSUB --> QASSET["query_media_asset<br/>asset-01"]
+    FILE["<font color='white'>Physical file</font>"] --> RUN["<font color='white'>scan_run<br/>run-01</font>"]
+    RUN --> PROP["<font color='white'>scan_proposal<br/>proposal-01</font>"]
+    PROP --> DEC["<font color='white'>scan_decision<br/>APPROVE</font>"]
+    DEC --> SEVENT["<font color='white'>scan_outbox_event<br/>discovery-event-01</font>"]
+    SEVENT --> SUBJECT["<font color='white'>media_subject<br/>subject-01</font>"]
+    SUBJECT --> ASSET["<font color='white'>media_asset<br/>asset-01</font>"]
+    SUBJECT --> CEVENT["<font color='white'>catalog_outbox_event<br/>subject version 0/1</font>"]
+    CEVENT --> QSUB["<font color='white'>query_media_subject<br/>subject-01</font>"]
+    QSUB --> QASSET["<font color='white'>query_media_asset<br/>asset-01</font>"]
 
-    style FILE fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style RUN fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROP fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style DEC fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SEVENT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style CEVENT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style QSUB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style QASSET fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style FILE fill:#009688,stroke:#fff,stroke-width:2px
+    style RUN fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PROP fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style DEC fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SEVENT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style CEVENT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style QSUB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style QASSET fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ## 4. `scan_db` chi tiết
@@ -95,16 +95,16 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    RUN["scan_run<br/>PK id"] -->|1:N scan_run_id| PROP["scan_proposal<br/>PK id"]
-    RUN -->|1:N scan_run_id| ISSUE["scan_issue<br/>PK id"]
-    PROP -->|1:0..1 proposal_id| DECISION["scan_decision<br/>PK proposal_id"]
-    PROP -->|1:0..1 proposal_id| OUTBOX["scan_outbox_event<br/>PK id"]
+    RUN["<font color='white'>scan_run<br/>PK id</font>"] -->|1:N scan_run_id| PROP["<font color='white'>scan_proposal<br/>PK id</font>"]
+    RUN -->|1:N scan_run_id| ISSUE["<font color='white'>scan_issue<br/>PK id</font>"]
+    PROP -->|1:0..1 proposal_id| DECISION["<font color='white'>scan_decision<br/>PK proposal_id</font>"]
+    PROP -->|1:0..1 proposal_id| OUTBOX["<font color='white'>scan_outbox_event<br/>PK id</font>"]
 
-    style RUN fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROP fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ISSUE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style DECISION fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style RUN fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PROP fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ISSUE fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style DECISION fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ### `scan_run`
@@ -161,22 +161,22 @@ Giữ `source_relative_path`, `code`, `detail` của file không parse được.
 
 ```mermaid
 flowchart TB
-    APPROVE["Approve command"] --> TX["Transaction S1"]
-    TX --> DEC["INSERT scan_decision"]
-    TX --> OUT["INSERT scan_outbox_event"]
-    TX --> COMMIT["COMMIT together"]
-    COMMIT --> PUB["Publisher polls pending"]
-    PUB --> KAFKA["Kafka ack"]
-    KAFKA --> MARK["UPDATE published_at"]
+    APPROVE["<font color='white'>Approve command</font>"] --> TX["<font color='white'>Transaction S1</font>"]
+    TX --> DEC["<font color='white'>INSERT scan_decision</font>"]
+    TX --> OUT["<font color='white'>INSERT scan_outbox_event</font>"]
+    TX --> COMMIT["<font color='white'>COMMIT together</font>"]
+    COMMIT --> PUB["<font color='white'>Publisher polls pending</font>"]
+    PUB --> KAFKA["<font color='white'>Kafka ack</font>"]
+    KAFKA --> MARK["<font color='white'>UPDATE published_at</font>"]
 
-    style APPROVE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style TX fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DEC fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OUT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style MARK fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style APPROVE fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style TX fill:#FF9800,stroke:#fff,stroke-width:2px
+    style DEC fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style OUT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style PUB fill:#2196F3,stroke:#fff,stroke-width:2px
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
+    style MARK fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 Nếu process chết trước commit: cả decision/outbox đều không có. Nếu chết sau commit nhưng trước publish: outbox vẫn pending. Nếu publish thành công nhưng chết trước `published_at`: event được gửi lại, Catalog dedupe.
@@ -187,16 +187,16 @@ Nếu process chết trước commit: cả decision/outbox đều không có. N�
 
 ```mermaid
 flowchart TB
-    SUBJECT["media_subject<br/>PK id"] -->|1:N subject_id| ASSET["media_asset<br/>PK id"]
-    SUBJECT -->|1:N subject_id| OUTBOX["catalog_outbox_event<br/>PK id"]
-    PROCESSED["catalog_processed_event<br/>PK event_id"]
-    DEAD["catalog_dead_letter_event<br/>topic/partition/offset"]
+    SUBJECT["<font color='white'>media_subject<br/>PK id</font>"] -->|1:N subject_id| ASSET["<font color='white'>media_asset<br/>PK id</font>"]
+    SUBJECT -->|1:N subject_id| OUTBOX["<font color='white'>catalog_outbox_event<br/>PK id</font>"]
+    PROCESSED["<font color='white'>catalog_processed_event<br/>PK event_id</font>"]
+    DEAD["<font color='white'>catalog_dead_letter_event<br/>topic/partition/offset</font>"]
 
-    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style DEAD fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style DEAD fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ### `media_subject`
@@ -250,24 +250,24 @@ Khi nhận `media.file.discovered.v1`:
 
 ```mermaid
 flowchart TB
-    EVENT["Discovery event"] --> CHECK["Check processed eventId"]
-    CHECK -->|duplicate| NOOP["No-op"]
-    CHECK -->|new| TX["Transaction C1"]
-    TX --> UPSERT["Find/create Subject<br/>add Asset if locator new"]
-    TX --> DEDUPE["INSERT processed_event"]
-    TX --> SNAPSHOT["INSERT subject outbox"]
-    UPSERT --> COMMIT["COMMIT together"]
+    EVENT["<font color='white'>Discovery event</font>"] --> CHECK["<font color='white'>Check processed eventId</font>"]
+    CHECK -->|duplicate| NOOP["<font color='white'>No-op</font>"]
+    CHECK -->|new| TX["<font color='white'>Transaction C1</font>"]
+    TX --> UPSERT["<font color='white'>Find/create Subject<br/>add Asset if locator new</font>"]
+    TX --> DEDUPE["<font color='white'>INSERT processed_event</font>"]
+    TX --> SNAPSHOT["<font color='white'>INSERT subject outbox</font>"]
+    UPSERT --> COMMIT["<font color='white'>COMMIT together</font>"]
     DEDUPE --> COMMIT
     SNAPSHOT --> COMMIT
 
-    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CHECK fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style NOOP fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style TX fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style UPSERT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style DEDUPE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SNAPSHOT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CHECK fill:#FF9800,stroke:#fff,stroke-width:2px
+    style NOOP fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style TX fill:#FF9800,stroke:#fff,stroke-width:2px
+    style UPSERT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style DEDUPE fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SNAPSHOT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 Nếu bất kỳ insert/update nào lỗi, transaction rollback toàn bộ; event chưa được đánh dấu processed.
@@ -278,16 +278,16 @@ Nếu bất kỳ insert/update nào lỗi, transaction rollback toàn bộ; even
 
 ```mermaid
 flowchart TB
-    SUBJECT["query_media_subject<br/>PK id"] -->|1:N subject_id| ASSET["query_media_asset<br/>PK id"]
-    SUBJECT -->|1:N subject_id| SEARCH["query_search_outbox<br/>PK id"]
-    PROCESSED["query_processed_event<br/>PK event_id"]
-    SEARCH --> ES["Elasticsearch<br/>media index"]
+    SUBJECT["<font color='white'>query_media_subject<br/>PK id</font>"] -->|1:N subject_id| ASSET["<font color='white'>query_media_asset<br/>PK id</font>"]
+    SUBJECT -->|1:N subject_id| SEARCH["<font color='white'>query_search_outbox<br/>PK id</font>"]
+    PROCESSED["<font color='white'>query_processed_event<br/>PK event_id</font>"]
+    SEARCH --> ES["<font color='white'>Elasticsearch<br/>media index</font>"]
 
-    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SEARCH fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ES fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SEARCH fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ES fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
 ### `query_media_subject`
@@ -317,24 +317,24 @@ Unique `(subject_id, projection_version)` tránh index cùng revision nhiều l�
 
 ```mermaid
 flowchart TB
-    EVENT["Subject snapshot"] --> GUARD["eventId + version guard"]
-    GUARD --> TX["Transaction Q1"]
-    TX --> SUBJECT["UPSERT query subject"]
-    TX --> ASSETS["Replace asset snapshot"]
-    TX --> PROCESSED["INSERT processed_event"]
-    TX --> OUTBOX["INSERT search outbox"]
-    OUTBOX --> ES["Async index Elasticsearch"]
-    TX --> EVICT["After commit<br/>evict Redis detail"]
+    EVENT["<font color='white'>Subject snapshot</font>"] --> GUARD["<font color='white'>eventId + version guard</font>"]
+    GUARD --> TX["<font color='white'>Transaction Q1</font>"]
+    TX --> SUBJECT["<font color='white'>UPSERT query subject</font>"]
+    TX --> ASSETS["<font color='white'>Replace asset snapshot</font>"]
+    TX --> PROCESSED["<font color='white'>INSERT processed_event</font>"]
+    TX --> OUTBOX["<font color='white'>INSERT search outbox</font>"]
+    OUTBOX --> ES["<font color='white'>Async index Elasticsearch</font>"]
+    TX --> EVICT["<font color='white'>After commit<br/>evict Redis detail</font>"]
 
-    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style GUARD fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style TX fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ASSETS fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ES fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style EVICT fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style EVENT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style GUARD fill:#FF9800,stroke:#fff,stroke-width:2px
+    style TX fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SUBJECT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ASSETS fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ES fill:#009688,stroke:#fff,stroke-width:2px
+    style EVICT fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
 PostgreSQL projection commit không phụ thuộc Elasticsearch/Redis đang sống. Search indexing retry riêng; cache eviction lỗi không rollback canonical projection.
@@ -378,20 +378,20 @@ Catalog `media_asset` và Query `query_media_asset` thêm field nullable:
 
 ```mermaid
 flowchart TB
-    NEW["New Asset with storageKey"] --> TX["Catalog transaction C2"]
-    TX --> ASSET["INSERT media_asset"]
-    TX --> SNAPSHOT["INSERT subject snapshot outbox"]
-    TX --> REQUEST["INSERT processing request outbox"]
-    ASSET --> COMMIT["COMMIT together"]
+    NEW["<font color='white'>New Asset with storageKey</font>"] --> TX["<font color='white'>Catalog transaction C2</font>"]
+    TX --> ASSET["<font color='white'>INSERT media_asset</font>"]
+    TX --> SNAPSHOT["<font color='white'>INSERT subject snapshot outbox</font>"]
+    TX --> REQUEST["<font color='white'>INSERT processing request outbox</font>"]
+    ASSET --> COMMIT["<font color='white'>COMMIT together</font>"]
     SNAPSHOT --> COMMIT
     REQUEST --> COMMIT
 
-    style NEW fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style TX fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SNAPSHOT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style REQUEST fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style NEW fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style TX fill:#FF9800,stroke:#fff,stroke-width:2px
+    style ASSET fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SNAPSHOT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style REQUEST fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 Asset thiếu `storageKey` vẫn được Catalog lưu theo contract hiện tại nhưng không tạo processing request.
@@ -404,24 +404,24 @@ Worker consume request, đọc file, publish completion rồi mới hoàn tất 
 
 ```mermaid
 flowchart TB
-    COMPLETE["Processing completion"] --> GUARD["eventId + metadataVersion guard"]
-    GUARD -->|duplicate / stale| NOOP["No-op"]
-    GUARD -->|newer| TX["Catalog transaction C3"]
-    TX --> META["UPDATE media_asset metadata"]
-    TX --> PROCESSED["INSERT processed_event"]
-    TX --> SNAPSHOT["INSERT subject snapshot outbox"]
-    META --> COMMIT["COMMIT together"]
+    COMPLETE["<font color='white'>Processing completion</font>"] --> GUARD["<font color='white'>eventId + metadataVersion guard</font>"]
+    GUARD -->|duplicate / stale| NOOP["<font color='white'>No-op</font>"]
+    GUARD -->|newer| TX["<font color='white'>Catalog transaction C3</font>"]
+    TX --> META["<font color='white'>UPDATE media_asset metadata</font>"]
+    TX --> PROCESSED["<font color='white'>INSERT processed_event</font>"]
+    TX --> SNAPSHOT["<font color='white'>INSERT subject snapshot outbox</font>"]
+    META --> COMMIT["<font color='white'>COMMIT together</font>"]
     PROCESSED --> COMMIT
     SNAPSHOT --> COMMIT
 
-    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style GUARD fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style NOOP fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style TX fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style META fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SNAPSHOT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px
+    style GUARD fill:#FF9800,stroke:#fff,stroke-width:2px
+    style NOOP fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style TX fill:#FF9800,stroke:#fff,stroke-width:2px
+    style META fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style PROCESSED fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SNAPSHOT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 ## 13. Ví dụ row trước và sau FT013

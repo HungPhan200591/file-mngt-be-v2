@@ -7,7 +7,7 @@
 ## 🎯 4 GOLDEN RULES
 
 1. **LAYOUT TRƯỚC MÀU SẮC**: ưu tiên `flowchart TB`/`TD`; không nén một flow dài vào một hàng ngang.
-2. **TEXT MÀU TRẮNG**: `color:#fff` cho tất cả nodes có background.
+2. **TEXT MÀU TRẮNG BẮT BUỘC**: Mọi nhãn text bên trong node PHẢI bọc bằng thẻ `<font color='white'>Nhãn text</font>` để chống CSS theme IDE làm mờ chữ.
 3. **NỀN ĐẬM**: dùng Material Design colors, KHÔNG pastel.
 4. **BORDER TRẮNG**: `stroke:#fff,stroke-width:2px`.
 
@@ -52,22 +52,22 @@ Trước khi hoàn tất, kiểm tra bằng mắt theo viewport Markdown thông 
 
 ```yaml
 # Config/Repository (Green)
-fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+fill:#4CAF50,stroke:#fff,stroke-width:2px
 
 # Server/Service (Blue)
-fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+fill:#2196F3,stroke:#fff,stroke-width:2px
 
 # Application (Orange)
-fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+fill:#FF9800,stroke:#fff,stroke-width:2px
 
 # Queue/Critical (Pink)
-fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+fill:#E91E63,stroke:#fff,stroke-width:2px
 
 # Database (Purple)
-fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+fill:#9C27B0,stroke:#fff,stroke-width:2px
 
 # Cache/Storage (Teal)
-fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
 ---
@@ -76,12 +76,12 @@ fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
 
 ```mermaid
 flowchart TB
-    A["Phase 1<br/>Nhận request"] -->|Action| B["Phase 2<br/>Xử lý"]
-    B -->|Result| C["Phase 3<br/>Ghi dữ liệu"]
+    A["<font color='white'>Phase 1<br/>Nhận request</font>"] -->|Action| B["<font color='white'>Phase 2<br/>Xử lý</font>"]
+    B -->|Result| C["<font color='white'>Phase 3<br/>Ghi dữ liệu</font>"]
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 ---
@@ -92,12 +92,13 @@ flowchart TB
 |--------|---------|
 | `flowchart LR` với 6–10 node nối tiếp | `flowchart TB`, chia phase hoặc tách diagram |
 | Label dài trên một dòng | Wrap thành các dòng ngắn bằng `<br/>` |
+| Node text không bọc `<font color='white'>` | `A["<font color='white'>Text node</font>"]` |
 | Một diagram trộn component + SQL + lock + solution | Tách mỗi câu hỏi thành một diagram |
-| `fill:#90EE90,stroke:#333` | `fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff` |
-| `fill:#87CEEB,stroke:#333` | `fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff` |
-| `fill:#FFD700,stroke:#333` | `fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff` |
+| `fill:#90EE90,stroke:#333` | `fill:#4CAF50,stroke:#fff,stroke-width:2px` + `<font color='white'>` |
+| `fill:#87CEEB,stroke:#333` | `fill:#2196F3,stroke:#fff,stroke-width:2px` + `<font color='white'>` |
+| `fill:#FFD700,stroke:#333` | `fill:#FF9800,stroke:#fff,stroke-width:2px` + `<font color='white'>` |
 
-**Vấn đề**: layout quá rộng làm Mermaid scale nhỏ toàn bộ SVG; màu pastel, border tối và thiếu `color:#fff` tiếp tục làm text khó đọc.
+**Vấn đề**: layout quá rộng làm Mermaid scale nhỏ toàn bộ SVG; màu pastel, border tối và thiếu `<font color='white'>` tiếp tục làm text khó đọc.
 
 ---
 
@@ -105,11 +106,11 @@ flowchart TB
 
 | Component | Color | Style String |
 |-----------|-------|--------------|
-| Config/Repo | 🟢 Green | `fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff` |
-| Server | 🔵 Blue | `fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff` |
-| App | 🟠 Orange | `fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff` |
-| Database | 🟣 Purple | `fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff` |
-| Queue | 🔴 Pink | `fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff` |
+| Config/Repo | 🟢 Green | `fill:#4CAF50,stroke:#fff,stroke-width:2px` |
+| Server | 🔵 Blue | `fill:#2196F3,stroke:#fff,stroke-width:2px` |
+| App | 🟠 Orange | `fill:#FF9800,stroke:#fff,stroke-width:2px` |
+| Database | 🟣 Purple | `fill:#9C27B0,stroke:#fff,stroke-width:2px` |
+| Queue | 🔴 Pink | `fill:#E91E63,stroke:#fff,stroke-width:2px` |
 
 ---
 
@@ -120,7 +121,7 @@ flowchart TB
 - [ ] Label dài đã wrap bằng `<br/>`; chi tiết dài nằm ngoài diagram
 - [ ] Diagram không quá 10–12 node; đã tách abstraction level nếu cần
 - [ ] Text đọc được trong Markdown mà không cần zoom
-- [ ] Tất cả nodes có `color:#fff`
+- [ ] **Tất cả các nhãn text trong node BẮT BUỘC bọc thẻ `<font color='white'>...</font>`**
 - [ ] Tất cả nodes có `stroke:#fff,stroke-width:2px`
 - [ ] Không dùng pastel (`#90EE90`, `#87CEEB`, `#FFD700`)
 - [ ] Text dễ đọc trên nền tối
@@ -132,8 +133,8 @@ flowchart TB
 1. **Chốt câu hỏi** mà diagram cần trả lời; tách diagram nếu có nhiều abstraction level.
 2. **Chọn layout**: mặc định `TB`/`TD`; chỉ dùng `LR`/`RL` khi đạt horizontal budget.
 3. **Giảm width**: chia phase/subgraph, wrap label, chuyển chi tiết dài ra prose/table.
-4. **Chọn màu** từ palette và apply `fill:#HEX,stroke:#fff,stroke-width:2px,color:#fff` cho tất cả styled nodes.
-5. **Qua readability gate**: text phải đọc được trong viewport Markdown mà không cần zoom.
+4. **Bọc text**: bọc tất cả nhãn node bằng `<font color='white'>Nhãn text</font>`.
+5. **Chọn màu** từ palette và apply `style NodeId fill:#HEX,stroke:#fff,stroke-width:2px` cho tất cả styled nodes.
+6. **Qua readability gate**: text phải đọc được trong viewport Markdown mà không cần zoom.
 
 ✅ **Done!**
-

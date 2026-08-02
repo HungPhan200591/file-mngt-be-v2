@@ -32,25 +32,25 @@ Chương này mô tả cả hệ thống hiện tại lẫn đích dự kiến. 
 
 ```mermaid
 flowchart TB
-    FILE["1. Filesystem<br/>video / image / GIF"] --> SCAN["2. Scan + parse<br/>Proposal / Issue"]
-    SCAN --> REVIEW["3. Human review<br/>Approve / Reject"]
-    REVIEW --> CAT["4. Catalog<br/>Subject + Asset"]
-    CAT --> PROCESS["5. Worker processing<br/>metadata + artifacts"]
-    PROCESS --> PROJECTION["6. Query projection<br/>PostgreSQL + search"]
-    PROJECTION --> UI["7. Gallery / Library<br/>browse + filter"]
-    UI --> DELIVERY["8. Media Delivery<br/>preview / play"]
-    CAT -.->|metadata edit| META["Admin<br/>Actress / Studio / Tag"]
+    FILE["<font color='white'>1. Filesystem<br/>video / image / GIF</font>"] --> SCAN["<font color='white'>2. Scan + parse<br/>Proposal / Issue</font>"]
+    SCAN --> REVIEW["<font color='white'>3. Human review<br/>Approve / Reject</font>"]
+    REVIEW --> CAT["<font color='white'>4. Catalog<br/>Subject + Asset</font>"]
+    CAT --> PROCESS["<font color='white'>5. Worker processing<br/>metadata + artifacts</font>"]
+    PROCESS --> PROJECTION["<font color='white'>6. Query projection<br/>PostgreSQL + search</font>"]
+    PROJECTION --> UI["<font color='white'>7. Gallery / Library<br/>browse + filter</font>"]
+    UI --> DELIVERY["<font color='white'>8. Media Delivery<br/>preview / play</font>"]
+    CAT -.->|metadata edit| META["<font color='white'>Admin<br/>Actress / Studio / Tag</font>"]
     META -.->|new snapshot| PROJECTION
 
-    style FILE fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style REVIEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style PROCESS fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style PROJECTION fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style DELIVERY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style META fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style FILE fill:#009688,stroke:#fff,stroke-width:2px
+    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
+    style REVIEW fill:#FF9800,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style PROCESS fill:#2196F3,stroke:#fff,stroke-width:2px
+    style PROJECTION fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style DELIVERY fill:#FF9800,stroke:#fff,stroke-width:2px
+    style META fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 Các bước 1–4, 6 nền và 8 đã có. FT013 hoàn thành phần đầu của bước 5. Metadata Admin và processing artifact đầy đủ chưa có contract V2.
@@ -86,24 +86,24 @@ Catalog không thay đổi trong use case này. Người dùng có thể xem pro
 
 ```mermaid
 flowchart TB
-    REVIEW["APPROVE proposal"] --> TX1["Scan transaction<br/>decision + outbox"]
-    TX1 --> SDB["scan_db"]
-    SDB --> DISCOVERED["Kafka<br/>file.discovered.v1"]
-    DISCOVERED --> TX2["Catalog transaction<br/>dedupe + upsert"]
-    TX2 --> CDB["catalog_db<br/>Subject + Asset"]
-    CDB --> CHANGED["Kafka<br/>subject.changed.v1"]
-    CHANGED --> TX3["Query transaction<br/>replace snapshot"]
-    TX3 --> QDB["query_db"]
+    REVIEW["<font color='white'>APPROVE proposal</font>"] --> TX1["<font color='white'>Scan transaction<br/>decision + outbox</font>"]
+    TX1 --> SDB["<font color='white'>scan_db</font>"]
+    SDB --> DISCOVERED["<font color='white'>Kafka<br/>file.discovered.v1</font>"]
+    DISCOVERED --> TX2["<font color='white'>Catalog transaction<br/>dedupe + upsert</font>"]
+    TX2 --> CDB["<font color='white'>catalog_db<br/>Subject + Asset</font>"]
+    CDB --> CHANGED["<font color='white'>Kafka<br/>subject.changed.v1</font>"]
+    CHANGED --> TX3["<font color='white'>Query transaction<br/>replace snapshot</font>"]
+    TX3 --> QDB["<font color='white'>query_db</font>"]
 
-    style REVIEW fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style TX1 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SDB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style DISCOVERED fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style TX2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style CDB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style CHANGED fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style TX3 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style QDB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style REVIEW fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style TX1 fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SDB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style DISCOVERED fill:#E91E63,stroke:#fff,stroke-width:2px
+    style TX2 fill:#FF9800,stroke:#fff,stroke-width:2px
+    style CDB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style CHANGED fill:#E91E63,stroke:#fff,stroke-width:2px
+    style TX3 fill:#FF9800,stroke:#fff,stroke-width:2px
+    style QDB fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 ### Approve
@@ -126,22 +126,22 @@ API approve trả khi Scan transaction xong, không đợi Catalog/Query. Dữ l
 
 ```mermaid
 flowchart TB
-    ASSET["Catalog<br/>new Asset + locator"] --> REQUEST["Same transaction<br/>processing outbox"]
-    REQUEST --> JOB["Kafka<br/>processing.requested.v1"]
-    JOB --> WORKER["Worker<br/>safe file attributes"]
-    WORKER --> COMPLETE["Kafka<br/>processing.completed.v1"]
-    COMPLETE --> APPLY["Catalog transaction<br/>dedupe + metadata"]
-    APPLY --> SNAPSHOT["Subject snapshot<br/>version mới"]
-    SNAPSHOT --> QUERY["Query<br/>metadata projection"]
+    ASSET["<font color='white'>Catalog<br/>new Asset + locator</font>"] --> REQUEST["<font color='white'>Same transaction<br/>processing outbox</font>"]
+    REQUEST --> JOB["<font color='white'>Kafka<br/>processing.requested.v1</font>"]
+    JOB --> WORKER["<font color='white'>Worker<br/>safe file attributes</font>"]
+    WORKER --> COMPLETE["<font color='white'>Kafka<br/>processing.completed.v1</font>"]
+    COMPLETE --> APPLY["<font color='white'>Catalog transaction<br/>dedupe + metadata</font>"]
+    APPLY --> SNAPSHOT["<font color='white'>Subject snapshot<br/>version mới</font>"]
+    SNAPSHOT --> QUERY["<font color='white'>Query<br/>metadata projection</font>"]
 
-    style ASSET fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style REQUEST fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style JOB fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style APPLY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SNAPSHOT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style ASSET fill:#2196F3,stroke:#fff,stroke-width:2px
+    style REQUEST fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style JOB fill:#E91E63,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px
+    style APPLY fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SNAPSHOT fill:#E91E63,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 Kết quả FT013: `contentLength`, `mediaType`, `sourceLastModifiedAt` và metadata version xuất hiện ở Catalog rồi hội tụ sang Query.
@@ -162,20 +162,20 @@ Worker không có database trong feature này. Đọc lại file là an toàn; c
 
 ```mermaid
 flowchart TB
-    REQUEST["Processing request<br/>asset + operation version"] --> WORKER["Worker tool adapter<br/>ffprobe / image / hash"]
-    WORKER --> SOURCE["Source media<br/>read-only"]
-    WORKER --> ARTIFACT["Generated artifacts<br/>deterministic locator"]
-    WORKER --> COMPLETE["Processing completion"]
-    COMPLETE --> CAT["Catalog<br/>canonical metadata/artifacts"]
-    CAT --> QUERY["Query projection"]
+    REQUEST["<font color='white'>Processing request<br/>asset + operation version</font>"] --> WORKER["<font color='white'>Worker tool adapter<br/>ffprobe / image / hash</font>"]
+    WORKER --> SOURCE["<font color='white'>Source media<br/>read-only</font>"]
+    WORKER --> ARTIFACT["<font color='white'>Generated artifacts<br/>deterministic locator</font>"]
+    WORKER --> COMPLETE["<font color='white'>Processing completion</font>"]
+    COMPLETE --> CAT["<font color='white'>Catalog<br/>canonical metadata/artifacts</font>"]
+    CAT --> QUERY["<font color='white'>Query projection</font>"]
 
-    style REQUEST fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SOURCE fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style ARTIFACT fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style REQUEST fill:#E91E63,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SOURCE fill:#009688,stroke:#fff,stroke-width:2px
+    style ARTIFACT fill:#009688,stroke:#fff,stroke-width:2px
+    style COMPLETE fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 Các quyết định còn phải chốt sau FT013: artifact root/layout, reprocessing policy, tool timeout, cleanup file lỗi và liệu Worker có cần durable job state hay không.
@@ -184,20 +184,20 @@ Các quyết định còn phải chốt sau FT013: artifact root/layout, reproce
 
 ```mermaid
 flowchart TB
-    UI["Gallery / Library"] --> GW["Gateway"]
-    GW --> API["Query API"]
-    API --> PG["query_db<br/>list/detail"]
-    API --> ES["Elasticsearch<br/>search/autocomplete"]
-    API --> REDIS["Redis<br/>detail cache"]
+    UI["<font color='white'>Gallery / Library</font>"] --> GW["<font color='white'>Gateway</font>"]
+    GW --> API["<font color='white'>Query API</font>"]
+    API --> PG["<font color='white'>query_db<br/>list/detail</font>"]
+    API --> ES["<font color='white'>Elasticsearch<br/>search/autocomplete</font>"]
+    API --> REDIS["<font color='white'>Redis<br/>detail cache</font>"]
     ES -.->|degraded fallback| PG
     REDIS -.->|miss / error| PG
 
-    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style GW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style API fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ES fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style REDIS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style UI fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style GW fill:#2196F3,stroke:#fff,stroke-width:2px
+    style API fill:#FF9800,stroke:#fff,stroke-width:2px
+    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style ES fill:#009688,stroke:#fff,stroke-width:2px
+    style REDIS fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
 Hiện đã có subject list/detail, filter nền, full-text/fuzzy/autocomplete, PostgreSQL fallback và Redis detail cache. Sau khi business metadata đầy đủ, Query dự kiến mở rộng filter/order theo Actress, Studio, Tag, media dimensions, availability và Album relation.
@@ -238,22 +238,22 @@ Candidate evidence và relation schema vẫn cần feature riêng.
 
 ```mermaid
 flowchart TB
-    V1["V1 database / filesystem<br/>read-only"] --> INVENTORY["Inventory + normalize"]
-    INVENTORY --> DRYRUN["Dry-run report<br/>valid / duplicate / unresolved"]
-    DRYRUN --> REVIEW["Người dùng duyệt"]
-    REVIEW --> APPLY["Batch idempotent import<br/>checkpoint"]
-    APPLY --> CAT["Catalog V2"]
-    CAT --> REBUILD["Rebuild Query/search"]
-    REBUILD --> RECON["Reconciliation<br/>counts + unresolved"]
+    V1["<font color='white'>V1 database / filesystem<br/>read-only</font>"] --> INVENTORY["<font color='white'>Inventory + normalize</font>"]
+    INVENTORY --> DRYRUN["<font color='white'>Dry-run report<br/>valid / duplicate / unresolved</font>"]
+    DRYRUN --> REVIEW["<font color='white'>Người dùng duyệt</font>"]
+    REVIEW --> APPLY["<font color='white'>Batch idempotent import<br/>checkpoint</font>"]
+    APPLY --> CAT["<font color='white'>Catalog V2</font>"]
+    CAT --> REBUILD["<font color='white'>Rebuild Query/search</font>"]
+    REBUILD --> RECON["<font color='white'>Reconciliation<br/>counts + unresolved</font>"]
 
-    style V1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style INVENTORY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DRYRUN fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style REVIEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style APPLY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style REBUILD fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style RECON fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style V1 fill:#009688,stroke:#fff,stroke-width:2px
+    style INVENTORY fill:#FF9800,stroke:#fff,stroke-width:2px
+    style DRYRUN fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style REVIEW fill:#FF9800,stroke:#fff,stroke-width:2px
+    style APPLY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CAT fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style REBUILD fill:#2196F3,stroke:#fff,stroke-width:2px
+    style RECON fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 Import không sửa/xóa V1. Thứ tự rollout dự kiến: fixture → pilot root → JOKE video → JOKE assets → USE video/assets → USE Album.

@@ -15,18 +15,18 @@ Backend V2 chuyển chúng thành một `Subject` và nhiều `Asset`.
 
 ```mermaid
 flowchart TB
-    FILES["Filesystem<br/>MP4 + JPG + GIF"] --> PARSE["Scan<br/>extract identity"]
-    PARSE --> SUBJECT["Subject VIDEO<br/>JOKE / START-001"]
-    SUBJECT --> VIDEO["Asset<br/>PRIMARY_VIDEO"]
-    SUBJECT --> IMAGE["Assets<br/>IMAGE"]
-    SUBJECT --> GIF["Assets<br/>GIF"]
+    FILES["<font color='white'>Filesystem<br/>MP4 + JPG + GIF</font>"] --> PARSE["<font color='white'>Scan<br/>extract identity</font>"]
+    PARSE --> SUBJECT["<font color='white'>Subject VIDEO<br/>JOKE / START-001</font>"]
+    SUBJECT --> VIDEO["<font color='white'>Asset<br/>PRIMARY_VIDEO</font>"]
+    SUBJECT --> IMAGE["<font color='white'>Assets<br/>IMAGE</font>"]
+    SUBJECT --> GIF["<font color='white'>Assets<br/>GIF</font>"]
 
-    style FILES fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style PARSE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SUBJECT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style VIDEO fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style IMAGE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style GIF fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style FILES fill:#009688,stroke:#fff,stroke-width:2px
+    style PARSE fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SUBJECT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style VIDEO fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style IMAGE fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style GIF fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 ## Subject là gì?
@@ -103,16 +103,16 @@ Folder dưới root Album tạo Subject loại `ALBUM`. Folder là identity chí
 
 ```mermaid
 flowchart TB
-    FOLDER["USE Album folder"] --> ALBUM["Subject ALBUM<br/>identity theo folder"]
-    ALBUM --> AIMG["IMAGE assets"]
-    ALBUM --> AVID["VIDEO assets<br/>nếu có"]
-    ALBUM -.->|FULL_ALBUM_OF<br/>optional, review| SYNC["Subject VIDEO<br/>Syncdroid"]
+    FOLDER["<font color='white'>USE Album folder</font>"] --> ALBUM["<font color='white'>Subject ALBUM<br/>identity theo folder</font>"]
+    ALBUM --> AIMG["<font color='white'>IMAGE assets</font>"]
+    ALBUM --> AVID["<font color='white'>VIDEO assets<br/>nếu có</font>"]
+    ALBUM -.->|FULL_ALBUM_OF<br/>optional, review| SYNC["<font color='white'>Subject VIDEO<br/>Syncdroid</font>"]
 
-    style FOLDER fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style ALBUM fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style AIMG fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style AVID fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style SYNC fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style FOLDER fill:#009688,stroke:#fff,stroke-width:2px
+    style ALBUM fill:#2196F3,stroke:#fff,stroke-width:2px
+    style AIMG fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style AVID fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style SYNC fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 Một Album có thể là full album của một video Syncdroid, nhưng quan hệ đó là optional và cần review khi không chắc chắn. Quan hệ `FULL_ALBUM_OF` hiện mới là concept mục tiêu, chưa có table Catalog thực tế.

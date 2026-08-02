@@ -25,19 +25,19 @@ Admin chọn một **root đã được cấu hình** bằng `rootKey`, bắt đ
 
 ```mermaid
 flowchart TB
-    A["Admin<br/>chọn rootKey"] --> B["Gateway<br/>POST /scans/previews"]
-    B --> C["Scan service<br/>tạo ScanRun RUNNING"]
-    C --> D[("scan_db<br/>run, proposal, issue")]
-    C --> E["202 Accepted<br/>ScanRun"]
-    A --> F["Polling và xem<br/>proposals/issues"]
+    A["<font color='white'>Admin<br/>chọn rootKey</font>"] --> B["<font color='white'>Gateway<br/>POST /scans/previews</font>"]
+    B --> C["<font color='white'>Scan service<br/>tạo ScanRun RUNNING</font>"]
+    C --> D[("<font color='white'>scan_db<br/>run, proposal, issue</font>")]
+    C --> E["<font color='white'>202 Accepted<br/>ScanRun</font>"]
+    A --> F["<font color='white'>Polling và xem<br/>proposals/issues</font>"]
     F --> B
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style F fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px
+    style D fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style E fill:#2196F3,stroke:#fff,stroke-width:2px
+    style F fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 **Contract:** [scan-v1.yaml](../../../docs/contracts/openapi/scan-v1.yaml)
@@ -60,35 +60,35 @@ Admin duyệt hoặc từ chối một proposal. Quyết định `APPROVE` đư�
 
 ```mermaid
 flowchart TB
-    A["Admin duyệt proposal"] --> B["Gateway<br/>POST decision"]
-    B --> C["Scan service<br/>lưu decision + outbox"]
-    C --> D[("scan_db")]
-    C --> E["200 OK"]
+    A["<font color='white'>Admin duyệt proposal</font>"] --> B["<font color='white'>Gateway<br/>POST decision</font>"]
+    B --> C["<font color='white'>Scan service<br/>lưu decision + outbox</font>"]
+    C --> D[("<font color='white'>scan_db</font>")]
+    C --> E["<font color='white'>200 OK</font>"]
     E --> A
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px
+    style D fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style E fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ```mermaid
 flowchart TB
-    A["Scan outbox"] -->|"media.file.discovered.v1"| B["Kafka"]
-    B --> C["Catalog service<br/>idempotent upsert"]
-    C --> D[("catalog_db")]
-    C --> E["Catalog outbox"]
-    E -->|"media.subject.changed.v1"| F["Query service<br/>projection"]
-    F --> G[("query_db")]
+    A["<font color='white'>Scan outbox</font>"] -->|"media.file.discovered.v1"| B["<font color='white'>Kafka</font>"]
+    B --> C["<font color='white'>Catalog service<br/>idempotent upsert</font>"]
+    C --> D[("<font color='white'>catalog_db</font>")]
+    C --> E["<font color='white'>Catalog outbox</font>"]
+    E -->|"media.subject.changed.v1"| F["<font color='white'>Query service<br/>projection</font>"]
+    F --> G[("<font color='white'>query_db</font>")]
 
-    style A fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style F fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style G fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style B fill:#E91E63,stroke:#fff,stroke-width:2px
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px
+    style D fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style E fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style F fill:#FF9800,stroke:#fff,stroke-width:2px
+    style G fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
 **Contract:**
@@ -112,20 +112,20 @@ FE Admin mục tiêu có thể tạo VIDEO hoặc ALBUM không qua scan. Subject
 
 ```mermaid
 flowchart TB
-    A["Admin tạo subject"] --> B["Gateway<br/>POST /catalog/subjects"]
-    B --> C["Catalog service<br/>kiểm tra identity"]
-    C --> D{"Đã tồn tại?"}
-    D -->|"Không"| E[("catalog_db<br/>subject + outbox")]
-    E --> F["201 Created"]
-    D -->|"Có"| G["409 Conflict"]
+    A["<font color='white'>Admin tạo subject</font>"] --> B["<font color='white'>Gateway<br/>POST /catalog/subjects</font>"]
+    B --> C["<font color='white'>Catalog service<br/>kiểm tra identity</font>"]
+    C --> D{"<font color='white'>Đã tồn tại?</font>"}
+    D -->|"Không"| E[("<font color='white'>catalog_db<br/>subject + outbox</font>")]
+    E --> F["<font color='white'>201 Created</font>"]
+    D -->|"Có"| G["<font color='white'>409 Conflict</font>"]
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style F fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style G fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px
+    style D fill:#FF9800,stroke:#fff,stroke-width:2px
+    style E fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style F fill:#2196F3,stroke:#fff,stroke-width:2px
+    style G fill:#E91E63,stroke:#fff,stroke-width:2px
 ```
 
 **Contract:** [catalog-v1.yaml](../../../docs/contracts/openapi/catalog-v1.yaml)
@@ -153,40 +153,40 @@ Gallery/Media Library V2 sẽ gọi Query API. Search ưu tiên Elasticsearch al
 
 ```mermaid
 flowchart TB
-    A["User tìm kiếm"] --> B["Gateway<br/>GET /query/subjects"]
-    B --> C["Query service"]
-    C --> D{"Search backend sẵn sàng?"}
-    D -->|"Có"| E[("Elasticsearch<br/>media-subject-*")]
-    D -->|"Không"| F[("query_db<br/>fallback")]
-    E --> G["Danh sách + trạng thái backend"]
+    A["<font color='white'>User tìm kiếm</font>"] --> B["<font color='white'>Gateway<br/>GET /query/subjects</font>"]
+    B --> C["<font color='white'>Query service</font>"]
+    C --> D{"<font color='white'>Search backend sẵn sàng?</font>"}
+    D -->|"Có"| E[("<font color='white'>Elasticsearch<br/>media-subject-*</font>")]
+    D -->|"Không"| F[("<font color='white'>query_db<br/>fallback</font>")]
+    E --> G["<font color='white'>Danh sách + trạng thái backend</font>"]
     F --> G
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style F fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style G fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px
+    style D fill:#FF9800,stroke:#fff,stroke-width:2px
+    style E fill:#009688,stroke:#fff,stroke-width:2px
+    style F fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style G fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ```mermaid
 flowchart TB
-    A["User mở detail"] --> B["Query service"]
-    B --> C[("Redis<br/>detail cache")]
-    C --> D{"Cache hit?"}
-    D -->|"Có"| E["200 detail"]
-    D -->|"Không"| F[("query_db")]
-    F --> G["Ghi cache<br/>TTL mặc định 10 phút"]
+    A["<font color='white'>User mở detail</font>"] --> B["<font color='white'>Query service</font>"]
+    B --> C[("<font color='white'>Redis<br/>detail cache</font>")]
+    C --> D{"<font color='white'>Cache hit?</font>"}
+    D -->|"Có"| E["<font color='white'>200 detail</font>"]
+    D -->|"Không"| F[("<font color='white'>query_db</font>")]
+    F --> G["<font color='white'>Ghi cache<br/>TTL mặc định 10 phút</font>"]
     G --> E
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style F fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style G fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#FF9800,stroke:#fff,stroke-width:2px
+    style C fill:#009688,stroke:#fff,stroke-width:2px
+    style D fill:#FF9800,stroke:#fff,stroke-width:2px
+    style E fill:#2196F3,stroke:#fff,stroke-width:2px
+    style F fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style G fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
 **Contract:** [query-v1.yaml](../../../docs/contracts/openapi/query-v1.yaml)
@@ -207,15 +207,15 @@ HTML5 player hoặc thẻ ảnh tải trực tiếp URL Nginx. Nginx map `storag
 
 ```mermaid
 flowchart TB
-    A["Player hoặc ảnh FE"] --> B["Nginx<br/>direct media URL"]
-    B --> C[("Read-only root<br/>theo storageKey")]
-    C --> D["200 / 206 Range<br/>hoặc HEAD headers"]
+    A["<font color='white'>Player hoặc ảnh FE</font>"] --> B["<font color='white'>Nginx<br/>direct media URL</font>"]
+    B --> C[("<font color='white'>Read-only root<br/>theo storageKey</font>")]
+    C --> D["<font color='white'>200 / 206 Range<br/>hoặc HEAD headers</font>"]
     D --> A
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
+    style C fill:#009688,stroke:#fff,stroke-width:2px
+    style D fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 **Delivery contract:** [ADR-005](../../../docs/adr/ADR-005-nginx-direct-media-delivery.md). URL public tương thích V1 có dạng `http://localhost:8888/files/<drive>:/<path-encoded>`; V2 tạo URL từ locator và deployment root map, FE không ghép path thô. Request không qua Gateway hoặc Media Worker.
@@ -230,15 +230,15 @@ Gateway là entry point của browser-facing API. Nó định tuyến theo path,
 
 ```mermaid
 flowchart TB
-    A["Frontend"] --> B["Gateway<br/>route + correlation ID"]
-    B --> C["Catalog / Scan / Query<br/>hoặc Media Worker"]
-    C --> D["Response +<br/>X-Correlation-Id"]
+    A["<font color='white'>Frontend</font>"] --> B["<font color='white'>Gateway<br/>route + correlation ID</font>"]
+    B --> C["<font color='white'>Catalog / Scan / Query<br/>hoặc Media Worker</font>"]
+    C --> D["<font color='white'>Response +<br/>X-Correlation-Id</font>"]
     D --> A
 
-    style A fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style D fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style A fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style B fill:#2196F3,stroke:#fff,stroke-width:2px
+    style C fill:#FF9800,stroke:#fff,stroke-width:2px
+    style D fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 **E2E:** [001-routing-correlation.http](../../../tests/e2e/gateway/001-routing-correlation.http), chạy `npm run gateway:local`.

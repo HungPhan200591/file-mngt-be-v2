@@ -16,20 +16,20 @@ Sau khi làm xong, bạn phải trả lời được bốn câu:
 
 ```mermaid
 flowchart TB
-    SCAN["1. Scan<br/>preview và approve"] --> OUTBOX1["2. Scan outbox<br/>file discovered"]
-    OUTBOX1 --> KAFKA1["3. Kafka<br/>media.file.discovered.v1"]
-    KAFKA1 --> CATALOG["4. Catalog<br/>Subject và Asset"]
-    CATALOG --> OUTBOX2["5. Catalog outbox<br/>subject changed"]
-    OUTBOX2 --> KAFKA2["6. Kafka<br/>media.subject.changed.v1"]
-    KAFKA2 --> QUERY["7. Query<br/>read projection"]
+    SCAN["<font color='white'>1. Scan<br/>preview và approve</font>"] --> OUTBOX1["<font color='white'>2. Scan outbox<br/>file discovered</font>"]
+    OUTBOX1 --> KAFKA1["<font color='white'>3. Kafka<br/>media.file.discovered.v1</font>"]
+    KAFKA1 --> CATALOG["<font color='white'>4. Catalog<br/>Subject và Asset</font>"]
+    CATALOG --> OUTBOX2["<font color='white'>5. Catalog outbox<br/>subject changed</font>"]
+    OUTBOX2 --> KAFKA2["<font color='white'>6. Kafka<br/>media.subject.changed.v1</font>"]
+    KAFKA2 --> QUERY["<font color='white'>7. Query<br/>read projection</font>"]
 
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX1 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA1 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CATALOG fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX2 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
+    style OUTBOX1 fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style KAFKA1 fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CATALOG fill:#2196F3,stroke:#fff,stroke-width:2px
+    style OUTBOX2 fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style KAFKA2 fill:#E91E63,stroke:#fff,stroke-width:2px
+    style QUERY fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 `scan-service` chỉ biết scan/proposal. `catalog-service` mới là owner canonical của Subject/Asset.

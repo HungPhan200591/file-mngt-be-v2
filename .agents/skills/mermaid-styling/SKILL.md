@@ -17,4 +17,5 @@ description: "Create or revise readable Mermaid diagrams using width-safe layout
 - Read the reference completely before editing Mermaid.
 - Use diagrams only when they materially improve understanding; keep simple relationships in prose or tables.
 - Design for the fixed-width Markdown viewport before applying colors: default to `TB`/`TD`, bound horizontal span, wrap labels, and split oversized diagrams as required by the reference.
+- Mọi nhãn text bên trong node của Mermaid diagram phải luôn được bọc bằng thẻ `<font color='white'>Nhãn text</font>` để chống CSS theme IDE làm mờ chữ.
 - Announce this skill as `[Skill: mermaid-styling]` when it causes actions or pauses.
