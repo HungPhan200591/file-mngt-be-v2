@@ -182,12 +182,12 @@ Quy trình 4 bước chẩn đoán hệ thống:
 
 ```mermaid
 flowchart TD
-    STEP1["1. Đọc Console Log thu thập 4 ID<br/>(scanRunId, scanProposalId, scanIdentityKey, catalogSubjectId)"] --> STEP2
-    STEP2["2. Mở Grafana Dashboard (:18117)<br/>Kiểm tra Services UP = 5 & Pending Outbox Work = 0"] --> STEP3
-    STEP3{"Grafana phát hiện bất thường?"}
-    STEP3 -->|Outbox Pending cao| STEP4A["Kiểm tra Kafka Container & DLT Tables"]
-    STEP3 -->|p95 Latency tăng| STEP4B["Mở Kibana (:18114) lọc KQL correlationId hoặc ERROR level"]
-    STEP3 -->|Mọi thứ bình thường| STEP4C["Verify dữ liệu đã hội tụ thành công!"]
+    STEP1["<font color='white'>1. Đọc Console Log thu thập 4 ID<br/>(scanRunId, scanProposalId, scanIdentityKey, catalogSubjectId)</font>"] --> STEP2
+    STEP2["<font color='white'>2. Mở Grafana Dashboard (:18117)<br/>Kiểm tra Services UP = 5 & Pending Outbox Work = 0</font>"] --> STEP3
+    STEP3{"<font color='white'>Grafana phát hiện bất thường?</font>"}
+    STEP3 -->|Outbox Pending cao| STEP4A["<font color='white'>Kiểm tra Kafka Container & DLT Tables</font>"]
+    STEP3 -->|p95 Latency tăng| STEP4B["<font color='white'>Mở Kibana (:18114) lọc KQL correlationId hoặc ERROR level</font>"]
+    STEP3 -->|Mọi thứ bình thường| STEP4C["<font color='white'>Verify dữ liệu đã hội tụ thành công!</font>"]
 
     style STEP1 fill:#2196F3,stroke:#fff,stroke-width:2px
     style STEP2 fill:#2196F3,stroke:#fff,stroke-width:2px
@@ -229,3 +229,38 @@ flowchart TD
 - **Nâng cấp sắp tới**:
   - Tận dụng Spring Boot Actuator `/actuator/loggers` để **thay đổi Log Level động** (ví dụ đổi từ `INFO` sang `DEBUG` cho riêng package `com.filemngt.scan`) thời gian thực mà không cần khởi động lại service.
   - Cấu hình **Log Sampling** tại Logstash để tiết kiệm không gian lưu trữ đĩa khi lên môi trường Production.
+
+---
+
+## 8. Bộ câu hỏi phỏng vấn Chuyên sâu (Senior/Lead Interview Q&A)
+
+### ❓ Q1: Bản chất sự khác biệt giữa Metric (Prometheus) và Log (ELK) là gì? Tại sao không dùng 1 thứ cho tất cả?
+- **Trả lời**: 
+  - **Metric** là dữ liệu số học định lượng dạng chuỗi thời gian (*Time-series aggregations*). Dung lượng cực nhẹ, nén cao, dùng để trả lời câu hỏi: *“Hệ thống đang sống hay chết? Latency p95 hiện tại là bao nhiêu?”* ➔ Phù hợp để theo dõi sức khỏe và phát cảnh báo ngay lập tức.
+  - **Log** là bản ghi sự kiện dạng văn bản đầy đủ ngữ cảnh (*Context-rich text*). Dung lượng lớn, tốn tài nguyên tìm kiếm, dùng để trả lời câu hỏi: *“Tại sao request bị lỗi 500? Nguyên nhân nổ NullPointerException ở dòng code nào?”* ➔ Phù hợp để chẩn đoán nguyên nhân gốc (Root-cause Analysis).
+  - **Kết hợp**: Grafana báo động sự cố ➔ Kibana khoanh vùng nguyên nhân.
+
+### ❓ Q2: Tại sao Prometheus chọn mô hình Pull (Scrape) thay vì Push (Service chủ động đẩy metric)?
+- **Trả lời**: 
+  - **Kiểm soát tải (Load Control)**: Prometheus tự điều phối tần suất scrape. Nếu hệ thống có hàng ngàn service cùng ngắt/bật đồng thời, Prometheus không bị nghẽn hay tràn bộ nhớ (OOM) như mô hình Push.
+  - **Phát hiện sự cố tức thì**: Mô hình Pull phát hiện ngay lập tức trạng thái Target Down (`up == 0`) khi một service bị sập mà không cần chờ timeout hay heartbeat.
+  - **Đơn giản hóa Application**: Phía Microservice chỉ cần mở static HTTP endpoint `/actuator/prometheus`, không cần cài client đẩy tin phức tạp.
+
+### ❓ Q3: High Cardinality trong Prometheus Metric là gì? Tại sao lại nguy hiểm và dự án này phòng tránh như thế nào?
+- **Trả lời**: 
+  - **Khái niệm**: High Cardinality xảy ra khi một Label của Metric chứa quá nhiều giá trị duy nhất (như `userId`, `orderId`, `URL chứa path variable /users/123`).
+  - **Nguy hiểm**: Prometheus tạo một Time-series riêng biệt cho mỗi tổ hợp label duy nhất. High Cardinality làm số lượng Time-series bùng nổ theo cấp số nhân trong RAM ➔ Gây cạn kiệt RAM Prometheus Server.
+  - **Phòng tránh trong dự án**: Quy định cứng chỉ dùng label có cardinality thấp cố định (`service.name`, `http_method`, `normalized_uri`, `status`). Tuyệt đối không đưa ID, path động hoặc error stack trace vào Label.
+
+### ❓ Q4: Cơ chế nào giúp Correlation ID lan truyền (Propagate) xuyên suốt qua các Thread trong Java Spring Boot mà không làm rò rỉ ID giữa các Request khác nhau?
+- **Trả lời**: 
+  - Dựa vào **SLF4J MDC (Mapped Diagnostic Context)**, sử dụng `ThreadLocal` bên dưới nền.
+  - Khi HTTP Request đi qua `CorrelationIdFilter`, Filter đọc header `X-Correlation-Id`, đưa vào `MDC.put("correlationId", value)`. Mọi log record in ra trên Thread đó sẽ có correlation ID.
+  - **Bắt buộc**: Trong khối `finally` của Filter phải gọi `MDC.clear()`. Vì Tomcat/Jetty dùng Thread Pool tái sử dụng Worker Thread, nếu không `clear()`, Correlation ID của Request cũ sẽ bị rò rỉ (leak) sang Request mới trên cùng Thread đó.
+
+### ❓ Q5: Tại sao Logging lại dùng ECS JSON File + Logstash Ship thay vì để Application trực tiếp gửi log qua Network đến Elasticsearch/Logstash?
+- **Trả lời**: 
+  - Tránh rủi ro **Cascading Failure (Sập dây chuyền)**.
+  - Nếu Logstash/Elasticsearch bị ngắt mạng, chậm hoặc sập, việc Application gửi log đồng bộ/bất đồng bộ qua Network có thể làm nghẽn I/O, tràn bộ nhớ đệm (Buffer Overflow) và treo toàn bộ API nghiệp vụ.
+  - Thao tác ghi log ra đĩa local (OS buffered write) cực kỳ nhanh. Logstash chạy độc lập đọc file ngầm (**Decoupled**), giúp ứng dụng nghiệp vụ hoàn toàn cách ly với sự cố hạ tầng logging.
+

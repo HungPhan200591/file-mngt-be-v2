@@ -72,14 +72,14 @@ Trong dự án `file_mngt_microservice`, Outbox Pattern được triển khai nh
 
 ```mermaid
 flowchart TB
-    subgraph SCAN_SVC["1. Scan Service (scan_db)"]
+    subgraph SCAN_SVC["Scan Service"]
         APPROVE["<font color='white'>Approve Scan Proposal</font>"] -->|Local Transaction| SCAN_DB[("<font color='white'>scan_proposal APPROVED<br/>+ scan_outbox_event PENDING</font>")]
         SCAN_RELAY["<font color='white'>Scan Outbox Publisher<br/>(Scheduled Task)</font>"] -->|1. Poll PENDING| SCAN_DB
         SCAN_RELAY -->|2. Send Event| KAFKA1["<font color='white'>Kafka Topic<br/>(media.file.discovered.v1)</font>"]
         SCAN_RELAY -->|3. Mark PUBLISHED| SCAN_DB
     end
 
-    subgraph CATALOG_SVC["2. Catalog Service (catalog_db)"]
+    subgraph CATALOG_SVC["Catalog Service"]
         KAFKA1 --> CONSUMER1["<font color='white'>Discovered File Consumer</font>"]
         CONSUMER1 -->|Local Transaction| CAT_DB[("<font color='white'>media_subject & asset<br/>+ catalog_outbox_event PENDING</font>")]
         CAT_RELAY["<font color='white'>Catalog Outbox Publisher<br/>(Scheduled Task)</font>"] -->|1. Poll PENDING| CAT_DB
@@ -87,7 +87,7 @@ flowchart TB
         CAT_RELAY -->|3. Mark PUBLISHED| CAT_DB
     end
 
-    subgraph QUERY_SVC["3. Query Service (query_db)"]
+    subgraph QUERY_SVC["Query Service"]
         KAFKA2 --> CONSUMER2["<font color='white'>MediaSubjectChanged Consumer</font>"]
         CONSUMER2 -->|Local Transaction| Q_DB[("<font color='white'>query_media_subject<br/>+ query_search_outbox PENDING</font>")]
         ES_RELAY["<font color='white'>Search Index Outbox Publisher<br/>(Scheduled Task)</font>"] -->|1. Poll PENDING| Q_DB
@@ -95,14 +95,19 @@ flowchart TB
         ES_RELAY -->|3. Mark PUBLISHED| Q_DB
     end
 
-    style SCAN_SVC fill:#2196F3,stroke:#fff,stroke-width:2px
-    style CATALOG_SVC fill:#2196F3,stroke:#fff,stroke-width:2px
-    style QUERY_SVC fill:#2196F3,stroke:#fff,stroke-width:2px
+    style APPROVE fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SCAN_RELAY fill:#2196F3,stroke:#fff,stroke-width:2px
     style SCAN_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
-    style CAT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
-    style Q_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
     style KAFKA1 fill:#E91E63,stroke:#fff,stroke-width:2px
+
+    style CONSUMER1 fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CAT_RELAY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CAT_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
     style KAFKA2 fill:#E91E63,stroke:#fff,stroke-width:2px
+
+    style CONSUMER2 fill:#2196F3,stroke:#fff,stroke-width:2px
+    style ES_RELAY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style Q_DB fill:#9C27B0,stroke:#fff,stroke-width:2px
     style ES fill:#009688,stroke:#fff,stroke-width:2px
 ```
 
@@ -158,3 +163,37 @@ Thay vì phải cài đặt các công cụ CDC (Change Data Capture) phức t�
 | **Resilience cao**: Kafka sập API vẫn nhận request. | Tăng tải I/O ghi DB (1 transaction ghi 2 bảng). |
 | **Tách rời độ trễ**: REST API trả lời ngay không chờ Kafka. | Dữ liệu đồng bộ theo cơ chế **Eventual Consistency** (có trễ vài milisecond). |
 | **Dễ debug**: Tra cứu trạng thái Outbox trực tiếp bằng SQL. | Consumer nhận event bắt buộc phải có cơ chế **Idempotent** chống trùng lặp. |
+
+---
+
+## 7. Bộ câu hỏi phỏng vấn Chuyên sâu (Senior/Lead Interview Q&A)
+
+### ❓ Q1: Bản chất cốt lõi của bài toán Dual-Write là gì? Tại sao hai thao tác ghi DB và gửi Kafka không thể gộp thành 1 Transaction duy nhất?
+- **Trả lời**: 
+  - Bản chất là không thể tạo 1 ACID Transaction nguyên tử (Atomic) duy nhất bao trùm 2 hệ thống lưu trữ độc lập (PostgreSQL RDBMS và Kafka Broker) mà không dùng **2PC (Two-Phase Commit)**.
+  - 2PC gây khóa tài nguyên mạng dài (Blocking Locks), hiệu năng cực kém và tạo rủi ro Deadlock lớn trong Microservices.
+  - Outbox Pattern giải quyết bằng cách quy đổi 2PC thành **1 Local DB Transaction** duy nhất (Entity + Outbox record) cộng với **1 Async Relay Process**.
+
+### ❓ Q2: Nếu Outbox Relay đọc Outbox Table và gửi Kafka thành công, nhưng ứng dụng bị crash trước khi cập nhật status `PUBLISHED` trong DB thì sao?
+- **Trả lời**: 
+  - Event sẽ bị phát lại (Duplicate Event) ở lần chạy tiếp theo của Outbox Relay. Đây là lý do Outbox Pattern cam kết **At-Least-Once Delivery** (Giao bản tin ít nhất 1 lần).
+  - Để hệ thống không bị sai lệch dữ liệu, **Consumer nhận Event bắt buộc phải thiết kế Idempotent** (dựa vào `eventId` hoặc `subjectVersion` trong DB Consumer để dedupe).
+
+### ❓ Q3: So sánh hai cơ chế Outbox Relay: Polling Publisher (Dùng SQL `@Scheduled`) vs CDC (Change Data Capture như Debezium/Kafka Connect)? Tại sao dự án chọn Polling?
+- **Trả lời**:
+  - **Polling Publisher**: Đơn giản, thuần SQL, không phụ thuộc hạ tầng ngoài, dễ triển khai ở local/testing. Nhược điểm: Tạo tải Polling DB và có độ trễ nhỏ (interval).
+  - **CDC Debezium**: Đọc trực tiếp Postgres WAL (Write-Ahead Log) cực nhanh, gần như zero-latency, không tạo tải SQL query DB. Nhược điểm: Phụ thuộc plugin hạ tầng phức tạp, khó setup local/CI-CD.
+  - **Lý do dự án chọn Polling**: Đáp ứng nguyên tắc *Pragmatic & Fit-for-purpose*, tối ưu cho môi trường Dev/Local, dễ chạy E2E harness và đủ nhanh cho tải hiện tại.
+
+### ❓ Q4: Nếu bảng Outbox tích tụ hàng triệu bản tin (Backlog Spike) do Kafka sập vài giờ, làm sao để dọn dẹp và duy trì hiệu năng SQL Query của Outbox Relay?
+- **Trả lời**:
+  - Thêm Index trên `(status, created_at)` để query `WHERE status = 'PENDING'` luôn đạt tốc độ tối đa $O(\log N)$.
+  - Triển khai **Outbox Cleanup Worker** chạy ngầm để xóa hoặc lưu trữ (archive) các bản tin đã `PUBLISHED` quá 24h-7 ngày.
+  - Sử dụng **Partitioning** bảng Outbox theo ngày (Range Partitioning) hoặc **Table Truncation** định kỳ cho các partition cũ để tránh bùng nổ dung lượng đĩa và đòn bẩy Index.
+
+### ❓ Q5: Event trong Outbox Pattern nên thiết kế theo dạng State-based Event (Snapshot) hay Fine-grained Event (Delta)? Ưu nhược điểm trong dự án này?
+- **Trả lời**:
+  - Dự án chọn **State-based Event (Snapshot)** (`media.subject.changed.v1` chứa trọn vẹn thông tin Subject & danh sách Assets).
+  - **Ưu điểm**: Consumer (`query-service`) chỉ cần thực hiện Upsert/Reconcile snapshot mới nhất mà không bị phụ thuộc thứ tự tuyệt đối của hàng loạt event nhỏ; việc dedupe và retry cực kỳ đơn giản.
+  - **Nhược điểm**: Kích thước Payload event lớn hơn so với Delta event (nhưng hoàn toàn chấp nhận được với dữ liệu media metadata).
+
