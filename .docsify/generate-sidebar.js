@@ -36,18 +36,17 @@ function scanDir(dirPath, relativeDir = '') {
     if (IGNORE_DIRS.has(entry.name)) continue;
 
     const fullPath = path.join(dirPath, entry.name);
-    const relPath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
-    const absUrlPath = '/' + relPath.replace(/\\/g, '/');
+    const relPath = (relativeDir ? `${relativeDir}/${entry.name}` : entry.name).replace(/\\/g, '/');
 
     if (entry.isDirectory()) {
       const subItems = scanDir(fullPath, relPath);
       if (subItems.length > 0) {
         const title = entry.name.replace(/[-_]/g, ' ').toUpperCase();
-        items.push({ type: 'dir', name: entry.name, title, path: absUrlPath, children: subItems });
+        items.push({ type: 'dir', name: entry.name, title, path: relPath, children: subItems });
       }
     } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name !== '_sidebar.md' && entry.name !== 'index.html') {
       const title = getTitleFromFile(fullPath);
-      items.push({ type: 'file', name: entry.name, title, path: absUrlPath });
+      items.push({ type: 'file', name: entry.name, title, path: relPath });
     }
   }
 
@@ -78,12 +77,21 @@ function generateMarkdown(items, indentLevel = 0) {
 }
 
 const structure = scanDir(ROOT_DIR);
-const markdown = `* [🏠 Trang chủ](/README.md)\n\n` + generateMarkdown(structure);
+const markdown = `* [🏠 Trang chủ](README.md)\n\n` + generateMarkdown(structure);
 
+// Write _sidebar.md to root
 const outputPath = path.join(ROOT_DIR, '_sidebar.md');
 fs.writeFileSync(outputPath, markdown);
 
+// Write _sidebar.md to .docsify
 const localSidebarPath = path.join(ROOT_DIR, '.docsify', '_sidebar.md');
 fs.writeFileSync(localSidebarPath, markdown);
 
-console.log('Sidebar generated dynamically with absolute root links at ' + outputPath);
+// Also sync index.html to root for local serving
+const indexSource = path.join(ROOT_DIR, '.docsify', 'index.html');
+const indexDest = path.join(ROOT_DIR, 'index.html');
+if (fs.existsSync(indexSource)) {
+  fs.copyFileSync(indexSource, indexDest);
+}
+
+console.log('Sidebar and root index.html prepared successfully!');
