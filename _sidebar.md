@@ -1,6 +1,5 @@
 * [Home](/)
 
-* [Quy tắc Backend V2](/AGENTS.md)
 * **manual**
   * [Manual cá nhân](/manual/README.md)
   * **ai-agent**
@@ -100,45 +99,6 @@
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)
     * [<Feature title> — Design](/docs/templates/FEATURE_DESIGN.md)
     * [<Feature title> — Plan](/docs/templates/FEATURE_PLAN.md)
-* **apps**
-  * **catalog-service**
-    * [Catalog Service context](/apps/catalog-service/CONTEXT.md)
-  * **gateway-service**
-    * [Gateway Service context](/apps/gateway-service/CONTEXT.md)
-  * **media-worker**
-    * [Media Worker context](/apps/media-worker/CONTEXT.md)
-  * **query-service**
-    * [Query Service context](/apps/query-service/CONTEXT.md)
-  * **scan-service**
-    * [Scan Service context](/apps/scan-service/CONTEXT.md)
-* **platform**
-  * **event-contracts**
-    * [Event contracts module](/platform/event-contracts/README.md)
-  * **test-support**
-    * [Test support module](/platform/test-support/README.md)
-* **infra**
-  * **compose**
-    * [Local infrastructure](/infra/compose/README.md)
-* **tests**
-  * **e2e**
-    * [E2E HTTP harness](/tests/e2e/README.md)
-* **gemini**
-  * **deep-dive**
-    * [Backend V2 — Deep-Dive High Level Design](/gemini/deep-dive/HIGH-LEVEL-DESIGN.md)
-* **.agents**
-  * **skills**
-    * **adlc-feature-delivery**
-      * [ADLC feature delivery](/.agents/skills/adlc-feature-delivery/SKILL.md)
-    * **cross-service-contract**
-      * [Contract xuyên service](/.agents/skills/cross-service-contract/SKILL.md)
-    * **deploy-github-pages**
-      * [Deploy Docsify lên GitHub Pages](/.agents/skills/deploy-github-pages/SKILL.md)
-    * **load-v2-context**
-      * [Nạp context Backend V2](/.agents/skills/load-v2-context/SKILL.md)
-    * **maintain-ai-governance**
-      * [Duy trì AI governance](/.agents/skills/maintain-ai-governance/SKILL.md)
-* **.docsify**
-  * [Docsify site maintenance](/.docsify/README.md)
 
 ---
 _Generated from repository Markdown. Local output and dependencies are excluded._

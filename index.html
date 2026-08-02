@@ -61,7 +61,16 @@
         buttonText: 'Copy',
         errorText: 'Lỗi',
         successText: 'Đã copy'
-      }
+      },
+      plugins: [
+        function (hook) {
+          hook.ready(function () {
+            document.querySelector('.sidebar').addEventListener('click', function (event) {
+              event.stopPropagation();
+            });
+          });
+        }
+      ]
     }
   </script>
 

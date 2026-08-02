@@ -57,11 +57,13 @@ function renderTree(node, prefix = '') {
   return lines;
 }
 
-const files = await collectMarkdown(repositoryRoot);
+const files = (await Promise.all([
+  collectMarkdown(path.join(repositoryRoot, 'manual')),
+  collectMarkdown(path.join(repositoryRoot, 'docs'))
+])).flat();
 const root = { folders: new Map(), files: [] };
 for (const fullPath of files.sort()) {
   const relativePath = path.relative(repositoryRoot, fullPath).split(path.sep).join('/');
-  if (relativePath === '_sidebar.md' || relativePath === 'README.md') continue;
   addFile(root, {
     relativePath,
     title: await titleFor(fullPath, relativePath),

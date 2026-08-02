@@ -1,6 +1,6 @@
 ---
 name: deploy-github-pages
-description: Deploy Docsify documentation site lên GitHub Pages khi người dùng yêu cầu rõ preview/deploy/publish docs. Dùng cho `index.html`, sidebar curated, GitHub Actions Pages workflow hoặc kiểm tra trang đã deploy; không dùng khi chỉ sửa Markdown bình thường.
+description: Deploy Docsify documentation site lên GitHub Pages khi người dùng yêu cầu rõ preview/deploy/publish docs. Dùng cho `index.html`, sidebar sinh tự động, GitHub Actions Pages workflow hoặc kiểm tra trang đã deploy; không dùng khi chỉ sửa Markdown bình thường.
 ---
 
 # Deploy Docsify lên GitHub Pages
@@ -9,7 +9,7 @@ description: Deploy Docsify documentation site lên GitHub Pages khi người d�
 
 1. Đọc `AGENTS.md`, `.docsify/README.md`, `index.html`, `_sidebar.md` và `.github/workflows/deploy-docs.yml`.
 2. Chỉ đọc các Markdown được người dùng yêu cầu sửa; `manual/` không phải context mặc định.
-3. Ngay trước commit/push, Agent chạy `node ./.docsify/generate-sidebar.mjs`; không sửa tay `_sidebar.md`. Script sinh navigation từ Markdown ở mọi độ sâu và bỏ dependency/output local.
+3. Ngay trước commit/push, Agent chạy `node ./.docsify/generate-sidebar.mjs`; không sửa tay `_sidebar.md`. Script sinh navigation từ `manual/` và `docs/` ở mọi độ sâu.
 
 ## Kiểm tra trước deploy
 
@@ -41,6 +41,6 @@ if (-not $ghCli) {
 
 ## Bất biến
 
-- Docsify dùng hash route `#/...`; sidebar dùng hash link để không phụ thuộc path của GitHub Pages project site.
+- Docsify dùng hash route `#/...`; sidebar sinh link root-absolute dạng `/docs/...` để router xử lý đúng ở mọi trang lồng sâu. `relativePath: true` phục vụ link tương đối bên trong Markdown.
 - Artifact mirror repository ở mọi độ sâu; loại `.git`, `.env*`, `.idea`, `target`, `node_modules`, `_site`, `logs`, `tmp` và `*.iml`.
 - `manual/` là tài liệu cho chủ dự án, không phải source of truth hay context mặc định của AI Agent.

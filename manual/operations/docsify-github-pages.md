@@ -20,7 +20,7 @@ Hash route giúp Docsify xử lý navigation trong browser thay vì để GitHub
 
 ## Sidebar
 
-`.docsify/generate-sidebar.mjs` sinh `_sidebar.md` từ mọi file Markdown có trong repository, ở mọi độ sâu. Sidebar giữ cây thư mục thay vì một danh sách phẳng, nên vẫn định vị được nhanh khi đọc trên điện thoại.
+`.docsify/generate-sidebar.mjs` sinh `_sidebar.md` từ mọi file Markdown trong `manual/` và `docs/`, ở mọi độ sâu. Sidebar giữ cây thư mục thay vì một danh sách phẳng, nên vẫn định vị được nhanh khi đọc trên điện thoại.
 
 Không sửa tay `_sidebar.md`. Khi deploy, AI Agent tự chạy script trước commit/push; người dùng không phải chạy tay.
 
