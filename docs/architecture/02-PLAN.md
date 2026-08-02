@@ -162,6 +162,8 @@ Chỉ import thật sau khi người dùng duyệt dry-run.
 
 ## Giai đoạn 8 — Observability và hiệu năng
 
+> FT014 được kéo lên trước FT013 để tạo khả năng debug và quan sát hiệu năng của code hiện có. FT014 chỉ làm metrics/dashboard và structured logs/ELK; k6/load test, OpenTelemetry trace xuyên Kafka, alert/SLO, JFR/JMH và profiling sâu vẫn để lát sau của Phase 8.
+
 1. Micrometer: HTTP, Kafka lag, cache, DB pool.
 2. OpenTelemetry trace xuyên Gateway, service và Kafka.
 3. Prometheus/Grafana cho metrics; OpenTelemetry cho trace; ELK cho structured log.

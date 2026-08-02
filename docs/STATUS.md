@@ -4,8 +4,9 @@ Updated: 2026-08-02
 
 ## Hiện tại
 
-- Phase: Phase 6 chỉ mới có delivery foundation; quay lại hoàn thiện backend theo thứ tự Phase 4 → Phase 7 → Phase 8 trước Gallery V2.
-- Active feature: `013-media-worker-processing-foundation` đã `READY`; phạm vi là technical metadata + vòng Kafka completion, chưa gồm thumbnail/GIF/hash.
+- Phase: tạm kéo Phase 8 baseline lên trước để quan sát, debug và đo hệ thống hiện có; sau đó mới quay lại Phase 4/FT013.
+- Active feature: `014-observability-performance-foundation` đã `READY`; phạm vi là Prometheus/Grafana và ECS log vào ELK. k6 được để feature sau.
+- Deferred feature: `013-media-worker-processing-foundation` vẫn `READY` nhưng chưa triển khai; không tạo thêm Plan status chỉ để biểu diễn tạm dừng.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app tối thiểu, event envelope và Docker Compose PostgreSQL/Kafka/Redis đã có.
 - Kiến trúc: monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1 `002-catalog-vertical-slice` đã DONE: migration `media_subject`/`media_asset`, API create/detail/list theo OpenAPI v1.
@@ -20,13 +21,13 @@ Updated: 2026-08-02
 
 - **Phase 4:** Media Worker chưa có processing pipeline: technical metadata, thumbnail, GIF, hash, completion event và Catalog update.
 - **Phase 7:** chưa có importer/backfill V1: inventory root, dry-run, batch idempotent, checkpoint và reconciliation.
-- **Phase 8:** observability mới có nền metrics/cache; chưa có trace Kafka/OpenTelemetry và ELK end-to-end.
+- **Phase 8:** FT014 mới có Plan; chưa có Prometheus/Grafana hoặc ELK end-to-end. OpenTelemetry trace xuyên Kafka và k6 nằm ngoài FT014.
 
 ## Việc kế tiếp
 
-1. Triển khai **FT013 — Media Worker processing foundation** theo Plan `READY`, hoàn tất technical metadata + completion event; chưa làm frontend.
-2. Tạo feature **Phase 7 — Import/backfill V1 foundation**: inventory root, canonical locator, dry-run và reconciliation.
-3. Sau hai phase trên, bổ sung Query read model theo data mới và làm **Phase 8 observability** cho luồng backfill/processing.
+1. Triển khai **FT014 — Observability và performance foundation** theo Plan `READY`, theo thứ tự metrics → logs.
+2. Dùng dashboard/log để đọc và debug lại các flow 002–011 cho đến khi chủ dự án nắm vững.
+3. Khi chủ dự án sẵn sàng, quay lại **FT013 — Media Worker processing foundation**; sau đó mới lập feature Import/backfill V1.
 
 ## Bất biến cần nhớ
 

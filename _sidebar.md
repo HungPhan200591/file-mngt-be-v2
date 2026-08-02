@@ -94,6 +94,10 @@
       * [013 Media Worker processing foundation](/docs/features/013-media-worker-processing-foundation/01-brief.md)
       * [013 Media Worker processing foundation — Design](/docs/features/013-media-worker-processing-foundation/02-design.md)
       * [013 Media Worker processing foundation — Plan](/docs/features/013-media-worker-processing-foundation/03-plan.md)
+    * **014-observability-performance-foundation**
+      * [014 Observability và performance foundation](/docs/features/014-observability-performance-foundation/01-brief.md)
+      * [014 Observability và performance foundation — Design](/docs/features/014-observability-performance-foundation/02-design.md)
+      * [014 Observability và performance foundation — Plan](/docs/features/014-observability-performance-foundation/03-plan.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)
