@@ -37,16 +37,17 @@ function scanDir(dirPath, relativeDir = '') {
 
     const fullPath = path.join(dirPath, entry.name);
     const relPath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+    const absUrlPath = '/' + relPath.replace(/\\/g, '/');
 
     if (entry.isDirectory()) {
       const subItems = scanDir(fullPath, relPath);
       if (subItems.length > 0) {
         const title = entry.name.replace(/[-_]/g, ' ').toUpperCase();
-        items.push({ type: 'dir', name: entry.name, title, path: relPath, children: subItems });
+        items.push({ type: 'dir', name: entry.name, title, path: absUrlPath, children: subItems });
       }
     } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name !== '_sidebar.md' && entry.name !== 'index.html') {
       const title = getTitleFromFile(fullPath);
-      items.push({ type: 'file', name: entry.name, title, path: relPath });
+      items.push({ type: 'file', name: entry.name, title, path: absUrlPath });
     }
   }
 
@@ -59,8 +60,6 @@ function scanDir(dirPath, relativeDir = '') {
 
   return items;
 }
-
-const structure = scanDir(ROOT_DIR);
 
 function generateMarkdown(items, indentLevel = 0) {
   let lines = [];
@@ -78,8 +77,13 @@ function generateMarkdown(items, indentLevel = 0) {
   return lines.join('\n');
 }
 
-const markdown = `* [🏠 Trang chủ](README.md)\n\n` + generateMarkdown(structure);
+const structure = scanDir(ROOT_DIR);
+const markdown = `* [🏠 Trang chủ](/README.md)\n\n` + generateMarkdown(structure);
 
 const outputPath = path.join(ROOT_DIR, '_sidebar.md');
 fs.writeFileSync(outputPath, markdown);
-console.log('Sidebar generated successfully at ' + outputPath);
+
+const localSidebarPath = path.join(ROOT_DIR, '.docsify', '_sidebar.md');
+fs.writeFileSync(localSidebarPath, markdown);
+
+console.log('Sidebar generated dynamically with absolute root links at ' + outputPath);
