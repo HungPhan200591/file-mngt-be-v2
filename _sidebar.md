@@ -12,6 +12,7 @@
       * [4. Database map chi tiết](/manual/learning/backend-v2/04-database-map.md)
       * [5. FT013 primer](/manual/learning/backend-v2/05-ft013-primer.md)
       * [6. Đọc flow Scan → Catalog → Query bằng Grafana và Kibana](/manual/learning/backend-v2/06-observability-scan-to-query.md)
+      * [Deep-Dive Các Luồng API Trong Hệ Thống Backend V2](/manual/learning/backend-v2/07-api-flows-deep-dive.md)
       * [Hướng dẫn hiểu Backend V2](/manual/learning/backend-v2/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
