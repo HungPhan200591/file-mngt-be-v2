@@ -4,6 +4,8 @@ info:
   version: v1
   description: Canonical API cho media subject và asset của Backend V2.
 servers:
+  - url: http://localhost:18100
+    description: Local V2 Gateway (Routed)
   - url: http://localhost:18101
     description: Local Catalog theo ADR-004
 paths:

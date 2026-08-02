@@ -9,7 +9,7 @@ V1 và các công cụ local đã dùng các port quen thuộc như `8081`, `888
 
 ## Decision
 
-Mọi **host port** của Backend V2 nằm trong dải dành riêng `18100–18117`. Port nội bộ Docker vẫn dùng port chuẩn để service trong cùng Compose giao tiếp đơn giản. Đây là source of truth duy nhất cho port local V2.
+Mọi **host port** của Backend V2 nằm trong dải dành riêng `18100–18118`. Port nội bộ Docker vẫn dùng port chuẩn để service trong cùng Compose giao tiếp đơn giản. Đây là source of truth duy nhất cho port local V2.
 
 | Mục đích | Host port |
 | --- | ---: |
@@ -26,6 +26,7 @@ Mọi **host port** của Backend V2 nằm trong dải dành riêng `18100–181
 | Logstash input (future) | 18115 |
 | Prometheus (future) | 18116 |
 | Grafana (future) | 18117 |
+| Swagger UI / OpenAPI Docs | 18118 |
 
 Quy tắc triển khai:
 

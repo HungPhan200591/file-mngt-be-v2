@@ -18,6 +18,7 @@
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
     * [Quan sát Backend V2 ở local](/manual/operations/observability-local.md)
     * [Bản đồ dự án Backend V2](/manual/operations/project-map.md)
+    * [Hướng dẫn Vận hành Swagger UI & OpenAPI Contracts](/manual/operations/swagger-ui-openapi.md)
 * **docs**
   * [Trạng thái Backend V2](/docs/STATUS.md)
   * **adlc**

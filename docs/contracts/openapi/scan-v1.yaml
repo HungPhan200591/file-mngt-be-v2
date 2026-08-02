@@ -5,6 +5,8 @@ info:
   description: Read-only filesystem scan preview for Backend V2.
 security: []
 servers:
+  - url: http://localhost:18100
+    description: Local V2 Gateway (Routed)
   - url: http://localhost:18102
     description: Local Scan theo ADR-004
 paths:

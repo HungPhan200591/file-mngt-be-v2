@@ -3,6 +3,8 @@ info:
   title: Query Service API
   version: v1
 servers:
+  - url: http://localhost:18100
+    description: Local V2 Gateway (Routed)
   - url: http://localhost:18103
     description: Local V2 Query Service
 paths:

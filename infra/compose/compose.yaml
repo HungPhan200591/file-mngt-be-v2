@@ -157,6 +157,16 @@ services:
       - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
 
+  swagger-ui:
+    image: swaggerapi/swagger-ui:${SWAGGER_UI_VERSION:-v5.18.2}
+    container_name: backend-v2-swagger-ui
+    ports:
+      - "${SWAGGER_UI_PORT:-18118}:8080"
+    volumes:
+      - ../../docs/contracts/openapi:/usr/share/nginx/html/openapi:ro
+    environment:
+      URLS: "[{url: '/openapi/catalog-v1.yaml', name: 'Catalog API'}, {url: '/openapi/scan-v1.yaml', name: 'Scan API'}, {url: '/openapi/query-v1.yaml', name: 'Query API'}, {url: '/openapi/media-delivery-v1.yaml', name: 'Media Delivery API'}]"
+
 volumes:
   postgres-data:
   kafka-data:

@@ -189,3 +189,10 @@ Media Worker gọi Catalog với timeout mặc định 1 giây connect, 5 giây 
 Khi cần xem metrics/dashboard hoặc tìm structured log theo correlation ID, dùng
 [Quan sát Backend V2 ở local](./observability-local.md). Stack này là profile Compose opt-in; không cần
 bật để chạy business flow thông thường.
+
+## Swagger UI & API Docs local
+
+Để xem và dùng thử trực quan các REST API contract của Backend V2 (Catalog, Scan, Query, Media Delivery), mở trình duyệt tại:
+👉 **`http://localhost:18118`** (Port `18118` theo [ADR-004](../../docs/adr/ADR-004-local-port-allocation.md)).
+
+Chi tiết hướng dẫn chọn spec, chuyển đổi giữa Gateway Server `18100` / Direct Service Server và tính năng live-sync khi sửa contract nằm tại [Hướng dẫn Vận hành Swagger UI & OpenAPI Contracts](./swagger-ui-openapi.md).
