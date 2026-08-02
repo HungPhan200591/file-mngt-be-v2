@@ -17,47 +17,47 @@ Tài liệu giải thích chi tiết kiến trúc tổng thể, nhiệm vụ t�
 
 ```mermaid
 flowchart TB
-    FE["Gallery Web / Admin<br/>Metadata Library"] --> GW["API Gateway<br/>REST / API v2"]
+    FE["<font color='white'>Gallery Web / Admin<br/>Metadata Library</font>"] --> GW["<font color='white'>API Gateway<br/>REST / API v2</font>"]
 
     subgraph Services["Backend V2 Services"]
         direction LR
-        CAT["Catalog Service<br/>(Write Model)"]
-        SCAN["Scan Service<br/>(Filesystem Proposal)"]
-        QUERY["Query Service<br/>(Read Model)"]
-        WORKER["Media Worker<br/>(Background Jobs)"]
+        CAT["<font color='white'>Catalog Service<br/>(Write Model)</font>"]
+        SCAN["<font color='white'>Scan Service<br/>(Filesystem Proposal)</font>"]
+        QUERY["<font color='white'>Query Service<br/>(Read Model)</font>"]
+        WORKER["<font color='white'>Media Worker<br/>(Background Jobs)</font>"]
     end
 
     GW --> CAT
     GW --> SCAN
     GW --> QUERY
 
-    SCAN -->|approved proposal| KAFKA["Kafka Event Bus<br/>(KRaft Mode)"]
+    SCAN -->|approved proposal| KAFKA["<font color='white'>Kafka Event Bus<br/>(KRaft Mode)</font>"]
     CAT -->|outbox events| KAFKA
     KAFKA --> CAT
     KAFKA --> QUERY
     KAFKA --> WORKER
     WORKER -->|processing completed| KAFKA
 
-    CAT --> PG["PostgreSQL Instance<br/>(Database per service)"]
+    CAT --> PG["<font color='white'>PostgreSQL Instance<br/>(Database per service)</font>"]
     SCAN --> PG
     QUERY --> PG
-    QUERY --> SEARCH["Elasticsearch<br/>(Media Search Index)"]
-    QUERY --> REDIS["Redis<br/>(Query Cache)"]
+    QUERY --> SEARCH["<font color='white'>Elasticsearch<br/>(Media Search Index)</font>"]
+    QUERY --> REDIS["<font color='white'>Redis<br/>(Query Cache)</font>"]
 
-    SCAN --> FS["Media Filesystem"]
+    SCAN --> FS["<font color='white'>Media Filesystem</font>"]
     WORKER --> FS
 
-    style FE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style GW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SEARCH fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style REDIS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style FS fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style FE fill:#FF9800,stroke:#fff,stroke-width:2px
+    style GW fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CAT fill:#2196F3,stroke:#fff,stroke-width:2px
+    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
+    style QUERY fill:#2196F3,stroke:#fff,stroke-width:2px
+    style WORKER fill:#2196F3,stroke:#fff,stroke-width:2px
+    style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
+    style PG fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style SEARCH fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style REDIS fill:#009688,stroke:#fff,stroke-width:2px
+    style FS fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
 
 ---
@@ -83,15 +83,15 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Frontend / User
-    participant Scan as scan-service
-    participant OutboxScan as scan_db (Outbox)
-    participant Kafka as Kafka Event Bus
-    participant Catalog as catalog-service
-    participant OutboxCat as catalog_db (Outbox)
-    participant Worker as media-worker
-    participant Query as query-service
-    participant ES as Elasticsearch / Redis
+    actor User as <font color='white'>Frontend / User</font>
+    participant Scan as <font color='white'>scan-service</font>
+    participant OutboxScan as <font color='white'>scan_db (Outbox)</font>
+    participant Kafka as <font color='white'>Kafka Event Bus</font>
+    participant Catalog as <font color='white'>catalog-service</font>
+    participant OutboxCat as <font color='white'>catalog_db (Outbox)</font>
+    participant Worker as <font color='white'>media-worker</font>
+    participant Query as <font color='white'>query-service</font>
+    participant ES as <font color='white'>Elasticsearch / Redis</font>
 
     User->>Scan: 1. Approve Proposal (REST)
     Note over Scan,OutboxScan: Local DB Transaction
