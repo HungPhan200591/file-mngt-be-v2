@@ -20,9 +20,9 @@ Hash route giúp Docsify xử lý navigation trong browser thay vì để GitHub
 
 ## Sidebar
 
-`_sidebar.md` được viết tay để chỉ hiện các lối đọc hữu ích: Manual, trạng thái, kiến trúc, contract/E2E và FT013.
+`.docsify/generate-sidebar.mjs` sinh `_sidebar.md` từ mọi file Markdown có trong repository, ở mọi độ sâu. Sidebar giữ cây thư mục thay vì một danh sách phẳng, nên vẫn định vị được nhanh khi đọc trên điện thoại.
 
-Không tự sinh sidebar từ toàn bộ repository: navigation sẽ lộ source/context lịch sử, quá dài và khó dùng trên điện thoại.
+Không sửa tay `_sidebar.md`. Khi deploy, AI Agent tự chạy script trước commit/push; người dùng không phải chạy tay.
 
 ## Local preview
 
@@ -32,11 +32,11 @@ Từ root repository:
 npx docsify-cli serve .
 ```
 
-Mở URL do lệnh in ra. Local preview và GitHub Pages dùng cùng `index.html`, `_sidebar.md`, `_404.md` và Markdown source.
+Mở URL do lệnh in ra. Local preview và GitHub Pages dùng cùng `index.html`, `_sidebar.md` và Markdown source.
 
 ## Deploy
 
-Push `main` có thay đổi Docsify/public docs sẽ tự chạy workflow `Deploy Docsify to GitHub Pages`.
+Mọi push lên `main` đều chạy workflow `Deploy Docsify to GitHub Pages`. Workflow mirror toàn bộ repository và dùng `_sidebar.md` đã được Agent sinh trước push.
 
 Muốn chạy ngay bằng GitHub CLI sau khi đã push:
 
@@ -45,7 +45,7 @@ gh workflow run deploy-docs.yml --ref main
 gh run list --workflow deploy-docs.yml --limit 1
 ```
 
-Lần đầu cần chọn **Settings → Pages → Source: GitHub Actions** trên GitHub repository. Workflow chỉ upload public docs site đã chọn; không upload toàn repo hoặc `.env`.
+Lần đầu cần chọn **Settings → Pages → Source: GitHub Actions** trên GitHub repository. Artifact loại `.git`, `.env*`, `.idea`, `target/`, `node_modules/`, `_site/`, `logs/`, `tmp/` và `*.iml` để không đưa bí mật hoặc output cục bộ lên Pages.
 
 ## Khi gặp 404
 
@@ -53,4 +53,3 @@ Lần đầu cần chọn **Settings → Pages → Source: GitHub Actions** trê
 2. Dùng link hash route `#/...`.
 3. Vào Actions kiểm tra run `Deploy Docsify to GitHub Pages` đã xanh.
 4. Kiểm tra Pages source là `GitHub Actions`.
-5. Deep link cũ không có hash sẽ được `404.html` redirect về Docsify nếu GitHub Pages trả trang 404.

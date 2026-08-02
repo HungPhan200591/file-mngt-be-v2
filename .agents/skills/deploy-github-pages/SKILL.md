@@ -7,14 +7,14 @@ description: Deploy Docsify documentation site lên GitHub Pages khi người d�
 
 ## Nạp tối thiểu
 
-1. Đọc `AGENTS.md`, `manual/README.md`, `index.html`, `_sidebar.md` và `.github/workflows/deploy-docs.yml`.
+1. Đọc `AGENTS.md`, `.docsify/README.md`, `index.html`, `_sidebar.md` và `.github/workflows/deploy-docs.yml`.
 2. Chỉ đọc các Markdown được người dùng yêu cầu sửa; `manual/` không phải context mặc định.
-3. Không autogenerate sidebar. `_sidebar.md` là navigation curated, chỉ chứa lối đọc hữu ích.
+3. Ngay trước commit/push, Agent chạy `node ./.docsify/generate-sidebar.mjs`; không sửa tay `_sidebar.md`. Script sinh navigation từ Markdown ở mọi độ sâu và bỏ dependency/output local.
 
 ## Kiểm tra trước deploy
 
 1. Kiểm tra `git status --short` và scope thay đổi; không stage `.env`, `target/`, file local hay source không liên quan.
-2. Kiểm tra link nội bộ của sidebar/README, `git diff --check`, tồn tại `index.html`, `_sidebar.md`, `_404.md`, `404.html` và `.nojekyll`.
+2. Kiểm tra sidebar đã sinh, `git diff --check`, tồn tại `index.html`, `_sidebar.md`, `.docsify/generate-sidebar.mjs` và `.nojekyll`.
 3. Khi người dùng yêu cầu local preview, chạy Docsify từ repository root; không build Java/Docker chỉ để xem docs.
 
 ## Commit và publish
@@ -42,6 +42,5 @@ if (-not $ghCli) {
 ## Bất biến
 
 - Docsify dùng hash route `#/...`; sidebar dùng hash link để không phụ thuộc path của GitHub Pages project site.
-- `404.html` chỉ redirect deep link sang hash route; `_404.md` là nội dung not-found bên trong Docsify.
-- Artifact chỉ gồm docs/public Markdown đã chọn, không upload toàn repository hoặc `.env`.
+- Artifact mirror repository ở mọi độ sâu; loại `.git`, `.env*`, `.idea`, `target`, `node_modules`, `_site`, `logs`, `tmp` và `*.iml`.
 - `manual/` là tài liệu cho chủ dự án, không phải source of truth hay context mặc định của AI Agent.
