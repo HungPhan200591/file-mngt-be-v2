@@ -34,6 +34,7 @@ Thư mục này chứa tài liệu dành cho **chủ dự án đọc**: giải t
 
 - [Bản đồ dự án Backend V2](./operations/project-map.md) — folder/file nào lưu gì và khi nào cập nhật.
 - [Vận hành Backend V2 ở local](./operations/local-runtime.md) — Docker, IntelliJ, service, health check và E2E.
+- [Docsify và GitHub Pages](./operations/docsify-github-pages.md) — xem local, deploy và xử lý 404.
 
 ### Làm việc với AI Agent
 

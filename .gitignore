@@ -40,6 +40,7 @@ docker-compose.override.yml
 # Runtime data, generated media and reports
 logs/
 tmp/
+_site/
 coverage/
 test-output/
 infra/compose/data/

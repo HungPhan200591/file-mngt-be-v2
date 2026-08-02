@@ -1,6 +1,21 @@
 name: Deploy Docsify to GitHub Pages
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'index.html'
+      - '404.html'
+      - '_sidebar.md'
+      - '_404.md'
+      - '.nojekyll'
+      - 'docs/**'
+      - 'manual/**'
+      - 'apps/*/CONTEXT.md'
+      - 'platform/*/README.md'
+      - 'tests/e2e/README.md'
   workflow_dispatch:
 
 permissions:
@@ -22,24 +37,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Auto-Generate Sidebar
-        run: node generate-sidebar.js
-
-      - name: Prepare Docsify Files
-        run: touch .nojekyll
+      - name: Assemble public Docsify site
+        run: |
+          mkdir -p _site
+          cp index.html 404.html _sidebar.md _404.md .nojekyll README.md AGENTS.md _site/
+          cp -R docs manual _site/
+          cp --parents apps/*/CONTEXT.md _site/
+          cp --parents platform/*/README.md _site/
+          cp --parents tests/e2e/README.md _site/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
 
       - name: Deploy to GitHub Pages
         id: deployment
