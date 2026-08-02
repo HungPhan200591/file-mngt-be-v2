@@ -24,12 +24,20 @@ description: Deploy Docsify documentation site lên GitHub Pages khi người d�
 3. Nếu người dùng yêu cầu kích hoạt/kiểm tra ngay và `gh` có đăng nhập:
 
 ```powershell
-gh workflow run deploy-docs.yml --ref main
-gh run list --workflow deploy-docs.yml --limit 1
+$ghCli = (Get-Command gh -ErrorAction SilentlyContinue).Source
+if (-not $ghCli) {
+  $ghCli = @('C:\Program Files\GitHub CLI\gh.exe', 'C:\Program Files (x86)\GitHub CLI\gh.exe') |
+    Where-Object { Test-Path -LiteralPath $_ } |
+    Select-Object -First 1
+}
+& $ghCli auth status
+& $ghCli workflow run deploy-docs.yml --ref main
+& $ghCli run list --workflow deploy-docs.yml --limit 1
 ```
 
-4. Khi Pages chưa từng được cấu hình, báo người dùng đặt **Settings → Pages → Source: GitHub Actions** một lần; sau đó mới trigger workflow. Không tự thay đổi repository settings nếu chưa được người dùng cho phép.
-5. Báo URL Pages, run ID/kết quả và nếu fail thì nêu job/step lỗi. Không khẳng định deploy thành công chỉ vì đã push.
+4. Nếu không tìm thấy `$ghCli`, báo cần mở terminal mới sau khi cài GitHub CLI hoặc thêm CLI vào PATH; không tự cài tool.
+5. Khi Pages chưa từng được cấu hình, báo người dùng đặt **Settings → Pages → Source: GitHub Actions** một lần; sau đó mới trigger workflow. Không tự thay đổi repository settings nếu chưa được người dùng cho phép.
+6. Báo URL Pages, run ID/kết quả và nếu fail thì nêu job/step lỗi. Không khẳng định deploy thành công chỉ vì đã push.
 
 ## Bất biến
 
