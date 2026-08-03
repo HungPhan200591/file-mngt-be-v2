@@ -1,7 +1,9 @@
-# 6. Đọc flow Scan → Catalog → Query bằng Grafana và Kibana
+# 6. Observability Flow Overview (Scan → Catalog → Query)
 
-Tài liệu này dùng một lần chạy Scan E2E thật để đọc hệ thống đang hoạt động. Nó dành cho chủ dự án,
-không phải context mặc định của AI Agent.
+> 💡 **Tài liệu Deep-Dive Chuyên sâu về Observability**:
+> Để xem bộ tài liệu thực hành chi tiết về Prometheus, Grafana, ELK, MDC Tracing và Alerting Rules, tham khảo:
+> - 📊 **[Bộ Deep-Dive Observability (`manual/learning/deep-dive/observability/`)](../deep-dive/observability/00-overview.md)**
+> - 🛠️ **[Vận hành Observability Local (`manual/operations/observability-local.md`)](../../operations/observability-local.md)**
 
 ## Mục tiêu
 

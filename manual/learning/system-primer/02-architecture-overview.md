@@ -1,4 +1,10 @@
-# 2. Kiến trúc và technical concept
+# 2. Kiến trúc Tổng quan & Concept Kỹ thuật
+
+> 📌 **Tài liệu Nguồn chuẩn kiến trúc (SSOT)**:
+> Để xem chi tiết các quyết định kiến trúc chính thức và dài hạn, tham khảo các tài liệu SSOT tại:
+> - 📄 **[Tổng quan Kiến trúc Hệ thống (SSOT Summary)](../../../docs/architecture/01-SUMMARY.md)**
+> - 📐 **[Kế hoạch Mô hình hóa & Boundary Service](../../../docs/architecture/02-PLAN.md)**
+> - 📜 **[Quy tắc Viết Code & Java Standard](../../../docs/architecture/03-CODING_RULES.md)**
 
 ## Kiến trúc tổng thể
 

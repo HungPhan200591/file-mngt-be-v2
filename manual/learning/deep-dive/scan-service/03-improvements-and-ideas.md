@@ -44,5 +44,5 @@ Tài liệu tổng hợp đánh giá kỹ thuật, các điểm hạn chế/trad
 
 *Phần này dành cho Dev/Owner tự do ghi chép các phát hiện mới trong quá trình tìm hiểu hoặc làm việc với codebase.*
 
-- **[2026-08-03]**: Khảo sát luồng Polling tại [07-api-flows-deep-dive.md](../../backend-v2/07-api-flows-deep-dive.md). Cần kiểm tra xem chỉ số metric Prometheus `scan_run_duration_seconds` đã được gắn MDC Trace ID hay chưa.
+- **[2026-08-03]**: Khảo sát luồng Polling tại [07-api-flows-overview.md](../../system-primer/07-api-flows-overview.md). Cần kiểm tra xem chỉ số metric Prometheus `scan_run_duration_seconds` đã được gắn MDC Trace ID hay chưa.
 - **[Ghi chú tiếp theo]**: *Thêm ý tưởng mới của bạn tại đây...*

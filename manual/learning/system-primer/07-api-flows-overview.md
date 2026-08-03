@@ -1,6 +1,12 @@
-# Deep-dive các luồng API theo hành trình người dùng
+# 7. Tổng quan các luồng API theo hành trình người dùng
 
-Tài liệu này giải thích các API đã có của Backend V2 theo một hành trình nghiệp vụ hoàn chỉnh. Các màn hình Admin và Gallery được nhắc đến là **hành vi FE mục tiêu**; chúng không khẳng định FE V2 đã hoàn thiện.
+Tài liệu này tổng hợp bức tranh tổng quan các API đã có của Backend V2 theo hành trình người dùng. 
+
+> 💡 **Xem chi tiết tài liệu Deep-Dive chuyên sâu**:
+> - 🔍 **Scan Preview Engine**: [manual/learning/deep-dive/scan-service/01-filesystem-preview-engine.md](../deep-dive/scan-service/01-filesystem-preview-engine.md)
+> - 📦 **Approval & Outbox Event Flow**: [manual/learning/deep-dive/scan-service/02-approval-and-outbox-flow.md](../deep-dive/scan-service/02-approval-and-outbox-flow.md) & [manual/learning/deep-dive/transactional-outbox/](../deep-dive/transactional-outbox/)
+> - 🧵 **Virtual Threads Engine**: [manual/learning/deep-dive/virtual-threads/](../deep-dive/virtual-threads/)
+> - 📊 **Observability E2E**: [manual/learning/deep-dive/observability/](../deep-dive/observability/)
 
 ## Hành trình tổng quát
 

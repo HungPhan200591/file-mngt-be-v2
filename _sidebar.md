@@ -6,15 +6,6 @@
     * [Guide vận hành với AI Agent](/manual/ai-agent/operating-guide.md)
   * **learning**
     * [📖 Từ vựng Nghiệp vụ & Kỹ thuật Dự án (Technical & Domain Glossary)](/manual/learning/technical-glossary.md)
-    * **backend-v2**
-      * [1. Business model](/manual/learning/backend-v2/01-business-model.md)
-      * [2. Kiến trúc và technical concept](/manual/learning/backend-v2/02-architecture-technical.md)
-      * [3. Use case và data flow](/manual/learning/backend-v2/03-use-cases-data-flow.md)
-      * [4. Database map chi tiết](/manual/learning/backend-v2/04-database-map.md)
-      * [5. FT013 primer](/manual/learning/backend-v2/05-ft013-primer.md)
-      * [6. Đọc flow Scan → Catalog → Query bằng Grafana và Kibana](/manual/learning/backend-v2/06-observability-scan-to-query.md)
-      * [Deep-dive các luồng API theo hành trình người dùng](/manual/learning/backend-v2/07-api-flows-deep-dive.md)
-      * [Hướng dẫn hiểu Backend V2](/manual/learning/backend-v2/README.md)
     * **deep-dive**
       * **cqrs-read-projection**
         * [📖 CQRS Lite & Eventual Consistency Overview](/manual/learning/deep-dive/cqrs-read-projection/00-overview.md)
@@ -60,6 +51,15 @@
         * [⚡ Virtual Threads & Concurrency: Cheat-Sheet & Core Keywords](/manual/learning/deep-dive/virtual-threads/06-cheat-sheet-keywords-summary.md)
         * **question-bank**
           * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: Virtual Threads & Concurrency (JDK 25 / Spring Boot 3.4+)](/manual/learning/deep-dive/virtual-threads/question-bank/01-virtual-threads-questions.md)
+    * **system-primer**
+      * [1. Business model](/manual/learning/system-primer/01-business-model.md)
+      * [2. Kiến trúc Tổng quan & Concept Kỹ thuật](/manual/learning/system-primer/02-architecture-overview.md)
+      * [3. Use Cases và Data Flow (System Overview)](/manual/learning/system-primer/03-use-cases-data-flow.md)
+      * [4. Database map chi tiết](/manual/learning/system-primer/04-database-map.md)
+      * [5. FT013 Primer: Media Worker Processing Foundation](/manual/learning/system-primer/05-ft013-primer.md)
+      * [6. Observability Flow Overview (Scan → Catalog → Query)](/manual/learning/system-primer/06-observability-overview.md)
+      * [7. Tổng quan các luồng API theo hành trình người dùng](/manual/learning/system-primer/07-api-flows-overview.md)
+      * [Hướng dẫn hiểu Backend V2](/manual/learning/system-primer/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)

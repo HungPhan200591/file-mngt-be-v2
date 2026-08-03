@@ -33,17 +33,24 @@ Một câu tóm tắt:
 
 FT013 hiện mới có tài liệu `READY`, chưa có code. Media delivery mới dùng Nginx direct theo [ADR-005](../../../docs/adr/ADR-005-nginx-direct-media-delivery.md); Gateway Media Delivery là legacy FT011. Trạng thái mới nhất luôn xem tại [STATUS.md](../../../docs/STATUS.md).
 
-## Thứ tự đọc đề xuất
+## Thứ tự đọc đề xuất (System Primer Navigation)
 
-1. [Business model](./01-business-model.md): Subject, Asset, JOKE, USE và Album là gì.
-2. [Kiến trúc và kỹ thuật](./02-architecture-technical.md): năm service làm gì và vì sao cần Kafka/Redis/Elasticsearch.
-3. [Use case và data flow](./03-use-cases-data-flow.md): một file đi qua hệ thống như thế nào.
-4. [Database map](./04-database-map.md): mỗi database có bảng gì và dữ liệu nào là nguồn chuẩn.
-5. [FT013 primer](./05-ft013-primer.md): chính xác feature tiếp theo sẽ bổ sung gì.
-6. [Đọc flow bằng Grafana/Kibana](./06-observability-scan-to-query.md): dùng một Scan E2E thật để kiểm tra
-   Scan → Catalog → Query.
+1. **[01. Business Model](./01-business-model.md)**: Subject, Asset, JOKE, USE và Album là gì.
+2. **[02. Kiến trúc Tổng quan](./02-architecture-overview.md)**: Tóm tắt 5 Microservices, Kafka, Redis, CQRS. *(Xem chi tiết SSOT tại [docs/architecture/01-SUMMARY.md](../../../docs/architecture/01-SUMMARY.md))*.
+3. **[03. Use Cases & Data Flow](./03-use-cases-data-flow.md)**: Một tập tin đi qua hệ thống như thế nào.
+4. **[04. Database Map](./04-database-map.md)**: Bản đồ sở hữu dữ liệu 3 databases (`scan_db`, `catalog_db`, `query_db`).
+5. **[05. FT013 Primer](./05-ft013-primer.md)**: Nhập môn Media Worker Processing. *(Xem chi tiết tại [docs/features/013-media-worker-processing-foundation/](../../../docs/features/013-media-worker-processing-foundation/))*.
+6. **[06. Observability Flow Overview](./06-observability-overview.md)**: Tổng quan luồng quan sát E2E từ Grafana & Kibana. *(Đọc deep-dive tại [manual/learning/deep-dive/observability/](../deep-dive/observability/))*.
+7. **[07. API Flows Overview](./07-api-flows-overview.md)**: Bản đồ các REST API Flows chính. *(Đọc deep-dive Scan Service tại [manual/learning/deep-dive/scan-service/](../deep-dive/scan-service/), Outbox tại [manual/learning/deep-dive/transactional-outbox/](../deep-dive/transactional-outbox/), Virtual Threads tại [manual/learning/deep-dive/virtual-threads/](../deep-dive/virtual-threads/))*.
 
-Không cần đọc toàn bộ source code trước. Sau năm chương trên, dùng phần “Đường đọc code” trong FT013 primer để lần theo một flow thật.
+---
+
+## Các Bộ Tài Liệu Deep-Dive Chuyên Sâu (Technical Deep-Dives)
+Khi đã nắm bức tranh tổng quan ở System Primer, bạn có thể chuyển sang đọc các bộ Deep-Dive chi tiết:
+- 🔍 **[Scan Service Deep-Dive](../deep-dive/scan-service/00-overview.md)**: Động cơ scan bất đồng bộ, Strategy Pattern parse filename & Proposal Approval.
+- 📦 **[Transactional Outbox Deep-Dive](../deep-dive/transactional-outbox/00-overview.md)**: Giải quyết vấn nạn Dual-Write & Eventual Consistency.
+- 🧵 **[Virtual Threads Deep-Dive](../deep-dive/virtual-threads/00-overview.md)**: Project Loom (JDK 25), Thread Pinning, Semaphore Throttling & Question Bank.
+- 📊 **[Observability Deep-Dive](../deep-dive/observability/00-overview.md)**: Prometheus metrics, ELK structured logging, Correlation ID tracing & Dashboards.
 
 ## Sáu khái niệm cần nhớ trước
 

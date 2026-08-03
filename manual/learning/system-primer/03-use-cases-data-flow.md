@@ -1,4 +1,10 @@
-# 3. Use case và data flow
+# 3. Use Cases và Data Flow (System Overview)
+
+> 📌 **Tài liệu Nguồn chuẩn Features & Specs (SSOT)**:
+> Để xem chi tiết thiết kế kỹ thuật của các Feature đã và đang triển khai, tham khảo:
+> - 📂 **[Danh mục các Features đang làm (`docs/features/`)](../../../docs/features/)**
+> - 📄 **[Thiết kế Scan Preview (FT004)](../../../docs/features/004-scan-preview/02-design.md)**
+> - 📄 **[Trạng thái Dự án Hiện tại (`docs/STATUS.md`)](../../../docs/STATUS.md)**
 
 Chương này mô tả cả hệ thống hiện tại lẫn đích dự kiến. Nhãn trạng thái:
 

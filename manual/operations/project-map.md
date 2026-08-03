@@ -130,4 +130,4 @@ Chạy E2E theo [tests/e2e/README.md](../../tests/e2e/README.md). `.http` là k�
 5. Muốn chạy API end-to-end: mở `tests/e2e/README.md`.
 6. Muốn giao việc cho AI Agent: mở `manual/ai-agent/operating-guide.md`.
 7. Muốn hiểu business, technical, database và data flow: mở
-   [Hướng dẫn hiểu Backend V2](../learning/backend-v2/README.md).
+   [Hướng dẫn Nhập môn Hệ thống (System Primer)](../learning/system-primer/README.md).

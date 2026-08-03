@@ -1,4 +1,10 @@
-# 5. FT013 primer
+# 5. FT013 Primer: Media Worker Processing Foundation
+
+> 📌 **Tài liệu Nguồn chuẩn Feature 013 (SSOT)**:
+> Đây là bản tóm tắt dành cho người mới đọc. Để xem chi tiết spec kỹ thuật chính thức của FT013, tham khảo:
+> - 📄 **[FT013 Brief & Context](../../../docs/features/013-media-worker-processing-foundation/01-brief.md)**
+> - 📄 **[FT013 Design & Contract](../../../docs/features/013-media-worker-processing-foundation/02-design.md)**
+> - 📄 **[FT013 Implementation Plan](../../../docs/features/013-media-worker-processing-foundation/03-plan.md)**
 
 ## Trước FT013 hệ thống đang thiếu gì?
 
