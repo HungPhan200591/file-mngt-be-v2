@@ -59,7 +59,28 @@ flowchart TB
 
 ---
 
-## 3. Tóm tắt Cốt lõi
+## 4. Tại sao Java KHÔNG CẦN Rewrite Code hay dùng `async/await` mà vẫn dùng được Virtual Threads?
+
+Bí mật nằm ở chỗ **Java chọn xử lý ở cấp độ JVM Runtime & JDK Internals** chứ KHÔNG bắt Compiler biến đổi code:
+
+### 🔹 Lý do 1: Oracle đã "thay ruột" ngầm tất cả các điểm Blocking I/O trong JDK
+Trong JDK 21+, mã nguồn của hàng trăm API Blocking I/O truyền thống (như `Socket.read()`, `InputStream.read()`, `Thread.sleep()`, `LockSupport.park()`, `ReentrantLock.lock()`) đã được sửa đổi ngầm:
+- **Trước Java 21 (với Platform Thread)**: Khi gọi `socket.read()`, hàm này phát một lệnh OS Blocking System Call, làm OS Thread bị khóa cứng (blocked).
+- **Từ Java 21+ (với Virtual Thread)**: Khi gọi `socket.read()`, JDK ngầm kiểm tra xem thread hiện tại có phải Virtual Thread hay không. Nếu ĐÚNG, nó **không gọi OS Blocking Call**, mà tự động gọi `VirtualThread.park()`. JVM unmount Virtual Thread, cất Call Stack (Continuation) lên Heap, và giải phóng OS Thread (Carrier Thread) cho task khác.
+- Khi dữ liệu từ Socket trả về (thông qua `epoll` / `kqueue` / `IOCP`), JVM phát tín hiệu `VirtualThread.unpark()` để khôi phục lại Virtual Thread.
+
+👉 **Kết quả**: Đoạn code JDBC `resultSet.next()` hay `fileInputStream.read()` viết từ 15 năm trước **vẫn giữ nguyên syntax**, nhưng khi chạy trên JVM 21+, lớp vỏ bên dưới của JDK đã tự biến thành bất đồng bộ ngầm!
+
+---
+
+### 🔹 Lý do 2: Virtual Thread kế thừa trực tiếp lớp `java.lang.Thread`
+- Trong Java 21+: `public class VirtualThread extends Thread { ... }`
+- Vì `VirtualThread` **chính là một `java.lang.Thread`**, nên tất cả các framework 20 năm qua (Spring Framework, Tomcat, Hibernate, JDBC Drivers) vốn làm việc với `java.lang.Thread` và `ExecutorService` đều **coi Virtual Thread là một Thread hoàn toàn hợp lệ**.
+- Bạn không cần đổi kiểu trả về của hàm từ `String` thành `Future<String>` hay `Promise<String>`. Hàm vẫn trả về `String` bình thường!
+
+---
+
+## 5. Tóm tắt Cốt lõi
 
 - **Go Goroutines & Java Virtual Threads**: Tiếp cận dạng **Transparent (Tự nhiên)** — Dev viết code như truyền thống, Runtime bên dưới tự lo chuyển đổi ngầm.
 - **Kotlin Coroutines & Node.js**: Tiếp cận dạng **Explicit (Khai báo rõ)** — Dev phải chủ động đánh dấu `suspend` hoặc `async/await` để nhường quyền điều khiển.
