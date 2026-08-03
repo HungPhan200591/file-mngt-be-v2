@@ -12,25 +12,25 @@ Trong dự án `file_mngt_microservice`, Outbox Pattern được triển khai nh
 flowchart TB
     subgraph SCAN_SVC["Scan Service"]
         APPROVE["<font color='white'>Approve Scan Proposal</font>"] -->|"Local Transaction"| SCAN_DB["<font color='white'>scan_proposal APPROVED<br/>+ scan_outbox_event PENDING</font>"]
-        SCAN_RELAY["<font color='white'>Scan Outbox Publisher<br/>(Scheduled Task)</font>"] -->|"1. Poll PENDING"| SCAN_DB
-        SCAN_RELAY -->|"2. Send Event"| KAFKA1["<font color='white'>Kafka Topic<br/>media.file.discovered.v1</font>"]
-        SCAN_RELAY -->|"3. Mark PUBLISHED"| SCAN_DB
+        SCAN_RELAY["<font color='white'>Scan Outbox Publisher<br/>(Scheduled Task)</font>"] -->|"1 - Poll PENDING"| SCAN_DB
+        SCAN_RELAY -->|"2 - Send Event"| KAFKA1["<font color='white'>Kafka Topic<br/>media.file.discovered.v1</font>"]
+        SCAN_RELAY -->|"3 - Mark PUBLISHED"| SCAN_DB
     end
 
     subgraph CATALOG_SVC["Catalog Service"]
         KAFKA1 --> CONSUMER1["<font color='white'>Discovered File Consumer</font>"]
         CONSUMER1 -->|"Local Transaction"| CAT_DB["<font color='white'>media_subject & asset<br/>+ catalog_outbox_event PENDING</font>"]
-        CAT_RELAY["<font color='white'>Catalog Outbox Publisher<br/>(Scheduled Task)</font>"] -->|"1. Poll PENDING"| CAT_DB
-        CAT_RELAY -->|"2. Send Event"| KAFKA2["<font color='white'>Kafka Topic<br/>media.subject.changed.v1</font>"]
-        CAT_RELAY -->|"3. Mark PUBLISHED"| CAT_DB
+        CAT_RELAY["<font color='white'>Catalog Outbox Publisher<br/>(Scheduled Task)</font>"] -->|"1 - Poll PENDING"| CAT_DB
+        CAT_RELAY -->|"2 - Send Event"| KAFKA2["<font color='white'>Kafka Topic<br/>media.subject.changed.v1</font>"]
+        CAT_RELAY -->|"3 - Mark PUBLISHED"| CAT_DB
     end
 
     subgraph QUERY_SVC["Query Service"]
         KAFKA2 --> CONSUMER2["<font color='white'>MediaSubjectChanged Consumer</font>"]
         CONSUMER2 -->|"Local Transaction"| Q_DB["<font color='white'>query_media_subject<br/>+ query_search_outbox PENDING</font>"]
-        ES_RELAY["<font color='white'>Search Index Outbox Publisher<br/>(Scheduled Task)</font>"] -->|"1. Poll PENDING"| Q_DB
-        ES_RELAY -->|"2. Bulk Index"| ES["<font color='white'>Elasticsearch Search Index<br/>media-subject-search</font>"]
-        ES_RELAY -->|"3. Mark PUBLISHED"| Q_DB
+        ES_RELAY["<font color='white'>Search Index Outbox Publisher<br/>(Scheduled Task)</font>"] -->|"1 - Poll PENDING"| Q_DB
+        ES_RELAY -->|"2 - Bulk Index"| ES["<font color='white'>Elasticsearch Search Index<br/>media-subject-search</font>"]
+        ES_RELAY -->|"3 - Mark PUBLISHED"| Q_DB
     end
 
     style APPROVE fill:#FF9800,stroke:#fff,stroke-width:2px

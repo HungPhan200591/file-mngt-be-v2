@@ -13,7 +13,7 @@ Sau khi giai đoạn **Scan Preview** hoàn tất, các đề xuất (**Proposal
 
 ```mermaid
 flowchart TB
-    FE["<font color='white'>Admin / Frontend</font>"] -->|"1. POST /proposals/id/approve"| SS["<font color='white'>Scan Service</font>"]
+    FE["<font color='white'>Admin / Frontend</font>"] -->|"1 - POST /proposals/id/approve"| SS["<font color='white'>Scan Service</font>"]
     
     subgraph TX["<font color='white'>Local ACID Transaction (scan_db)</font>"]
         direction TB
@@ -22,12 +22,12 @@ flowchart TB
         S3["<font color='white'>Insert scan_outbox_event</font>"]
     end
     
-    SS -->|"2. Execute Transaction"| TX
-    TX -->|"3. 200 OK Item Approved"| FE
+    SS -->|"2 - Execute Transaction"| TX
+    TX -->|"3 - 200 OK Item Approved"| FE
     
-    Relay["<font color='white'>Outbox Relay Worker</font>"] -.->|"4. Poll pending events"| S3
-    Relay -->|"5. Publish media.file.discovered.v1"| Broker["<font color='white'>Kafka Broker</font>"]
-    Broker -->|"6. Consume Event"| CS["<font color='white'>Catalog Service</font>"]
+    Relay["<font color='white'>Outbox Relay Worker</font>"] -.->|"4 - Poll pending events"| S3
+    Relay -->|"5 - Publish media.file.discovered.v1"| Broker["<font color='white'>Kafka Broker</font>"]
+    Broker -->|"6 - Consume Event"| CS["<font color='white'>Catalog Service</font>"]
 
     style FE fill:#4CAF50,stroke:#fff,stroke-width:2px
     style SS fill:#FF9800,stroke:#fff,stroke-width:2px

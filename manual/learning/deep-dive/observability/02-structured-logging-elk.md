@@ -136,21 +136,21 @@ logging.file.name=logs/${spring.application.name}.json
 
 ```mermaid
 flowchart TB
-    subgraph APP_LAYER["1. Microservices Application Layer (Spring Boot 4)"]
-        CLIENT["<font color='white'>Client / E2E Test Harness</font>"] -->|"1. HTTP Request<br/>Header: X-Correlation-Id"| GW["<font color='white'>gateway-service (:18100)<br/>Inject CorrelationIdMdcFilter</font>"]
-        GW -->|"2. Forward Request<br/>+ X-Correlation-Id"| SCAN["<font color='white'>scan-service (:18102)<br/>Execute Scan & Proposal Logic</font>"]
-        SCAN -->|"3. Log Event with MDC"| SLF4J["<font color='white'>SLF4J Logger + Logback<br/>(MDC: correlationId, identityKey)</font>"]
-        SLF4J -->|"4. Non-blocking Async Append"| ECS_FORMATTER["<font color='white'>Spring Boot ECS Formatter<br/>(logging.structured.format.file=ecs)</font>"]
+    subgraph APP_LAYER["Phase 1 - Microservices Application Layer (Spring Boot 4)"]
+        CLIENT["<font color='white'>Client / E2E Test Harness</font>"] -->|"1 - HTTP Request<br/>Header: X-Correlation-Id"| GW["<font color='white'>gateway-service (:18100)<br/>Inject CorrelationIdMdcFilter</font>"]
+        GW -->|"2 - Forward Request<br/>+ X-Correlation-Id"| SCAN["<font color='white'>scan-service (:18102)<br/>Execute Scan & Proposal Logic</font>"]
+        SCAN -->|"3 - Log Event with MDC"| SLF4J["<font color='white'>SLF4J Logger + Logback<br/>(MDC: correlationId, identityKey)</font>"]
+        SLF4J -->|"4 - Non-blocking Async Append"| ECS_FORMATTER["<font color='white'>Spring Boot ECS Formatter<br/>(logging.structured.format.file=ecs)</font>"]
     end
 
-    subgraph DISK_LAYER["2. Local Filesystem Layer (Non-Blocking Buffer)"]
-        ECS_FORMATTER -->|"5. Write ECS JSON Lines"| LOG_FILE["<font color='white'>Local Disk Log Files<br/>logs/scan-service.json<br/>logs/catalog-service.json<br/>logs/query-service.json</font>"]
+    subgraph DISK_LAYER["Phase 2 - Local Filesystem Layer (Non-Blocking Buffer)"]
+        ECS_FORMATTER -->|"5 - Write ECS JSON Lines"| LOG_FILE["<font color='white'>Local Disk Log Files<br/>logs/scan-service.json<br/>logs/catalog-service.json<br/>logs/query-service.json</font>"]
     end
 
-    subgraph ELK_STACK["3. Decoupled ELK Pipeline Layer (Docker Profile)"]
-        LOG_FILE -->|"6. File Tail Ingest<br/>path: /logs/*.json"| LOGSTASH["<font color='white'>Logstash Container (:18115)<br/>JSON Codec Filter (No Grok Required)</font>"]
-        LOGSTASH -->|"7. Bulk Index Write<br/>HTTP Post"| ES_LOGS["<font color='white'>Elasticsearch Container (:18113)<br/>Data Stream: logs-file_mngt_v2-*</font>"]
-        ES_LOGS -->|"8. Index & Map Fields"| KIBANA["<font color='white'>Kibana Discover UI (:18114)<br/>KQL Query by correlationId</font>"]
+    subgraph ELK_STACK["Phase 3 - Decoupled ELK Pipeline Layer (Docker Profile)"]
+        LOG_FILE -->|"6 - File Tail Ingest<br/>path: /logs/*.json"| LOGSTASH["<font color='white'>Logstash Container (:18115)<br/>JSON Codec Filter (No Grok Required)</font>"]
+        LOGSTASH -->|"7 - Bulk Index Write<br/>HTTP Post"| ES_LOGS["<font color='white'>Elasticsearch Container (:18113)<br/>Data Stream: logs-file_mngt_v2-*</font>"]
+        ES_LOGS -->|"8 - Index & Map Fields"| KIBANA["<font color='white'>Kibana Discover UI (:18114)<br/>KQL Query by correlationId</font>"]
     end
 
     style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px

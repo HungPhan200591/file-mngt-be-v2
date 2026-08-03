@@ -20,20 +20,20 @@ Scan Service bắt buộc Client truyền một mã **`rootKey`** định nghĩa
 
 ```mermaid
 flowchart TB
-    FE["<font color='white'>Frontend / Admin</font>"] -->|"1. POST /scans/previews"| GW["<font color='white'>API Gateway</font>"]
-    GW -->|"2. Forward Request"| SC["<font color='white'>Scan Service</font>"]
+    FE["<font color='white'>Frontend / Admin</font>"] -->|"1 - POST /scans/previews"| GW["<font color='white'>API Gateway</font>"]
+    GW -->|"2 - Forward Request"| SC["<font color='white'>Scan Service</font>"]
     
-    SC -->|"3. Create ScanRun RUNNING"| DB[("<font color='white'>scan_db</font>")]
-    SC -->|"4. Return 202 Accepted + scanId"| FE
+    SC -->|"3 - Create ScanRun RUNNING"| DB[("<font color='white'>scan_db</font>")]
+    SC -->|"4 - Return 202 Accepted + scanId"| FE
     
-    SC -.->|"5. Async Thread Execution"| Walker["<font color='white'>Filesystem Walker Engine</font>"]
+    SC -.->|"5 - Async Thread Execution"| Walker["<font color='white'>Filesystem Walker Engine</font>"]
     Walker -->|"Read Files & Apply Strategy"| Parsers["<font color='white'>Filename Parser Strategies</font>"]
     Parsers -->|"Save Proposals & Issues"| DB
     Walker -->|"Mark ScanRun COMPLETED"| DB
     
-    FE -->|"6. Short Polling (GET /scans/id)"| SC
+    FE -->|"6 - Short Polling (GET /scans/id)"| SC
     
-    FE -->|"7. When status == COMPLETED"| Fetch["<font color='white'>Fetch Proposals & Issues</font>"]
+    FE -->|"7 - When status == COMPLETED"| Fetch["<font color='white'>Fetch Proposals & Issues</font>"]
     Fetch -->|"GET proposals & issues"| SC
 
     style FE fill:#4CAF50,stroke:#fff,stroke-width:2px
