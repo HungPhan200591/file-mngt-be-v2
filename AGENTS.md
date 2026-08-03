@@ -8,6 +8,7 @@
 - File source tối đa 500 dòng; tách theo trách nhiệm, không tách vụn.
 - Service chỉ truy cập database của chính nó. Redis không là source of truth; Kafka không thay thế mọi HTTP call.
 - Port local V2 bắt buộc theo `docs/adr/ADR-004-local-port-allocation.md`; không tự chọn port chuẩn hoặc port mới trước khi kiểm tra ADR và port đang listen.
+- Khi cần tham chiếu hoặc đối chiếu hành vi/implementation của V1, dùng **link refer** (chỉ đọc, không sửa khi chưa được yêu cầu rõ): **BE V1** `D:\Study\Project\file_mngt`; **FE V1** `D:\Study\Project\file_mngt_FE`.
 
 Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corretto-25` (JDK 25).
 
