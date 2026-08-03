@@ -4,12 +4,13 @@
 
 ---
 
-## 🎯 4 GOLDEN RULES
+## 🎯 5 GOLDEN RULES
 
 1. **LAYOUT TRƯỚC MÀU SẮC**: ưu tiên `flowchart TB`/`TD`; không nén một flow dài vào một hàng ngang.
 2. **TEXT MÀU TRẮNG BẮT BUỘC**: Mọi nhãn text bên trong node PHẢI bọc bằng thẻ `<font color='white'>Nhãn text</font>` để chống CSS theme IDE làm mờ chữ.
-3. **NỀN ĐẬM**: dùng Material Design colors, KHÔNG pastel.
-4. **BORDER TRẮNG**: `stroke:#fff,stroke-width:2px`.
+3. **NGOẶC KÉP NHÃN MŨI TÊN BẮT BUỘC**: Tất cả nhãn văn bản gắn trên mũi tên liên kết PHẢI bọc trong dấu ngoặc kép `-->|"Nhãn text"|` để chống lỗi Mermaid syntax parse error khi có ký tự đặc biệt (`(`, `)`, `:`, `=`, `<br/>`).
+4. **NỀN ĐẬM**: dùng Material Design colors, KHÔNG pastel.
+5. **BORDER TRẮNG**: `stroke:#fff,stroke-width:2px`.
 
 ---
 
@@ -122,6 +123,7 @@ flowchart TB
 - [ ] Diagram không quá 10–12 node; đã tách abstraction level nếu cần
 - [ ] Text đọc được trong Markdown mà không cần zoom
 - [ ] **Tất cả các nhãn text trong node BẮT BUỘC bọc thẻ `<font color='white'>...</font>`**
+- [ ] **Tất cả nhãn văn bản trên mũi tên BẮT BUỘC bọc dấu ngoặc kép `-->|"Nhãn text"|`**
 - [ ] Tất cả nodes có `stroke:#fff,stroke-width:2px`
 - [ ] Không dùng pastel (`#90EE90`, `#87CEEB`, `#FFD700`)
 - [ ] Text dễ đọc trên nền tối
