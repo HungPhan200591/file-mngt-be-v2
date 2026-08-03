@@ -2,3 +2,27 @@ media:
   roots:
     - key: fixture-media-delivery
       path: D:/Study/Project/file_mngt_microservice/tests/fixtures/scan/media-delivery
+    - key: fixture-joke-video
+      path: D:/Study/Project/file_mngt_microservice/tests/fixtures/scan/joke-video
+    - key: root
+      path: G:/System/Root
+    - key: syncdroid
+      path: G:/System/Syncdroid
+    - key: album
+      path: G:/System/Album
+    - key: honeyview
+      path: G:/System/Honeyview
+    - key: landscape
+      path: G:/System/Honeyview/Landscape
+    - key: portrait
+      path: G:/System/Honeyview/Portrait
+    - key: fullpics
+      path: G:/System/FullPics
+    - key: cover-pics
+      path: G:/System/Cover/Pics
+    - key: gif-joke
+      path: G:/System/Gif/Joke
+    - key: gif-use
+      path: G:/System/Gif/Use
+    - key: manhwa
+      path: G:/System/ComicEd/Manhwa
