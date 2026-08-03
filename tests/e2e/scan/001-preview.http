@@ -5,7 +5,7 @@
 POST {{baseUrl}}/api/v2/scans/previews
 Content-Type: application/json
 
-{ "rootKey": "{{scanFixtureRootKey}}" }
+{ "rootKey": "{{scanRootKey}}" }
 
 > {%
   client.global.set("scanRunId", response.body.id);
