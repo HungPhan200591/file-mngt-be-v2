@@ -18,6 +18,12 @@ Hoặc mở `gateway/001-routing-correlation.http`, chọn environment `local` v
 
 ## Chuẩn bị một lần
 
+Chạy từ gốc dự án (Root):
+```powershell
+npm run e2e:init
+```
+
+Hoặc chạy tại thư mục `tests/e2e/`:
 ```powershell
 Copy-Item http-client.env.example.json http-client.env.json
 npm install

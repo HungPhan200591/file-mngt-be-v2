@@ -20,6 +20,11 @@ Backend V2 phục vụ hai mục tiêu: chuẩn hóa media data và học micros
 
 Kịch bản E2E dùng chung cho IntelliJ và CLI: [E2E HTTP harness](./tests/e2e/README.md).
 
+### Các lệnh E2E từ root:
+- **Khởi tạo lần đầu**: `npm run e2e:init`
+- **Scan E2E**: `npm run e2e:scan` | `npm run e2e:scan:debug` | `npm run e2e:scan:search`
+- **Component E2E**: `npm run e2e:catalog` | `npm run e2e:gateway` | `npm run e2e:media` | `npm run e2e:query:cache` | `npm run e2e:observability`
+
 ## Cấu trúc
 
 ```text

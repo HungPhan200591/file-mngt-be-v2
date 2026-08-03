@@ -1,0 +1,17 @@
+{
+  "name": "file-mngt-microservice-v2",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend V2 root scripts for local infrastructure and E2E harness",
+  "scripts": {
+    "e2e:init": "node -e \"const fs=require('fs'); if(!fs.existsSync('tests/e2e/http-client.env.json')) fs.copyFileSync('tests/e2e/http-client.env.example.json', 'tests/e2e/http-client.env.json');\" && npm --prefix tests/e2e install",
+    "e2e:catalog": "npm --prefix tests/e2e run catalog:local",
+    "e2e:gateway": "npm --prefix tests/e2e run gateway:local",
+    "e2e:media": "npm --prefix tests/e2e run media:local",
+    "e2e:observability": "npm --prefix tests/e2e run observability:local",
+    "e2e:query:cache": "npm --prefix tests/e2e run query:cache:local",
+    "e2e:scan": "npm --prefix tests/e2e run scan:local",
+    "e2e:scan:search": "npm --prefix tests/e2e run scan:search:local",
+    "e2e:scan:debug": "npm --prefix tests/e2e run scan:local:debug"
+  }
+}
