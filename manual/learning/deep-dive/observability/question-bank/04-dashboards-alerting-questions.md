@@ -18,6 +18,16 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Lead / SRE) về Thiết k�
 **Question:** Bốn Tín hiệu Vàng (Four Golden Signals) trong SRE Monitoring là gì và được áp dụng như thế nào trong Dashboard Grafana của Backend V2?<br>
 **Target depth:** `D1-D2` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_CORE`<br>
 **Interviewer evaluates:** Hiểu biết chuẩn SRE của Google về 4 chỉ số cốt lõi khi giám sát bất kỳ hệ thống phân tán nào.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"4 Tín hiệu Vàng gồm: **Latency** (độ trễ p95/p99), **Traffic** (lưu lượng RPS), **Errors** (tỷ lệ lỗi 5xx) và **Saturation** (mức bão hòa RAM/Connection/Outbox Backlog). Đây là 4 chỉ số hiển thị ở vị trí trên cùng của Grafana Dashboard."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **4 Tín hiệu Vàng trong SRE là gì?** ➔ 💡 **Latency (Độ trễ) — Traffic (Tải RPS) — Errors (Tỷ lệ lỗi) — Saturation (Bão hòa đĩa/RAM)**.
+- ❓ **Latency hiển thị theo chỉ số nào chuẩn nhất?** ➔ 💡 **Quantile p95 / p99 (không dùng trung bình cộng Average)**.
+- ❓ **Saturation đo cái gì trong Backend V2?** ➔ 💡 **JVM Heap RAM, HikariCP Connection Pool và Outbox Backlog Count**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **4 Golden Signals ➔ Latency (p95) + Traffic (RPS) + Errors (5xx) + Saturation (Queue/RAM)**.
+
 **Answer outline:**
 - **1. Latency (Độ trễ)**: Thời gian xử lý thành công và thất bại của request. Áp dụng: Biểu đồ p95/p99 HTTP latency trên Grafana (`http_server_requests_seconds_bucket`).
 - **2. Traffic (Lưu lượng)**: Mức độ tải của hệ thống (RPS - Requests per second). Áp dụng: Biểu đồ `http_server_requests_seconds_count`.
@@ -33,6 +43,16 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Lead / SRE) về Thiết k�
 **Question:** Làm thế nào để thiết kế các quy tắc cảnh báo (Alerting Rules) có tính thực thi cao (Actionable Alerts) và tránh hiện tượng Kiệt sức Cảnh báo (Alert Fatigue) cho đội ngũ Vận hành/On-Call?<br>
 **Target depth:** `D2-D3` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_SCENARIO`<br>
 **Interviewer evaluates:** Kinh nghiệm thực tế về Alertmanager, cách tính Error Budget Burn Rate và tư duy On-call Operations.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Cảnh báo phải **Actionable** (chỉ alert khi ảnh hưởng người dùng, đi kèm link Grafana & Runbook hướng dẫn khắc phục) và **Chống Alert Fatigue** bằng mệnh đề duy trì thời gian (`for: 2m`), cảnh báo theo **Error Budget Burn Rate** và phân cấp Severity (Critical page đên, Warning tin Slack)."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Actionable Alert là gì?** ➔ 💡 **Cảnh báo đi kèm Service Name, Severity, Link Dashboard & Link Runbook hướng dẫn sửa**.
+- ❓ **Alert Fatigue là gì và làm sao chống?** ➔ 💡 **Mệt mỏi vì báo động giả ➔ Chống bằng `for: 2m` clause và tính Error Budget Burn Rate**.
+- ❓ **Phân cấp Severity trong Alertmanager thế nào?** ➔ 💡 **Critical (Page điện thoại khẩn) — Warning (Tin Slack giờ làm việc) — Info (Tạo ticket JIRA)**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **Actionable Alert ➔ kèm Runbook + for clause (2m) + Error Budget Burn Rate = No Alert Fatigue**.
+
 **Answer outline:**
 - **Nguyên tắc Actionable Alert**: Mọi thông báo gửi về Telegram/Slack BẮT BUỘC phải thỏa mãn:
   1. Chỉ cảnh báo khi có **ảnh hưởng thực tế đến người dùng** (User Impact) hoặc tài nguyên sắp bão hòa ngắn hạn.
@@ -51,6 +71,17 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Lead / SRE) về Thiết k�
 **Question:** Trình bày quy trình khoanh vùng và xử lý sự cố (Incident Response & Debugging Workflow) thực tế trong Backend V2 khi người dùng báo "Approve Proposal rồi nhưng dữ liệu không hiển thị trên Gallery V2"?<br>
 **Target depth:** `D3-D4` · **Interview likelihood:** `HIGH` · **Question type:** `PROJECT_APPLICATION`<br>
 **Interviewer evaluates:** Khả năng kết nối toàn bộ kỹ năng Observability (Grafana, Kibana, Outbox, Event Tracing, Kafka) vào một kịch bản troubleshooting thực tế.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Quy trình 4 bước: **1. Grafana check hạ tầng/outbox backlog** (`:18117`) ➔ **2. Thu thập Business Keys** (`scanRunId`, `identityKey`) ➔ **3. Kibana trace chuỗi log 4 bước** (`scan decision` ➔ `outbox publish` ➔ `catalog consume` ➔ `query projection`) ➔ **4. Khoanh vùng điểm đứt gãy** (DLT/Kafka lag/DB lock)."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Bước đầu tiên khi có sự cố dữ liệu không tới Gallery?** ➔ 💡 **Mở Grafana (:18117) kiểm tra Services UP và Outbox Pending Work**.
+- ❓ **Nếu Outbox Pending Work > 0 kéo dài?** ➔ 💡 **Sự cố ở Outbox Publisher Scheduled Task hoặc Kafka Broker/Network**.
+- ❓ **Nếu Grafana xanh 100% thì làm gì tiếp theo?** ➔ 💡 **Vào Kibana (:18114) search KQL theo `identityKey` để trace luồng 4 bước log**.
+- ❓ **Nếu thiếu log ở bước Catalog Consumer?** ➔ 💡 **Kiểm tra Kafka Consumer Lag hoặc Deserialization Error trong DLT Table**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **Grafana (Hạ tầng/Outbox Backlog) ➔ Kibana (KQL Trace Log 4 Bước) ➔ Khoanh vùng Root Cause**.
+
 **Answer outline:**
 1. **Bước 1: Kiểm tra Hạ tầng Tổng quan trên Grafana (`:18117`)**:
    - Mở dashboard `File Management V2 overview`.

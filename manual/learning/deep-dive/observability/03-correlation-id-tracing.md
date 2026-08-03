@@ -101,6 +101,27 @@ flowchart TB
 - **Kafka Record Header Injection**: Tự động inject `traceparent` (W3C Trace Context bao gồm Trace ID và Span ID) vào Kafka Record Headers khi Outbox Relay publish message.
 - **Tích hợp Grafana Tempo / Jaeger**: Hiển thị Gantt Chart thời gian xử lý thực tế qua các service (từ REST API → Outbox Relay → Kafka Broker → Consumer Process → FFmpeg Worker).
 
+### 3.1. Mối quan hệ giữa OpenTelemetry và SLF4J MDC (Cầu nối Bridge)
+
+> **Thắc mắc kiến trúc cốt lõi**: *"Khi triển khai OpenTelemetry thì có thể bỏ SLF4J MDC không?"*
+
+**CÂU TRẢ LỜI LÀ KHÔNG**. OpenTelemetry và SLF4J MDC **hoạt động song hành hỗ trợ lẫn nhau**:
+
+1. **MDC là nơi lưu trữ Context theo Thread (ThreadLocal)**:
+   - Trong ứng dụng Java, thư viện Logging (Logback/Log4j2) **không thể tự lấy được `trace_id`** nếu không qua MDC.
+   - OpenTelemetry Agent khi hoạt động sẽ **tự động bơm (inject/bridge)** `trace_id` và `span_id` vào SLF4J MDC của Thread hiện tại:
+     ```java
+     // OpenTelemetry Agent tự động thực thi ngầm ở Bytecode level:
+     MDC.put("trace_id", Span.current().getSpanContext().getTraceId());
+     MDC.put("span_id", Span.current().getSpanContext().getSpanId());
+     ```
+2. **Cơ chế Nối Vết Log ➔ Trace (Log-to-Trace Correlation)**:
+   - Nhờ có `trace_id` trong MDC, mỗi câu log ECS JSON xuất ra file `.json` đều có thêm trường `trace_id`.
+   - Giúp Kỹ sư vận hành trên **Kibana Discover** có thể **1-Click từ log lỗi nhảy thẳng sang Grafana Tempo / Jaeger** để xem Gantt Chart toàn bộ cuộc gọi distributed trace đó.
+3. **Tiến trình Tiến hóa (Migration Steps)**:
+   - **Hiện tại (Backend V2 hiện tại)**: Dùng `CorrelationIdMdcFilter` tự viết để sinh UUID và đẩy vào MDC (`MDC.put("correlationId", uuid)`).
+   - **Tương lai (Khi lên OpenTelemetry)**: Có thể gỡ bỏ `CorrelationIdMdcFilter` tự viết vì OTel Agent tự quản lý `traceparent` Header và tự bridge vào MDC, nhưng **vẫn phụ thuộc 100% vào cơ chế MDC của Logback** để in `trace_id` vào file log!
+
 ---
 
 ## 4. Tài liệu Tham khảo Liên quan

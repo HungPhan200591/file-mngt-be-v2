@@ -29,7 +29,17 @@
 ### 1. CQRS Lite & Eventual Consistency
 
 #### Q1: Tại sao hệ thống của bạn lại dùng "CQRS Lite" thay vì CQRS truyền thống với Event Sourcing?
-- **Kỳ vọng nhà tuyển dụng**: Đánh giá sự tỉnh táo trong thiết kế kiến trúc, không quá đà áp dụng pattern phức tạp khi không cần thiết.
+- **Kỳ vọng nhà tuyển dụng**: Đánh giá sự tỉnh táo trong thiết kế kiến trúc, không quá đà áp dụng pattern phức tạp khi không cần thiết.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Dùng **CQRS Lite** để phân tách **Write Side (Postgres 3NF Canonical)** và **Read Side (Postgres Denormalized + Elasticsearch)** nhằm tối ưu đọc/ghi độc lập mà **không gánh hậu quả chi phí vận hành cực kỳ phức tạp của Event Sourcing**."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **CQRS Lite khác CQRS truyền thống ở điểm nào?** ➔ 💡 **Không dùng Event Sourcing; Write DB vẫn lưu state 3NF chuẩn hoá**.
+- ❓ **Write Side và Read Side của dự án nằm ở đâu?** ➔ 💡 **Write Side (Catalog DB 3NF); Read Side (Query DB Denormalized + ES Index)**.
+- ❓ **Xử lý trễ Eventual Consistency phía UI như thế nào?** ➔ 💡 **Optimistic UI Update hoặc SSE/WebSocket Notification khi Projection hoàn tất**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **CQRS Lite ➔ Phân tách Read/Write ➔ No Event Sourcing Overkill ➔ Optimistic UI Update**.
+
 - **Câu trả lời xuất sắc**:
   > *"CQRS truyền thống kết hợp Event Sourcing lưu vết mọi event thay đổi trạng thái, có chi phí vận hành và rào cản kỹ thuật rất cao. Trong dự án Backend V2, chúng tôi chọn **CQRS Lite ở mức Microservice**:
   > - **Write Side (Catalog Service)**: Dùng PostgreSQL chuẩn hóa 3NF giữ vai trò Canonical Model chính chủ.
@@ -38,14 +48,25 @@
   > Cách làm này giải quyết triệt để vấn đề lock contention trên Write DB và tối ưu truy vấn đọc siêu tốc, mà không tạo gánh nặng vận hành Event Sourcing."*
 - **Thang mở rộng (Follow-up Ladder)**:
   - *Hỏi*: Nếu Query Service nhận Event chậm vài giây khiến User chưa thấy dữ liệu mới thì xử lý thế nào?
-  - *Đáp*:Áp dụng **Optimistic UI Update** trên Frontend hoặc poll nhẹ SSE/WebSocket notification khi Event snapshot đã được Query Service xử lý xong.
+  - *Đáp*: Áp dụng **Optimistic UI Update** trên Frontend hoặc poll nhẹ SSE/WebSocket notification khi Event snapshot đã được Query Service xử lý xong.
 
 ---
 
 ### 2. Dual-Store Search & Hydration Pattern
 
 #### Q2: Tại sao bạn lại chọn thiết kế Elasticsearch "Fast Hit" chỉ trả về ID rồi "Hydrate" chi tiết từ Redis/PostgreSQL?
-- **Kỳ vọng nhà tuyển dụng**: Đánh giá tư duy tối ưu bộ nhớ Elasticsearch và khả năng thiết kế hệ thống chịu tải cao.
+- **Kỳ vọng nhà tuyển dụng**: Đánh giá tư duy tối ưu bộ nhớ Elasticsearch và khả năng thiết kế hệ thống chịu tải cao.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Elasticsearch chỉ làm **Fast Hit (index các trường search chính và trả về Hit IDs)** để tiết kiệm 70% RAM ES Cluster và tránh reindex khi đổi schema, sau đó **Hydrate (lấy full chi tiết) từ Redis Cache trong 1-2ms**."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Fast Hit Search hoạt động như thế nào?** ➔ 💡 **Elasticsearch chỉ match từ khóa và trả về danh sách `hit IDs`**.
+- ❓ **Hydration Phase hoạt động như thế nào?** ➔ 💡 **Lấy danh sách `IDs` sang Redis Cache lấy chi tiết trong 1-2ms (Cache Miss mới vào DB)**.
+- ❓ **Lợi ích lớn nhất của Fast Hit & Hydration?** ➔ 💡 **Tiết kiệm 70% RAM Elasticsearch & Không cần Reindex toàn bộ Cluster khi đổi Schema**.
+- ❓ **Nếu Elasticsearch bị sập thì hệ thống ứng xử ra sao?** ➔ 💡 **Graceful Degradation Fallback sang PostgreSQL ILIKE / Text Search**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **Fast Hit (ES return IDs) ➔ Hydrate (Redis 1-2ms) ➔ 70% RAM Saved ➔ Graceful Fallback DB**.
+
 - **Câu trả lời xuất sắc**:
   > *"Nếu lưu toàn bộ thông tin chi tiết của Subject và danh sách Assets vào Elasticsearch:
   > 1. Dung lượng Heap Memory của Elasticsearch Cluster sẽ bị tiêu tốn rất lớn.
@@ -64,7 +85,17 @@
 ### 3. Reconciliation & Cache Eviction
 
 #### Q3: Khi nhận Kafka Event snapshot mới, tại sao bạn chọn xóa Cache (Evict) thay vì update trực tiếp dữ liệu mới vào Redis?
-- **Kỳ vọng nhà tuyển dụng**: Đánh giá hiểu biết sâu sắc về Race Condition trong Caching và Event-Driven Systems.
+- **Kỳ vọng nhà tuyển dụng**: Đánh giá hiểu biết sâu sắc về Race Condition trong Caching và Event-Driven Systems.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Dùng **Cache-Aside Eviction (`DEL key`)** thay vì `SET` trực tiếp vào Redis để **ngăn ngừa triệt để rủi ro Stale Cache** khi các Event bị xáo trộn thứ tự (Out-of-Order Events). Lần đọc sau sẽ gặp Cache Miss và lấy dữ liệu chuẩn nhất từ DB."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Tại sao KHÔNG nên `SET` trực tiếp dữ liệu Event vào Redis?** ➔ 💡 **Tránh rủi ro Stale Cache do Event bị đảo thứ tự (Out-of-Order)**.
+- ❓ **Cơ chế Cache-Aside Eviction xử lý thế nào?** ➔ 💡 **Ghi DB chuẩn (kiểm tra `event.version > db.version`) ➔ Xóa Key Redis (`DEL`)**.
+- ❓ **Dữ liệu được nạp lại vào Redis khi nào?** ➔ 💡 **Ở lượt đọc HTTP tiếp theo khi gặp Cache Miss, nạp từ DB kèm TTL**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **Out-of-Order Event Risk ➔ Cache Eviction (`DEL`) ➔ Version Check DB ➔ Cache Miss Reload**.
+
 - **Câu trả lời xuất sắc**:
   > *"Trong môi trường phân tán bất đồng bộ, các Kafka Event có thể bị giao lặp hoặc đến lệch thứ tự (Out-of-Order). Nếu chọn **Cache Update** (dùng `SET` dữ liệu mới từ Event vào Redis):
   > - Event cũ đến sau có thể ghi đè dữ liệu mới hơn trên Redis, tạo ra **Stale Cache**.
