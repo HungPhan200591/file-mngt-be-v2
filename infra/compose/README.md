@@ -4,6 +4,14 @@
 [ADR-004](../../docs/adr/ADR-004-local-port-allocation.md); version image phải được pin, không dùng
 `latest`. Sao chép `.env.example` thành `.env` ở root để override local và không commit secret thật.
 
+## All profiles (Toàn bộ container)
+
+Lệnh chạy toàn bộ container của dự án (Core, Search và Observability):
+
+```powershell
+docker compose --profile search --profile observability --env-file .env -f infra/compose/compose.yaml up -d
+```
+
 ## Core profile
 
 Lệnh mặc định chạy Nginx media V2, PostgreSQL, Kafka KRaft và Redis:
@@ -12,7 +20,7 @@ Lệnh mặc định chạy Nginx media V2, PostgreSQL, Kafka KRaft và Redis:
 docker compose --env-file .env -f infra/compose/compose.yaml up -d
 ```
 
-Nginx media V2 là container `file-mngt-v2-nginx-media`, dùng config riêng
+Nginx media V2 là service `nginx-media`, dùng config riêng
 `infra/nginx/nginx.conf` và host port `18119`. Nó chỉ mount `D:`, `E:`, `G:` read-only
 cho static media; không dùng container, config hay port `8888` của V1. Public URL local
 có dạng `http://localhost:18119/files/<drive>:/<path-encoded>`.
