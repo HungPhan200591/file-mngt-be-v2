@@ -176,6 +176,7 @@ services:
       - ../../docs/contracts/openapi:/usr/share/nginx/html/openapi:ro
     environment:
       URLS: "[{url: '/openapi/catalog-v1.yaml', name: 'Catalog API'}, {url: '/openapi/scan-v1.yaml', name: 'Scan API'}, {url: '/openapi/query-v1.yaml', name: 'Query API'}, {url: '/openapi/media-delivery-v1.yaml', name: 'Media Delivery API'}]"
+    restart: unless-stopped
 
 volumes:
   postgres-data:
