@@ -8,11 +8,68 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Lead) về Structured Loggi
 
 | Level | Foundation | Senior | Architect | Tổng số câu |
 | :--- | :---: | :---: | :---: | :---: |
-| **Số lượng** | 1 | 3 | 1 | 5 |
+| **Số lượng** | 1 | 5 | 1 | 7 |
 
 ---
 
 ## 🎯 Danh sách Câu hỏi Chi tiết & Đáp án Chuẩn
+
+### OBS-LOG-000 — `FOUNDATION`
+**Question:** Phân biệt vai trò của SLF4J, Logback, Spring Boot 4 ECS Formatter, Logstash, Elasticsearch và Kibana trong dây chuyền Logging? Khai báo `logging.structured.format.file=ecs` có phải là bỏ Logback và Logstash không?<br>
+**Target depth:** `D1` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_CORE`<br>
+**Interviewer evaluates:** Hiểu biết nền tảng về bức tranh toàn cảnh của hệ thống Logging (bản chất từng thành phần và dây chuyền hoạt động).<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"**SLF4J** (Code Interface) ➔ **Logback** (Engine ghi đĩa) ➔ **Spring Boot ECS** (Formatter định dạng JSON) ➔ **Logstash** (Container thu gom đọc file ngầm) ➔ **Elasticsearch** (DB lưu trữ search) ➔ **Kibana** (Giao diện Web UI). Khai báo Spring Boot 4 ECS **KHÔNG bỏ Logback hay Logstash**, mà chỉ bảo Logback xuất ra JSON chuẩn ECS để Logstash đọc ngay mà không cần cài thêm plugin ngoài."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **SLF4J làm nhiệm vụ gì?** ➔ 💡 **Interface chuẩn Java để code gọi `log.info()`**.
+- ❓ **Logback nằm ở đâu và làm gì?** ➔ 💡 **Engine chạy ngầm trong JVM App để thực sự ghi log ra file/console**.
+- ❓ **Spring Boot 4 ECS Formatter giúp ích gì?** ➔ 💡 **Định dạng câu log thành JSON chuẩn ECS mà KHÔNG cần thêm file XML hay thư viện ngoài**.
+- ❓ **Logstash đứng ở đâu và làm gì?** ➔ 💡 **Container hạ tầng đứng NGOÀI app, chủ động đọc file `.json` ngầm để đẩy về Elasticsearch**.
+- ❓ **Elasticsearch và Kibana khác nhau thế nào?** ➔ 💡 **Elasticsearch là DB lưu trữ & index log; Kibana là Màn hình Web UI để kỹ sư gõ search**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **SLF4J (Interface) ➔ Logback (Engine) ➔ Spring Boot ECS (Formatter) ➔ Logstash (Shipper) ➔ Elasticsearch (Storage DB) ➔ Kibana (Web UI)**.
+
+**Answer outline:**
+- **Dây chuyền 6 bước từ Code đến Màn hình Web**:
+  1. Lập trình viên gọi `LOGGER.info(...)` qua **SLF4J Interface**.
+  2. **Logback Engine** tiếp nhận event, kết hợp với **Spring Boot 4 ECS Formatter** để mã hóa câu log thành JSON chuẩn Elastic Common Schema.
+  3. Logback ghi bất đồng bộ câu log JSON xuống đĩa local (`logs/scan-service.json`).
+  4. Container **Logstash** đọc ngầm file JSON theo cơ chế File Tail (`sincedb`).
+  5. Logstash ship dữ liệu về **Elasticsearch Cluster** để đánh chỉ mục (Indexing).
+  6. Kỹ sư vận hành mở **Kibana Web UI** (`http://localhost:18114`) gõ KQL để tìm kiếm log.
+- **Giải ngộ nhận**: Spring Boot 4 ECS không thay thế Logback hay Logstash. Nó là tính năng mới giúp loại bỏ hoàn toàn các file cấu hình `logback-spring.xml` rườm rà và không cần cài thêm library `logstash-logback-encoder` ngoài.<br>
+**Required trade-offs:** Cần Spring Boot 3.4+ / 4.0+ để hỗ trợ out-of-the-box ECS structured logging.<br>
+**Follow-up ladder:** Tại sao console log vẫn giữ định dạng ANSI text trong khi file log định dạng ECS JSON?<br>
+**Red flags:** Trả lời "Dùng Spring Boot 4 ECS thì gỡ bỏ Logback và Logstash".
+
+---
+
+### OBS-LOG-000B — `SENIOR`
+**Question:** Phân tích rủi ro khi copy-paste code mà quên đổi `TargetClass.class` trong khai báo Logger thủ công? Đánh đổi (Trade-offs) của kiến trúc Zero-Lombok và tại sao tạo `BaseService` chứa Logger lại là Anti-pattern?<br>
+**Target depth:** `D2` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_SCENARIO`<br>
+**Interviewer evaluates:** Tư duy về Clean Code, rủi ro chẩn đoán sai log trên Kibana, trade-offs của Lombok vs Modern Java 25, và nguyên tắc Composition over Inheritance.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Quên đổi `TargetClass.class` sẽ làm **Kibana in sai trường `log.logger`**, gây **chẩn đoán sai lệch nghiêm trọng** khi troubleshoot. Chọn Zero-Lombok để **tương thích Java 25 Native tuyệt đối** mà không sợ nổ compiler hack. Tạo `BaseService` chứa logger là **Anti-pattern** vì vi phạm Composition over Inheritance và giảm hiệu năng runtime `getClass()`."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Hậu quả lớn nhất khi quên đổi `TargetClass.class`?** ➔ 💡 **Kibana in sai `log.logger` ➔ Search log theo class mới KHÔNG THẤY ➔ Chẩn đoán nhầm bug sang service khác**.
+- ❓ **Trade-offs của kiến trúc Zero-Lombok?** ➔ 💡 **Chấp nhận khai báo thủ công 1 dòng Logger ở mỗi class ➔ Đổi lại tương thích 100% Java 25 Native không sợ nổ compiler plugin**.
+- ❓ **Tại sao tạo BaseClass chứa Logger lại là Anti-pattern?** ➔ 💡 **Vi phạm Composition over Inheritance + Tốn chi phí runtime `getClass()` thay vì static compile-time**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **Wrong `log.logger` (Misleading Root Cause) ➔ Zero-Lombok (Java 25 Native Safety) ➔ No Base Logger (OOD Standard)**.
+
+**Answer outline:**
+- **Rủi ro Quên đổi Class Name**: Trường `log.logger` trong JSON Log bị mang tên class cũ. Khi sự cố xảy ra trên Prod, Kỹ sư search theo tên class mới trên Kibana sẽ bị "mù thông tin" hoặc đoán nhầm nguyên nhân.
+- **Trade-offs Zero-Lombok**:
+  - *Không dùng Lombok*: Phải gõ thủ công `private static final Logger LOGGER = ...` và constructor.
+  - *Lợi ích*: Loại bỏ "compiler hack" của Lombok, codebase hoàn toàn dùng Java 25 `record` native, build cực kỳ mượt mà với mọi IDE/Spotless Formatter.
+- **Anti-pattern BaseService Logger**: Tạo class cha `BaseService` chứa `logger = LoggerFactory.getLogger(getClass())` làm dính chặt kế thừa không cần thiết và tốn runtime cost của `getClass()`. Dòng static final logger ở từng class mới là chuẩn mực OOD.<br>
+**Required trade-offs:** Đỏi hỏi tính cẩn thận của Developer khi copy-paste code thủ công.<br>
+**Follow-up ladder:** Công cụ static analysis nào giúp tự động cảnh báo nếu `LoggerFactory.getLogger(...)` nhầm class name?<br>
+**Red flags:** Tạo `BaseService` chỉ để dùng chung 1 biến logger.
+
+---
 
 ### OBS-LOG-001 — `SENIOR`
 **Question:** Tại sao Logging trong dự án lại dùng cơ chế Ghi File ECS JSON local + Logstash Ship (Decoupled File Shipping) thay vì cho Microservice trực tiếp đẩy Log qua Network (Socket/HTTP Appender) về Logstash/Elasticsearch?<br>

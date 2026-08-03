@@ -4,11 +4,108 @@ Tài liệu đi sâu vào kiến trúc ghi log cấu trúc chuẩn Elastic Commo
 
 ---
 
-## 1. Kiến trúc Spring Boot 4 ECS JSON Format
+## 1. Bản Đồ Nền Tảng: Phân Biệt SLF4J, Logback, ECS, Logstash, Elasticsearch & Kibana
+
+> **Giải thích cho người mất gốc**: Đừng nhầm lẫn giữa các thành phần! Mỗi thành phần giữ một vai trò duy nhất trong dây chuyền.
+
+```
+[Mã Java: log.info()] ➔ (SLF4J Interface) ➔ (Logback Engine + Spring Boot ECS)
+                                                       │
+                                            (Ghi đĩa local: logs/scan-service.json)
+                                                       │
+                                            (Logstash đọc ngầm qua sincedb)
+                                                       ▼
+                                             [Logstash Ingest Pipeline]
+                                                       ▼
+                                             [Elasticsearch Database]
+                                                       ▼
+                                             [Kibana Web UI User Interface]
+```
+
+### 📊 Bảng Phân Tầng Trách Nhiệm Chi Tiết
+
+| Thành phần | Nằm ở đâu? | Vai trò chính là gì? | Có cần tự viết Code / Config không? | Có thể thay thế bằng gì? | Sử dụng nếu... (Khi nào dùng?) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SLF4J** | Nằm trong **Java Code** | Là **Interface chuẩn** để lập trình viên gọi `log.info("...")` hoặc `log.error("...")`. | **CÓ**: Gọi hàm `log.info()` trong mã Java. | Apache Commons Logging, System.Logger (Java 9+). | Luôn luôn dùng làm Facade abstraction để không bị phụ thuộc cứng vào thư viện log cụ thể. |
+| **Logback** | Nằm trong **JVM App** | Là **Logging Engine thực tế** chạy ngầm trong Spring Boot để ghi log ra đĩa/console. | **KHÔNG**: Spring Boot tự động tích hợp sẵn Logback. | Log4j2, JUL (`java.util.logging`). | Dùng khi làm ứng dụng Spring Boot (vì Spring Boot mặc định sẵn), cần hiệu năng I/O cao. |
+| **Spring Boot 4 ECS** | Nằm trong **Spring Boot** | Là **Trình định dạng (Formatter)**. Nó bảo Logback: *"Hãy format câu log thành JSON chuẩn Elastic Common Schema (ECS)"*. | **CÓ (2 dòng config)**: Khai báo `logging.structured.format.file=ecs` trong `application.properties`. | Thư viện `logstash-logback-encoder` (Spring 2/3), Custom XML Layout. | Dùng khi muốn xuất log JSON chuẩn hóa sẵn sàng cho ELK Stack mà KHÔNG cần cài library ngoài hay XML. |
+| **Logstash** | Nằm ở **Docker Container riêng** | Là **Log Shipper**. Đứng ngoài ứng dụng, đọc ngầm file `/logs/*.json` rồi đẩy về Elasticsearch. | **KHÔNG SỬA CODE APP**: Chỉ cấu hình 1 file `logstash.conf` ngầm ở hạ tầng. | Filebeat *(siêu nhẹ bằng Go)*, Fluentd, Vector, Fluent Bit. | Dùng khi cần **Transform/Filter/Groks log phức tạp** trước khi lưu trữ. *(Nếu chỉ ship log nhẹ thì dùng Filebeat)*. |
+| **Elasticsearch** | Nằm ở **Docker Container riêng** | Là **Cơ sở dữ liệu NoSQL** chuyên lưu trữ và đánh chỉ mục (Index) các câu log để tìm kiếm siêu tốc. | **KHÔNG SỬA CODE APP**: Chạy container có sẵn. | Grafana Loki *(lưu log nhẹ index label)*, OpenSearch, ClickHouse. | Dùng khi cần **Full-text search log siêu tốc**, tìm kiếm theo từ khóa JSON chi tiết chuẩn doanh nghiệp. |
+| **Kibana** | Nằm ở **Docker Container riêng** | Là **Giao diện Web UI** (`:18114`) cho kỹ sư mở máy tính gõ KQL để tìm kiếm log. | **KHÔNG SỬA CODE APP**: Mở trình duyệt Web là dùng được ngay. | Grafana UI, OpenSearch Dashboards. | Dùng đi kèm với Elasticsearch để tra cứu log KQL, xem Discover và làm Dashboard theo dõi sự cố. |
+
+> **Thắc mắc cốt lõi 1**: *"SLF4J là Interface, vậy mặc định Spring Boot chọn thư viện thực thi (Implementation) nào?"*
+> **CÂU TRẢ LỜI**: Spring Boot mặc định chọn **LOGBACK**! Thông qua dependency ngầm `spring-boot-starter-logging`, Spring Boot tự nạp `slf4j-api.jar` (Interface) và `logback-classic.jar` (Engine). Khi bạn gọi `log.info()`, SLF4J sẽ gọi trực tiếp Logback đằng sau hậu trường.
+>
+> **Thắc mắc cốt lõi 2**: *"Bật Spring Boot 4 ECS có nghĩa là bỏ Logback và Logstash không?"*
+> **CÂU TRẢ LỜI KHÔNG!** Spring Boot 4 ECS **KHÔNG thay thế Logback hay Logstash**. Nó chỉ giúp Logback xuất ra JSON chuẩn ECS **sẵn sàng cho Logstash đọc ngay mà không cần cài thêm plugin ngoài hay viết XML phức tạp**.
+
+### 1.1. So sánh `@Slf4j` (Lombok) vs Khai báo Thủ công (`LoggerFactory.getLogger`)
+
+> **Thắc mắc lập trình**: *"Dùng `@Slf4j` của Lombok có khác gì khai báo thủ công `private static final Logger LOGGER = LoggerFactory.getLogger(...)` như trong dự án?"*
+
+#### 📊 Bảng So Sánh Chi Tiết
+
+| Tiêu chí | Dùng Annotation `@Slf4j` (Lombok) | Khai báo thủ công `LoggerFactory.getLogger(...)` |
+| :--- | :--- | :--- |
+| **Cách khai báo** | Đặt 1 dòng `@Slf4j` trên đầu Class. | Viết dòng dài: `private static final Logger LOGGER = LoggerFactory.getLogger(TargetClass.class);` |
+| **Bản chất hoạt động** | **Lombok Annotation Processor** tự động chèn chèn mã bytecode `private static final Logger log = ...` ở phase Compile. | Tự lập trình viên khai báo trực tiếp bằng tay trong code Java. |
+| **Rủi ro Copy-Paste** | **0% Rủi ro**: Lombok tự lấy tên Class hiện tại (`TargetClass.class`). | **Rủi ro cao**: Copy-paste code từ `ClassA` sang `ClassB` dễ quên đổi tên class `ClassA.class` ➔ **Log in nhầm tên Class!** |
+| **Tên biến Logger** | Tự động sinh tên biến là **`log`** (viết thường). | Tùy chọn đặt tên biến: **`LOGGER`** (chuẩn Hằng số Static Constant) hoặc **`log`**. |
+| **Phụ thuộc Library** | Phụ thuộc vào **Lombok Annotation Processor**. | **Thuần 100% SLF4J Standard**, không phụ thuộc Lombok. |
+
+#### 🏆 Best Practice Hướng Dẫn Chọn Lựa:
+1. **Dùng `@Slf4j` (Lombok)**: Khi dự án đã sử dụng Lombok sẵn (`@Getter`, `@Setter`, `@RequiredArgsConstructor`). Đây là cách viết Clean Code, gọn nhẹ và loại bỏ hoàn toàn rủi ro Copy-Paste nhầm class name.
+2. **Dùng `LoggerFactory.getLogger(...)` thủ công**: Khi viết các module Core Platform, Servlet Filter ngầm, hoặc quy tắc dự án muốn Strict Zero-Lombok ở các lớp đặc thù. *(Cần chú ý cẩn thận khi Copy-Paste phải sửa đúng tên `TargetClass.class`)*.
+
+### 1.2. Đào Sâu: Rủi Ro Quên Đổi Class, Trade-offs Lombok & Anti-Pattern Base Logger
+
+> **Thắc mắc kiến trúc 1**: *"Nếu copy-paste code mà quên đổi `TargetClass.class` thì hậu quả là gì?"*
+
+#### 🚨 Hậu Quả Cực Kỳ Nguồn Tối Khi Quên Đổi Class Name:
+- **Trường `log.logger` bị in sai tên**: Giả sử bạn copy code từ `ScanDecisionService` sang `CatalogFileDiscoveryService` nhưng quên sửa `ScanDecisionService.class`.
+- Khi `CatalogFileDiscoveryService` chạy nổ log, trường JSON xuất ra Kibana sẽ là:
+  ```json
+  "service.name": "catalog-service",
+  "log.logger": "com.filemngt.v2.scan.application.ScanDecisionService" // SAU TÊN CLASS!
+  ```
+- **Chẩn đoán sai lệch nghiêm trọng**: Khi Prod gặp sự cố, Kỹ sư gõ KQL search log theo class `CatalogFileDiscoveryService` sẽ **KHÔNG THẤY LOG ĐÂU**, hoặc nghi ngờ bug xảy ra ở Scan Service ➔ **Làm lãng phí hàng giờ triệt phá sự cố!**
+
+---
+
+> **Thắc mắc kiến trúc 2**: *"Tại sao dự án không dùng Lombok? Đánh đổi (Trade-offs) là gì?"*
+
+#### ⚖️ Phân Tích Trade-offs Zero-Lombok vs Lombok:
+
+1. **Rủi ro Ma thuật Bytecode (Compiler Hack)**: Lombok không dùng Java Standard Annotation Processing (JSR 269) thông thường, mà nó "hack" vào AST (Abstract Syntax Tree) của `javac`. Mỗi khi dự án nâng cấp phiên bản JDK mới (ví dụ Java 25 trong Backend V2), Lombok rất hay bị crash compiler cho tới khi có patch mới.
+2. **Tính Năng Native Của Java Hiện Đại**: Từ Java 17+, Java ra mắt **`record`** native thay thế 70% nhu cầu của Lombok (`@Data`, `@Getter`, `@Value`).
+3. **Đánh Đổi (Trade-offs)**:
+   - **Chấp nhận**: Viết thủ công 1 dòng `private static final Logger LOGGER = LoggerFactory.getLogger(MyClass.class);` ở mỗi class và constructor cho Service.
+   - **Đổi lại**: Codebase tiệm cận 100% Java Native, tương thích tuyệt đối với mọi IDE/Build Tool/Spotless Formatter mà không sợ nổ plugin khi lên JDK 25+.
+
+---
+
+> **Thắc mắc kiến trúc 3**: *"Khai báo 1 dòng Logger ở mỗi file như vậy có rác code không? Có nên tạo `BaseService` chứa sẵn Logger không?"*
+
+#### ⚠️ Anti-Pattern: Tạo `BaseService` chứa Logger (NÊN TRÁNH)
+Một số lập trình viên cố gắng tạo class cha:
+```java
+// ANTI-PATTERN: Không nên làm cách này!
+public abstract class BaseService {
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
+}
+```
+- **Tại sao là Anti-pattern?**:
+  1. Vi phạm nguyên tắc **Composition over Inheritance** (bắt mọi service phải kế thừa `BaseService` vô lý).
+  2. Giảm hiệu năng runtime: `getClass()` phải resolve động ở runtime cho mỗi instance, thay vì `static final` compile-time.
+- **Kết luận**: Dòng `private static final Logger LOGGER = ...` nằm ở đầu file cùng các field dependency là **chuẩn mực Object-Oriented Design (OOD)**. Nó hoàn toàn KHÔNG PHẢI RÁC mà là định danh tĩnh an toàn và đạt hiệu năng $O(1)$ cao nhất.
+
+---
+
+## 2. Kiến trúc Spring Boot 4 ECS JSON Format
 
 Dự án sử dụng tính năng **Spring Boot 4 Built-in Structured Logging** chuẩn Elastic Common Schema (ECS) mà không cần thư viện ngoài.
 
-### 1.1. Cấu hình Runtime (`application.properties`)
+### 2.1. Cấu hình Runtime (`application.properties`)
 ```properties
 logging.structured.format.file=ecs
 logging.file.name=logs/${spring.application.name}.json
