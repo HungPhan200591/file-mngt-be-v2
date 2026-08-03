@@ -52,3 +52,7 @@ infra/observability/data/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Shared NoteRepo Junction Symlink
+manual/learning/glossary
+
