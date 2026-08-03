@@ -2,7 +2,7 @@
   "name": "file-mngt-microservice-v2",
   "version": "1.0.0",
   "private": true,
-  "description": "Backend V2 root scripts for local infrastructure and E2E harness",
+  "description": "Backend V2 root scripts for local infrastructure, unit/integration testing and E2E harness",
   "scripts": {
     "e2e:init": "node -e \"const fs=require('fs'); if(!fs.existsSync('tests/e2e/http-client.env.json')) fs.copyFileSync('tests/e2e/http-client.env.example.json', 'tests/e2e/http-client.env.json');\" && npm --prefix tests/e2e install",
     "e2e:all": "npm run e2e:gateway && npm run e2e:catalog && npm run e2e:scan && npm run e2e:query:cache && npm run e2e:media && npm run e2e:observability",
@@ -13,6 +13,13 @@
     "e2e:query:cache": "npm --prefix tests/e2e run query:cache:local",
     "e2e:scan": "npm --prefix tests/e2e run scan:local",
     "e2e:scan:search": "npm --prefix tests/e2e run scan:search:local",
-    "e2e:scan:debug": "npm --prefix tests/e2e run scan:local:debug"
+    "e2e:scan:debug": "npm --prefix tests/e2e run scan:local:debug",
+    "test:scan:it": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/scan-service -am '-Dtest=ScanIntegrationTest' '-Dsurefire.failIfNoSpecifiedTests=false'\"",
+    "test:scan": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/scan-service -am\"",
+    "test:catalog": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/catalog-service -am\"",
+    "test:query": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/query-service -am\"",
+    "test:gateway": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/gateway-service -am\"",
+    "test:media": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/media-worker-service -am\"",
+    "test:all": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test\""
   }
 }

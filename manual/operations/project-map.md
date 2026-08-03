@@ -77,6 +77,7 @@ Không tạo thêm tài liệu chỉ để chép lại nội dung từ nguồn c
 | `infra/compose/.env.example` | Mẫu biến môi trường Compose |
 | `infra/compose/.env` | Giá trị local, gitignore |
 | `manual/operations/local-runtime.md` | Các bước chạy/restart/kiểm tra hạ tầng local |
+| `manual/operations/testing-guide.md` | Hướng dẫn chạy nhanh Unit, Integration và E2E tests bằng CLI |
 | `docs/adr/ADR-004-local-port-allocation.md` | Dải port V2 bắt buộc |
 | `apps/<service>/src/main/resources/application-local.yml` | Path hoặc setting chỉ của máy local cho service đó |
 
