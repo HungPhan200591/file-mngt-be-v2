@@ -1,12 +1,12 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
-import com.filemngt.v2.scan.application.DecisionView;
 import com.filemngt.v2.scan.application.ScanDecisionService;
-import com.filemngt.v2.scan.application.ScanIssueView;
-import com.filemngt.v2.scan.application.ScanPageView;
-import com.filemngt.v2.scan.application.ScanProposalView;
-import com.filemngt.v2.scan.application.ScanRunView;
 import com.filemngt.v2.scan.application.ScanService;
+import com.filemngt.v2.scan.application.dto.DecisionView;
+import com.filemngt.v2.scan.application.dto.ScanIssueView;
+import com.filemngt.v2.scan.application.dto.ScanPageView;
+import com.filemngt.v2.scan.application.dto.ScanProposalView;
+import com.filemngt.v2.scan.application.dto.ScanRunView;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

@@ -1,4 +1,4 @@
-package com.filemngt.v2.scan.application;
+package com.filemngt.v2.scan.application.dto;
 
 import java.time.Instant;
 import java.util.UUID;
