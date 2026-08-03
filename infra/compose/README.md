@@ -6,11 +6,16 @@
 
 ## Core profile
 
-Lệnh mặc định chạy PostgreSQL, Kafka KRaft và Redis:
+Lệnh mặc định chạy Nginx media V2, PostgreSQL, Kafka KRaft và Redis:
 
 ```powershell
 docker compose --env-file .env -f infra/compose/compose.yaml up -d
 ```
+
+Nginx media V2 là container `file-mngt-v2-nginx-media`, dùng config riêng
+`infra/nginx/nginx.conf` và host port `18119`. Nó chỉ mount `D:`, `E:`, `G:` read-only
+cho static media; không dùng container, config hay port `8888` của V1. Public URL local
+có dạng `http://localhost:18119/files/<drive>:/<path-encoded>`.
 
 PostgreSQL tạo ba database/user độc lập. `kafka-volume-init` là init job cấp quyền cho
 `kafka-data`, kết thúc với exit code `0` là đúng; không xóa nó và không chạy Kafka broker bằng root.

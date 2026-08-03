@@ -8,6 +8,7 @@ Updated: 2026-08-02
 - Active feature: không có feature đang triển khai. `014-observability-performance-foundation` đã `DONE`: Prometheus/Grafana và ECS log vào ELK đã được xác minh local. k6 được để feature sau.
 - Deferred feature: `013-media-worker-processing-foundation` vẫn `READY` nhưng chưa triển khai; không tạo thêm Plan status chỉ để biểu diễn tạm dừng.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app, event envelope, module `platform/observability` và Docker Compose core/observability profile đã có.
+- Nginx media delivery V2 (`015`) đã DONE: container/config/port `18119` riêng, không dùng chung Nginx V1 `8888`; Gateway CORS chỉ allow origin Nginx V2.
 - Kiến trúc: monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1 `002-catalog-vertical-slice` đã DONE: migration `media_subject`/`media_asset`, API create/detail/list theo OpenAPI v1.
 - E2E HTTP `003-e2e-http-harness` đã DONE: `.http` dùng chung IntelliJ và Agent CLI.

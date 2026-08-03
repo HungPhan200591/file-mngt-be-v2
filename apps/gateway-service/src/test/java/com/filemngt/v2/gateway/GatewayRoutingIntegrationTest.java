@@ -80,8 +80,8 @@ class GatewayRoutingIntegrationTest {
         assertThat(mediaResponse.statusCode()).isEqualTo(200);
         assertThat(MEDIA.lastRequest.pathAndQuery()).isEqualTo("/api/v2/media/subjects/one/assets/two/content");
 
-        var cors = exchange("GET", "/api/v2/query/subjects", "", List.of(), "http://localhost:8888");
-        assertThat(cors.headers().firstValue("Access-Control-Allow-Origin")).contains("http://localhost:8888");
+        var cors = exchange("GET", "/api/v2/query/subjects", "", List.of(), "http://localhost:18119");
+        assertThat(cors.headers().firstValue("Access-Control-Allow-Origin")).contains("http://localhost:18119");
     }
 
     @Test

@@ -107,6 +107,10 @@
       * [014 Observability và performance foundation](/docs/features/014-observability-performance-foundation/01-brief.md)
       * [014 Observability và performance foundation — Design](/docs/features/014-observability-performance-foundation/02-design.md)
       * [014 Observability và performance foundation — Plan](/docs/features/014-observability-performance-foundation/03-plan.md)
+    * **015-isolated-nginx-media-delivery**
+      * [015 Nginx media delivery V2 tách biệt](/docs/features/015-isolated-nginx-media-delivery/01-brief.md)
+      * [015 Nginx media delivery V2 tách biệt — Design](/docs/features/015-isolated-nginx-media-delivery/02-design.md)
+      * [015 Nginx media delivery V2 tách biệt — Plan](/docs/features/015-isolated-nginx-media-delivery/03-plan.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)
