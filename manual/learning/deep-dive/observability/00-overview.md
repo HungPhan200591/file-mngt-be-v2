@@ -30,7 +30,7 @@ flowchart TB
     CLIENT["<font color='white'>User / E2E Harness</font>"] --> GW["<font color='white'>API Gateway<br/>(Inject X-Correlation-Id)</font>"]
 
     subgraph APPS["Backend V2 Microservices"]
-        direction LR
+        direction TB
         GW_SVC["<font color='white'>gateway-service</font>"]
         CAT_SVC["<font color='white'>catalog-service</font>"]
         SCAN_SVC["<font color='white'>scan-service</font>"]

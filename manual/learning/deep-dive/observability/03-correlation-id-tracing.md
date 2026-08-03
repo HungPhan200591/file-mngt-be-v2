@@ -65,11 +65,11 @@ Trong mô hình **Event-Driven Architecture (EDA)** bất đồng bộ:
 - Để truy vết trọn vẹn toàn bộ vòng đời của dữ liệu từ khi Scan → Approve → Event Outbox → Kafka Consumer → Catalog → Query Projection, chúng ta nối vết bằng **Chuỗi Entity Keys**:
 
 ```mermaid
-flowchart LR
-    SCAN_RUN["scanRunId<br/>(Scan REST Requests)"] --> EVENT_1["eventId<br/>(media.file.discovered.v1)"]
-    EVENT_1 --> SUBJECT["catalogSubjectId<br/>(Catalog Subject)"]
-    SUBJECT --> EVENT_2["eventId<br/>(media.subject.changed.v1)"]
-    EVENT_2 --> QUERY["querySubjectId<br/>(Query Projection)"]
+flowchart TB
+    SCAN_RUN["<font color='white'>scanRunId<br/>(Scan REST Requests)</font>"] --> EVENT_1["<font color='white'>eventId<br/>(media.file.discovered.v1)</font>"]
+    EVENT_1 --> SUBJECT["<font color='white'>catalogSubjectId<br/>(Catalog Subject)</font>"]
+    SUBJECT --> EVENT_2["<font color='white'>eventId<br/>(media.subject.changed.v1)</font>"]
+    EVENT_2 --> QUERY["<font color='white'>querySubjectId<br/>(Query Projection)</font>"]
 
     style SCAN_RUN fill:#2196F3,stroke:#fff,stroke-width:2px
     style EVENT_1 fill:#E91E63,stroke:#fff,stroke-width:2px
