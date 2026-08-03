@@ -38,6 +38,11 @@
           * [❓ Dashboards, Alerting & Incidents — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/04-dashboards-alerting-questions.md)
         * **summary**
           * [⚡ Structured Logging — Ultra-Short Summary](/manual/learning/deep-dive/observability/summary/02-structured-logging.md)
+      * **scan-service**
+        * [🔍 Scan Service Deep-Dive: Overview & Fundamentals](/manual/learning/deep-dive/scan-service/00-overview.md)
+        * [📁 Filesystem Preview Engine & Strategy Pattern](/manual/learning/deep-dive/scan-service/01-filesystem-preview-engine.md)
+        * [🔄 Approval Ingestion Flow & Transactional Outbox Integration](/manual/learning/deep-dive/scan-service/02-approval-and-outbox-flow.md)
+        * [💡 Scan Service: Technical Assessment & Improvement Ideas](/manual/learning/deep-dive/scan-service/03-improvements-and-ideas.md)
       * **transactional-outbox**
         * [📦 Transactional Outbox Pattern: Overview & Fundamentals](/manual/learning/deep-dive/transactional-outbox/00-overview.md)
         * [🏗️ Outbox Architecture & Implementation Details](/manual/learning/deep-dive/transactional-outbox/01-architecture-implementation.md)
