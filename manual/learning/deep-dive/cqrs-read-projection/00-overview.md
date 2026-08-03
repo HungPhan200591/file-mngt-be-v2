@@ -40,10 +40,10 @@ flowchart TB
         QUERY_API -->|Hydrate Detail| QUERY_DB
     end
 
-    CLIENT -->|Write Request| CATALOG_API
-    OUTBOX -->|Relay Event| KAFKA_TOPIC
+    CLIENT -->|"Write Request"| CATALOG_API
+    OUTBOX -->|"Relay Event"| KAFKA_TOPIC
     KAFKA_TOPIC --> CONSUMER
-    CLIENT -->|Read Request| QUERY_API
+    CLIENT -->|"Read Request"| QUERY_API
 
     style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
     style CATALOG_API fill:#FF9800,stroke:#fff,stroke-width:2px

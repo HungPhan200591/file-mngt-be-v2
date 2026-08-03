@@ -61,9 +61,9 @@ flowchart TD
     STEP1["<font color='white'>1. Đọc Console Log thu thập 4 ID<br/>(scanRunId, scanProposalId, scanIdentityKey, catalogSubjectId)</font>"] --> STEP2
     STEP2["<font color='white'>2. Mở Grafana Dashboard (:18117)<br/>Kiểm tra Services UP = 5 & Pending Outbox Work = 0</font>"] --> STEP3
     STEP3{"<font color='white'>Grafana phát hiện bất thường?</font>"}
-    STEP3 -->|Outbox Pending cao| STEP4A["<font color='white'>Kiểm tra Kafka Container & DLT Tables</font>"]
-    STEP3 -->|p95 Latency tăng| STEP4B["<font color='white'>Mở Kibana (:18114) lọc KQL correlationId hoặc ERROR level</font>"]
-    STEP3 -->|Mọi thứ bình thường| STEP4C["<font color='white'>Verify dữ liệu đã hội tụ thành công!</font>"]
+    STEP3 -->|"Outbox Pending cao"| STEP4A["<font color='white'>Kiểm tra Kafka Container & DLT Tables</font>"]
+    STEP3 -->|"p95 Latency tăng"| STEP4B["<font color='white'>Mở Kibana (:18114) lọc KQL correlationId hoặc ERROR level</font>"]
+    STEP3 -->|"Mọi thứ bình thường"| STEP4C["<font color='white'>Verify dữ liệu đã hội tụ thành công!</font>"]
 
     style STEP1 fill:#2196F3,stroke:#fff,stroke-width:2px
     style STEP2 fill:#2196F3,stroke:#fff,stroke-width:2px

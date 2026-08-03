@@ -27,36 +27,37 @@ Trong Backend V2:
 
 ```mermaid
 flowchart TB
-    CLIENT["<font color='white'>User / E2E Harness</font>"] --> GW["<font color='white'>API Gateway<br/>(Inject X-Correlation-Id)</font>"]
+    subgraph CLIENT_LAYER["Client & Entry Layer"]
+        CLIENT["<font color='white'>User / E2E Test Harness</font>"] -->|HTTP Request| GW["<font color='white'>API Gateway (:18100)<br/>Inject X-Correlation-Id</font>"]
+    end
 
-    subgraph APPS["Backend V2 Microservices"]
+    subgraph APPS["Backend V2 Microservices Layer"]
         direction TB
-        GW_SVC["<font color='white'>gateway-service</font>"]
-        CAT_SVC["<font color='white'>catalog-service</font>"]
-        SCAN_SVC["<font color='white'>scan-service</font>"]
-        QUERY_SVC["<font color='white'>query-service</font>"]
-        WORKER_SVC["<font color='white'>media-worker</font>"]
+        GW -->|Route Request| GW_SVC["<font color='white'>gateway-service (:18100)</font>"]
+        GW -->|Route Request| SCAN_SVC["<font color='white'>scan-service (:18102)</font>"]
+        GW -->|Route Request| CAT_SVC["<font color='white'>catalog-service (:18101)</font>"]
+        GW -->|Route Request| QUERY_SVC["<font color='white'>query-service (:18103)</font>"]
+        GW -->|Route Request| WORKER_SVC["<font color='white'>media-worker (:18104)</font>"]
     end
 
-    GW --> APPS
-
-    subgraph METRICS_STACK["Metrics Pipeline"]
-        PROM["<font color='white'>Prometheus Server<br/>(Scrape /actuator/prometheus)</font>"]
-        GRAFANA["<font color='white'>Grafana<br/>(Overview Dashboard)</font>"]
-        PROM --> GRAFANA
+    subgraph METRICS_PIPELINE["1. Metrics Pipeline (Pull Architecture)"]
+        PROM["<font color='white'>Prometheus Server (:18116)<br/>(Scrape 5s/time /actuator/prometheus)</font>"]
+        GRAFANA["<font color='white'>Grafana UI (:18117)<br/>(Dashboard: File Management V2)</font>"]
+        APPS -->|Expose Metrics| PROM
+        PROM -->|PromQL Datasource| GRAFANA
     end
 
-    subgraph LOGGING_STACK["Logging Pipeline (ELK)"]
-        ECS_FILES["<font color='white'>Structured ECS JSON Files<br/>(/logs/*.json)</font>"]
-        LOGSTASH["<font color='white'>Logstash<br/>(Async Ingest Pipeline)</font>"]
-        ES_LOGS[("<font color='white'>Elasticsearch<br/>(logs-file_mngt_v2-*)</font>")]
-        KIBANA["<font color='white'>Kibana Discover<br/>(KQL Search)</font>"]
+    subgraph LOGGING_PIPELINE["2. Structured Logging Pipeline (Decoupled ELK)"]
+        ECS_FILES["<font color='white'>Local Disk Log Files<br/>/logs/*.json (ECS Format)</font>"]
+        LOGSTASH["<font color='white'>Logstash Container (:18115)<br/>(Async File Tail Ingest)</font>"]
+        ES_LOGS["<font color='white'>Elasticsearch Container (:18113)<br/>(Data Stream: logs-file_mngt_v2-*)</font>"]
+        KIBANA["<font color='white'>Kibana Discover UI (:18114)<br/>(KQL Search by correlationId)</font>"]
 
-        ECS_FILES --> LOGSTASH --> ES_LOGS --> KIBANA
+        APPS -->|"Write Local ECS Logs"| ECS_FILES
+        ECS_FILES -->|"Mount Volume"| LOGSTASH
+        LOGSTASH -->|"Bulk Post"| ES_LOGS
+        ES_LOGS -->|"Query Logs"| KIBANA
     end
-
-    APPS -->|Expose Actuator| PROM
-    APPS -->|Write Local ECS Logs| ECS_FILES
 
     style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
     style GW fill:#2196F3,stroke:#fff,stroke-width:2px
@@ -70,7 +71,7 @@ flowchart TB
     style ECS_FILES fill:#009688,stroke:#fff,stroke-width:2px
     style LOGSTASH fill:#E91E63,stroke:#fff,stroke-width:2px
     style ES_LOGS fill:#9C27B0,stroke:#fff,stroke-width:2px
-    style KIBANA fill:#FF9800,stroke:#fff,stroke-width:2px
+    style KIBANA fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
 ---
