@@ -1,65 +1,55 @@
 ---
 name: build-question-bank
-description: "Thực hiện tạo mới, cập nhật và duy trì Ngân Hàng Câu Hỏi Phỏng Vấn (Question Bank) theo chuẩn Senior/Architect sau khi đào sâu (deep-dive) bất kỳ chủ đề kỹ thuật nào. Đảm bảo đầy đủ Elevator Pitch, Chuỗi Hỏi-Đáp Keyword, Answer Outline, Trade-offs và Red Flags."
+description: Tạo, sửa và audit question bank phỏng vấn kỹ thuật từ deep-dive đã kiểm chứng. Dùng khi người dùng yêu cầu ngân hàng câu hỏi, question chain, flashcard hỏi-đáp nhanh, mock interview hoặc luyện phỏng vấn Foundation/Senior/Architect; không dùng để viết deep-dive hay summary.
 ---
 
-# 📚 Build Question Bank Skill
+# Xây dựng question bank
 
-Skill này quy định quy trình chuẩn để xây dựng và bổ sung các **Ngân Hàng Câu Hỏi Phỏng Vấn (Question Bank)** trong thư mục `manual/learning/deep-dive/<topic>/question-bank/`.
+## Nạp nguồn
 
----
+1. Đọc deep-dive của đúng chủ đề; đọc summary nếu có để lấy keyword spine, không dùng summary làm nguồn cho claim mới.
+2. Đọc implementation/config dự án khi câu hỏi có loại `PROJECT_APPLICATION`.
+3. Nếu claim phụ thuộc version library/framework, dùng `$find-docs` trước khi viết đáp án.
+4. Ghi rõ ba loại kiến thức: bản chất chung, hành vi framework có điều kiện, và cấu hình thực tế của dự án.
 
-## 🎯 Cấu Trúc Bắt Buộc Của Mỗi Câu Hỏi
+## Thiết kế coverage trước khi viết
 
-Mỗi câu hỏi phỏng vấn trong Ngân hàng câu hỏi BẮT BUỘC phải có **đầy đủ 8 thành phần** sau:
+Tạo ma trận theo concept và độ sâu `FOUNDATION`, `SENIOR`, `ARCHITECT`; mỗi level phải có coverage thật. Nhóm câu hỏi theo các chuỗi có thứ tự:
+
+`WHY → WHAT → HOW → FAILURE → TRADE-OFF → PROJECT → EVOLUTION`
+
+- Tạo 4–7 question chain, mỗi chain có 5–8 cặp hỏi-đáp nhanh.
+- Mỗi đáp án nhanh tối đa hai câu, bôi đậm 1–3 keyword có sức gợi nhớ.
+- Câu sau phải đào sâu trực tiếp từ câu trước; không gom các flashcard rời rạc chỉ vì cùng chủ đề.
+- Tách “default”, “đã cấu hình trong dự án” và “có thể cấu hình”; cấm tuyệt đối hóa kiểu “không bao giờ mất”, “luôn async”, “100% non-blocking”.
+
+## Anchor interview questions
+
+Chọn 6–12 câu đại diện, không lặp lại toàn bộ flashcard. Mỗi anchor bắt buộc có:
 
 ```markdown
-### [PREFIX]-[TOPIC]-[ID] — `[LEVEL: FOUNDATION | SENIOR | ARCHITECT]`
-**Question:** [Nội dung câu hỏi phỏng vấn sát thực tế]<br>
-**Target depth:** `[D1-D4]` · **Interview likelihood:** `[HIGH | MEDIUM]` · **Question type:** `[COMMON_CORE | COMMON_SCENARIO | PROJECT_APPLICATION | ARCHITECTURE_EVOLUTION]`<br>
-**Interviewer evaluates:** [Nhà tuyển dụng đánh giá năng lực gì ở ứng viên]<br>
-
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"[1-2 câu trả lời cô đọng, sắc bén nhất nắm trọn bản chất vấn đề]"*
-
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **[Câu hỏi phụ 1]?** ➔ 💡 **[Đáp án ngắn kèm **Keyword nổi bật**]**.
-- ❓ **[Câu hỏi phụ 2]?** ➔ 💡 **[Đáp án ngắn kèm **Keyword nổi bật**]**.
-- ❓ **[Câu hỏi phụ 3]?** ➔ 💡 **[Đáp án ngắn kèm **Keyword nổi bật**]**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **[Keyword 1] — [Keyword 2] — [Keyword 3]**.
-
-**Answer outline:**
-- **[Ý chính 1]**: [Phân tích chi tiết kèm ví dụ code/config/mô hình].
-- **[Ý chính 2]**: [Phân tích nguyên lý hoạt động ngầm/threading/memory/I-O].
-- **[Ý chính 3]**: [Cách triển khai thực tế trong Backend V2].<br>
-**Required trade-offs:** [Những đánh đổi kiến trúc bắt buộc phải chấp nhận].<br>
-**Follow-up ladder:** [Các câu hỏi đào sâu tiếp theo nhà tuyển dụng có thể hỏi xoáy].<br>
-**Red flags:** [Các câu trả lời hời hợt, sai bản chất hoặc ngộ nhận cần tránh].
+### <ID> — `<LEVEL>` · `<TYPE>`
+**Question:** ...
+**Interviewer evaluates:** ...
+**Trả lời 30 giây:** ...
+**Answer spine:** 3–5 ý theo thứ tự lập luận.
+**Project evidence:** file/config hoặc “không áp dụng”.
+**Trade-offs:** ...
+**Follow-up ladder:** 2–4 câu sâu dần.
+**Red flags:** ...
 ```
 
----
+`TYPE` dùng một trong `COMMON_CORE`, `COMMON_SCENARIO`, `PROJECT_APPLICATION`, `ARCHITECTURE_EVOLUTION`.
 
-## 📐 Quy Trình 4 Bước Tạo Ngân Hàng Câu Hỏi
+## Retrieval practice
 
-1. **Khảo sát Chủ đề & Xác định Ma Trận Coverage**:
-   - Phân bổ số lượng câu hỏi theo 3 cấp độ: `FOUNDATION` (Nền tảng), `SENIOR` (Chuyên sâu), `ARCHITECT` (Thiết kế hệ thống).
-   - Đảm bảo ma trận được cập nhật chính xác ở đầu file.
+- Cuối file thêm 8–15 câu tự kiểm tra không kèm đáp án ngay bên dưới; link ngược về chain/anchor để tự chấm.
+- Với câu khó, thêm “keyword cứu hộ” thay vì chép lại đáp án.
+- Ưu tiên khả năng nói thành lời: có câu 30 giây, 2 phút và tình huống phản biện trade-off.
 
-2. **Soạn Thảo Nội Dung Đa Tầng**:
-   - Viết **Elevator Pitch**: Cô đọng trong 1-2 câu, dùng từ ngữ đắt giá.
-   - Viết **Memory Flashcard Chain**: Tạo 3-5 câu hỏi - đáp nhanh dạng Thẻ nhớ (Flashcard) có bọc `**Keyword**` đậm để ứng viên dễ học thuộc trong 30 giây.
-   - Viết **Answer Outline**: Trình bày chi tiết, có chuyên môn sâu, dẫn chứng bằng cấu hình hoặc nguyên lý HĐH/JVM/Network.
+## Audit trước bàn giao
 
-3. **Gắn Mã Định Danh (ID Prefix Standard)**:
-   - Observability Overview: `OBS-OVERVIEW-xxx`
-   - Observability Metrics: `OBS-METRIC-xxx`
-   - Observability Logging: `OBS-LOG-xxx`
-   - Observability Tracing: `OBS-TRACE-xxx`
-   - Observability Alerting/Dashboard: `OBS-DASH-xxx`
-   - Transactional Outbox: `OUTBOX-xxx`
-   - CQRS Read Projection: `CQRS-xxx`
-   - Event-Driven Kafka: `KAFKA-xxx`
-
-4. **Audit Kiểm Tra Trước Khi Bàn Giao**:
-   - Kiểm tra 100% câu hỏi đã có đủ **⚡ Elevator Pitch** và **🧠 Flashcard Chain** chưa.
-   - Đảm bảo giữ đúng tiếng Việt có dấu, giữ nguyên thuật ngữ kỹ thuật tiếng Anh.
+- Đếm lại matrix từ nội dung thật; ID duy nhất và tăng ổn định.
+- Mọi concept cốt lõi có ít nhất một rapid chain và một anchor hoặc nêu rõ lý do.
+- Đáp án không mâu thuẫn deep-dive/summary; link không mồ côi.
+- Xóa câu trùng, con số không có nguồn, slogan tuyệt đối và chi tiết không giúp phân biệt năng lực ứng viên.

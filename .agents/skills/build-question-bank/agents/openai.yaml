@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Question Bank"
+  short_description: "Tạo question chain và câu hỏi phỏng vấn"
+  default_prompt: "Use $build-question-bank to build interview question chains, rapid answers, anchor questions, trade-offs, and retrieval practice from a verified deep-dive."

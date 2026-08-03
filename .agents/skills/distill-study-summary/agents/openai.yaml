@@ -1,0 +1,4 @@
+interface:
+  display_name: "Distill Study Summary"
+  short_description: "Cô đọng kiến thức để nhớ và phỏng vấn"
+  default_prompt: "Use $distill-study-summary to turn a verified deep-dive into a concise, memorable interview revision sheet."

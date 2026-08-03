@@ -69,25 +69,25 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Solution Architect) về T�
 ---
 
 ### OBS-OVERVIEW-003 — `ARCHITECT`
-**Question:** Làm thế nào để thiết kế hệ thống Observability hoạt động theo nguyên tắc Non-blocking & Opt-in, đảm bảo sự cố hạ tầng Logging/Metrics không bao giờ làm sập API nghiệp vụ (Cascading Failure)?<br>
+**Question:** Làm thế nào để thiết kế Observability theo hướng Opt-in và giảm coupling để hạn chế Cascading Failure vào API nghiệp vụ?<br>
 **Target depth:** `D3-D4` · **Interview likelihood:** `HIGH` · **Question type:** `PROJECT_APPLICATION`<br>
 **Interviewer evaluates:** Tư duy thiết kế Resilience, Decoupled Architecture và phòng ngừa Cascading Failures trong Microservices.<br>
 
 ⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"Đảm bảo Non-blocking bằng cơ chế **Decoupled File Shipping** (App ghi log ra đĩa local qua OS Page Cache < 1ms, Logstash đọc ngầm) kết hợp **Metrics Pull bất đồng bộ** (Prometheus tự scrape `/actuator/prometheus`), giúp hạ tầng Observability sập cũng tuyệt đối không kéo sập API nghiệp vụ."*
+> *"Dùng **file shipping** để tách app khỏi network collector, **Prometheus pull** để collector chủ động scrape và **Compose profile opt-in** để stack phụ không chặn core runtime. Thiết kế này giảm coupling nhưng không bảo đảm zero impact: synchronous appender, disk full, backlog và scrape overhead vẫn phải được giới hạn, đo và cảnh báo."*
 
 🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **Làm sao để Ghi Log không làm nghẽn REST API?** ➔ 💡 **Decoupled File Shipping** (Ghi file local qua OS Page Cache < 1ms, Logstash đọc file ngầm).
-- ❓ **Nếu Elasticsearch / Logstash sập thì API có bị ảnh hưởng không?** ➔ 💡 **Không ảnh hưởng 100%** (Log chỉ tích tụ tạm thời trên đĩa local, REST API vẫn trả lời `200 OK`).
+- ❓ **File shipping giảm coupling gì?** ➔ 💡 App không gửi từng log event qua network tới collector; Logstash tail file độc lập.
+- ❓ **Elasticsearch/Logstash sập còn rủi ro nào cho app?** ➔ 💡 Backlog làm tăng dung lượng file; disk chậm/full hoặc appender đồng bộ vẫn có thể tăng latency hay làm mất log.
 - ❓ **Metrics thu thập kiểu gì để không tốn CPU?** ➔ 💡 **Atomic Counters trong RAM + Pull bất đồng bộ qua Prometheus Scrape**.
 - ❓ **Làm sao để chạy app nhẹ khi thiếu RAM local?** ➔ 💡 **Opt-in Compose Profiles** (`docker compose --profile observability up -d`).
-- 🔑 **Keyword cốt lõi cần nhớ**: **Decoupled File Shipping (Ghi file local) + Prometheus Pull + Non-blocking = Zero Cascading Failure**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **File Shipping + Prometheus Pull + Opt-in Profile = Reduced Coupling, not Zero Risk**.
 
 **Answer outline:**
 1. **Ghi Log Độc lập qua File (Decoupled File Shipping)**:
-   - Application ghi log ra đĩa local (`/logs/*.json`) bằng OS Buffered Write. Quá trình này diễn ra cực nhanh ở mức kernel.
+   - Application ghi log ra file local (`/logs/*.json`); project hiện không cấu hình `AsyncAppender`, vì vậy không được giả định caller hoàn toàn non-blocking.
    - Logstash / Filebeat chạy ở container riêng biệt, đọc file ngầm bất đồng bộ để ship về Elasticsearch.
-   - Nếu Elasticsearch/Logstash sập hoặc sập mạng, file log chỉ tạm tích lũy trên đĩa; **API nghiệp vụ vẫn phản hồi HTTP 200 bình thường**.
+   - Nếu Elasticsearch/Logstash sập hoặc mất mạng, file backlog có thể tích lũy; API không phụ thuộc trực tiếp collector nhưng vẫn phụ thuộc filesystem và capacity local.
 2. **Metrics Pull Bất đồng bộ (Opt-in Actuator)**:
    - Micrometer lưu các counter/gauge trong bộ nhớ RAM (Atomic Long/Double) của JVM với overhead tiệm cận 0ms.
    - Prometheus tự scrape bất đồng bộ qua endpoint riêng biệt `/actuator/prometheus`.

@@ -1,204 +1,269 @@
-# ❓ Logging & ELK Stack — Interview Question Bank
+# Logging & ELK — Interview Question Bank
 
-Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Lead) về Structured Logging, Elastic Common Schema (ECS), Logstash Ingestion Pipeline và Kibana Discovery.
+Nguồn factual: [Structured Logging & ELK deep-dive](../02-structured-logging-elk.md) · Ôn nhanh: [Core Recall Sheet](../summary/02-structured-logging.md)
 
----
+## Coverage
 
-## 📊 Bảng Ma trận Coverage
+| Concept | Rapid chain | Anchor questions | Depth |
+| --- | --- | --- | --- |
+| Log event và component boundaries | Chain A | `OBS-LOG-001` | Foundation |
+| Structured logging, ECS, MDC | Chain B | `OBS-LOG-002` | Foundation → Senior |
+| Sync/async, queue, backpressure | Chain C | `OBS-LOG-003` | Senior |
+| File shipping, `sincedb`, rotation | Chain D | `OBS-LOG-004`, `005` | Senior |
+| Query, incident, storage isolation | Chain E | `OBS-LOG-006`, `007`, `008` | Senior → Architect |
 
-| Level | Foundation | Senior | Architect | Tổng số câu |
-| :--- | :---: | :---: | :---: | :---: |
-| **Số lượng** | 1 | 5 | 1 | 7 |
+**Tổng coverage:** 5 chains · 37 rapid Q&A · 8 anchor questions (`2 Foundation`, `4 Senior`, `2 Architect`).
 
----
+## Rapid Question Chains
 
-## 🎯 Danh sách Câu hỏi Chi tiết & Đáp án Chuẩn
+### Chain A — WHY → WHAT: Tại sao logging tồn tại? (8)
 
-### OBS-LOG-000 — `FOUNDATION`
-**Question:** Phân biệt vai trò của SLF4J, Logback, Spring Boot 4 ECS Formatter, Logstash, Elasticsearch và Kibana trong dây chuyền Logging? Khai báo `logging.structured.format.file=ecs` có phải là bỏ Logback và Logstash không?<br>
-**Target depth:** `D1` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_CORE`<br>
-**Interviewer evaluates:** Hiểu biết nền tảng về bức tranh toàn cảnh của hệ thống Logging (bản chất từng thành phần và dây chuyền hoạt động).<br>
+1. **Q: Database đã có state, tại sao cần log?**<br>
+   **A:** State cho biết **đang là gì**; log cho biết **đã xảy ra gì theo thời gian** để tái dựng flow.
+2. **Q: HTTP error response chưa đủ sao?**<br>
+   **A:** Response chỉ mô tả boundary cuối; log giữ **quyết định trung gian + context** bên trong hệ thống.
+3. **Q: Đơn vị nhỏ nhất của logging là gì?**<br>
+   **A:** Một **log event** gồm time, severity, source, message, context và outcome/exception.
+4. **Q: Log có phải source of truth không?**<br>
+   **A:** Operational log thường là **observation record**, không phải canonical business state.
+5. **Q: Log có tự động là audit trail không?**<br>
+   **A:** Không; audit cần **immutability, access control, retention và integrity** rõ hơn.
+6. **Q: Metric, log và trace khác nhau thế nào?**<br>
+   **A:** Metric cho xu hướng tổng hợp, log cho event chi tiết, trace cho **causal path/span** xuyên boundary.
+7. **Q: Một log tốt phải giúp trả lời gì?**<br>
+   **A:** **When — where — what — context — outcome**, không chỉ một câu văn mô tả.
+8. **Q: Keyword chain của pipeline là gì?**<br>
+   **A:** **Event → Context → Schema → Encode → Append → Ship → Index → Query → Retain**.
 
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"**SLF4J** (Code Interface) ➔ **Logback** (Engine ghi đĩa) ➔ **Spring Boot ECS** (Formatter định dạng JSON) ➔ **Logstash** (Container thu gom đọc file ngầm) ➔ **Elasticsearch** (DB lưu trữ search) ➔ **Kibana** (Giao diện Web UI). Khai báo Spring Boot 4 ECS **KHÔNG bỏ Logback hay Logstash**, mà chỉ bảo Logback xuất ra JSON chuẩn ECS để Logstash đọc ngay mà không cần cài thêm plugin ngoài."*
+### Chain B — WHAT → HOW: Structured logging và ECS (7)
 
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **SLF4J làm nhiệm vụ gì?** ➔ 💡 **Interface chuẩn Java để code gọi `log.info()`**.
-- ❓ **Logback nằm ở đâu và làm gì?** ➔ 💡 **Engine chạy ngầm trong JVM App để thực sự ghi log ra file/console**.
-- ❓ **Spring Boot 4 ECS Formatter giúp ích gì?** ➔ 💡 **Định dạng câu log thành JSON chuẩn ECS mà KHÔNG cần thêm file XML hay thư viện ngoài**.
-- ❓ **Logstash đứng ở đâu và làm gì?** ➔ 💡 **Container hạ tầng đứng NGOÀI app, chủ động đọc file `.json` ngầm để đẩy về Elasticsearch**.
-- ❓ **Elasticsearch và Kibana khác nhau thế nào?** ➔ 💡 **Elasticsearch là DB lưu trữ & index log; Kibana là Màn hình Web UI để kỹ sư gõ search**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **SLF4J (Interface) ➔ Logback (Engine) ➔ Spring Boot ECS (Formatter) ➔ Logstash (Shipper) ➔ Elasticsearch (Storage DB) ➔ Kibana (Web UI)**.
+1. **Q: Structured logging có đơn giản là log JSON không?**<br>
+   **A:** Không; cần **schema ổn định + field có nghĩa + query contract**, JSON chỉ là encoding phổ biến.
+2. **Q: Tại sao field tốt hơn nhét mọi thứ vào `message`?**<br>
+   **A:** Field cho **exact query, mapping và aggregation**; wildcard trên message dễ chậm và sai.
+3. **Q: SLF4J làm gì?**<br>
+   **A:** **Facade/API** để source code gọi logging mà không phụ thuộc trực tiếp backend.
+4. **Q: Logback làm gì?**<br>
+   **A:** **Backend** tạo/dispatch event qua encoder và appender.
+5. **Q: Spring Boot ECS làm gì?**<br>
+   **A:** Chọn **structured JSON format theo Elastic Common Schema** cho console/file output.
+6. **Q: Bật ECS có bỏ Logback hoặc Logstash không?**<br>
+   **A:** Không; ECS là format, Logback là backend, Logstash là **shipper stage độc lập**.
+7. **Q: MDC dùng cho gì và nguy hiểm ở đâu?**<br>
+   **A:** MDC gắn **request context** như `correlationId`; quên cleanup/propagate có thể rò hoặc mất context.
 
-**Answer outline:**
-- **Dây chuyền 6 bước từ Code đến Màn hình Web**:
-  1. Lập trình viên gọi `LOGGER.info(...)` qua **SLF4J Interface**.
-  2. **Logback Engine** tiếp nhận event, kết hợp với **Spring Boot 4 ECS Formatter** để mã hóa câu log thành JSON chuẩn Elastic Common Schema.
-  3. Logback ghi bất đồng bộ câu log JSON xuống đĩa local (`logs/scan-service.json`).
-  4. Container **Logstash** đọc ngầm file JSON theo cơ chế File Tail (`sincedb`).
-  5. Logstash ship dữ liệu về **Elasticsearch Cluster** để đánh chỉ mục (Indexing).
-  6. Kỹ sư vận hành mở **Kibana Web UI** (`http://localhost:18114`) gõ KQL để tìm kiếm log.
-- **Giải ngộ nhận**: Spring Boot 4 ECS không thay thế Logback hay Logstash. Nó là tính năng mới giúp loại bỏ hoàn toàn các file cấu hình `logback-spring.xml` rườm rà và không cần cài thêm library `logstash-logback-encoder` ngoài.<br>
-**Required trade-offs:** Cần Spring Boot 3.4+ / 4.0+ để hỗ trợ out-of-the-box ECS structured logging.<br>
-**Follow-up ladder:** Tại sao console log vẫn giữ định dạng ANSI text trong khi file log định dạng ECS JSON?<br>
-**Red flags:** Trả lời "Dùng Spring Boot 4 ECS thì gỡ bỏ Logback và Logstash".
+### Chain C — HOW → FAILURE: Appender, sync/async và backpressure (7)
 
----
+1. **Q: Project hiện tại có cấu hình async logging không?**<br>
+   **A:** Không thấy `AsyncAppender`/queue config; chỉ có file ECS output, nên **không được suy ra async**.
+2. **Q: OS page cache có biến file appender thành async không?**<br>
+   **A:** Không; kernel buffering và **JVM async dispatch** là hai lớp khác nhau.
+3. **Q: Logback `AsyncAppender` hoạt động thế nào?**<br>
+   **A:** Caller enqueue event vào **BlockingQueue**, worker thread dispatch tới child appender.
+4. **Q: Nó có dùng RingBuffer không?**<br>
+   **A:** `AsyncAppender` chuẩn của Logback dùng **BlockingQueue**; RingBuffer thường gắn với Log4j2 Disruptor.
+5. **Q: Queue gần đầy có thể xảy ra gì?**<br>
+   **A:** Default có thể **discard TRACE/DEBUG/INFO** khi còn ít capacity để ưu tiên WARN/ERROR.
+6. **Q: Queue đầy có luôn drop để không block không?**<br>
+   **A:** Không; `neverBlock=false` là default nên caller có thể block. `true` đổi sang **drop-on-full**.
+7. **Q: Trade-off async cốt lõi?**<br>
+   **A:** Giảm caller latency nhưng thêm **heap queue, drop/block policy và shutdown flush risk**.
 
-### OBS-LOG-000B — `SENIOR`
-**Question:** Phân tích rủi ro khi copy-paste code mà quên đổi `TargetClass.class` trong khai báo Logger thủ công? Đánh đổi (Trade-offs) của kiến trúc Zero-Lombok và tại sao tạo `BaseService` chứa Logger lại là Anti-pattern?<br>
-**Target depth:** `D2` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_SCENARIO`<br>
-**Interviewer evaluates:** Tư duy về Clean Code, rủi ro chẩn đoán sai log trên Kibana, trade-offs của Lombok vs Modern Java 25, và nguyên tắc Composition over Inheritance.<br>
+### Chain D — FAILURE → GUARANTEE: File shipping và `sincedb` (8)
 
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"Quên đổi `TargetClass.class` sẽ làm **Kibana in sai trường `log.logger`**, gây **chẩn đoán sai lệch nghiêm trọng** khi troubleshoot. Chọn Zero-Lombok để **tương thích Java 25 Native tuyệt đối** mà không sợ nổ compiler hack. Tạo `BaseService` chứa logger là **Anti-pattern** vì vi phạm Composition over Inheritance và giảm hiệu năng runtime `getClass()`."*
+1. **Q: Vì sao project chọn app → file → Logstash?**<br>
+   **A:** Để **tách network collector** khỏi application và dùng file local làm buffer.
+2. **Q: Logstash down thì app luôn vô ảnh hưởng?**<br>
+   **A:** Không; app tránh network failure trực tiếp nhưng **disk/backlog** vẫn là coupling gián tiếp.
+3. **Q: `sincedb` lưu gì?**<br>
+   **A:** **Checkpoint identity/vị trí đọc** để file input resume sau restart.
+4. **Q: `start_position=beginning` có ép đọc lại mọi file mỗi restart không?**<br>
+   **A:** Không; nó chủ yếu áp dụng file chưa từng thấy, còn file đã biết theo **sincedb checkpoint**.
+5. **Q: `sincedb` có đảm bảo exactly-once không?**<br>
+   **A:** Không; checkpoint không phải transaction atomically coupled với Elasticsearch indexing.
+6. **Q: Duplicate xuất hiện lúc nào?**<br>
+   **A:** Event đã index nhưng crash trước checkpoint có thể bị **re-read/re-index**.
+7. **Q: Loss xuất hiện lúc nào?**<br>
+   **A:** File rotate/xóa trước khi tail, buffer chưa flush hoặc disk lỗi có thể làm **event biến mất**.
+8. **Q: Rotation và retention cần cân bằng gì?**<br>
+   **A:** Local retention phải chứa được **worst-case outage backlog**, không chỉ traffic ngày thường.
 
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **Hậu quả lớn nhất khi quên đổi `TargetClass.class`?** ➔ 💡 **Kibana in sai `log.logger` ➔ Search log theo class mới KHÔNG THẤY ➔ Chẩn đoán nhầm bug sang service khác**.
-- ❓ **Trade-offs của kiến trúc Zero-Lombok?** ➔ 💡 **Chấp nhận khai báo thủ công 1 dòng Logger ở mỗi class ➔ Đổi lại tương thích 100% Java 25 Native không sợ nổ compiler plugin**.
-- ❓ **Tại sao tạo BaseClass chứa Logger lại là Anti-pattern?** ➔ 💡 **Vi phạm Composition over Inheritance + Tốn chi phí runtime `getClass()` thay vì static compile-time**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **Wrong `log.logger` (Misleading Root Cause) ➔ Zero-Lombok (Java 25 Native Safety) ➔ No Base Logger (OOD Standard)**.
+### Chain E — PROJECT → EVOLUTION: Query và kiến trúc storage (7)
 
-**Answer outline:**
-- **Rủi ro Quên đổi Class Name**: Trường `log.logger` trong JSON Log bị mang tên class cũ. Khi sự cố xảy ra trên Prod, Kỹ sư search theo tên class mới trên Kibana sẽ bị "mù thông tin" hoặc đoán nhầm nguyên nhân.
-- **Trade-offs Zero-Lombok**:
-  - *Không dùng Lombok*: Phải gõ thủ công `private static final Logger LOGGER = ...` và constructor.
-  - *Lợi ích*: Loại bỏ "compiler hack" của Lombok, codebase hoàn toàn dùng Java 25 `record` native, build cực kỳ mượt mà với mọi IDE/Spotless Formatter.
-- **Anti-pattern BaseService Logger**: Tạo class cha `BaseService` chứa `logger = LoggerFactory.getLogger(getClass())` làm dính chặt kế thừa không cần thiết và tốn runtime cost của `getClass()`. Dòng static final logger ở từng class mới là chuẩn mực OOD.<br>
-**Required trade-offs:** Đỏi hỏi tính cẩn thận của Developer khi copy-paste code thủ công.<br>
-**Follow-up ladder:** Công cụ static analysis nào giúp tự động cảnh báo nếu `LoggerFactory.getLogger(...)` nhầm class name?<br>
-**Red flags:** Tạo `BaseService` chỉ để dùng chung 1 biến logger.
+1. **Q: Tại sao query `correlationId` tốt hơn wildcard message?**<br>
+   **A:** Structured field cho **exact filtering** và schema ổn định.
+2. **Q: Có nên biến mọi ID thành field không?**<br>
+   **A:** Field search được có thể hữu ích, nhưng phải quản trị **mapping/cardinality/security** và tránh dùng bừa cho aggregation.
+3. **Q: Tại sao logs data stream tách media search index?**<br>
+   **A:** Khác **mapping, lifecycle, ownership và workload shape**.
+4. **Q: Tách index đã tạo resource isolation chưa?**<br>
+   **A:** Chưa; cùng Elasticsearch instance vẫn tranh **CPU, heap, disk và I/O**.
+5. **Q: Logstash khác Filebeat/Fluent Bit ở đâu?**<br>
+   **A:** Logstash mạnh về **transform/filter/routing**; edge shipper thường nhẹ hơn.
+6. **Q: Khi nào operational log không đủ?**<br>
+   **A:** Khi cần **audit durable, trace causal spans hoặc business source of truth**.
+7. **Q: Production hóa cần chốt thêm gì?**<br>
+   **A:** Async policy, rotation/backlog budget, lifecycle, redaction, access control, SLO shipper và capacity isolation.
 
----
+## Anchor Interview Questions
 
-### OBS-LOG-001 — `SENIOR`
-**Question:** Tại sao Logging trong dự án lại dùng cơ chế Ghi File ECS JSON local + Logstash Ship (Decoupled File Shipping) thay vì cho Microservice trực tiếp đẩy Log qua Network (Socket/HTTP Appender) về Logstash/Elasticsearch?<br>
-**Target depth:** `D2-D3` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_SCENARIO`<br>
-**Interviewer evaluates:** Hiểu biết về rủi ro Cascading Failure, hiệu năng I/O của Operating System và nguyên tắc Decoupling hạ tầng logging.<br>
+### OBS-LOG-001 — `FOUNDATION` · `COMMON_CORE`
 
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"Dùng **Decoupled File Shipping** (ghi file local qua OS Page Cache < 1ms, Logstash tail ngầm) để **ngăn ngừa Cascading Failure** (tránh sập mạng/Logstash kéo sập REST API) và tối ưu **hiệu năng ghi đĩa hạt nhân (Kernel OS Buffered Writes)**."*
+**Question:** Phân biệt SLF4J, Logback, Spring Boot ECS, Logstash, Elasticsearch và Kibana.
 
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **Tại sao không đẩy log trực tiếp qua Network Socket/HTTP?** ➔ 💡 **Nguy cơ sập dây chuyền (Cascading Failure)** làm ngắt REST API khi Logstash bị chậm/sập.
-- ❓ **Tại sao ghi file local lại siêu nhanh?** ➔ 💡 **OS Page Cache Buffer trong RAM Kernel** với thời gian ghi tiệm cận < 1ms.
-- ❓ **Logstash sập thì dữ liệu log bị mất không?** ➔ 💡 **Không! Log tích lũy trên đĩa local, Logstash sống lại sẽ đọc từ Offset cũ (`sincedb`)**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **Decoupled File Shipping ➔ Chống Cascading Failure + OS Page Cache Fast Write + Logstash Offset Buffer**.
+**Interviewer evaluates:** Có mental model đúng về ranh giới component hay chỉ nhớ tên tool.
 
-**Answer outline:**
-- **Phòng tránh Sập Dây Chuyền (Cascading Failure)**: Nếu Logstash/Elasticsearch gặp sự cố (High CPU, ngắt kết nối mạng, nghẽn I/O, hoặc Disk Full), việc ứng dụng gửi log đồng bộ/bất đồng bộ qua Network Appender sẽ nhanh chóng làm tràn bộ nhớ đệm (Buffer Overflow), tắc nghẽn Worker Thread Pool và làm **treo toàn bộ API nghiệp vụ**.
-- **Hiệu năng OS Page Cache cực cao**: Thao tác ghi log ra đĩa local (`/logs/*.json`) sử dụng OS Buffered Writes trong RAM Kernel, thời gian phản hồi ở mức microsecond (µs), tiệm cận bằng 0ms.
-- **Tính Độc lập (Decoupled Architecture)**: Container Logstash chạy hoàn toàn tách biệt, chủ động tail file và ship log ngầm theo nhịp độ của nó. Nếu Logstash sập, log chỉ tạm tích lũy trên ổ đĩa local. Khi Logstash sống lại, nó tiếp tục đọc từ vị trí cũ (Offset) mà không mất mát dữ liệu và không ảnh hưởng đến ứng dụng.<br>
-**Required trade-offs:** Cần cơ chế xoay vòng file (Log Rotation) để không làm đầy đĩa cứng local.<br>
-**Follow-up ladder:** Filebeat khác Logstash ở điểm nào? Khi nào nên dùng Filebeat làm log shipper ở edge layer?<br>
-**Red flags:** Cho rằng "Ghi file chậm hơn gửi qua Network Socket".
+**Trả lời 30 giây:** SLF4J là API source gọi; Logback là backend dispatch event; Spring Boot ECS encode event thành JSON schema; Logstash tail/transform/ship; Elasticsearch index/search; Kibana là UI query. ECS không thay backend hay shipper.
 
----
+**Answer spine:** log event → facade/backend → encoder/appender → shipper → storage/UI.
 
-### OBS-LOG-002 — `FOUNDATION`
-**Question:** Spring Boot 4 Built-in Structured Logging chuẩn Elastic Common Schema (ECS) hoạt động như thế nào và có ưu điểm gì so với cấu hình Logback/Log4j2 XML truyền thống?<br>
-**Target depth:** `D1-D2` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_CORE`<br>
-**Interviewer evaluates:** Cập nhật kiến thức mới của Spring Boot Framework và Elastic Common Schema (ECS) standard.<br>
+**Project evidence:** `apps/*/application.yml`, `infra/observability/logstash/pipeline/file-mngt-v2.conf`.
 
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"Spring Boot 4 hỗ trợ tích hợp sẵn `logging.structured.format.file=ecs` giúp **chuẩn hóa 100% các trường JSON log** (`@timestamp`, `service.name`, `correlationId`) theo tiêu chuẩn Elastic Common Schema mà không cần thư viện ngoài, giúp **Elasticsearch ingest & parse siêu tốc** không cần Grok Regex."*
+**Trade-offs:** Mỗi stage thay được nhưng đổi format, failure semantics và vận hành.
 
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **Cấu hình Spring Boot 4 ECS JSON log thế nào?** ➔ 💡 **`logging.structured.format.file=ecs` trong application.properties**.
-- ❓ **Lợi ích lớn nhất của Elastic Common Schema (ECS)?** ➔ 💡 **Thống nhất tên trường JSON trên toàn hệ thống** (`service.name`, `correlationId`, `log.level`).
-- ❓ **Logstash/Elasticsearch hưởng lợi gì từ ECS?** ➔ 💡 **Elasticsearch auto map data type chính xác, Logstash dùng JSON Codec không cần Grok Regex tốn CPU**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **Spring Boot 4 Built-in ECS ➔ Structured JSON Log ➔ Auto Mapping ➔ No Grok Regex Required**.
+**Follow-up ladder:** Structured logging khác JSON? MDC nằm ở stage nào? Nếu bỏ Logstash thì thay bằng gì?
 
-**Answer outline:**
-- **Spring Boot 4 Built-in Feature**: Chỉ cần khai báo `logging.structured.format.file=ecs` trong `application.properties`, Spring Boot tự động định dạng mọi log output ra dạng JSON chuẩn ECS mà không cần thêm phụ thuộc thư viện logstash-logback-encoder ngoài.
-- **Chuẩn hóa Elastic Common Schema (ECS)**:
-  - Tất cả các trường cơ bản được đặt tên thống nhất trên mọi microservice: `@timestamp`, `log.level`, `service.name`, `process.thread.name`, `log.logger`, `message`, `correlationId`.
-  - Giúp Elasticsearch tự động map đúng Data Types (keyword, date, text) mà không cần viết custom Grok filter phức tạp ở Logstash.
-- **So với Logback XML cũ**: Không còn tình trạng mỗi lập trình viên tự format log text một kiểu (`2026-08-03 INFO [scan-service] [main] ...`), giúp việc query và parse trên Kibana đạt hiệu năng cao nhất.<br>
-**Required trade-offs:** Log định dạng JSON đọc bằng mắt thường trên console hơi rối hơn text truyền thống (do đó console vẫn giữ định dạng ansi text, chỉ file mới format ECS JSON).<br>
-**Follow-up ladder:** Làm thế nào để thêm custom key-value vào cấu trúc ECS JSON log trong Java?<br>
-**Red flags:** Tự viết regex/grok filter để parse log text không cấu hình.
+**Red flags:** Gọi Elasticsearch là canonical DB; nói ECS thay Logback/Logstash.
 
----
+### OBS-LOG-002 — `FOUNDATION` · `COMMON_CORE`
 
-### OBS-LOG-003 — `ARCHITECT`
-**Question:** Tại sao dữ liệu Log Data Stream (`logs-file_mngt_v2-*`) và Dữ liệu Tìm kiếm Media (`media-subject-search`) trong Elasticsearch phải được phân tách thành 2 Index hoàn toàn độc lập?<br>
-**Target depth:** `D3-D4` · **Interview likelihood:** `HIGH` · **Question type:** `PROJECT_APPLICATION`<br>
-**Interviewer evaluates:** Tư duy thiết kế Elasticsearch Data Architecture, cách phân tách Workload (Log Ingestion vs Search Query).<br>
+**Question:** Structured logging giải quyết vấn đề gì và ECS đóng vai trò nào?
 
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"Phân tách 2 Index độc lập để **cách ly tải (Workload Isolation)**: Log là Append-Only Write-Heavy (tự xóa sau 7-30 ngày), còn Media Search là Read-Heavy (lưu vĩnh viễn). Tránh việc bùng nổ log làm nghẽn tính năng tìm kiếm của người dùng end-user."*
+**Interviewer evaluates:** Hiểu schema/field hay chỉ thích JSON.
 
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **Tại sao phải phân tách Log Index và Business Search Index?** ➔ 💡 **Phân tách đặc tính Workload** (Write-Heavy vs Read-Heavy).
-- ❓ **Đặc điểm của Log Data Stream Index?** ➔ 💡 **Append-Only, ghi liên tục, áp dụng Index Lifecycle (ILM) tự xóa sau 7-30 ngày**.
-- ❓ **Nếu không phân tách thì hậu quả là gì?** ➔ 💡 **Lượng log spike làm tràn đĩa/CPU Elasticsearch ➔ Nghẽn API tìm kiếm media của User**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **Workload Isolation ➔ Log Stream (Append-Only / Short TTL) vs Business Search (Read-Heavy / Permanent)**.
+**Trả lời 30 giây:** Structured logging biến dữ liệu quan trọng thành field ổn định để query/mapping thay vì regex message. ECS cung cấp naming convention chung; Spring Boot 4 có thể encode ECS built-in và đưa MDC/key-value vào JSON.
 
-**Answer outline:**
-1. **Phân tách Đặc tính Workload (Workload Isolation)**:
-   - **Log Data Stream**: Là dữ liệu Append-Only ghi liên tục theo thời gian, tần suất ghi (Write Heavy) cực cao, hiếm khi update hay delete. Phù hợp sử dụng **Elasticsearch Data Streams** với lifecycle tự động (Rollover/Delete old logs).
-   - **Media Search Index**: Là dữ liệu nghiệp vụ (Domain Data) phục vụ người dùng tìm kiếm (`query-service`), tần suất đọc (Read Heavy) cao, có thao tác update document khi thông tin media thay đổi.
-2. **Bảo vệ Tính Sẵn sàng & Hiệu năng Nghiệp vụ**:
-   - Nếu nghẽn log hoặc lượng log bùng nổ (Log Spike), đĩa hay tài nguyên của Log Data Stream bị ảnh hưởng nhưng **Index tìm kiếm Media vẫn phản hồi nhanh chóng cho người dùng end-user**.
-3. **Cấu hình Retention Policy Khác nhau**:
-   - Log chỉ cần giữ 7 - 30 ngày (tự động xóa qua ILM - Index Lifecycle Management).
-   - Media Search Index cần lưu trữ vĩnh viễn theo cơ sở dữ liệu Postgres `catalog_db`.<br>
-**Required trade-offs:** Cần quản lý 2 Index Pattern riêng biệt trên Elasticsearch Cluster.<br>
-**Follow-up ladder:** Index Lifecycle Management (ILM) trong Elasticsearch gồm những phase nào?<br>
-**Red flags:** Lưu chung Log record và Business Search Entity vào cùng một Elasticsearch Index.
+**Answer spine:** text ambiguity → schema → exact query → shared convention → project config.
 
----
+**Project evidence:** `logging.structured.format.file: ecs`, `spring.application.name`.
 
-### OBS-LOG-004 — `SENIOR`
-**Question:** Ghi log xuống file local chạy lâu dài trên Production thì xử lý thế nào để không làm tràn ổ đĩa (Disk Full)? Cơ chế Rolling Policy và Retention Policy hoạt động ra sao?<br>
-**Target depth:** `D2-D3` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_SCENARIO`<br>
-**Interviewer evaluates:** Hiểu biết về quản lý tài nguyên đĩa cứng trong Logging Framework (Logback/Log4j2), Rolling Policy và sự phối hợp với LogShipper (Logstash Inode Pointer).<br>
+**Trade-offs:** Schema governance, mapping/cardinality, readability và storage overhead.
 
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"File log **không bao giờ bị phình to vô hạn** vì Logback quản lý bằng **Rolling Policy** (tự đóng file cũ, nén `.json.gz` khi đủ 10MB/100MB hoặc theo ngày) và **Retention Policy** (`maxHistory` tự xóa file cũ quá 7-30 ngày, `totalSizeCap` giới hạn tổng GB thư mục log). Logstash chỉ cần đọc ngầm qua pointer `sincedb` để ship lên Elasticsearch rồi file nén local tự động xóa an toàn."*
+**Follow-up ladder:** Khi nào vẫn dùng `message`? Custom field thêm bằng MDC hay fluent API? Field nào cần redact?
 
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **Ghi log file lâu dài có bị phình to vô hạn không?** ➔ 💡 **Không! Logback tự động Rolling & Clear file cũ**.
-- ❓ **Log Rolling Policy chia file dựa trên cái gì?** ➔ 💡 **Kích thước (Size-based: 10MB/100MB) và Thời gian (Time-based: Hằng ngày)**.
-- ❓ **Cơ chế dọn dẹp file log cũ làm việc thế nào?** ➔ 💡 **`maxHistory` (xóa file cũ quá 7-30 ngày) + `totalSizeCap` (hạn ngạch tổng dung lượng)**.
-- ❓ **Xóa file log nén local có làm mất log trên Kibana không?** ➔ 💡 **Không! Logstash đã ship dữ liệu lên Elasticsearch rồi**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **Size/Time Rolling (.json.gz) + maxHistory (Retention) + Logstash sincedb Pointer = Safety**.
+**Red flags:** “Mọi JSON đều structured tốt”; parse text bằng Grok dù app kiểm soát schema.
 
-**Answer outline:**
-- **Size & Time-based Rolling**: Logback tự động đóng file log hiện tại, nén thành file GZIP (ví dụ `catalog-service-2026-08-03.1.json.gz`) và tạo file `.json` trống mới.
-- **Log Retention Policy**:
-  - `maxHistory` (ví dụ 7 - 30 ngày): Tự động quét và xóa các file nén cũ quá số ngày quy định.
-  - `totalSizeCap` (ví dụ 3GB): Giới hạn dung lượng toàn thư mục logs. Vượt quá ngưỡng này Logback tự xóa file cũ nhất.
-- **Con trỏ `sincedb` của Logstash**: Logstash lưu con trỏ đọc inode đĩa. Ngay khi Logstash đọc xong và Elasticsearch index thành công, log đã an toàn trên ELK Cluster. File local chỉ là đệm tạm thời.<br>
-**Required trade-offs:** Đảm bảo đủ khoảng trống dung lượng đĩa tối thiểu cho `totalSizeCap` để tránh nổ Disk Full trong ngày cao điểm spikes traffic.<br>
-**Follow-up ladder:** Nếu Logstash chưa kịp ship log mà file log đã bị xoay vòng xóa mất thì xử lý thế nào?<br>
-**Red flags:** Không cấu hình `maxHistory` hoặc `totalSizeCap` trong file Logback configuration.
+### OBS-LOG-003 — `SENIOR` · `COMMON_SCENARIO`
 
----
+**Question:** Project đang synchronous hay asynchronous logging? Nếu thêm `AsyncAppender`, backpressure hoạt động ra sao?
 
-### OBS-LOG-005 — `SENIOR`
-**Question:** Việc ghi log ngầm bất đồng bộ (Asynchronous Logging) trong Spring Boot vận hành thế nào? Thread nào chạy, cơ chế RingBuffer và cách hệ thống tự vệ khi tràn đệm (Buffer Overflow) ra sao?<br>
-**Target depth:** `D2-D3` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_CORE`<br>
-**Interviewer evaluates:** Hiểu biết sâu sắc về Concurrency Architecture trong Logging, AsyncAppender, RingBuffer (LMAX Disruptor) và cơ chế phòng vệ Discarding Threshold.<br>
+**Interviewer evaluates:** Phân biệt evidence với suy đoán và hiểu concurrency/failure semantics.
 
-⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
-> *"Khi gọi `LOGGER.info()`, **Tomcat Worker Thread** chỉ ném `LogEvent` vào bộ nhớ RAM **RingBuffer** (< 0.1ms) rồi quay lại phục vụ API ngay. Một **AsyncAppender Daemon Thread** ngầm riêng biệt sẽ rút log theo lô (Batch) để ghi xuống đĩa OS Page Cache. Khi đệm đầy 80%, hệ thống tự động **drop (bỏ qua)** log TRACE/DEBUG/INFO để nhường chỗ cho log ERROR, tuyệt đối không gây nghẽn API."*
+**Trả lời 30 giây:** Project chưa cấu hình `AsyncAppender`, nên không thể nói caller chỉ enqueue. Nếu thêm Logback `AsyncAppender`, event đi qua BlockingQueue; gần đầy có thể drop level thấp, đầy có thể block vì `neverBlock=false` mặc định hoặc drop nếu bật `true`.
 
-🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
-- ❓ **Tomcat Worker Thread có trực tiếp ghi đĩa không?** ➔ 💡 **Không! Chỉ ném LogEvent vào RingBuffer RAM trong < 0.1ms**.
-- ❓ **Thread nào thực hiện công việc ghi đĩa ngầm?** ➔ 💡 **AsyncAppender-Worker Daemon Thread** (Chạy bất đồng bộ ngầm).
-- ❓ **Khi bộ nhớ đệm RingBuffer bị đầy 80% thì sao?** ➔ 💡 **`discardingThreshold` tự động drop log TRACE/DEBUG/INFO**.
-- ❓ **Khi đệm đầy 100% với `neverBlock=true` thì sao?** ➔ 💡 **Drop log mới chứ KHÔNG BAO GIỜ làm nghẽn (block) REST API**.
-- 🔑 **Keyword cốt lõi cần nhớ**: **Tomcat Thread (Put RAM Queue < 0.1ms) ➔ Async Daemon Thread (Batch Write Disk) ➔ Discarding Threshold (Drop Info when 80% Full)**.
+**Answer spine:** inspect config → current semantics → optional queue → near-full/full → shutdown flush.
 
-**Answer outline:**
-- **Phân tách Trách nhiệm Thread (Thread Separation)**:
-  - Tomcat Worker Thread xử lý REST API chỉ nạp MDC context, quăng `LogEvent` vào Async Queue / RingBuffer RAM trong tiệm cận < 0.1ms.
-  - Background `AsyncAppender Daemon Thread` lấy log ra khỏi Queue theo lô (Batching) để flush xuống OS Page Cache.
-- **Cơ chế Bảo vệ Tự vệ Bộ nhớ (Memory Overflow Protection)**:
-  - `discardingThreshold` (mặc định 20% bộ nhớ trống còn lại - tức đầy 80%): Tự động drop log `TRACE`, `DEBUG`, `INFO` để dành dung lượng cho `WARN`, `ERROR`.
-  - `neverBlock=true`: Nếu RingBuffer đầy 100%, vứt bỏ log mới thay vì block Tomcat Worker Thread ➔ API nghiệp vụ luôn sẵn sàng 100%.<br>
-**Required trade-offs:** Chấp nhận mất một số dòng log `INFO` khi hệ thống bị nghẽn đĩa nặng để bảo toàn tính sẵn sàng cho REST API.<br>
-**Follow-up ladder:** Sự khác biệt giữa BlockingQueue truyền thống và LMAX Disruptor RingBuffer trong Async Logging là gì?<br>
-**Red flags:** Cho rằng Tomcat Worker Thread vừa xử lý logic vừa tự thực thi I/O ghi file đĩa đồng bộ.
+**Project evidence:** Không có `logback-spring.xml`, `AsyncAppender`, `neverBlock` hay queue setting trong source.
+
+**Trade-offs:** Caller latency vs event loss/blocking, heap, caller data và shutdown time.
+
+**Follow-up ladder:** RingBuffer thuộc cơ chế nào? Queue size chọn ra sao? Làm sao đo dropped events?
+
+**Red flags:** “OS cache = async”; “Logback dùng RingBuffer”; “neverBlock mặc định true”.
+
+### OBS-LOG-004 — `SENIOR` · `PROJECT_APPLICATION`
+
+**Question:** Tại sao Backend V2 dùng decoupled file shipping và nó chưa giải quyết failure nào?
+
+**Interviewer evaluates:** Có nhìn đủ network, disk, backlog và business isolation.
+
+**Trả lời 30 giây:** File shipping tránh app gửi log trực tiếp tới collector và cho phép Logstash tail độc lập. Nó giảm network coupling nhưng không xóa disk latency/full, rotation outrun, backlog overflow hoặc caller impact của synchronous appender.
+
+**Answer spine:** network dependency → local buffer → independent shipper → indirect disk coupling → capacity guardrails.
+
+**Project evidence:** app ghi `*.json.log`; Compose mount read-only; Logstash file input.
+
+**Trade-offs:** Đơn giản và recoverable backlog đổi lấy disk capacity, host lifecycle và checkpoint management.
+
+**Follow-up ladder:** Container ephemeral thì sao? Network appender khi nào hợp lý? Backlog SLO đo thế nào?
+
+**Red flags:** “Logstash down thì REST chắc chắn luôn 200”; “ghi file không thể block”.
+
+### OBS-LOG-005 — `SENIOR` · `COMMON_SCENARIO`
+
+**Question:** `sincedb`, rotation và Elasticsearch retention phối hợp thế nào? Có exactly-once không?
+
+**Interviewer evaluates:** Hiểu ba lifecycle khác nhau và delivery edge cases.
+
+**Trả lời 30 giây:** Rolling policy quản file local; `sincedb` checkpoint vị trí Logstash đọc; Elasticsearch lifecycle quản document searchable. Ba cơ chế độc lập và không tạo exactly-once: crash/checkpoint có thể duplicate, rotate/delete quá sớm có thể loss.
+
+**Answer spine:** local lifecycle → read checkpoint → storage lifecycle → duplicate/loss windows → backlog budget.
+
+**Project evidence:** Có explicit `sincedb_path`; chưa source-control explicit rolling limits hay retention production.
+
+**Trade-offs:** Disk budget, recovery window, duplicate tolerance, retention cost và compliance.
+
+**Follow-up ladder:** `start_position` tác động file cũ thế nào? Mất sincedb ra sao? Deduplicate bằng document ID có đáng không?
+
+**Red flags:** “sincedb xác nhận Elasticsearch commit”; gán cứng 7/30 ngày khi config không có.
+
+### OBS-LOG-006 — `SENIOR` · `COMMON_SCENARIO`
+
+**Question:** Bạn điều tra một request lỗi xuyên Gateway và Scan bằng structured logging thế nào?
+
+**Interviewer evaluates:** Khả năng biến schema/context thành incident workflow.
+
+**Trả lời 30 giây:** Bắt đầu bằng `correlationId`, lọc time range và service, sắp theo timestamp, xem level/logger/outcome rồi nối sang event/business key có cấu trúc. Nếu phải wildcard message liên tục, tôi coi đó là schema gap cần sửa.
+
+**Answer spine:** scope time → correlation → service/source → outcome/exception → business/event key → identify missing fields.
+
+**Project evidence:** Gateway canonicalize `X-Correlation-Id`; downstream đưa vào MDC/ECS.
+
+**Trade-offs:** Context phong phú giúp debug nhưng tăng volume, mapping và nguy cơ lộ dữ liệu.
+
+**Follow-up ladder:** Async boundary mất MDC xử lý sao? Correlation ID khác trace ID? Clock skew ảnh hưởng ordering?
+
+**Red flags:** Chỉ grep message; log raw path/secret để “debug nhanh”.
+
+### OBS-LOG-007 — `ARCHITECT` · `ARCHITECTURE_EVOLUTION`
+
+**Question:** Vì sao logs data stream và media search index phải tách, và giới hạn của việc tách trên cùng cluster là gì?
+
+**Interviewer evaluates:** Phân biệt logical isolation với resource isolation.
+
+**Trả lời 30 giây:** Tách để mỗi workload có mapping, lifecycle, ownership và query pattern riêng. Nhưng cùng Elasticsearch cluster vẫn chia CPU/heap/disk/I/O; muốn bảo vệ business search trước log spike cần quota/capacity/tier hoặc cluster isolation, không chỉ tên index khác.
+
+**Answer spine:** workload shape → mapping/lifecycle → ownership → shared resource contention → evolution options.
+
+**Project evidence:** data stream `logs-file_mngt_v2-local` và index `media-subject-search` cùng Elasticsearch local.
+
+**Trade-offs:** Một cluster rẻ/dễ học; nhiều cluster tăng isolation nhưng tăng chi phí vận hành.
+
+**Follow-up ladder:** Shard/tier/quota nào giúp? Khi nào tách cluster? Loki thay đổi cost model ra sao?
+
+**Red flags:** “Tách index nên log spike không thể ảnh hưởng media search”.
+
+### OBS-LOG-008 — `ARCHITECT` · `ARCHITECTURE_EVOLUTION`
+
+**Question:** Bạn sẽ production hóa pipeline logging hiện tại theo thứ tự nào?
+
+**Interviewer evaluates:** Biết ưu tiên reliability/security/cost thay vì thêm tool theo phong trào.
+
+**Trả lời 30 giây:** Tôi chốt schema/redaction trước, đo volume và failure budget, đặt rolling/backlog/lifecycle, monitor shipper/disk/indexing rồi mới cân nhắc async, edge shipper hay cluster isolation. Guarantee phải được gọi đúng là best effort hay audit-grade.
+
+**Answer spine:** data contract → security → capacity → retention → pipeline SLO → async/shipper → isolation → game day.
+
+**Project evidence:** Baseline local đã có ECS/Logstash/Elasticsearch/Kibana; các policy production chưa thuộc FT014.
+
+**Trade-offs:** Reliability và search depth tăng kéo theo storage, operational complexity và data governance.
+
+**Follow-up ladder:** SLO nào cho logging? Test outage ra sao? Audit event nên đi pipeline nào? Sampling log có hợp lý không?
+
+**Red flags:** Bật `neverBlock=true` cho mọi nơi; giữ mọi log mãi; dùng operational log làm audit source of truth.
+
+## Retrieval Practice — không nhìn đáp án phía trên
+
+1. Vẽ lại pipeline bằng 8 box và nói owner của từng box.
+2. Giải thích trong 20 giây vì sao ECS không thay Logback.
+3. Nêu ba điểm khác nhau giữa OS page cache và `AsyncAppender`.
+4. Queue async gần đầy/đầy/shutdown có ba failure mode nào?
+5. Dùng một timeline minh họa duplicate do index trước checkpoint.
+6. Dùng một timeline minh họa loss do rotation outrun shipper.
+7. Tại sao `start_position=beginning` không có nghĩa restart là đọc lại tất cả?
+8. Nêu ba lifecycle độc lập: local file, checkpoint, Elasticsearch document.
+9. Khi nào wildcard `message` chỉ ra schema gap?
+10. Tách index nhưng cùng cluster còn chia sẻ tài nguyên nào?
+11. Operational logging thiếu thuộc tính gì để làm audit trail?
+12. Đưa ra quyết định sync/async cho một API latency-sensitive và bảo vệ trade-off đó.
+
+**Keyword cứu hộ:** `boundary · schema · context · BlockingQueue · backpressure · checkpoint · best effort · backlog · logical isolation`.

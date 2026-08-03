@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep-dive Technical Topic"
+  short_description: "Học kỹ thuật từ gốc đến Senior"
+  default_prompt: "Use $deep-dive-technical-topic to explain a technical topic from first principles with visual mental models and interview-ready trade-offs."

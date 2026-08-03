@@ -1,236 +1,279 @@
-# 📜 Structured Logging Deep-Dive: Spring Boot ECS & ELK Stack
+# Structured Logging & ELK — từ log event đến kiến trúc vận hành
 
-Tài liệu đi sâu vào kiến trúc ghi log cấu trúc chuẩn Elastic Common Schema (ECS) trong Spring Boot 4, cơ chế File Shipping độc lập của Logstash và kỹ thuật tra cứu log chuyên sâu bằng Kibana Query Language (KQL).
+Tài liệu này đi từ bản chất của một log event đến pipeline Spring Boot 4.0.3 → file → Logstash → Elasticsearch → Kibana trong Backend V2. Mục tiêu không phải nhớ tên công cụ, mà là giải thích được dữ liệu đi đâu, failure xảy ra ở đâu và guarantee nào thực sự tồn tại.
 
----
+> **Bản chất trong một câu:** Logging biến một sự kiện runtime thành record có ngữ cảnh để con người và máy có thể tìm kiếm; pipeline tốt phải hữu ích khi sự cố xảy ra mà không trở thành nguyên nhân làm business flow hỏng theo.
 
-## 1. Bản Đồ Nền Tảng: Phân Biệt SLF4J, Logback, ECS, Logstash, Elasticsearch & Kibana
+**Keyword spine:** `Log event → Context → Schema → Encode → Append → Ship → Index → Query → Retain`.
 
-> **Giải thích cho người mất gốc**: Đừng nhầm lẫn giữa các thành phần! Mỗi thành phần giữ một vai trò duy nhất trong dây chuyền.
+## Bản đồ học từ Foundation đến Architect
 
-```
-[Mã Java: log.info()] ➔ (SLF4J Interface) ➔ (Logback Engine + Spring Boot ECS)
-                                                       │
-                                            (Ghi đĩa local: logs/scan-service.json)
-                                                       │
-                                            (Logstash đọc ngầm qua sincedb)
-                                                       ▼
-                                             [Logstash Ingest Pipeline]
-                                                       ▼
-                                             [Elasticsearch Database]
-                                                       ▼
-                                             [Kibana Web UI User Interface]
-```
+| Độ sâu | Câu hỏi phải trả lời được |
+| --- | --- |
+| D0 — Problem | Tại sao application state và exception response chưa đủ để debug? |
+| D1 — Vocabulary | Log event gồm gì; facade, backend, encoder, appender, shipper, storage khác nhau thế nào? |
+| D2 — Mechanism | Một `LOGGER.info()` đi qua JVM, file, Logstash, Elasticsearch và Kibana ra sao? |
+| D3 — Failure | Có thể block, mất, trùng hoặc làm đầy đĩa ở điểm nào? |
+| D4 — Architecture | Khi nào chọn file shipping, async appender, Logstash, data stream và retention policy nào? |
 
-### 📊 Bảng Phân Tầng Trách Nhiệm Chi Tiết
+## 1. Gốc của vấn đề: log là gì?
 
-| Thành phần | Nằm ở đâu? | Vai trò chính là gì? | Có cần tự viết Code / Config không? | Có thể thay thế bằng gì? | Sử dụng nếu... (Khi nào dùng?) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **SLF4J** | Nằm trong **Java Code** | Là **Interface chuẩn** để lập trình viên gọi `log.info("...")` hoặc `log.error("...")`. | **CÓ**: Gọi hàm `log.info()` trong mã Java. | Apache Commons Logging, System.Logger (Java 9+). | Luôn luôn dùng làm Facade abstraction để không bị phụ thuộc cứng vào thư viện log cụ thể. |
-| **Logback** | Nằm trong **JVM App** | Là **Logging Engine thực tế** chạy ngầm trong Spring Boot để ghi log ra đĩa/console. | **KHÔNG**: Spring Boot tự động tích hợp sẵn Logback. | Log4j2, JUL (`java.util.logging`). | Dùng khi làm ứng dụng Spring Boot (vì Spring Boot mặc định sẵn), cần hiệu năng I/O cao. |
-| **Spring Boot 4 ECS** | Nằm trong **Spring Boot** | Là **Trình định dạng (Formatter)**. Nó bảo Logback: *"Hãy format câu log thành JSON chuẩn Elastic Common Schema (ECS)"*. | **CÓ (2 dòng config)**: Khai báo `logging.structured.format.file=ecs` trong `application.properties`. | Thư viện `logstash-logback-encoder` (Spring 2/3), Custom XML Layout. | Dùng khi muốn xuất log JSON chuẩn hóa sẵn sàng cho ELK Stack mà KHÔNG cần cài library ngoài hay XML. |
-| **Logstash** | Nằm ở **Docker Container riêng** | Là **Log Shipper**. Đứng ngoài ứng dụng, đọc ngầm file `/logs/*.json` rồi đẩy về Elasticsearch. | **KHÔNG SỬA CODE APP**: Chỉ cấu hình 1 file `logstash.conf` ngầm ở hạ tầng. | Filebeat *(siêu nhẹ bằng Go)*, Fluentd, Vector, Fluent Bit. | Dùng khi cần **Transform/Filter/Groks log phức tạp** trước khi lưu trữ. *(Nếu chỉ ship log nhẹ thì dùng Filebeat)*. |
-| **Elasticsearch** | Nằm ở **Docker Container riêng** | Là **Cơ sở dữ liệu NoSQL** chuyên lưu trữ và đánh chỉ mục (Index) các câu log để tìm kiếm siêu tốc. | **KHÔNG SỬA CODE APP**: Chạy container có sẵn. | Grafana Loki *(lưu log nhẹ index label)*, OpenSearch, ClickHouse. | Dùng khi cần **Full-text search log siêu tốc**, tìm kiếm theo từ khóa JSON chi tiết chuẩn doanh nghiệp. |
-| **Kibana** | Nằm ở **Docker Container riêng** | Là **Giao diện Web UI** (`:18114`) cho kỹ sư mở máy tính gõ KQL để tìm kiếm log. | **KHÔNG SỬA CODE APP**: Mở trình duyệt Web là dùng được ngay. | Grafana UI, OpenSearch Dashboards. | Dùng đi kèm với Elasticsearch để tra cứu log KQL, xem Discover và làm Dashboard theo dõi sự cố. |
+### 1.1. State trả lời “đang là gì”, log trả lời “đã xảy ra gì”
 
-> **Thắc mắc cốt lõi 1**: *"SLF4J là Interface, vậy mặc định Spring Boot chọn thư viện thực thi (Implementation) nào?"*
-> **CÂU TRẢ LỜI**: Spring Boot mặc định chọn **LOGBACK**! Thông qua dependency ngầm `spring-boot-starter-logging`, Spring Boot tự nạp `slf4j-api.jar` (Interface) và `logback-classic.jar` (Engine). Khi bạn gọi `log.info()`, SLF4J sẽ gọi trực tiếp Logback đằng sau hậu trường.
->
-> **Thắc mắc cốt lõi 2**: *"Bật Spring Boot 4 ECS có nghĩa là bỏ Logback và Logstash không?"*
-> **CÂU TRẢ LỜI KHÔNG!** Spring Boot 4 ECS **KHÔNG thay thế Logback hay Logstash**. Nó chỉ giúp Logback xuất ra JSON chuẩn ECS **sẵn sàng cho Logstash đọc ngay mà không cần cài thêm plugin ngoài hay viết XML phức tạp**.
+Database thường giữ trạng thái cuối cùng. HTTP response cho biết kết quả của một request. Metric cho biết xu hướng tổng hợp. Khi cần trả lời “request nào đi qua service nào, quyết định gì được đưa ra trước lỗi”, ta cần chuỗi observation event theo thời gian — đó là vai trò của log.
 
-### 1.1. So sánh `@Slf4j` (Lombok) vs Khai báo Thủ công (`LoggerFactory.getLogger`)
+Một log event tốt thường có:
 
-> **Thắc mắc lập trình**: *"Dùng `@Slf4j` của Lombok có khác gì khai báo thủ công `private static final Logger LOGGER = LoggerFactory.getLogger(...)` như trong dự án?"*
+| Nhóm | Ví dụ | Ý nghĩa |
+| --- | --- | --- |
+| Time | `@timestamp` | Sự kiện xảy ra khi nào |
+| Severity | `log.level=INFO` | Mức độ nghiêm trọng |
+| Source | `service.name`, `log.logger` | Thành phần nào phát log |
+| Narrative | `message` | Điều gì vừa xảy ra |
+| Context | `correlationId`, `eventId` | Nối các event cùng một flow |
+| Outcome | status, duration, error type | Kết quả và failure có cấu trúc |
+| Exception | type, message, stack trace | Bằng chứng kỹ thuật khi lỗi |
 
-#### 📊 Bảng So Sánh Chi Tiết
+Log không tự động là audit log, distributed trace hay source of truth. Muốn dùng cho compliance/audit phải có yêu cầu riêng về tính bất biến, quyền truy cập, retention và chống chối bỏ.
 
-| Tiêu chí | Dùng Annotation `@Slf4j` (Lombok) | Khai báo thủ công `LoggerFactory.getLogger(...)` |
-| :--- | :--- | :--- |
-| **Cách khai báo** | Đặt 1 dòng `@Slf4j` trên đầu Class. | Viết dòng dài: `private static final Logger LOGGER = LoggerFactory.getLogger(TargetClass.class);` |
-| **Bản chất hoạt động** | **Lombok Annotation Processor** tự động chèn chèn mã bytecode `private static final Logger log = ...` ở phase Compile. | Tự lập trình viên khai báo trực tiếp bằng tay trong code Java. |
-| **Rủi ro Copy-Paste** | **0% Rủi ro**: Lombok tự lấy tên Class hiện tại (`TargetClass.class`). | **Rủi ro cao**: Copy-paste code từ `ClassA` sang `ClassB` dễ quên đổi tên class `ClassA.class` ➔ **Log in nhầm tên Class!** |
-| **Tên biến Logger** | Tự động sinh tên biến là **`log`** (viết thường). | Tùy chọn đặt tên biến: **`LOGGER`** (chuẩn Hằng số Static Constant) hoặc **`log`**. |
-| **Phụ thuộc Library** | Phụ thuộc vào **Lombok Annotation Processor**. | **Thuần 100% SLF4J Standard**, không phụ thuộc Lombok. |
+### 1.2. Text log và structured log
 
-#### 🏆 Best Practice Hướng Dẫn Chọn Lựa:
-1. **Dùng `@Slf4j` (Lombok)**: Khi dự án đã sử dụng Lombok sẵn (`@Getter`, `@Setter`, `@RequiredArgsConstructor`). Đây là cách viết Clean Code, gọn nhẹ và loại bỏ hoàn toàn rủi ro Copy-Paste nhầm class name.
-2. **Dùng `LoggerFactory.getLogger(...)` thủ công**: Khi viết các module Core Platform, Servlet Filter ngầm, hoặc quy tắc dự án muốn Strict Zero-Lombok ở các lớp đặc thù. *(Cần chú ý cẩn thận khi Copy-Paste phải sửa đúng tên `TargetClass.class`)*.
+Text log đặt phần lớn dữ liệu vào một chuỗi:
 
-### 1.2. Đào Sâu: Rủi Ro Quên Đổi Class, Trade-offs Lombok & Anti-Pattern Base Logger
-
-> **Thắc mắc kiến trúc 1**: *"Nếu copy-paste code mà quên đổi `TargetClass.class` thì hậu quả là gì?"*
-
-#### 🚨 Hậu Quả Cực Kỳ Nguồn Tối Khi Quên Đổi Class Name:
-- **Trường `log.logger` bị in sai tên**: Giả sử bạn copy code từ `ScanDecisionService` sang `CatalogFileDiscoveryService` nhưng quên sửa `ScanDecisionService.class`.
-- Khi `CatalogFileDiscoveryService` chạy nổ log, trường JSON xuất ra Kibana sẽ là:
-  ```json
-  "service.name": "catalog-service",
-  "log.logger": "com.filemngt.v2.scan.application.ScanDecisionService" // SAU TÊN CLASS!
-  ```
-- **Chẩn đoán sai lệch nghiêm trọng**: Khi Prod gặp sự cố, Kỹ sư gõ KQL search log theo class `CatalogFileDiscoveryService` sẽ **KHÔNG THẤY LOG ĐÂU**, hoặc nghi ngờ bug xảy ra ở Scan Service ➔ **Làm lãng phí hàng giờ triệt phá sự cố!**
-
----
-
-> **Thắc mắc kiến trúc 2**: *"Tại sao dự án không dùng Lombok? Đánh đổi (Trade-offs) là gì?"*
-
-#### ⚖️ Phân Tích Trade-offs Zero-Lombok vs Lombok:
-
-1. **Rủi ro Ma thuật Bytecode (Compiler Hack)**: Lombok không dùng Java Standard Annotation Processing (JSR 269) thông thường, mà nó "hack" vào AST (Abstract Syntax Tree) của `javac`. Mỗi khi dự án nâng cấp phiên bản JDK mới (ví dụ Java 25 trong Backend V2), Lombok rất hay bị crash compiler cho tới khi có patch mới.
-2. **Tính Năng Native Của Java Hiện Đại**: Từ Java 17+, Java ra mắt **`record`** native thay thế 70% nhu cầu của Lombok (`@Data`, `@Getter`, `@Value`).
-3. **Đánh Đổi (Trade-offs)**:
-   - **Chấp nhận**: Viết thủ công 1 dòng `private static final Logger LOGGER = LoggerFactory.getLogger(MyClass.class);` ở mỗi class và constructor cho Service.
-   - **Đổi lại**: Codebase tiệm cận 100% Java Native, tương thích tuyệt đối với mọi IDE/Build Tool/Spotless Formatter mà không sợ nổ plugin khi lên JDK 25+.
-
----
-
-> **Thắc mắc kiến trúc 3**: *"Khai báo 1 dòng Logger ở mỗi file như vậy có rác code không? Có nên tạo `BaseService` chứa sẵn Logger không?"*
-
-#### ⚠️ Anti-Pattern: Tạo `BaseService` chứa Logger (NÊN TRÁNH)
-Một số lập trình viên cố gắng tạo class cha:
-```java
-// ANTI-PATTERN: Không nên làm cách này!
-public abstract class BaseService {
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
-}
-```
-- **Tại sao là Anti-pattern?**:
-  1. Vi phạm nguyên tắc **Composition over Inheritance** (bắt mọi service phải kế thừa `BaseService` vô lý).
-  2. Giảm hiệu năng runtime: `getClass()` phải resolve động ở runtime cho mỗi instance, thay vì `static final` compile-time.
-- **Kết luận**: Dòng `private static final Logger LOGGER = ...` nằm ở đầu file cùng các field dependency là **chuẩn mực Object-Oriented Design (OOD)**. Nó hoàn toàn KHÔNG PHẢI RÁC mà là định danh tĩnh an toàn và đạt hiệu năng $O(1)$ cao nhất.
-
----
-
-## 2. Kiến trúc Spring Boot 4 ECS JSON Format
-
-Dự án sử dụng tính năng **Spring Boot 4 Built-in Structured Logging** chuẩn Elastic Common Schema (ECS) mà không cần thư viện ngoài.
-
-### 2.1. Cấu hình Runtime (`application.properties`)
-```properties
-logging.structured.format.file=ecs
-logging.file.name=logs/${spring.application.name}.json
+```text
+INFO approved proposal scan=42 correlation=abc
 ```
 
-### 1.2. Cấu trúc 1 Record Log ECS JSON Chuẩn
+Structured log giữ cùng ý nghĩa thành field:
+
 ```json
 {
   "@timestamp": "2026-08-03T03:24:17.428Z",
   "log.level": "INFO",
-  "message": "Decided scan proposal scanId=64932fb9-83d9-418f-8d88-b187c1729392 proposalId=ba243dcd-f109-4597-acec-6c953b770c21 decision=APPROVE identityKey=JOKE-011 relativePath=A - [JOKE-011].mp4",
   "service.name": "scan-service",
-  "correlationId": "78f3a11f-3400-4013-966a-6477c7d173bc",
-  "process.thread.name": "http-nio-18102-exec-3",
-  "log.logger": "com.filemngt.v2.scan.application.ScanDecisionService"
+  "message": "Approved scan proposal",
+  "correlationId": "abc",
+  "scanId": "42"
 }
 ```
 
----
+Khác biệt cốt lõi không phải “JSON đẹp hơn text”, mà là **schema tạo địa chỉ ổn định cho dữ liệu**. Query `correlationId:"abc"` đáng tin hơn tìm chuỗi `message:"*abc*"`; mapping, dashboard và retention cũng có thể vận hành theo field.
 
-## 2. Triết lý Ghi Log Độc lập (Decoupled File Shipping)
-
-### 2.1. Tại sao KHÔNG gửi log trực tiếp qua Network (Socket / HTTP Appender)?
-- **Nguy cơ Sập Dây Chuyền (Cascading Failure)**: Nếu Logstash/Elasticsearch chậm hoặc ngắt kết nối, việc Application gửi log đồng bộ/bất đồng bộ qua Network có thể gây nghẽn Thread Pool, tràn bộ nhớ đệm Buffer Overflow và làm sập API nghiệp vụ.
-- **Tốc độ OS Buffered Write**: Ghi log ra đĩa cục bộ (`/logs/*.json`) dựa vào OS Page Cache cực kỳ nhanh và tin cậy.
-
-### 2.2. Luồng Xử lý 8 Bước Chi tiết từ App ➔ Disk ➔ Logstash ➔ Elasticsearch ➔ Kibana
+## 2. Mental model: mỗi component chỉ làm một việc
 
 ```mermaid
 flowchart TB
-    subgraph APP_LAYER["1. Microservices Application Layer (Spring Boot 4)"]
-        CLIENT["<font color='white'>Client / E2E Test Harness</font>"] -->|"1. HTTP Request<br/>Header: X-Correlation-Id"| GW["<font color='white'>gateway-service (:18100)<br/>Inject CorrelationIdMdcFilter</font>"]
-        GW -->|"2. Forward Request<br/>+ X-Correlation-Id"| SCAN["<font color='white'>scan-service (:18102)<br/>Execute Scan & Proposal Logic</font>"]
-        SCAN -->|"3. Log Event with MDC"| SLF4J["<font color='white'>SLF4J Logger + Logback<br/>(MDC: correlationId, identityKey)</font>"]
-        SLF4J -->|"4. Non-blocking Async Append"| ECS_FORMATTER["<font color='white'>Spring Boot ECS Formatter<br/>(logging.structured.format.file=ecs)</font>"]
-    end
+    CODE["<font color='white'>Java code<br/>LOGGER.info()</font>"] -->|"Logging API"| FACADE["<font color='white'>SLF4J<br/>facade</font>"]
+    FACADE -->|"Dispatch event"| BACKEND["<font color='white'>Logback<br/>backend</font>"]
+    BACKEND -->|"Encode ECS JSON"| FORMAT["<font color='white'>Spring Boot<br/>structured format</font>"]
+    FORMAT -->|"Append line"| FILE["<font color='white'>Local log file<br/>*.json.log</font>"]
+    FILE -->|"Tail + checkpoint"| SHIPPER["<font color='white'>Logstash<br/>shipper</font>"]
+    SHIPPER -->|"Bulk index"| ES["<font color='white'>Elasticsearch<br/>data stream</font>"]
+    ES -->|"KQL search"| UI["<font color='white'>Kibana<br/>Discover</font>"]
 
-    subgraph DISK_LAYER["2. Local Filesystem Layer (Non-Blocking Buffer)"]
-        ECS_FORMATTER -->|"5. Write ECS JSON Lines"| LOG_FILE["<font color='white'>Local Disk Log Files<br/>logs/scan-service.json<br/>logs/catalog-service.json<br/>logs/query-service.json</font>"]
-    end
-
-    subgraph ELK_STACK["3. Decoupled ELK Pipeline Layer (Docker Profile)"]
-        LOG_FILE -->|"6. File Tail Ingest<br/>path: /logs/*.json"| LOGSTASH["<font color='white'>Logstash Container (:18115)<br/>JSON Codec Filter (No Grok Required)</font>"]
-        LOGSTASH -->|"7. Bulk Index Write<br/>HTTP Post"| ES_LOGS["<font color='white'>Elasticsearch Container (:18113)<br/>Data Stream: logs-file_mngt_v2-*</font>"]
-        ES_LOGS -->|"8. Index & Map Fields"| KIBANA["<font color='white'>Kibana Discover UI (:18114)<br/>KQL Query by correlationId</font>"]
-    end
-
-    style CLIENT fill:#4CAF50,stroke:#fff,stroke-width:2px
-    style GW fill:#2196F3,stroke:#fff,stroke-width:2px
-    style SCAN fill:#2196F3,stroke:#fff,stroke-width:2px
-    style SLF4J fill:#FF9800,stroke:#fff,stroke-width:2px
-    style ECS_FORMATTER fill:#FF9800,stroke:#fff,stroke-width:2px
-    style LOG_FILE fill:#009688,stroke:#fff,stroke-width:2px
-    style LOGSTASH fill:#E91E63,stroke:#fff,stroke-width:2px
-    style ES_LOGS fill:#9C27B0,stroke:#fff,stroke-width:2px
-    style KIBANA fill:#2196F3,stroke:#fff,stroke-width:2px
+    style CODE fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style FACADE fill:#FF9800,stroke:#fff,stroke-width:2px
+    style BACKEND fill:#FF9800,stroke:#fff,stroke-width:2px
+    style FORMAT fill:#FF9800,stroke:#fff,stroke-width:2px
+    style FILE fill:#009688,stroke:#fff,stroke-width:2px
+    style SHIPPER fill:#E91E63,stroke:#fff,stroke-width:2px
+    style ES fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style UI fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
-### 2.3. Cấu hình Logstash Ingest Pipeline (`infra/observability/logstash/pipeline/logstash.conf`)
-1. Logstash container mount thư mục đĩa `/logs`.
-2. Pipeline tự động đọc file JSON bất đồng bộ ngầm:
-   ```ruby
-   input {
-     file {
-       path => "/logs/*.json"
-       codec => "json"
-       start_position => "beginning"
-       sincedb_path => "/usr/share/logstash/data/plugins/inputs/file/.sincedb" # Con trỏ lưu offset đọc file
-     }
-   }
-   ```
-3. Logstash gửi dữ liệu về Elasticsearch qua port `18113` vào Data Stream `logs-file_mngt_v2-*`.
-4. **Phân tách hoàn toàn**: Index log `logs-file_mngt_v2-*` hoạt động độc lập, không ảnh hưởng đến Elasticsearch index tìm kiếm dữ liệu media (`media-subject-search`).
+| Component | Owns | Không owns |
+| --- | --- | --- |
+| SLF4J | API mà source code gọi | File format, queue, storage |
+| Logback | Tạo/dispatch logging event qua appender | ECS storage, Kibana query |
+| Spring Boot structured logging | Encoder/format JSON ECS, đưa MDC/key-value vào JSON | Shipping và retention Elasticsearch |
+| File appender | Ghi event đã encode vào file | Đưa file lên Elasticsearch |
+| Logstash | Tail, parse, transform và gửi event | Sinh log trong application |
+| Elasticsearch | Index và search document | Hiển thị UI, giữ canonical business data |
+| Kibana | Explore/query/visualize | Lưu log gốc thay Elasticsearch |
 
-### 2.4. Phân Tầng Layer & Ma Trận Cấu Hình Rolling/Retention Policy
+Hai ngộ nhận cần loại bỏ ngay:
 
-> **Thắc mắc vận hành**: *"Mấy cơ chế này là tự động hay phải chỉnh? Mặc định (Default) là gì? Cấu hình ở đâu và thuộc Layer nào?"*
+- Bật ECS không bỏ Logback: ECS thay cách encode output, Logback vẫn là logging backend mặc định của project.
+- Bật ECS không bắt buộc Logstash: shipper là một stage độc lập; có thể thay bằng Filebeat, Fluent Bit hoặc Vector tùy deployment.
 
-#### 📊 Bảng Ma Trận Phân Tầng Trách Nhiệm
+## 3. Một `LOGGER.info()` chạy như thế nào trong Backend V2?
 
-| Công Việc | Layer Chịu Trách Nhiệm | Tính Tự Động | Giá Trị Mặc Định (Defaults) | Nơi Cấu Hình (Config Location) |
-| :--- | :--- | :---: | :--- | :--- |
-| **Xoay file log cũ (Rolling Policy)** | **App Layer** *(Spring Boot Logback)* | **TỰ ĐỘNG** *(khi bật file log)* | `max-file-size: 10MB` *(Đủ 10MB nén `.json.gz`)* | `apps/<service>/src/main/resources/application.yml` |
-| **Dọn file nén cũ (Retention Policy)** | **App Layer** *(Spring Boot Logback)* | **TỰ ĐỘNG** *(khi bật file log)* | `max-history: 7` *(Xóa file cũ quá 7 ngày)*<br>`total-size-cap: 0B` *(Không giới hạn tổng GB)* | `apps/<service>/src/main/resources/application.yml` |
-| **Nhớ offset đã đọc (`sincedb`)** | **LogShipper Layer** *(Logstash Container)* | **TỰ ĐỘNG 100%** | `sincedb_write_interval: 15s`<br>Lưu tại file ngầm `.sincedb_*` | `infra/observability/logstash/pipeline/logstash.conf` |
-| **Xóa log cũ trên Elasticsearch** | **Storage Layer** *(Elasticsearch ILM)* | **TỰ ĐỘNG** *(khi bật ILM)* | Retention: `30 ngày` | Kibana UI *(Index Lifecycle Management)* / API |
+### 3.1. Từ lời gọi Java đến logging event
 
-#### ⚙️ Ví dụ Cấu hình Tùy chỉnh Chi tiết trong Spring Boot 3/4 (`application.yml`)
+Source dùng SLF4J:
+
+```java
+private static final Logger LOGGER = LoggerFactory.getLogger(ScanDecisionService.class);
+
+LOGGER.info("Approved scan proposal scanId={} proposalId={}", scanId, proposalId);
+```
+
+Placeholder trì hoãn việc render message cho tới khi level được bật. `LoggerFactory.getLogger(CurrentClass.class)` quyết định tên logger; copy-paste sai class không làm event chạy sai business logic nhưng khiến `log.logger` sai và gây nhiễu điều tra.
+
+`@Slf4j` chỉ là cách Lombok sinh field logger lúc compile. Chọn Lombok hay khai báo thủ công là quyết định ergonomics/dependency, không thay đổi pipeline logging. Không nên tạo base class chỉ để chia sẻ logger vì inheritance đó không biểu diễn quan hệ domain.
+
+### 3.2. Spring Boot 4 ECS encode event
+
+Năm service hiện cấu hình:
 
 ```yaml
 logging:
   file:
-    name: logs/${spring.application.name}.json
+    name: ${OBSERVABILITY_LOG_FILE:logs/gateway-service.json.log}
   structured:
     format:
-      file: ecs # Khai báo định dạng JSON ECS
-  logback:
-    rollingpolicy:
-      max-file-size: 50MB          # Đủ 50MB thì xoay file & nén GZIP
-      max-history: 14               # Tự động xóa file nén cũ quá 14 ngày
-      total-size-cap: 5GB           # Tổng thư mục logs tối đa 5GB (vượt quá xóa file cũ nhất)
-      clean-history-on-start: true  # Quét dọn file quá hạn ngay khi restart app
+      file: ecs
 ```
 
----
+Spring Boot 4.0.3 hỗ trợ ECS, GELF và Logstash JSON format built-in. Với ECS, các key-value trong MDC được thêm vào JSON object; `service.name` mặc định lấy từ `spring.application.name` nếu không override.
 
-## 3. Hướng dẫn Tra cứu Log trên Kibana Discover (`http://localhost:18114`)
+MDC phù hợp với context có request scope như `correlationId`. MDC không phải business storage: phải set tại boundary, propagate có chủ đích và cleanup trong `finally` để tránh rò context sang request khác.
 
-Kibana được cấu hình không cần password trên local (`xpack.security.enabled: false`). Mở `http://localhost:18114` → Chọn **Discover**.
+### 3.3. Synchronous hay asynchronous?
 
-### 3.1. Các câu truy vấn KQL (Kibana Query Language) thông dụng
+Đây là điểm phải phân biệt **khả năng framework** với **cấu hình dự án**:
 
-| Mục đích Tra cứu | Cú pháp KQL Query |
-| :--- | :--- |
-| **Trace toàn bộ luồng theo Correlation ID** | `correlationId : "78f3a11f-3400-4013-966a-6477c7d173bc"` |
-| **Tìm vết theo Mã Chủ Thể (Identity Key)** | `message : "*JOKE-011*"` |
-| **Tìm theo Tên File tương đối (Relative Path)** | `message : "*JOKE-011.mp4*"` |
-| **Lọc log lỗi của 1 Service cụ thể** | `service.name : "scan-service" and log.level : "ERROR"` |
-| **Lọc HTTP Requests có lỗi 5xx** | `http.response.status_code >= 500` |
-| **Theo dõi Event công bố từ Scan Outbox** | `service.name : "scan-service" and message : "*Published outbox event*"` |
+| Câu hỏi | Trả lời đúng trong project hiện tại |
+| --- | --- |
+| Có `AsyncAppender` trong config không? | Không tìm thấy `logback-spring.xml`/`AsyncAppender` hay cấu hình queue. |
+| Có thể kết luận request thread chỉ enqueue rồi quay về không? | Không. File appender hiện được gọi theo đường logging thông thường; OS page cache không biến nó thành `AsyncAppender`. |
+| Logback có hỗ trợ async không? | Có, khi cấu hình `AsyncAppender` bọc child appender. |
+| Async Logback dùng RingBuffer không? | `AsyncAppender` chuẩn dùng `BlockingQueue`; RingBuffer thường gắn với async logging của Log4j2/LMAX Disruptor. |
+| Queue đầy thì luôn drop và không block? | Không. `neverBlock=false` là default; queue đầy có thể làm caller block. Đặt `neverBlock=true` mới chọn drop thay vì block. |
 
----
+`AsyncAppender` giảm latency trên caller nhưng đổi failure semantics: queue dùng heap, có thể drop event mức thấp gần đầy, có thể block khi đầy, và có thể mất event chưa flush khi shutdown/crash. Vì vậy “async” là trade-off cần đo và cấu hình, không phải khẩu hiệu an toàn tuyệt đối.
 
-## 4. Tài liệu Tham khảo Liên quan
-- [⚡ Tóm tắt kiến thức siêu ngắn (Cheat Sheet Summary)](summary/02-structured-logging.md)
-- [00. Tổng quan Observability](00-overview.md)
-- [03. Correlation ID & Distributed Tracing](03-correlation-id-tracing.md)
-- [Ngân hàng Câu hỏi Phỏng vấn Logging & ELK](question-bank/02-logging-questions.md)
+## 4. Decoupled file shipping của dự án
+
+### 4.1. Luồng runtime thực tế
+
+1. Service ghi JSON Lines vào `logs/<service>.json.log`.
+2. Compose bind-mount các thư mục log read-only vào Logstash.
+3. File input của Logstash tail `*.json.log`, decode JSON với ECS compatibility.
+4. `sincedb_path` lưu checkpoint để Logstash biết vị trí đã đọc của file.
+5. Elasticsearch output ghi vào data stream `logs-file_mngt_v2-local`.
+6. Kibana data view `logs-file_mngt_v2-*` dùng để search.
+
+Project evidence:
+
+- App output: `apps/*/src/main/resources/application.yml`.
+- Shipper: `infra/observability/logstash/pipeline/file-mngt-v2.conf`.
+- Bind mount và named volume: `infra/compose/compose.yaml`.
+
+### 4.2. Vì sao file shipping giúp decouple?
+
+Application không mở HTTP/socket tới Elasticsearch trên mỗi log event. Logstash/Elasticsearch down không trực tiếp tạo network failure trong app; file local trở thành buffer giữa producer và shipper.
+
+Nhưng decoupling không đồng nghĩa “ELK sập thì API chắc chắn không ảnh hưởng”:
+
+- File appender hiện có thể chạy trên caller thread.
+- Disk chậm, disk full hoặc filesystem error vẫn có thể tăng latency hay làm mất khả năng ghi log.
+- Backlog lớn hơn dung lượng/retention file local có thể bị xóa trước khi ship.
+
+### 4.3. `sincedb` là checkpoint, không phải exactly-once
+
+`sincedb` nhớ identity/vị trí đọc để tiếp tục sau restart. `start_position => beginning` chủ yếu áp dụng cho file chưa từng thấy; file đã có checkpoint tiếp tục theo checkpoint.
+
+Không nên nói “không bao giờ đọc lặp” hoặc “không bao giờ mất”:
+
+- Nếu event đã index nhưng checkpoint chưa kịp persist trước crash, event có thể được đọc/index lại.
+- Nếu file bị rotate/xóa trước khi Logstash đọc, event có thể mất khỏi pipeline.
+- Nếu `sincedb` bị mất hoặc identity file thay đổi, Logstash có thể đọc lại hoặc xử lý khác kỳ vọng.
+- Pipeline này không đặt deterministic document ID, nên duplicate vật lý là khả năng cần chấp nhận/quan sát.
+
+```mermaid
+flowchart TB
+    APP["<font color='white'>Application<br/>append event</font>"] -->|"Local buffer"| FILE["<font color='white'>Log file<br/>rotation boundary</font>"]
+    FILE -->|"Tail"| LS["<font color='white'>Logstash<br/>in-memory event</font>"]
+    LS -->|"Persist position"| CHECKPOINT["<font color='white'>sincedb<br/>checkpoint</font>"]
+    LS -->|"Index request"| STORE["<font color='white'>Elasticsearch<br/>document</font>"]
+
+    FILE -.->|"Deleted too early"| LOSS["<font color='white'>Possible loss</font>"]
+    STORE -.->|"Crash before checkpoint"| DUP["<font color='white'>Possible duplicate</font>"]
+
+    style APP fill:#2196F3,stroke:#fff,stroke-width:2px
+    style FILE fill:#009688,stroke:#fff,stroke-width:2px
+    style LS fill:#E91E63,stroke:#fff,stroke-width:2px
+    style CHECKPOINT fill:#009688,stroke:#fff,stroke-width:2px
+    style STORE fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style LOSS fill:#E91E63,stroke:#fff,stroke-width:2px
+    style DUP fill:#E91E63,stroke:#fff,stroke-width:2px
+```
+
+## 5. Rotation và retention là ba bài toán khác nhau
+
+| Layer | Câu hỏi | Cơ chế |
+| --- | --- | --- |
+| Application file | File local có phình vô hạn không? | Logback rolling policy: size/time, archive, `max-history`, `total-size-cap` khi được cấu hình/default áp dụng. |
+| Shipper checkpoint | Logstash đã đọc tới đâu? | `sincedb`; đây không phải retention hay xác nhận end-to-end exactly-once. |
+| Elasticsearch | Searchable log giữ bao lâu? | Data stream lifecycle/ILM hoặc policy tương ứng; độc lập với file local. |
+
+Project hiện không khai báo explicit `logging.logback.rollingpolicy.*` và không có policy retention 30 ngày được source-control trong pipeline này. Vì vậy tài liệu không được biến các con số ví dụ như `10MB`, `7 ngày`, `30 ngày` thành guarantee của dự án. Khi production hóa phải chốt backlog budget giữa tốc độ ghi, tốc độ ship, giới hạn file local và retention Elasticsearch.
+
+## 6. Failure model cần nói được ở cấp Senior
+
+| Failure | Ảnh hưởng | Guardrail/decision |
+| --- | --- | --- |
+| Logstash down | File backlog tăng | Monitor backlog/disk; giữ app không phụ thuộc network shipper |
+| Elasticsearch down/chậm | Logstash retry/backpressure | Queue/buffer phù hợp; alert shipper output failure |
+| Disk local full/chậm | Appender lỗi hoặc request latency tăng | Rotation, quota, disk alert, giảm log volume |
+| App crash/shutdown đột ngột | Event trong buffer JVM/OS có thể chưa durable | Chấp nhận best effort hoặc dùng durable architecture khác cho audit |
+| Rotation nhanh hơn tail | File có thể biến mất trước khi ship | Tính retention theo worst-case outage/backlog |
+| `sincedb` mất | Có thể re-read hoặc lệch checkpoint | Persist Logstash data volume và quan sát duplicate |
+| Mapping/cardinality bùng nổ | Heap/index/storage tăng | Schema discipline; ID nằm trong field nhưng không dùng bừa cho aggregation/dashboard |
+| Log chứa secret/path nhạy cảm | Data leak qua file và Elasticsearch | Redaction, allow-list field, access control và retention ngắn nhất cần thiết |
+
+Guarantee phù hợp cho pipeline học tập hiện tại là **best-effort operational logging có checkpoint**, không phải durable audit trail hay exactly-once delivery.
+
+## 7. Query theo field thay vì “grep message”
+
+KQL hữu ích khi dữ liệu quan trọng có field ổn định:
+
+| Mục đích | KQL |
+| --- | --- |
+| Theo một request | `correlationId : "..."` |
+| Lỗi của Scan | `service.name : "scan-service" and log.level : "ERROR"` |
+| Một logger | `log.logger : "com.filemngt.v2.scan.application.ScanDecisionService"` |
+| HTTP 5xx nếu field tồn tại | `http.response.status_code >= 500` |
+
+Nếu phải liên tục tìm `message : "*JOKE-011*"`, đó là dấu hiệu key quan trọng chưa được ghi thành structured field. Tuy nhiên không phải mọi ID đều nên thành dashboard dimension; field search được và metric label là hai quyết định cardinality khác nhau.
+
+## 8. Decision table kiến trúc
+
+| Quyết định | Chọn khi | Trade-off |
+| --- | --- | --- |
+| Synchronous file appender | Volume vừa, đơn giản, ưu tiên không có JVM queue | Caller chịu latency I/O |
+| Logback `AsyncAppender` | Cần tách caller khỏi latency appender và chấp nhận queue semantics | Heap, drop/block, shutdown flush, tuning |
+| File shipping | Có disk/volume local đáng tin và muốn tách app khỏi network collector | Rotation, backlog và host lifecycle |
+| Direct network appender | Deployment không có file bền và collector được thiết kế với bounded failure | App phụ thuộc network/buffer hơn |
+| Logstash | Cần transform/filter/routing phong phú | Nặng hơn agent shipper tối giản |
+| Filebeat/Fluent Bit/Vector | Chủ yếu collect/forward ở edge | Ít năng lực transform hoặc hệ sinh thái khác |
+| Elasticsearch data stream | Time-series append-oriented, cần search field/full text | Chi phí index/storage, mapping governance |
+| Loki-style label index | Ưu tiên chi phí thấp và query theo label | Không index mọi field/full text như Elasticsearch |
+
+Log data stream và `media-subject-search` phải tách mapping, lifecycle và ownership. Nhưng chúng đang dùng cùng một Elasticsearch instance local, nên đây là **logical isolation**, không phải resource isolation: log spike vẫn có thể tranh CPU, heap, disk và I/O với media search.
+
+## 9. Interview bridge: các ngộ nhận cần tránh
+
+- “Structured logging = JSON” — thiếu schema, context và query contract thì JSON vẫn hỗn loạn.
+- “Spring Boot ECS thay Logback/Logstash” — sai ranh giới component.
+- “Ghi file là async” — OS buffering khác JVM `AsyncAppender`.
+- “Logback async dùng RingBuffer” — `AsyncAppender` chuẩn dùng `BlockingQueue`.
+- “`neverBlock=true` là default” — default của Logback là `false`.
+- “`sincedb` cho exactly-once” — checkpoint không phải distributed transaction.
+- “Logstash down không bao giờ ảnh hưởng app” — disk/backlog vẫn là coupling gián tiếp.
+- “Tách index là tách tài nguyên” — cùng cluster vẫn tranh tài nguyên.
+- “Log đã có thì không cần trace” — log event và distributed span giải các câu hỏi khác nhau.
+
+### Câu trả lời 30 giây
+
+> Backend V2 dùng SLF4J/Logback để tạo log event, Spring Boot 4 encode file theo ECS, Logstash tail file bằng checkpoint `sincedb`, Elasticsearch index vào logs data stream và Kibana query theo field. Giá trị kiến trúc nằm ở schema + context + failure isolation; pipeline hiện là best effort, file appender chưa được cấu hình async và `sincedb` không cung cấp exactly-once.
+
+## 10. Nguồn kiểm chứng
+
+- [Spring Boot 4.0.3 — Logging](https://docs.spring.io/spring-boot/reference/features/logging.html): structured formats, ECS, MDC và file output.
+- [Logback manual — AsyncAppender](https://logback.qos.ch/manual/appenders.html#AsyncAppender): `BlockingQueue`, drop threshold, `neverBlock` và shutdown flush.
+- [Logstash file input](https://www.elastic.co/guide/en/logstash/current/plugins-inputs-file.html): tail mode, `start_position` và `sincedb`.
+- [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html): field naming convention.
+- [Tóm tắt ghi nhớ](summary/02-structured-logging.md)
+- [Question bank](question-bank/02-logging-questions.md)
