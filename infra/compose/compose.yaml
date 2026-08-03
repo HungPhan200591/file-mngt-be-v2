@@ -177,13 +177,6 @@ services:
     environment:
       URLS: "[{url: '/openapi/catalog-v1.yaml', name: 'Catalog API'}, {url: '/openapi/scan-v1.yaml', name: 'Scan API'}, {url: '/openapi/query-v1.yaml', name: 'Query API'}, {url: '/openapi/media-delivery-v1.yaml', name: 'Media Delivery API'}]"
 
-  glossary-ui:
-    image: nginx:${NGINX_VERSION:-alpine}
-    ports:
-      - "${GLOSSARY_UI_PORT:-18120}:80"
-    volumes:
-      - ../../manual/learning/glossary:/usr/share/nginx/html:ro
-
 volumes:
   postgres-data:
   kafka-data:

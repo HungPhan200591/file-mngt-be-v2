@@ -28,7 +28,6 @@ Mọi **host port** của Backend V2 nằm trong dải dành riêng `18100–181
 | Grafana (future) | 18117 |
 | Swagger UI / OpenAPI Docs | 18118 |
 | Nginx media delivery V2 | 18119 |
-| IT Glossary Web UI (Docsify) | 18120 |
 
 Quy tắc triển khai:
 
