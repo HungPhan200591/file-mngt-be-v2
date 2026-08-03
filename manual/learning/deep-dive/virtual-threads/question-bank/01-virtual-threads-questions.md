@@ -13,6 +13,8 @@ Tài liệu tổng hợp các câu hỏi phỏng vấn chuẩn **Senior / Archit
 | `VT-003` | Use Cases, Thread Pinning (`synchronized`), Connection Exhaustion & Best Practices | `ARCHITECT` | 🔥 HIGH |
 | `VT-004` | Structured Concurrency & Scoped Values trong Java 21+ / JDK 25 | `ARCHITECT` | ⚡ MEDIUM |
 | `VT-005` | Production Observability, JFR Events & Troubleshooting Virtual Threads | `ARCHITECT` | 🔥 HIGH |
+| `VT-006` | Deep-Dive Thread Pinning: Native C++ Monitors vs ReentrantLock AQS Heap Architecture | `ARCHITECT` | 🔥 HIGH |
+| `VT-007` | Semaphore Architecture: Permits Counter, AQS Park Unmount & DB Throttling | `ARCHITECT` | 🔥 HIGH |
 
 ---
 
@@ -199,3 +201,75 @@ Tài liệu tổng hợp các câu hỏi phỏng vấn chuẩn **Senior / Archit
   - 💡 *Đáp 2.1*: Cảnh báo khi tỷ lệ `rate(jvm_threads_virtual_pinned_total[5m]) > 10` kéo dài trong 3 phút, hoặc khi `jvm_threads_virtual_queued` duy trì ngưỡng cao liên tục.
 
 **Red flags:** Dùng `jstack` để cố gắng debug hàng triệu Virtual Threads trên Production, hoặc không biết cách trích xuất file JFR để đọc.
+
+---
+
+### VT-006 — `[LEVEL: ARCHITECT]`
+**Question:** Phân tích sâu nguyên lý cấp thấp (Low-level Internals): Tại sao `synchronized` lại gây ra Thread Pinning ở tầng Native C++ Memory Stack? Tại sao hiện tượng Pinning lại dẫn tới Carrier Thread Starvation làm đóng băng ứng dụng? Và tại sao kiến trúc của `ReentrantLock` (AQS trên Heap) lại giải quyết triệt để vấn đề này?<br>
+**Target depth:** `D4` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_SCENARIO`<br>
+**Interviewer evaluates:** Đánh giá độ sâu kiến thức về cấu trúc bộ nhớ JVM (Native Stack vs Java Heap), cơ chế `Continuation.park()`, và kiến trúc Synchronizer (`AbstractQueuedSynchronizer`).<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Thread Pinning xảy ra do `synchronized` tạo ra C++ Object Monitor Locks gắn trực tiếp lên Native OS Stack Frame mà JVM chưa thể di chuyển lên Heap. Pinning làm khóa cứng toàn bộ số ít Carrier OS Threads (bằng số CPU cores) khiến các Virtual Threads khác không còn thread để chạy. `ReentrantLock` sửa được vì trạng thái lock nằm 100% trên RAM Heap (AQS Object Queue), giúp JVM unmount Virtual Thread dễ dàng via `LockSupport.park()`."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Bản chất của `synchronized` ở cấp độ JVM Internal là gì?** ➔ 💡 Là **Native C++ Object Monitor** ghi thông tin lock lên Native OS Stack Frame.
+- ❓ **Tại sao JVM không unmount được Virtual Thread trong `synchronized`?** ➔ 💡 Vì JVM **chưa di chuyển được Native C++ Stack Frames lên Heap** mà không phá vỡ con trỏ memory.
+- ❓ **Tại sao Pinning lại làm toàn bộ ứng dụng bị đóng băng (Stuck)?** ➔ 💡 Vì nó làm **cạn kiệt Carrier OS Threads** (Carrier Thread Starvation), khiến các Virtual Threads khác không còn OS Thread để chạy.
+- ❓ **Tại sao `ReentrantLock` lại không bị Thread Pinning?** ➔ 💡 Vì `ReentrantLock` là **Pure Java dựa trên AQS**, mọi trạng thái lock nằm hoàn toàn trên **RAM Heap**.
+- ❓ **Khi `ReentrantLock` bị block, nó gọi hàm gì để unmount?** ➔ 💡 Gọi **`LockSupport.park()`**, giúp JVM cất Continuation Stack lên Heap và giải phóng OS Thread ngay.
+- 🔑 **Keyword cốt lõi cần nhớ**: **Native C++ Monitor Frame — Continuation Heap Relocation — Carrier Thread Starvation — Pure Java AQS — LockSupport.park()**.
+
+**Answer outline:**
+- **Nguyên nhân Native Stack**: `synchronized` ghi Lock Record trực tiếp lên Native C++ Stack Frame của OS Thread. JVM chưa hỗ trợ di chuyển (relocate) Native Stack Frame lên Heap khi unmount.
+- **Hậu quả Carrier Thread Starvation**: Carrier Threads trong `ForkJoinPool` chỉ bằng số CPU Cores (vd 8 cores). 8 Virtual Threads bị Pinned trong `synchronized` sẽ chiếm sạch 8 OS Threads $\rightarrow$ Hàng ngàn Virtual Threads khác bị ngưng trệ hoàn toàn.
+- **Giải pháp `ReentrantLock`**: Viết 100% bằng Java thuần dựa trên AQS. Lock Queue là các Java Objects trên Heap. Khi block, `LockSupport.park()` cho phép JVM unmount Virtual Thread tự do mà không dính Native Stack Frame.
+
+**Required trade-offs:** Phải thực hiện refactor từ `synchronized` sang `ReentrantLock` tại các đoạn code có chứa Blocking I/O.<br>
+
+🪜 **Cây Kịch Bản Hỏi Xoáy (Multi-Branch Follow-up Ladder)**:
+- 🌿 **Kịch bản 1: Java Roadmap & Future Virtual Thread Enhancements**
+  - ❓ *Hỏi xoáy 1.1*: "Liệu trong các phiên bản Java tương lai (ví dụ: Java 26+), lỗi Thread Pinning do `synchronized` có được giải quyết triệt me không?"
+  - 💡 *Đáp 1.1*: Có. Oracle đang phát triển bản nâng cấp cho JVM (Object Monitor Redesign) để cho phép di chuyển Native Monitor Frames lên Heap. Khi hoàn tất, `synchronized` sẽ không còn gây Pinning nữa.
+- 🌿 **Kịch bản 2: Third-Party Library Refactoring**
+  - ❓ *Hỏi xoáy 2.1*: "Nếu một thư viện open-source nổi tiếng dùng `synchronized` nhưng KHÔNG CÓ Blocking I/O bên trong, nó có gây rủi ro Pinning nghiêm trọng không?"
+  - 💡 *Đáp 2.1*: Không nghiêm trọng. Pinning chỉ nguy hiểm khi Virtual Thread **vừa bị Pinned VÀ vừa đụng phải Blocking I/O kéo dài**. Nếu khối `synchronized` chỉ thực hiện phép gán/tính toán RAM nhanh vài nanosecond rồi thoát ra ngay, Carrier Thread sẽ không bị nghẽn.
+
+**Red flags:** Hiểu sai rằng `ReentrantLock` gọi Native OS Mutex nên bị Pinning, hoặc ngộ nhận Thread Pinning làm crash/ngắt chương trình thay vì gây nghẽn performance.
+
+---
+
+### VT-007 — `[LEVEL: ARCHITECT]`
+**Question:** Semaphore trong Java là gì? Tại sao trong kỷ nguyên Virtual Threads (Java 21+ / JDK 25), `Semaphore` lại trở thành công cụ quan trọng hàng đầu để chống sập Database (Connection Exhaustion) thay vì dùng Thread Pool? Cơ chế AQS bên dưới `Semaphore` ứng xử như thế nào khi Virtual Thread bị hãm ở `acquire()`?<br>
+**Target depth:** `D4` · **Interview likelihood:** `HIGH` · **Question type:** `ARCHITECTURE_EVOLUTION`<br>
+**Interviewer evaluates:** Đánh giá tư duy phòng hộ tài nguyên (Resource Throttling / Rate Limiting), sự khác biệt giữa Thread Pool Limiting vs Semaphore Limiting trong Virtual Threads.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Semaphore là công cụ quản lý số lượng Permits nguyên tử dùng để giới hạn N threads đồng thời truy cập tài nguyên. Trong Virtual Threads (vốn không dùng Thread Pool), Semaphore là lá chắn duy nhất giúp khống chế số lượng Virtual Threads được đụng vào Database. Do Semaphore dựa trên AQS, khi bị chờ ở `acquire()`, Virtual Thread tự động unmount an toàn mà không bị Pinning hay ngốn OS Thread."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Semaphore khác gì Mutex / ReentrantLock?** ➔ 💡 **Mutex chỉ cho 1 Thread (`Permits = 1`)**, còn **Semaphore cho N Threads (`Permits = N`)**.
+- ❓ **Tại sao Virtual Threads không thể dùng Thread Pool để giới hạn DB Queries?** ➔ 💡 Vì **Virtual Threads tạo mới 1 thread per task**, không duy trì Thread Pool cố định.
+- ❓ **Chuyện gì xảy ra khi 100,000 Virtual Threads cùng xin 10 Permits của Semaphore?** ➔ 💡 **10 Virtual Threads vào xử lý**, **99,990 Virtual Threads tự unmount đứng chờ trên Heap**.
+- ❓ **Cần lưu ý cụm try-finally nào khi dùng Semaphore?** ➔ 💡 **BẮT BUỘC gọi `semaphore.release()` trong khối `finally`** để chống rò rỉ Permit (Permit Leak).
+- ❓ **Sự khác biệt giữa Fair và Non-Fair Semaphore?** ➔ 💡 **Fair Mode xếp hàng FIFO chống Starvation**, **Non-Fair Mode cho cướp vé tăng Throughput**.
+- 🔑 **Keyword cốt lộ cần nhớ**: **Permits Counter — Resource Throttling — No Virtual Thread Pooling — AQS Unmount — Permit Leak Prevention (`finally`)**.
+
+**Answer outline:**
+- **Ý tưởng Cốt lõi & Ví dụ Bãi đỗ xe**: Phân tích biến đếm Permits, nguyên tắc `acquire()` (giảm permit/unmount chờ) và `release()` (tăng permit/unpark waiter).
+- **Vai trò Lá chắn trong Virtual Threads**: Do không xài Thread Pool để nén dòng request, `Semaphore(N)` là vũ khí bảo vệ Downstream PostgreSQL / External APIs khỏi hiện tượng Concurrency Surge.
+- **AQS & Virtual Thread Unmount**: `Semaphore` hoạt động dựa trên AQS (`LockSupport.park()`), hoàn toàn là Java Heap Object nên khi Virtual Thread đứng chờ `acquire()`, nó unmount an toàn tuyệt đối.
+
+**Required trade-offs:** Cần thiết lập `tryAcquire()` có Timeout để trả về HTTP 429/503 khi hàng chờ quá dài.<br>
+
+🪜 **Cây Kịch Bản Hỏi Xoáy (Multi-Branch Follow-up Ladder)**:
+- 🌿 **Kịch bản 1: Application-level Semaphore vs Infrastructure-level Proxy**
+  - ❓ *Hỏi xoáy 1.1*: "Tại sao nên dùng `Semaphore` trong Java code thay vì phó mặc cho HikariCP `maximumPoolSize`?"
+  - 💡 *Đáp 1.1*: Nếu chỉ trông chờ vào HikariCP, hàng ngàn Virtual Threads sẽ bị dồn ứ ngầm trong queue của HikariCP gây ra Connection Timeout Exception. Dùng `Semaphore` ở Application Level cho phép dev kiểm soát Timeout mịn hơn via `tryAcquire(5, TimeUnit.SECONDS)` và trả về HTTP 429/503 chủ động cho Client.
+- 🌿 **Kịch bản 2: Permit Leak Incident Response**
+  - ❓ *Hỏi xoáy 2.1*: "Giả sử một Developer quên viết `semaphore.release()` trong khối `finally`, sau một thời gian Semaphore bị cạn Permit làm ứng dụng sập, bạn debug và khôi phục ra sao?"
+  - 💡 *Đáp 2.1*: Dùng `jcmd` hoặc Prometheus metric `semaphore.availablePermits` để phát hiện Permits = 0 kéo dài. Code fix bắt buộc bọc `try { ... } finally { semaphore.release(); }`. Trong emergency HOTFIX khẩn cấp, có thể trigger một endpoint management để gọi `semaphore.release()` giải phóng vé bị kẹt.
+
+**Red flags:** Quên bọc `release()` trong `finally`, hoặc cho rằng `Semaphore` gây ra Thread Pinning.
+
+

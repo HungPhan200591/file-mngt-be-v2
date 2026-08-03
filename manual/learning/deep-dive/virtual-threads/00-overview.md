@@ -76,3 +76,56 @@ flowchart TB
 | **Mô hình Pool** | Bắt buộc dùng Thread Pool (`ExecutorService`, `ThreadPoolExecutor`) để tái sử dụng. | **Không cần Thread Pool**. Tạo mới 1 Virtual Thread cho mỗi task. |
 | **Số lượng Tối đa** | Vài nghìn (1,000 - 5,000 Threads) | Hàng triệu (1,000,000+ Threads) |
 | **Phù hợp với** | CPU-Bound Tasks (Tính toán nặng, Mã hóa) | I/O-Bound Tasks (DB Query, Network HTTP, FileSystem) |
+
+---
+
+## 4. Thông số Mặc định, Giới hạn Tối đa & Con số Tối ưu
+
+### 🔢 1. Mặc định là bao nhiêu Thread?
+- **Virtual Threads**: **KHÔNG CÓ con số mặc định cố định** và **KHÔNG DÙNG THREAD POOL**. Khi có 1 task mới, JVM sinh ra 1 Virtual Thread mới trên RAM Heap và tự hủy sau khi task xong (`newVirtualThreadPerTaskExecutor()`).
+- **Carrier OS Threads (OS Threads bên dưới)**: Mặc định bằng đúng **số lượng CPU Cores khả dụng** (`Runtime.getRuntime().availableProcessors()`), tối thiểu là `2`. *(Ví dụ: Máy chủ 8 Cores $\rightarrow$ 8 Carrier OS Threads)*.
+
+### 🚀 2. Tối đa là bao nhiêu?
+- **Virtual Threads Tối đa**: **Unbounded (Không có giới hạn cứng)** từ cấu hình JVM. Giới hạn duy nhất là bộ nhớ RAM Heap (`-Xmx`). Một máy chủ 16GB RAM có thể chạy dễ dàng **1,000,000 đến vài triệu Virtual Threads** cùng lúc.
+- **Carrier OS Threads Tối đa**: Mặc định tối đa là **256 OS Threads** trong Carrier `ForkJoinPool`.
+
+### 🎯 3. Con số Tối ưu là bao nhiêu?
+- **Nguyên tắc cốt lõi**: **`1 Task = 1 Virtual Thread`**. Có 10,000 tasks $\rightarrow$ Tạo 10,000 Virtual Threads. Không cần tính toán Pool Size như trước.
+- **Giới hạn Tải**: Việc khống chế số lượng không nằm ở Virtual Threads mà ở Downstream Resources (như Database Connection Pool). Sử dụng **`Semaphore`** (ví dụ `Semaphore(20)`) để giới hạn số Virtual Threads được phép truy cập Database đồng thời.
+
+---
+
+## 5. Bộ Cờ Cấu hình (JVM Flags & Spring Boot Configs)
+
+### ⚙️ 1. Cấu hình Carrier OS Thread Pool (`ForkJoinPool`)
+Chạy bằng các cờ JVM System Properties (`-D...`):
+
+| JVM Property | Ý nghĩa | Giá trị Mặc định |
+| :--- | :--- | :--- |
+| **`jdk.virtualThreadScheduler.parallelism`** | Số lượng Carrier OS Threads thực sự chạy song song. | Số CPU Cores (`availableProcessors()`) |
+| **`jdk.virtualThreadScheduler.maxPoolSize`** | Số lượng OS Threads tối đa mà Carrier Pool được phép mở rộng. | `256` |
+| **`jdk.virtualThreadScheduler.minRunnable`** | Số lượng Carrier Threads tối thiểu luôn sẵn sàng chạy. | `1` |
+
+*Ví dụ truyền cờ JVM:*
+```powershell
+java -Djdk.virtualThreadScheduler.parallelism=16 -Djdk.virtualThreadScheduler.maxPoolSize=512 -jar app.jar
+```
+
+### ⚙️ 2. Cấu hình Tracking & Debug Thread Pinning
+Dùng để phát hiện khi Virtual Thread bị khóa cứng vào OS Thread do `synchronized`:
+
+| JVM Property | Giá trị | Ý nghĩa |
+| :--- | :--- | :--- |
+| **`jdk.tracePinnedThreads`** | `short` | In ra stack trace ngắn gọn trên console khi có Virtual Thread bị Pinned. |
+| **`jdk.tracePinnedThreads`** | `full` | In ra toàn bộ stack trace chi tiết khi bị Pinned. |
+
+### ⚙️ 3. Cấu hình trong Spring Boot 3.4+ (`application.yml`)
+
+```yaml
+spring:
+  threads:
+    virtual:
+      enabled: ${SCAN_VIRTUAL_THREADS_ENABLED:false}
+```
+- Khi `enabled: true`: Spring Boot chuyển Tomcat Web Server, `@Async` và `TaskExecutor` sang sử dụng Virtual Threads.
+
