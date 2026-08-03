@@ -5,6 +5,7 @@
   "description": "Backend V2 root scripts for local infrastructure and E2E harness",
   "scripts": {
     "e2e:init": "node -e \"const fs=require('fs'); if(!fs.existsSync('tests/e2e/http-client.env.json')) fs.copyFileSync('tests/e2e/http-client.env.example.json', 'tests/e2e/http-client.env.json');\" && npm --prefix tests/e2e install",
+    "e2e:all": "npm run e2e:gateway && npm run e2e:catalog && npm run e2e:scan && npm run e2e:query:cache && npm run e2e:media && npm run e2e:observability",
     "e2e:catalog": "npm --prefix tests/e2e run catalog:local",
     "e2e:gateway": "npm --prefix tests/e2e run gateway:local",
     "e2e:media": "npm --prefix tests/e2e run media:local",

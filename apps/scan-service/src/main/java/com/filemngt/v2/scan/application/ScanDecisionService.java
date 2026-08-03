@@ -41,10 +41,9 @@ public class ScanDecisionService {
 
     @Transactional
     public DecisionView decide(UUID scanId, UUID proposalId, String decision) {
-        var proposal =
-                proposals.findById(proposalId).orElseThrow(() -> new ScanService.ScanNotFoundException(proposalId));
+        var proposal = proposals.findById(proposalId).orElseThrow(() -> new ProposalNotFoundException(proposalId));
         if (!proposal.scanRunId().equals(scanId)) {
-            throw new ScanService.ScanNotFoundException(proposalId);
+            throw new ProposalNotFoundException(proposalId);
         }
         var existing = decisions.findById(proposalId);
         if (existing.isPresent()) {
@@ -63,7 +62,7 @@ public class ScanDecisionService {
                 proposal.identityKey(),
                 proposal.sourceRelativePath());
         if ("APPROVE".equals(decision)) {
-            var run = runs.findById(scanId).orElseThrow(() -> new ScanService.ScanNotFoundException(scanId));
+            var run = runs.findById(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
             var event = new MediaFileDiscoveredV1(
                     eventId,
                     "media.file.discovered.v1",
@@ -94,13 +93,5 @@ public class ScanDecisionService {
 
     private DecisionView view(ScanDecisionEntity d) {
         return new DecisionView(d.proposalId(), d.decision(), d.decidedAt(), d.eventId());
-    }
-
-    public record DecisionView(UUID proposalId, String decision, Instant decidedAt, UUID eventId) {}
-
-    public static class DecisionConflictException extends RuntimeException {
-        public DecisionConflictException() {
-            super("Proposal already has a different decision");
-        }
     }
 }

@@ -12,7 +12,6 @@ import com.filemngt.v2.scan.domain.ScanRunStatus;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,13 +45,13 @@ public class ScanService {
         this.taskExecutor = taskExecutor;
     }
 
-    public RunView start(String rootKey) {
+    public ScanRunView start(String rootKey) {
         var root = properties.getRoots().stream()
                 .filter(item -> item.key().equals(rootKey))
                 .findFirst()
-                .orElseThrow(() -> new InvalidScanException("Unknown root key: " + rootKey));
+                .orElseThrow(() -> new InvalidScanRootException("Unknown root key: " + rootKey));
         if (runs.existsByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING)) {
-            throw new ScanRunningException(rootKey);
+            throw new ScanRunAlreadyRunningException(rootKey);
         }
         var run = runs.saveAndFlush(new ScanRunEntity(UUID.randomUUID(), root.key(), root.profile(), Instant.now()));
         taskExecutor.execute(() -> execute(run.id(), root));
@@ -106,15 +105,15 @@ public class ScanService {
     }
 
     @Transactional(readOnly = true)
-    public RunView get(UUID id) {
-        return view(runs.findById(id).orElseThrow(() -> new ScanNotFoundException(id)));
+    public ScanRunView get(UUID id) {
+        return view(runs.findById(id).orElseThrow(() -> new ScanRunNotFoundException(id)));
     }
 
     @Transactional(readOnly = true)
-    public PageView<ProposalView> proposals(UUID id, int page, int size) {
+    public ScanPageView<ScanProposalView> proposals(UUID id, int page, int size) {
         ensure(id);
         var result = proposals.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
-        return page(result.map(item -> new ProposalView(
+        return page(result.map(item -> new ScanProposalView(
                 item.id(),
                 item.sourceRelativePath(),
                 item.profile(),
@@ -125,16 +124,16 @@ public class ScanService {
     }
 
     @Transactional(readOnly = true)
-    public PageView<IssueView> issues(UUID id, int page, int size) {
+    public ScanPageView<ScanIssueView> issues(UUID id, int page, int size) {
         ensure(id);
         var result = issues.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
-        return page(
-                result.map(item -> new IssueView(item.id(), item.sourceRelativePath(), item.code(), item.detail())));
+        return page(result.map(
+                item -> new ScanIssueView(item.id(), item.sourceRelativePath(), item.code(), item.detail())));
     }
 
     private void ensure(UUID id) {
         if (!runs.existsById(id)) {
-            throw new ScanNotFoundException(id);
+            throw new ScanRunNotFoundException(id);
         }
     }
 
@@ -163,8 +162,8 @@ public class ScanService {
         return value.trim().replaceAll("\\s+", " ").toLowerCase();
     }
 
-    private RunView view(ScanRunEntity item) {
-        return new RunView(
+    private ScanRunView view(ScanRunEntity item) {
+        return new ScanRunView(
                 item.id(),
                 item.rootKey(),
                 item.profile(),
@@ -177,8 +176,8 @@ public class ScanService {
                 item.lastError());
     }
 
-    private <T> PageView<T> page(org.springframework.data.domain.Page<T> value) {
-        return new PageView<>(
+    private <T> ScanPageView<T> page(org.springframework.data.domain.Page<T> value) {
+        return new ScanPageView<>(
                 value.getContent(),
                 value.getNumber(),
                 value.getSize(),
@@ -187,47 +186,4 @@ public class ScanService {
     }
 
     private record Parsed(String type, String key, String title, String role) {}
-
-    public record RunView(
-            UUID id,
-            String rootKey,
-            ScanProfile profile,
-            ScanRunStatus status,
-            Instant startedAt,
-            Instant finishedAt,
-            long scannedFileCount,
-            long proposalCount,
-            long issueCount,
-            String lastError) {}
-
-    public record ProposalView(
-            UUID id,
-            String sourceRelativePath,
-            ScanProfile profile,
-            String candidateType,
-            String identityKey,
-            String displayTitle,
-            String assetRole) {}
-
-    public record IssueView(UUID id, String sourceRelativePath, String code, String detail) {}
-
-    public record PageView<T>(List<T> content, int page, int size, long totalElements, int totalPages) {}
-
-    public static class InvalidScanException extends RuntimeException {
-        public InvalidScanException(String m) {
-            super(m);
-        }
-    }
-
-    public static class ScanRunningException extends RuntimeException {
-        public ScanRunningException(String k) {
-            super("Scan already running: " + k);
-        }
-    }
-
-    public static class ScanNotFoundException extends RuntimeException {
-        public ScanNotFoundException(UUID id) {
-            super("Scan does not exist: " + id);
-        }
-    }
 }

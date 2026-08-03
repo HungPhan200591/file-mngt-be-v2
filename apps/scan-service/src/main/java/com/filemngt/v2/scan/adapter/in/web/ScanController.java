@@ -1,6 +1,11 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
+import com.filemngt.v2.scan.application.DecisionView;
 import com.filemngt.v2.scan.application.ScanDecisionService;
+import com.filemngt.v2.scan.application.ScanIssueView;
+import com.filemngt.v2.scan.application.ScanPageView;
+import com.filemngt.v2.scan.application.ScanProposalView;
+import com.filemngt.v2.scan.application.ScanRunView;
 import com.filemngt.v2.scan.application.ScanService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -29,17 +34,17 @@ public class ScanController {
 
     @PostMapping("/previews")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ScanService.RunView start(@Valid @RequestBody StartScanRequest request) {
+    public ScanRunView start(@Valid @RequestBody StartScanRequest request) {
         return service.start(request.rootKey());
     }
 
     @GetMapping("/{scanId}")
-    public ScanService.RunView get(@PathVariable UUID scanId) {
+    public ScanRunView get(@PathVariable UUID scanId) {
         return service.get(scanId);
     }
 
     @GetMapping("/{scanId}/proposals")
-    public ScanService.PageView<ScanService.ProposalView> proposals(
+    public ScanPageView<ScanProposalView> proposals(
             @PathVariable UUID scanId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -47,7 +52,7 @@ public class ScanController {
     }
 
     @GetMapping("/{scanId}/issues")
-    public ScanService.PageView<ScanService.IssueView> issues(
+    public ScanPageView<ScanIssueView> issues(
             @PathVariable UUID scanId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -55,7 +60,7 @@ public class ScanController {
     }
 
     @PostMapping("/{scanId}/proposals/{proposalId}/decision")
-    public ScanDecisionService.DecisionView decide(
+    public DecisionView decide(
             @PathVariable UUID scanId, @PathVariable UUID proposalId, @Valid @RequestBody DecisionRequest request) {
         return decisions.decide(scanId, proposalId, request.decision());
     }
