@@ -7,6 +7,7 @@ Updated: 2026-08-02
 - Phase: Phase 8 observability baseline đã hoàn tất để quan sát, debug và đo hệ thống hiện có; khi sẵn sàng sẽ quay lại Phase 4/FT013.
 - Active feature: không có feature đang triển khai. `014-observability-performance-foundation` đã `DONE`: Prometheus/Grafana và ECS log vào ELK đã được xác minh local. k6 được để feature sau.
 - Deferred feature: `013-media-worker-processing-foundation` vẫn `READY` nhưng chưa triển khai; không tạo thêm Plan status chỉ để biểu diễn tạm dừng.
+- Planned technical task: [`016-scan-service-boundary-cleanup`](./features/016-scan-service-boundary-cleanup/03-plan.md) `READY`; tách public result type/exception khỏi `ScanService`, không đổi Scan API hay nghiệp vụ. (Danh sách Nợ kỹ thuật chi tiết xem tại [`TECHNICAL_DEBT.md`](./TECHNICAL_DEBT.md)).
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app, event envelope, module `platform/observability` và Docker Compose core/observability profile đã có.
 - Nginx media delivery V2 (`015`) đã DONE: container/config/port `18119` riêng, không dùng chung Nginx V1 `8888`; Gateway CORS chỉ allow origin Nginx V2.
 - Kiến trúc: monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.

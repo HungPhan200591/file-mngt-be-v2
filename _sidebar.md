@@ -68,6 +68,7 @@
     * [Hướng dẫn Vận hành Swagger UI & OpenAPI Contracts](/manual/operations/swagger-ui-openapi.md)
 * **docs**
   * [Trạng thái Backend V2](/docs/STATUS.md)
+  * [🛠️ Nợ Kỹ Thuật (Technical Debt) & Lộ Trình Refactor Backend V2](/docs/TECHNICAL_DEBT.md)
   * **adlc**
     * [ADLC workflow](/docs/adlc/WORKFLOW.md)
   * **adr**
@@ -153,6 +154,10 @@
       * [015 Nginx media delivery V2 tách biệt](/docs/features/015-isolated-nginx-media-delivery/01-brief.md)
       * [015 Nginx media delivery V2 tách biệt — Design](/docs/features/015-isolated-nginx-media-delivery/02-design.md)
       * [015 Nginx media delivery V2 tách biệt — Plan](/docs/features/015-isolated-nginx-media-delivery/03-plan.md)
+    * **016-scan-service-boundary-cleanup**
+      * [016 Scan service boundary cleanup](/docs/features/016-scan-service-boundary-cleanup/01-brief.md)
+      * [016 Scan service boundary cleanup — Design](/docs/features/016-scan-service-boundary-cleanup/02-design.md)
+      * [016 Scan service boundary cleanup — Plan](/docs/features/016-scan-service-boundary-cleanup/03-plan.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)
