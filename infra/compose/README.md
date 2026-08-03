@@ -63,5 +63,49 @@ cả hai kiểu IntelliJ working directory phổ biến.
 Grafana tự provision Prometheus datasource và dashboard `File Management V2 overview`. Kibana cần tạo
 data view một lần bằng `infra/observability/kibana/data-view.http` sau khi đã có log được ingest.
 
-Tắt stack bằng `docker compose ... down` không làm mất named volume. Không thêm `-v` nếu chưa chủ động
-muốn xóa dữ liệu local.
+## Quản lý & Vận hành (Operations)
+
+### 1. Kiểm tra trạng thái container
+
+```powershell
+docker compose --profile search --profile observability -f infra/compose/compose.yaml ps
+```
+
+### 2. Xem log container (Real-time tail)
+
+- Xem log toàn bộ container:
+  ```powershell
+  docker compose --profile search --profile observability -f infra/compose/compose.yaml logs -f
+  ```
+- Xem log riêng cho một service cụ thể (ví dụ: `nginx-media`, `postgres`, `kafka`):
+  ```powershell
+  docker compose -f infra/compose/compose.yaml logs -f nginx-media
+  ```
+
+### 3. Restart một service cụ thể
+
+```powershell
+docker compose -f infra/compose/compose.yaml restart nginx-media
+```
+
+### 4. Tạm dừng / Khởi động lại container (Giữ nguyên trạng thái)
+
+- Tạm dừng (Stop):
+  ```powershell
+  docker compose --profile search --profile observability -f infra/compose/compose.yaml stop
+  ```
+- Bật lại (Start):
+  ```powershell
+  docker compose --profile search --profile observability -f infra/compose/compose.yaml start
+  ```
+
+### 5. Dừng và gỡ bỏ container / network
+
+- Hạ stack (Vẫn giữ nguyên named volumes dữ liệu):
+  ```powershell
+  docker compose --profile search --profile observability -f infra/compose/compose.yaml down
+  ```
+- Hạ stack và XÓA TOÀN BỘ DỮ LIỆU (Cần cẩn trọng):
+  ```powershell
+  docker compose --profile search --profile observability -f infra/compose/compose.yaml down -v
+  ```
