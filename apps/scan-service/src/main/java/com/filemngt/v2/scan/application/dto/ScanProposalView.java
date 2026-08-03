@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application.dto;
 
 import com.filemngt.v2.scan.domain.ScanProfile;
+import java.util.Map;
 import java.util.UUID;
 
 public record ScanProposalView(
@@ -10,4 +11,5 @@ public record ScanProposalView(
         String candidateType,
         String identityKey,
         String displayTitle,
-        String assetRole) {}
+        String assetRole,
+        Map<String, Object> evidence) {}

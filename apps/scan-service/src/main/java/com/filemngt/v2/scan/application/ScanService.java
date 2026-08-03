@@ -42,6 +42,7 @@ public class ScanService {
     private final ScanRunRepository runs;
     private final ScanProposalRepository proposals;
     private final ScanIssueRepository issues;
+    private final ScanMetadataExtractor metadataExtractor;
     private final TaskExecutor taskExecutor;
 
     public ScanService(
@@ -49,11 +50,13 @@ public class ScanService {
             ScanRunRepository runs,
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
+            ScanMetadataExtractor metadataExtractor,
             @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor) {
         this.properties = properties;
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
+        this.metadataExtractor = metadataExtractor;
         this.taskExecutor = taskExecutor;
     }
 
@@ -106,7 +109,8 @@ public class ScanService {
                             parsed.type(),
                             parsed.key(),
                             parsed.title(),
-                            parsed.role()));
+                            parsed.role(),
+                            metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title())));
                     proposed++;
                     LOGGER.info(
                             "Discovered scan proposal runId={} relativePath={} identityKey={} candidateType={} title={}",
@@ -140,7 +144,8 @@ public class ScanService {
                 item.candidateType(),
                 item.identityKey(),
                 item.displayTitle(),
-                item.assetRole())));
+                item.assetRole(),
+                metadataExtractor.read(item.evidence()))));
     }
 
     @Transactional(readOnly = true)
@@ -175,7 +180,10 @@ public class ScanService {
         String role = type.equals("ASSET")
                 ? (path.toLowerCase().endsWith(".gif") ? "GIF" : "IMAGE")
                 : (type.equals("VIDEO") ? "PRIMARY_VIDEO" : null);
-        return new Parsed(type, key, name, role);
+        String title = profile == ScanProfile.JOKE_VIDEO || profile == ScanProfile.JOKE_ASSET
+                ? name.replaceFirst("\\s*-?\\s*\\[[^]]+]\\s*$", "").trim()
+                : name;
+        return new Parsed(type, key, title, role);
     }
 
     private boolean supportsProfile(ScanProfile profile, Path path) {

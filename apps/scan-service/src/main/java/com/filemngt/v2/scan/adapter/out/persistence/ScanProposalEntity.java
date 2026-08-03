@@ -29,7 +29,15 @@ public class ScanProposalEntity {
     protected ScanProposalEntity() {}
 
     public ScanProposalEntity(
-            UUID id, UUID runId, String path, ScanProfile profile, String type, String key, String title, String role) {
+            UUID id,
+            UUID runId,
+            String path,
+            ScanProfile profile,
+            String type,
+            String key,
+            String title,
+            String role,
+            String evidence) {
         this.id = id;
         scanRunId = runId;
         sourceRelativePath = path;
@@ -38,6 +46,7 @@ public class ScanProposalEntity {
         identityKey = key;
         displayTitle = title;
         assetRole = role;
+        this.evidence = evidence;
     }
 
     public UUID id() {
@@ -70,5 +79,9 @@ public class ScanProposalEntity {
 
     public String assetRole() {
         return assetRole;
+    }
+
+    public String evidence() {
+        return evidence;
     }
 }

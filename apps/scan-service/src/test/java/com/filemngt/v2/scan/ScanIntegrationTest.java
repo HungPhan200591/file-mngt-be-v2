@@ -150,8 +150,14 @@ class ScanIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String proposalId =
-                json.readTree(proposalPage).get("content").get(0).get("id").asText();
+        var proposal = json.readTree(proposalPage).get("content").get(0);
+        assertThat(proposal.get("evidence").get("parserVersion").asText()).isEqualTo("v1");
+        assertThat(proposal.get("evidence").get("extension").asText()).isEqualTo("mp4");
+        assertThat(proposal.get("evidence").get("bracketCode").asText()).isEqualTo("JOKE-001");
+        assertThat(proposal.get("evidence").get("semantic").get("title").asText()).isEqualTo("A");
+        assertThat(proposal.get("evidence").get("semantic").get("actressNames").isArray()).isTrue();
+        assertThat(proposal.get("evidence").toString()).doesNotContain(ROOT.toString());
+        String proposalId = proposal.get("id").asText();
         return new ScanProposalRef(id, proposalId);
     }
 
@@ -162,7 +168,8 @@ class ScanIntegrationTest {
     private static Path createRoot() {
         try {
             var root = Files.createTempDirectory("scan-fixture");
-            Files.writeString(root.resolve("A - [JOKE-001].mp4"), "x");
+            Files.createDirectories(root.resolve("Studio/Actress"));
+            Files.writeString(root.resolve("Studio/Actress/A - [JOKE-001].mp4"), "x");
             Files.writeString(root.resolve("bad.mp4"), "x");
             Files.writeString(root.resolve("Cover - [JOKE-002].jpg"), "x");
             return root;
