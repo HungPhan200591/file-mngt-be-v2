@@ -14,6 +14,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ScanService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanService.class);
+
     private final ScanProperties properties;
     private final ScanRunRepository runs;
     private final ScanProposalRepository proposals;
@@ -69,6 +73,11 @@ public class ScanService {
                     issues.save(new ScanIssueEntity(
                             UUID.randomUUID(), runId, relative, "UNPARSEABLE", "Filename does not match profile"));
                     issue++;
+                    LOGGER.warn(
+                            "Discovered scan issue runId={} relativePath={} error=UNPARSEABLE message={}",
+                            runId,
+                            relative,
+                            "Filename does not match profile");
                 } else {
                     proposals.save(new ScanProposalEntity(
                             UUID.randomUUID(),
@@ -80,6 +89,13 @@ public class ScanService {
                             parsed.title(),
                             parsed.role()));
                     proposed++;
+                    LOGGER.info(
+                            "Discovered scan proposal runId={} relativePath={} identityKey={} candidateType={} title={}",
+                            runId,
+                            relative,
+                            parsed.key(),
+                            parsed.type(),
+                            parsed.title());
                 }
             }
             run.complete(files, proposed, issue);

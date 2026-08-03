@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -24,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class QueryProjectionService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(QueryProjectionService.class);
+
     private final QuerySubjectRepository subjects;
     private final QueryProcessedEventRepository processed;
     private final QuerySearchOutboxRepository searchOutbox;
@@ -63,6 +67,12 @@ public class QueryProjectionService {
             events.publishEvent(new QuerySubjectProjectionChanged(subject.id()));
         }
         processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
+        LOGGER.info(
+                "Processed query subject projection eventId={} subjectId={} identityKey={} version={}",
+                event.eventId(),
+                event.subjectId(),
+                event.identityKey(),
+                event.subjectVersion());
     }
 
     @Transactional(readOnly = true)

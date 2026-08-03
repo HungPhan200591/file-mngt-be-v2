@@ -57,6 +57,11 @@ public class CatalogFileDiscoveryService {
             outbox.enqueue(subject);
         }
         processed.save(new ProcessedEventEntity(event.eventId(), Instant.now()));
-        LOGGER.info("Processed media discovery eventId={} subjectId={}", event.eventId(), subject.id());
+        LOGGER.info(
+                "Processed media discovery eventId={} subjectId={} identityKey={} relativePath={}",
+                event.eventId(),
+                subject.id(),
+                event.identityKey(),
+                event.sourceRelativePath());
     }
 }

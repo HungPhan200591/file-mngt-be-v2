@@ -25,8 +25,9 @@ class CorrelationIdMdcFilterTest {
         request.addHeader(CorrelationId.HEADER, "e2e-request-14");
         var response = new MockHttpServletResponse();
 
-        filter.doFilter(request, response, (ignoredRequest, ignoredResponse) ->
-                assertThat(MDC.get(CorrelationId.MDC_KEY)).isEqualTo("e2e-request-14"));
+        filter.doFilter(
+                request, response, (ignoredRequest, ignoredResponse) -> assertThat(MDC.get(CorrelationId.MDC_KEY))
+                        .isEqualTo("e2e-request-14"));
 
         assertThat(response.getHeader(CorrelationId.HEADER)).isEqualTo("e2e-request-14");
         assertThat(MDC.get(CorrelationId.MDC_KEY)).isNull();
@@ -40,9 +41,7 @@ class CorrelationIdMdcFilterTest {
 
         filter.doFilter(request, response, (ignoredRequest, ignoredResponse) -> {});
 
-        assertThat(response.getHeader(CorrelationId.HEADER))
-                .isNotBlank()
-                .isNotEqualTo("invalid correlation id");
+        assertThat(response.getHeader(CorrelationId.HEADER)).isNotBlank().isNotEqualTo("invalid correlation id");
     }
 
     @Test

@@ -9,6 +9,8 @@ import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanRunRepository;
 import java.time.Instant;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
@@ -16,6 +18,8 @@ import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class ScanDecisionService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanDecisionService.class);
+
     private final ScanRunRepository runs;
     private final ScanProposalRepository proposals;
     private final ScanDecisionRepository decisions;
@@ -51,6 +55,13 @@ public class ScanDecisionService {
         }
         UUID eventId = "APPROVE".equals(decision) ? UUID.randomUUID() : null;
         var saved = decisions.save(new ScanDecisionEntity(proposalId, decision, eventId, Instant.now()));
+        LOGGER.info(
+                "Decided scan proposal scanId={} proposalId={} decision={} identityKey={} relativePath={}",
+                scanId,
+                proposalId,
+                decision,
+                proposal.identityKey(),
+                proposal.sourceRelativePath());
         if ("APPROVE".equals(decision)) {
             var run = runs.findById(scanId).orElseThrow(() -> new ScanService.ScanNotFoundException(scanId));
             var event = new MediaFileDiscoveredV1(
