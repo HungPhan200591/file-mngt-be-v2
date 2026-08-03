@@ -82,6 +82,9 @@ class GatewayRoutingIntegrationTest {
 
         var cors = exchange("GET", "/api/v2/query/subjects", "", List.of(), "http://localhost:18119");
         assertThat(cors.headers().firstValue("Access-Control-Allow-Origin")).contains("http://localhost:18119");
+
+        var viteCors = exchange("GET", "/api/v2/scans/roots", "", List.of(), "http://localhost:18120");
+        assertThat(viteCors.headers().firstValue("Access-Control-Allow-Origin")).contains("http://localhost:18120");
     }
 
     @Test

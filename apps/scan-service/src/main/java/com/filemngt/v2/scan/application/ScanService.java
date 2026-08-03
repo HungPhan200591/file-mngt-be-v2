@@ -9,6 +9,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
+import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
@@ -19,6 +20,9 @@ import com.filemngt.v2.scan.domain.ScanRunStatus;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ScanService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanService.class);
+    private static final Set<String> VIDEO_EXTENSIONS = Set.of(".mp4", ".avi", ".mov", ".wmv");
 
     private final ScanProperties properties;
     private final ScanRunRepository runs;
@@ -65,12 +70,20 @@ public class ScanService {
         return view(run);
     }
 
+    @Transactional(readOnly = true)
+    public List<ScanRootView> roots() {
+        return properties.getRoots().stream()
+                .map(root -> new ScanRootView(root.key(), root.profile()))
+                .toList();
+    }
+
     public void execute(UUID runId, ScanProperties.Root root) {
         var run = runs.findById(runId).orElseThrow();
         long files = 0, proposed = 0, issue = 0;
         try (var paths = Files.walk(Path.of(root.path()))) {
             for (var path : paths.filter(Files::isRegularFile)
                     .filter(item -> !Files.isSymbolicLink(item))
+                    .filter(item -> supportsProfile(root.profile(), item))
                     .toList()) {
                 files++;
                 var relative = Path.of(root.path()).relativize(path).toString().replace('\\', '/');
@@ -163,6 +176,14 @@ public class ScanService {
                 ? (path.toLowerCase().endsWith(".gif") ? "GIF" : "IMAGE")
                 : (type.equals("VIDEO") ? "PRIMARY_VIDEO" : null);
         return new Parsed(type, key, name, role);
+    }
+
+    private boolean supportsProfile(ScanProfile profile, Path path) {
+        if (profile != ScanProfile.JOKE_VIDEO && profile != ScanProfile.USE_VIDEO) {
+            return true;
+        }
+        String normalizedPath = path.toString().toLowerCase(Locale.ROOT);
+        return VIDEO_EXTENSIONS.stream().anyMatch(normalizedPath::endsWith);
     }
 
     private String normalize(String value) {

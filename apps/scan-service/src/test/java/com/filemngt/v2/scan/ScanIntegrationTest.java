@@ -113,6 +113,18 @@ class ScanIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void listsConfiguredRootsWithoutFilesystemPath() throws Exception {
+        String body = mockMvc.perform(get("/api/v2/scans/roots"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(body).contains("\"key\":\"fixture\"").contains("\"profile\":\"JOKE_VIDEO\"");
+        assertThat(body).doesNotContain(ROOT.toString());
+    }
+
     private ScanProposalRef scanAndGetProposal() throws Exception {
         var response = mockMvc.perform(post("/api/v2/scans/previews")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -152,6 +164,7 @@ class ScanIntegrationTest {
             var root = Files.createTempDirectory("scan-fixture");
             Files.writeString(root.resolve("A - [JOKE-001].mp4"), "x");
             Files.writeString(root.resolve("bad.mp4"), "x");
+            Files.writeString(root.resolve("Cover - [JOKE-002].jpg"), "x");
             return root;
         } catch (Exception e) {
             throw new IllegalStateException(e);

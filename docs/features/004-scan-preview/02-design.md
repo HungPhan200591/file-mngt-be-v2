@@ -50,6 +50,8 @@ flowchart TB
 | `USE_ASSET` | FullPics/GIF USE | Asset candidate theo normalized basename |
 | `USE_ALBUM` | Album USE | Album theo relative folder; optional `FULL_ALBUM_OF` candidate |
 
+`JOKE_VIDEO` và `USE_VIDEO` chỉ duyệt extension video V1: `.mp4`, `.avi`, `.mov`, `.wmv`; file khác bị bỏ qua trước khi tạo issue/proposal hoặc tăng counter.
+
 Parser chỉ đọc relative path/filename và tạo proposal hoặc issue. `FULL_ALBUM_OF` chỉ là candidate evidence trong proposal, chưa tạo relation Catalog.
 
 ## Data model

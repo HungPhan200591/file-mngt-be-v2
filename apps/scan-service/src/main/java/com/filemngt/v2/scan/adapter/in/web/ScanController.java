@@ -7,6 +7,8 @@ import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.dto.ScanRootView;
+import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -36,6 +38,11 @@ public class ScanController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ScanRunView start(@Valid @RequestBody StartScanRequest request) {
         return service.start(request.rootKey());
+    }
+
+    @GetMapping("/roots")
+    public List<ScanRootView> roots() {
+        return service.roots();
     }
 
     @GetMapping("/{scanId}")

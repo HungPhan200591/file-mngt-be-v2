@@ -10,6 +10,19 @@ servers:
   - url: http://localhost:18102
     description: Local Scan theo ADR-004
 paths:
+  /api/v2/scans/roots:
+    get:
+      operationId: listScanRoots
+      summary: List configured scan roots without filesystem paths
+      responses:
+        '200':
+          description: Configured roots safe for browser selection
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScanRoot'
   /api/v2/scans/previews:
     post:
       operationId: startScanPreview
@@ -152,6 +165,12 @@ components:
       required: [rootKey]
       properties:
         rootKey: { type: string, minLength: 1, maxLength: 100 }
+    ScanRoot:
+      type: object
+      required: [key, profile]
+      properties:
+        key: { type: string }
+        profile: { $ref: '#/components/schemas/ScanProfile' }
     ScanRun:
       type: object
       required: [id, rootKey, profile, status, startedAt, scannedFileCount, proposalCount, issueCount]
