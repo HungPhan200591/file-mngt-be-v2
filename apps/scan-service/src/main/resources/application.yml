@@ -1,6 +1,9 @@
 spring:
   application:
     name: scan-service
+  threads:
+    virtual:
+      enabled: ${SCAN_VIRTUAL_THREADS_ENABLED:false}
   profiles:
     default: local
   datasource:

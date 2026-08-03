@@ -51,6 +51,10 @@ Nếu quét một thư mục có 50,000 files:
 - Nếu giữ HTTP Request mở trong 30 giây, kết nối qua API Gateway hoặc Nginx Load Balancer dễ bị **HTTP 504 Gateway Timeout**, đồng thời làm cạn kiệt Tomcat Worker Threads của Backend.
 - Do đó, phương án **Asynchronous Job + HTTP Short Polling** là chuẩn mực bắt buộc.
 
+### ⚡ Cơ chế Threading trong Code (`TaskExecutor` & Virtual Threads)
+- **Implementation thực tế**: Trong `ScanService.java`, Spring Bean tiêm `@Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor`. Lệnh `start()` ghi nhận `ScanRun` thành công rồi ngay lập tức gửi task bất đồng bộ via `taskExecutor.execute(() -> execute(run.id(), root))`, trả về HTTP 202 ngay tức thì.
+- **Cấu hình Toggle Virtual Threads (JDK 25 / Spring Boot 3.4+)**: Ứng dụng đã được khai báo sẵn cờ cấu hình `spring.threads.virtual.enabled: ${SCAN_VIRTUAL_THREADS_ENABLED:false}` trong [application.yml](file:///d:/Study/Project/file_mngt_microservice/apps/scan-service/src/main/resources/application.yml#L4-L6). Mặc định cờ ở trạng thái `false`. Khi cần benchmark hoặc chạy thực tế với lượng file lớn, chỉ cần thiết lập biến môi trường `SCAN_VIRTUAL_THREADS_ENABLED=true` trong `.env` để kích hoạt **Virtual Threads** mà không cần sửa code.
+
 ---
 
 ## 3. Filename Parsing Strategy Pattern

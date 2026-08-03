@@ -50,6 +50,13 @@
         * [📦 Transactional Outbox Pattern Deep-Dive & Architecture Hub](/manual/learning/deep-dive/transactional-outbox/README.md)
         * **question-bank**
           * [❓ Transactional Outbox Pattern — Interview Question Bank](/manual/learning/deep-dive/transactional-outbox/question-bank/00-outbox-questions.md)
+      * **virtual-threads**
+        * [🧵 Virtual Threads: Overview & Fundamentals](/manual/learning/deep-dive/virtual-threads/00-overview.md)
+        * [🍃 Virtual Threads Integration in Spring Boot 3.4+ & JDK 25](/manual/learning/deep-dive/virtual-threads/01-spring-boot-integration.md)
+        * [⚖️ Virtual Threads: Use Cases, Trade-offs & Best Practices](/manual/learning/deep-dive/virtual-threads/02-use-cases-and-trade-offs.md)
+        * [🔄 Virtual Threads vs. Go Goroutines, Kotlin Coroutines & Node.js](/manual/learning/deep-dive/virtual-threads/03-comparison-virtual-threads-vs-others.md)
+        * **question-bank**
+          * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: Virtual Threads & Concurrency (JDK 25 / Spring Boot 3.4+)](/manual/learning/deep-dive/virtual-threads/question-bank/01-virtual-threads-questions.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
