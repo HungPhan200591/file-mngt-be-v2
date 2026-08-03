@@ -230,6 +230,7 @@ Kibana được cấu hình không cần password trên local (`xpack.security.e
 ---
 
 ## 4. Tài liệu Tham khảo Liên quan
+- [⚡ Tóm tắt kiến thức siêu ngắn (Cheat Sheet Summary)](summary/02-structured-logging.md)
 - [00. Tổng quan Observability](00-overview.md)
 - [03. Correlation ID & Distributed Tracing](03-correlation-id-tracing.md)
 - [Ngân hàng Câu hỏi Phỏng vấn Logging & ELK](question-bank/02-logging-questions.md)
