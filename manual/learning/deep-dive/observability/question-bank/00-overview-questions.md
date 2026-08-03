@@ -18,6 +18,17 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Solution Architect) về T�
 **Question:** Bản chất sự khác biệt giữa Metrics, Logs và Traces (3 trụ cột Observability) là gì? Tại sao không thể chỉ dùng 1 loại cho tất cả nhu cầu?<br>
 **Target depth:** `D1-D2` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_CORE`<br>
 **Interviewer evaluates:** Khả năng phân biệt bản chất dữ liệu telemetry, chi phí lưu trữ/tính toán và mục đích sử dụng từng trụ cột.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Metrics phát hiện sự cố nhanh (**TẮC Ở ĐÂU**), Logs tìm nguyên nhân chi tiết (**TẠI SAO LỖI**), Traces nối luồng đi xuyên hệ thống (**ĐI QUA ĐÂU**). Không thể dùng 1 loại duy nhất vì đánh đổi giữa Chi phí lưu trữ và Độ chi tiết dữ liệu."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Metrics dùng làm gì?** ➔ 💡 **Phát hiện sự cố & Alerting** (Dữ liệu số time-series nhẹ, nén cao: Latency p95, Error Rate, Outbox Backlog).
+- ❓ **Structured Logs dùng làm gì?** ➔ 💡 **Chẩn đoán nguyên nhân gốc (Root-cause Analysis)** (Văn bản JSON chi tiết: Exception StackTrace, Payload).
+- ❓ **Traces dùng làm gì?** ➔ 💡 **Nối vết dòng chảy dữ liệu xuyên service** (Graph nhân quả: Correlation ID, OpenTelemetry).
+- ❓ **Tại sao không dùng Log thay Metrics?** ➔ 💡 **Log quá nặng, chi phí lưu trữ bùng nổ, tính toán aggregation cực chậm**.
+- 🔑 **Keyword cốt lõi cần nhớ**: **Metrics (Nhẹ / Alert) — Logs (Chi tiết / Root-cause) — Traces (Nối luồng / CorrelationId)**.
+
 **Answer outline:**
 - **Metrics (Prometheus)**: Là dữ liệu số học định lượng dạng chuỗi thời gian (*Time-series aggregations*). Dung lượng cực nhẹ, nén cao, dùng để trả lời câu hỏi: *“Hệ thống đang sống hay chết? Latency p95 hiện tại là bao nhiêu? Outbox backlog có đang nghẽn không?”* ➔ Phù hợp để theo dõi sức khỏe tổng quan và phát cảnh báo (Alerting) ngay tức thì.
 - **Structured Logs (Spring Boot ECS + ELK)**: Là bản ghi sự kiện chi tiết dạng văn bản cấu trúc (*Context-rich text*). Dung lượng lớn, tốn tài nguyên lưu trữ và tìm kiếm, dùng để trả lời câu hỏi: *“Tại sao request bị lỗi 500? Nguyên nhân nổ NullPointerException ở dòng code nào? Payload request cụ thể là gì?”* ➔ Phù hợp để chẩn đoán nguyên nhân gốc (Root-cause Analysis).
@@ -35,6 +46,17 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Solution Architect) về T�
 **Question:** Tại sao Prometheus lại chọn mô hình Scrape (Pull) thay vì Push (Service chủ động gửi metric về Prometheus Server)?<br>
 **Target depth:** `D2-D3` · **Interview likelihood:** `HIGH` · **Question type:** `COMMON_CORE`<br>
 **Interviewer evaluates:** Hiểu biết về hệ thống phân tán, kiểm soát tải (Load Shedding), cơ chế phát hiện sự cố (Healthcheck) và kiến trúc Prometheus.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Prometheus chọn Pull (Scrape) để **tự chủ kiểm soát tải (Load Control)** chống sập Server khi Spiking Traffic, **phát hiện service sập tức thì (`up == 0`)** và **giữ Microservice code siêu đơn giản** chỉ bằng 1 static HTTP endpoint."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Lợi ích lớn nhất của Pull Model?** ➔ 💡 **Kiểm soát tải (Load Shedding)** (Prometheus tự quyết định tốc độ pull 5s/lần, không bị app dồn nén khi nổ traffic).
+- ❓ **Làm sao phát hiện service sập ngay?** ➔ 💡 **Chỉ số `up == 0`** (Scrape thất bại ở chu kỳ tiếp theo ➔ Báo động sập tức thì).
+- ❓ **Microservice cần làm gì đối với Pull Model?** ➔ 💡 **Chỉ mở HTTP Endpoint `/actuator/prometheus`** (Không cần Client SDK hay connection retry).
+- ❓ **Ngoại lệ nào của Prometheus cần dùng Push?** ➔ 💡 **Short-lived Batch Jobs / Cronjobs** (Dùng qua `Pushgateway`).
+- 🔑 **Keyword cốt lõi cần nhớ**: **Pull Model ➔ Kiểm soát tải (Load Control) + Đơn giản hóa App + Phát hiện Target Down (`up == 0`)**.
+
 **Answer outline:**
 - **Kiểm soát tải (Load Control & Protection)**: Prometheus tự điều phối tần suất scrape (ví dụ 5s/lần). Nếu hệ thống gặp Spiking Traffic (hàng triệu request/giây), Prometheus Server không bị nghẽn hay tràn bộ nhớ (OOM) vì tốc độ pull do Prometheus tự quyết định, không bị dồn ép bởi application.
 - **Phát hiện sự cố tức thì (Target Down)**: Với mô hình Pull, nếu một instance microservice bị crash hoặc nổ OOM, Prometheus lập tức phát hiện chỉ số `up == 0` ở lần scrape tiếp theo mà không cần chờ timeout hay heartbeat.
@@ -50,6 +72,17 @@ Bộ câu hỏi phỏng vấn Chuyên sâu (Senior / Solution Architect) về T�
 **Question:** Làm thế nào để thiết kế hệ thống Observability hoạt động theo nguyên tắc Non-blocking & Opt-in, đảm bảo sự cố hạ tầng Logging/Metrics không bao giờ làm sập API nghiệp vụ (Cascading Failure)?<br>
 **Target depth:** `D3-D4` · **Interview likelihood:** `HIGH` · **Question type:** `PROJECT_APPLICATION`<br>
 **Interviewer evaluates:** Tư duy thiết kế Resilience, Decoupled Architecture và phòng ngừa Cascading Failures trong Microservices.<br>
+
+⚡ **Trả lời siêu ngắn (Elevator Pitch)**:
+> *"Đảm bảo Non-blocking bằng cơ chế **Decoupled File Shipping** (App ghi log ra đĩa local qua OS Page Cache < 1ms, Logstash đọc ngầm) kết hợp **Metrics Pull bất đồng bộ** (Prometheus tự scrape `/actuator/prometheus`), giúp hạ tầng Observability sập cũng tuyệt đối không kéo sập API nghiệp vụ."*
+
+🧠 **Chuỗi Hỏi - Đáp Keyword (Memory Flashcard Chain)**:
+- ❓ **Làm sao để Ghi Log không làm nghẽn REST API?** ➔ 💡 **Decoupled File Shipping** (Ghi file local qua OS Page Cache < 1ms, Logstash đọc file ngầm).
+- ❓ **Nếu Elasticsearch / Logstash sập thì API có bị ảnh hưởng không?** ➔ 💡 **Không ảnh hưởng 100%** (Log chỉ tích tụ tạm thời trên đĩa local, REST API vẫn trả lời `200 OK`).
+- ❓ **Metrics thu thập kiểu gì để không tốn CPU?** ➔ 💡 **Atomic Counters trong RAM + Pull bất đồng bộ qua Prometheus Scrape**.
+- ❓ **Làm sao để chạy app nhẹ khi thiếu RAM local?** ➔ 💡 **Opt-in Compose Profiles** (`docker compose --profile observability up -d`).
+- 🔑 **Keyword cốt lõi cần nhớ**: **Decoupled File Shipping (Ghi file local) + Prometheus Pull + Non-blocking = Zero Cascading Failure**.
+
 **Answer outline:**
 1. **Ghi Log Độc lập qua File (Decoupled File Shipping)**:
    - Application ghi log ra đĩa local (`/logs/*.json`) bằng OS Buffered Write. Quá trình này diễn ra cực nhanh ở mức kernel.
