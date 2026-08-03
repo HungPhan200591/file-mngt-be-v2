@@ -170,7 +170,6 @@ services:
 
   swagger-ui:
     image: swaggerapi/swagger-ui:${SWAGGER_UI_VERSION:-v5.18.2}
-    container_name: swagger-ui
     ports:
       - "${SWAGGER_UI_PORT:-18118}:8080"
     volumes:
