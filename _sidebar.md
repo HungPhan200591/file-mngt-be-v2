@@ -57,6 +57,7 @@
         * [🔄 Virtual Threads vs. Go Goroutines, Kotlin Coroutines & Node.js](/manual/learning/deep-dive/virtual-threads/03-comparison-virtual-threads-vs-others.md)
         * [📌 Thread Pinning Deep-Dive: Native Monitors, Carrier Starvation & ReentrantLock Solution](/manual/learning/deep-dive/virtual-threads/04-thread-pinning-deep-dive.md)
         * [🎟️ Semaphore Deep-Dive: Concurrency Throttling & Resource Protection in Virtual Threads](/manual/learning/deep-dive/virtual-threads/05-semaphore-concurrency-deep-dive.md)
+        * [⚡ Virtual Threads & Concurrency: Cheat-Sheet & Core Keywords](/manual/learning/deep-dive/virtual-threads/06-cheat-sheet-keywords-summary.md)
         * **question-bank**
           * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: Virtual Threads & Concurrency (JDK 25 / Spring Boot 3.4+)](/manual/learning/deep-dive/virtual-threads/question-bank/01-virtual-threads-questions.md)
   * **operations**
