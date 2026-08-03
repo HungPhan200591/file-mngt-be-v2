@@ -76,11 +76,42 @@ flowchart TB
        path => "/logs/*.json"
        codec => "json"
        start_position => "beginning"
+       sincedb_path => "/usr/share/logstash/data/plugins/inputs/file/.sincedb" # Con trỏ lưu offset đọc file
      }
    }
    ```
 3. Logstash gửi dữ liệu về Elasticsearch qua port `18113` vào Data Stream `logs-file_mngt_v2-*`.
 4. **Phân tách hoàn toàn**: Index log `logs-file_mngt_v2-*` hoạt động độc lập, không ảnh hưởng đến Elasticsearch index tìm kiếm dữ liệu media (`media-subject-search`).
+
+### 2.4. Phân Tầng Layer & Ma Trận Cấu Hình Rolling/Retention Policy
+
+> **Thắc mắc vận hành**: *"Mấy cơ chế này là tự động hay phải chỉnh? Mặc định (Default) là gì? Cấu hình ở đâu và thuộc Layer nào?"*
+
+#### 📊 Bảng Ma Trận Phân Tầng Trách Nhiệm
+
+| Công Việc | Layer Chịu Trách Nhiệm | Tính Tự Động | Giá Trị Mặc Định (Defaults) | Nơi Cấu Hình (Config Location) |
+| :--- | :--- | :---: | :--- | :--- |
+| **Xoay file log cũ (Rolling Policy)** | **App Layer** *(Spring Boot Logback)* | **TỰ ĐỘNG** *(khi bật file log)* | `max-file-size: 10MB` *(Đủ 10MB nén `.json.gz`)* | `apps/<service>/src/main/resources/application.yml` |
+| **Dọn file nén cũ (Retention Policy)** | **App Layer** *(Spring Boot Logback)* | **TỰ ĐỘNG** *(khi bật file log)* | `max-history: 7` *(Xóa file cũ quá 7 ngày)*<br>`total-size-cap: 0B` *(Không giới hạn tổng GB)* | `apps/<service>/src/main/resources/application.yml` |
+| **Nhớ offset đã đọc (`sincedb`)** | **LogShipper Layer** *(Logstash Container)* | **TỰ ĐỘNG 100%** | `sincedb_write_interval: 15s`<br>Lưu tại file ngầm `.sincedb_*` | `infra/observability/logstash/pipeline/logstash.conf` |
+| **Xóa log cũ trên Elasticsearch** | **Storage Layer** *(Elasticsearch ILM)* | **TỰ ĐỘNG** *(khi bật ILM)* | Retention: `30 ngày` | Kibana UI *(Index Lifecycle Management)* / API |
+
+#### ⚙️ Ví dụ Cấu hình Tùy chỉnh Chi tiết trong Spring Boot 3/4 (`application.yml`)
+
+```yaml
+logging:
+  file:
+    name: logs/${spring.application.name}.json
+  structured:
+    format:
+      file: ecs # Khai báo định dạng JSON ECS
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB          # Đủ 50MB thì xoay file & nén GZIP
+      max-history: 14               # Tự động xóa file nén cũ quá 14 ngày
+      total-size-cap: 5GB           # Tổng thư mục logs tối đa 5GB (vượt quá xóa file cũ nhất)
+      clean-history-on-start: true  # Quét dọn file quá hạn ngay khi restart app
+```
 
 ---
 
