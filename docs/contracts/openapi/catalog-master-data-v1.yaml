@@ -99,6 +99,16 @@ paths:
           $ref: '#/components/responses/ValidationProblem'
         '404':
           $ref: '#/components/responses/NotFoundProblem'
+    delete:
+      operationId: deleteStudio
+      summary: Delete a studio and its codes
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+      responses:
+        '204':
+          description: Studio deleted
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
 
   /api/v2/master-data/studios/{studioId}/enable:
     post:
@@ -328,6 +338,18 @@ paths:
           $ref: '#/components/responses/ValidationProblem'
         '409':
           $ref: '#/components/responses/ConflictProblem'
+
+  /api/v2/master-data/tags/{tagId}:
+    delete:
+      operationId: deleteTag
+      summary: Delete a tag
+      parameters:
+        - $ref: '#/components/parameters/TagId'
+      responses:
+        '204':
+          description: Tag deleted
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
 
   /api/v2/master-data/tags/{tagId}/enable:
     post:
