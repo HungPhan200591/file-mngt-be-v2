@@ -48,37 +48,85 @@ Tài liệu hướng dẫn chi tiết từ **First Principles** về cơ chế t
 
 ## 3. D2 — Luồng Di chuyển Dữ liệu Runtime (Data Flow Sequence)
 
-Sơ đồ Mermaid dưới đây mô tả chi tiết luồng di chuyển dữ liệu từ thao tác Approve trên UI cho đến khi Kafka nhận Event:
+Để đảm bảo sơ đồ trực quan và **không bị nhỏ chữ trên viewport**, luồng dữ liệu được chia làm **Sơ đồ Khối Tổng thể (Top-to-Bottom)** và **2 Giai đoạn Chi tiết**:
+
+### 📐 1. Sơ đồ Khối Tổng thể (Block Flow Architecture)
+
+```mermaid
+flowchart TB
+    subgraph PHASE1["<font color='white'>Giai đoạn 1: Đồng bộ HTTP & Ghi nhận Outbox (Scan Service)</font>"]
+        ADMIN["<font color='white'>Admin UI (Browser)</font>"]
+        CTRL["<font color='white'>ScanController</font>"]
+        SVC["<font color='white'>ScanDecisionService</font>"]
+        DB_WRITE[("<font color='white'>PostgreSQL (scan_db)<br/>scan_decision + scan_outbox_event</font>")]
+
+        ADMIN -->|"1 - POST /decision (APPROVE)"| CTRL
+        CTRL -->|"2 - Gọi decide()"| SVC
+        SVC -->|"3 - Single DB Transaction"| DB_WRITE
+        SVC -.->|"4 - Phản hồi HTTP 200 OK ngay (< 50ms)"| ADMIN
+    end
+
+    subgraph PHASE2["<font color='white'>Giai đoạn 2: Quét Polling Bất đồng bộ & Phát Event Kafka</font>"]
+        POLLER["<font color='white'>ScanOutboxPublisher<br/>(@Scheduled 1000ms)</font>"]
+        KAFKA_PUB["<font color='white'>KafkaOutboxMessagePublisher</font>"]
+        KAFKA_BROKER["<font color='white'>Kafka Broker (Port 18111)<br/>Topic: media.file.discovered.v2</font>"]
+        CONSUMER["<font color='white'>Catalog Service<br/>(Consumer Group)</font>"]
+
+        DB_WRITE -->|"5 - Poll SELECT PENDING (published_at IS NULL)"| POLLER
+        POLLER -->|"6 - Bắn Message"| KAFKA_PUB
+        KAFKA_PUB -->|"7 - KafkaTemplate.send().join()"| KAFKA_BROKER
+        KAFKA_BROKER -->|"8 - ACK thành công"| POLLER
+        POLLER -->|"9 - UPDATE published_at = NOW()"| DB_WRITE
+        KAFKA_BROKER -->|"10 - Push Event sang Consumer"| CONSUMER
+    end
+
+    style PHASE1 fill:#1e293b,stroke:#3b82f6,stroke-width:2px
+    style PHASE2 fill:#0f172a,stroke:#10b981,stroke-width:2px
+```
+
+---
+
+### 🎬 2. Chi tiết Giai đoạn 1: Nhận HTTP & Lưu Outbox vào DB
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Admin as <font color='white'>Admin (FE UI)</font>
+    actor Admin as <font color='white'>Admin (UI)</font>
     participant Ctrl as <font color='white'>ScanController</font>
-    participant DecSvc as <font color='white'>ScanDecisionService</font>
+    participant Svc as <font color='white'>ScanDecisionService</font>
+    participant DB as <font color='white'>PostgreSQL (scan_db)</font>
+
+    Admin->>Ctrl: "POST /api/v2/scans/{scanId}/proposals/{proposalId}/decision (APPROVE)"
+    Ctrl->>Svc: "decide(scanId, proposalId, 'APPROVE')"
+    
+    rect rgb(30, 41, 59)
+        note right of Svc: Local DB Transaction
+        Svc->>DB: "INSERT INTO scan_decision"
+        Svc->>DB: "INSERT INTO scan_outbox_event (published_at = NULL)"
+    end
+    
+    Svc-->>Admin: "Phản hồi HTTP 200 (DecisionView)"
+```
+
+---
+
+### 🎬 3. Chi tiết Giai đoạn 2: Polling Outbox & Bắn tin nhắn sang Kafka
+
+```mermaid
+sequenceDiagram
+    autonumber
     participant DB as <font color='white'>PostgreSQL (scan_db)</font>
     participant Poller as <font color='white'>ScanOutboxPublisher</font>
-    participant KafkaPub as <font color='white'>KafkaOutboxMessagePublisher</font>
+    participant Pub as <font color='white'>KafkaOutboxMessagePublisher</font>
     participant Kafka as <font color='white'>Kafka Broker (port 18111)</font>
     participant Catalog as <font color='white'>Catalog Service</font>
 
-    Admin->>Ctrl: "POST /api/v2/scans/{scanId}/proposals/{proposalId}/decision (APPROVE)"
-    Ctrl->>DecSvc: "decide(scanId, proposalId, 'APPROVE')"
-    
-    rect rgb(30, 41, 59)
-        note right of DecSvc: Single Local DB Transaction
-        DecSvc->>DB: "INSERT INTO scan_decision"
-        DecSvc->>DB: "INSERT INTO scan_outbox_event (published_at = NULL)"
-    end
-    
-    DecSvc-->>Admin: "Return HTTP 200 (DecisionView)"
-    
-    loop Định kỳ mỗi 1000ms (@Scheduled)
+    loop Định kỳ 1000ms (@Scheduled)
         Poller->>DB: "SELECT * FROM scan_outbox_event WHERE published_at IS NULL LIMIT 20"
         DB-->>Poller: "Trả danh sách PENDING outbox events"
-        Poller->>KafkaPub: "publish(topic, key, payload)"
-        KafkaPub->>Kafka: "KafkaTemplate.send('media.file.discovered.v2', key, payload).join()"
-        Kafka-->>KafkaPub: "ACK success (RecordMetadata)"
+        Poller->>Pub: "publish(topic, key, payload)"
+        Pub->>Kafka: "KafkaTemplate.send('media.file.discovered.v2', key, payload).join()"
+        Kafka-->>Pub: "ACK success (RecordMetadata)"
         Poller->>DB: "UPDATE scan_outbox_event SET published_at = NOW()"
     end
 
