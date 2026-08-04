@@ -433,6 +433,18 @@ paths:
         '409':
           $ref: '#/components/responses/ConflictProblem'
 
+  /api/v2/master-data/actresses/{actressId}:
+    delete:
+      operationId: deleteActress
+      summary: Delete an actress
+      parameters:
+        - $ref: '#/components/parameters/ActressId'
+      responses:
+        '204':
+          description: Actress deleted
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
   /api/v2/master-data/actresses/{actressId}/enable:
     post:
       operationId: enableActress
