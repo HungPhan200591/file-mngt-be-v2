@@ -17,18 +17,18 @@
       * **observability**
         * [📊 Observability Overview & Architecture](/manual/learning/deep-dive/observability/00-overview.md)
         * [📈 Metrics Deep-Dive: Prometheus & Grafana](/manual/learning/deep-dive/observability/01-metrics-prometheus-grafana.md)
-        * [📜 Structured Logging Deep-Dive: Spring Boot ECS & ELK Stack](/manual/learning/deep-dive/observability/02-structured-logging-elk.md)
+        * [Structured Logging & ELK — từ log event đến kiến trúc vận hành](/manual/learning/deep-dive/observability/02-structured-logging-elk.md)
         * [🔗 Correlation ID & Distributed Tracing Deep-Dive](/manual/learning/deep-dive/observability/03-correlation-id-tracing.md)
         * [🚨 Dashboards, Alerting & Incident Response Deep-Dive](/manual/learning/deep-dive/observability/04-dashboards-alerting-incidents.md)
         * [📊 Observability Deep-Dive & Architecture Hub](/manual/learning/deep-dive/observability/README.md)
         * **question-bank**
           * [❓ Observability Overview — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/00-overview-questions.md)
           * [❓ Metrics & Prometheus — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/01-metrics-questions.md)
-          * [❓ Logging & ELK Stack — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/02-logging-questions.md)
+          * [Logging & ELK — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/02-logging-questions.md)
           * [❓ Correlation ID & Tracing — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/03-tracing-questions.md)
           * [❓ Dashboards, Alerting & Incidents — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/04-dashboards-alerting-questions.md)
         * **summary**
-          * [⚡ Structured Logging — Ultra-Short Summary](/manual/learning/deep-dive/observability/summary/02-structured-logging.md)
+          * [Structured Logging — Core Recall Sheet](/manual/learning/deep-dive/observability/summary/02-structured-logging.md)
       * **scan-service**
         * [🔍 Scan Service Deep-Dive: Overview & Fundamentals](/manual/learning/deep-dive/scan-service/00-overview.md)
         * [📁 Filesystem Preview Engine & Strategy Pattern](/manual/learning/deep-dive/scan-service/01-filesystem-preview-engine.md)
@@ -60,6 +60,7 @@
       * [5. FT013 Primer: Media Worker Processing Foundation](/manual/learning/system-primer/05-ft013-primer.md)
       * [6. Observability Flow Overview (Scan → Catalog → Query)](/manual/learning/system-primer/06-observability-overview.md)
       * [7. Tổng quan các luồng API theo hành trình người dùng](/manual/learning/system-primer/07-api-flows-overview.md)
+      * [🚀 Khung Tư Duy Kiến Trúc PRD-Ready (Production Readiness Framework)](/manual/learning/system-primer/08-prd-readiness-framework.md)
       * [Hướng dẫn hiểu Backend V2](/manual/learning/system-primer/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
@@ -67,6 +68,7 @@
     * [Quan sát Backend V2 ở local](/manual/operations/observability-local.md)
     * [Bản đồ dự án Backend V2](/manual/operations/project-map.md)
     * [Hướng dẫn Vận hành Swagger UI & OpenAPI Contracts](/manual/operations/swagger-ui-openapi.md)
+    * [Hướng dẫn chạy Test (Unit, Integration & E2E)](/manual/operations/testing-guide.md)
 * **docs**
   * [Trạng thái Backend V2](/docs/STATUS.md)
   * [🛠️ Nợ Kỹ Thuật (Technical Debt) & Lộ Trình Refactor Backend V2](/docs/TECHNICAL_DEBT.md)
@@ -159,6 +161,21 @@
       * [016 Scan service boundary cleanup](/docs/features/016-scan-service-boundary-cleanup/01-brief.md)
       * [016 Scan service boundary cleanup — Design](/docs/features/016-scan-service-boundary-cleanup/02-design.md)
       * [016 Scan service boundary cleanup — Plan](/docs/features/016-scan-service-boundary-cleanup/03-plan.md)
+    * **017-scan-semantic-metadata-extraction**
+      * [017 Scan semantic metadata extraction](/docs/features/017-scan-semantic-metadata-extraction/01-brief.md)
+      * [017 Scan semantic metadata extraction — Design](/docs/features/017-scan-semantic-metadata-extraction/02-design.md)
+      * [017 Scan semantic metadata extraction — Plan](/docs/features/017-scan-semantic-metadata-extraction/03-plan.md)
+    * **018-scan-semantic-rule-normalization**
+      * [018 Scan semantic rule normalization — Discovery](/docs/features/018-scan-semantic-rule-normalization/00-discovery.md)
+      * [Feature Brief — FT018: Scan Semantic Rule Normalization](/docs/features/018-scan-semantic-rule-normalization/01-brief.md)
+      * [Feature Design — FT018: Scan Semantic Rule Normalization](/docs/features/018-scan-semantic-rule-normalization/02-design.md)
+      * [Implementation Plan — FT018: Scan Semantic Rule Normalization](/docs/features/018-scan-semantic-rule-normalization/03-plan.md)
+      * [FT018 — Semantic Rulebook](/docs/features/018-scan-semantic-rule-normalization/semantic-rules.md)
+    * **019-catalog-master-data-registry**
+      * [019 Catalog master data registry](/docs/features/019-catalog-master-data-registry/01-brief.md)
+      * [019 Catalog master data registry — Design](/docs/features/019-catalog-master-data-registry/02-design.md)
+      * [019 Catalog master data registry — Plan](/docs/features/019-catalog-master-data-registry/03-plan.md)
+      * [FT019 — Studio import contract](/docs/features/019-catalog-master-data-registry/04-studio-import-contract.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)
