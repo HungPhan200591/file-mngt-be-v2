@@ -47,7 +47,7 @@ public class ScanController {
 
     @GetMapping
     public ScanPageView<ScanRunView> recentRuns(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "30") int size) {
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         return service.recentRuns(valid(page, size), size);
     }
 

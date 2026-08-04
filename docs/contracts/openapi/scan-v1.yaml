@@ -26,7 +26,7 @@ paths:
           required: false
           schema:
             type: integer
-            default: 30
+            default: 10
       responses:
         '200':
           description: Recent scan runs page
