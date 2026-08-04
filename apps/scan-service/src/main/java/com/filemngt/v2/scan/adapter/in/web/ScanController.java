@@ -45,6 +45,12 @@ public class ScanController {
         return service.roots();
     }
 
+    @GetMapping
+    public ScanPageView<ScanRunView> recentRuns(
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "30") int size) {
+        return service.recentRuns(valid(page, size), size);
+    }
+
     @GetMapping("/{scanId}")
     public ScanRunView get(@PathVariable UUID scanId) {
         return service.get(scanId);

@@ -159,6 +159,13 @@ public class ScanService {
     }
 
     @Transactional(readOnly = true)
+    public ScanPageView<ScanRunView> recentRuns(int page, int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startedAt"));
+        var result = runs.findAll(pageable);
+        return page(result.map(this::view));
+    }
+
+    @Transactional(readOnly = true)
     public ScanRunView get(UUID id) {
         return view(runs.findById(id).orElseThrow(() -> new ScanRunNotFoundException(id)));
     }

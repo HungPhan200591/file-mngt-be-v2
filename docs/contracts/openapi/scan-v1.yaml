@@ -10,6 +10,43 @@ servers:
   - url: http://localhost:18102
     description: Local Scan theo ADR-004
 paths:
+  /api/v2/scans:
+    get:
+      operationId: listRecentScanRuns
+      summary: List recent scan runs
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Recent scan runs page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScanRun'
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
   /api/v2/scans/roots:
     get:
       operationId: listScanRoots

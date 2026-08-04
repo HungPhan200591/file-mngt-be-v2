@@ -151,6 +151,17 @@ class ScanIntegrationTest {
         assertThat(body).doesNotContain(ROOT.toString());
     }
 
+    @Test
+    void shouldListRecentScanRuns() throws Exception {
+        scanAndGetProposal();
+        var body = mockMvc.perform(get("/api/v2/scans?page=0&size=10"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(body).contains("\"content\":[").contains("\"rootKey\":\"fixture\"");
+    }
+
     private ScanProposalRef scanAndGetProposal() throws Exception {
         var response = mockMvc.perform(post("/api/v2/scans/previews")
                         .contentType(MediaType.APPLICATION_JSON)
