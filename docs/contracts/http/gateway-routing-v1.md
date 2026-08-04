@@ -16,7 +16,7 @@ Gateway không public `/api/v2/catalog/operations/**`, `/api/v2/query/operations
 
 ## Local browser CORS
 
-Gateway chỉ cho phép origin `http://localhost:18119` và `http://127.0.0.1:18119` gọi `/api/v2/**` ở local. Response expose `X-Correlation-Id`; media file được browser tải trực tiếp từ Nginx V2 theo ADR-005, không qua Gateway. Không dùng wildcard origin, credentials hoặc origin V1 `8888`.
+Gateway chỉ cho phép origin Nginx V2 `http://localhost:18119`/`http://127.0.0.1:18119` và Vite FE V2 `http://localhost:18120`/`http://127.0.0.1:18120` gọi `/api/v2/**` ở local. Response expose `X-Correlation-Id`; media file được browser tải trực tiếp từ Nginx V2 theo ADR-005, không qua Gateway. Không dùng wildcard origin, credentials hoặc origin V1 `8888`.
 
 ## Correlation header
 

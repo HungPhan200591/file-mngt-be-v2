@@ -1,6 +1,12 @@
-# Deep-dive các luồng API theo hành trình người dùng
+# 7. Tổng quan các luồng API theo hành trình người dùng
 
-Tài liệu này giải thích các API đã có của Backend V2 theo một hành trình nghiệp vụ hoàn chỉnh. Các màn hình Admin và Gallery được nhắc đến là **hành vi FE mục tiêu**; chúng không khẳng định FE V2 đã hoàn thiện.
+Tài liệu này tổng hợp bức tranh tổng quan các API đã có của Backend V2 theo hành trình người dùng. 
+
+> 💡 **Xem chi tiết tài liệu Deep-Dive chuyên sâu**:
+> - 🔍 **Scan Preview Engine**: [manual/learning/deep-dive/scan-service/01-filesystem-preview-engine.md](../deep-dive/scan-service/01-filesystem-preview-engine.md)
+> - 📦 **Approval & Outbox Event Flow**: [manual/learning/deep-dive/scan-service/02-approval-and-outbox-flow.md](../deep-dive/scan-service/02-approval-and-outbox-flow.md) & [manual/learning/deep-dive/transactional-outbox/](../deep-dive/transactional-outbox/)
+> - 🧵 **Virtual Threads Engine**: [manual/learning/deep-dive/virtual-threads/](../deep-dive/virtual-threads/)
+> - 📊 **Observability E2E**: [manual/learning/deep-dive/observability/](../deep-dive/observability/)
 
 ## Hành trình tổng quát
 
@@ -241,7 +247,7 @@ flowchart TB
     style D fill:#2196F3,stroke:#fff,stroke-width:2px
 ```
 
-**E2E:** [001-routing-correlation.http](../../../tests/e2e/gateway/001-routing-correlation.http), chạy `npm run gateway:local`.
+**E2E:** [001-routing-correlation.http](../../../tests/e2e/gateway/001-routing-correlation.http), chạy `npm --prefix tests/e2e run gateway:local`.
 
 ---
 
@@ -250,16 +256,15 @@ flowchart TB
 Tham khảo [compose.yaml](../../../infra/compose/compose.yaml), [ADR-004 về port](../../../docs/adr/ADR-004-local-port-allocation.md), và [Swagger UI](http://localhost:18118).
 
 ```powershell
-# Hạ tầng Docker
+# Hạ tầng Docker (chạy từ thư mục gốc)
 docker compose --env-file .env -f infra/compose/compose.yaml up -d
 
-# Chạy 5 service bằng IntelliJ: Gateway, Catalog, Scan, Query, Media Worker
-cd tests/e2e
-npm run scan:local
-npm run catalog:local
-npm run query:cache:local
-npm run media:local
-npm run gateway:local
+# Chạy E2E suites từ thư mục gốc dùng cờ --prefix (không gõ cd)
+npm --prefix tests/e2e run scan:local
+npm --prefix tests/e2e run catalog:local
+npm --prefix tests/e2e run query:cache:local
+npm --prefix tests/e2e run media:local
+npm --prefix tests/e2e run gateway:local
 ```
 
-Nếu cần kiểm tra Elasticsearch search projection, chạy thêm `npm run scan:search:local`.
+Nếu cần kiểm tra Elasticsearch search projection, chạy thêm `npm --prefix tests/e2e run scan:search:local`.

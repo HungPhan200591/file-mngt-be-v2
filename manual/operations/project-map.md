@@ -77,6 +77,7 @@ Không tạo thêm tài liệu chỉ để chép lại nội dung từ nguồn c
 | `infra/compose/.env.example` | Mẫu biến môi trường Compose |
 | `infra/compose/.env` | Giá trị local, gitignore |
 | `manual/operations/local-runtime.md` | Các bước chạy/restart/kiểm tra hạ tầng local |
+| `manual/operations/testing-guide.md` | Hướng dẫn chạy nhanh Unit, Integration và E2E tests bằng CLI |
 | `docs/adr/ADR-004-local-port-allocation.md` | Dải port V2 bắt buộc |
 | `apps/<service>/src/main/resources/application-local.yml` | Path hoặc setting chỉ của máy local cho service đó |
 
@@ -130,4 +131,4 @@ Chạy E2E theo [tests/e2e/README.md](../../tests/e2e/README.md). `.http` là k�
 5. Muốn chạy API end-to-end: mở `tests/e2e/README.md`.
 6. Muốn giao việc cho AI Agent: mở `manual/ai-agent/operating-guide.md`.
 7. Muốn hiểu business, technical, database và data flow: mở
-   [Hướng dẫn hiểu Backend V2](../learning/backend-v2/README.md).
+   [Hướng dẫn Nhập môn Hệ thống (System Primer)](../learning/system-primer/README.md).

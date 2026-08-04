@@ -25,7 +25,7 @@ Route API V2 cho frontend, propagation HTTP correlation ID, timeout và cross-cu
 - Không che lỗi downstream bằng response thành công giả.
 - Chỉ route path được liệt kê trong ingress contract; operation/downstream Actuator không đi qua Gateway.
 - Timeout phải explicit; Gateway v1 không retry request.
-- Browser CORS local dùng allow-list hẹp cho `localhost:18119`/`127.0.0.1:18119`; chi tiết header nằm trong Gateway HTTP contract.
+- Browser CORS local dùng allow-list hẹp cho Nginx V2 `localhost`/`127.0.0.1:18119` và Vite FE V2 `localhost`/`127.0.0.1:18120`; chi tiết header nằm trong Gateway HTTP contract.
 - Gateway dùng correlation filter riêng để canonicalize request chuyển tiếp; auto-filter của
   `platform/observability` phải tắt tại service này.
 - Expose `health,info,metrics,prometheus` chỉ trên direct service port; ECS JSON file log không phụ

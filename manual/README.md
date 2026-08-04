@@ -14,7 +14,7 @@ Thư mục này chứa tài liệu dành cho **chủ dự án đọc**: giải t
 
 ## Bắt đầu nhanh
 
-- Muốn hiểu dự án: [Hướng dẫn hiểu Backend V2](./learning/backend-v2/README.md).
+- Muốn hiểu dự án: [Hướng dẫn Nhập môn Hệ thống (System Primer)](./learning/system-primer/README.md).
 - Muốn biết code/tài liệu nằm ở đâu: [Bản đồ dự án Backend V2](./operations/project-map.md).
 - Muốn chạy hệ thống: [Vận hành Backend V2 ở local](./operations/local-runtime.md).
 - Muốn xem metrics/log: [Quan sát Backend V2 ở local](./operations/observability-local.md).
@@ -22,16 +22,16 @@ Thư mục này chứa tài liệu dành cho **chủ dự án đọc**: giải t
 
 ## Danh sách toàn bộ manual
 
-### Hiểu Backend V2
+### Nhập môn Hệ thống (System Primer)
 
-- [Mục lục học Backend V2](./learning/backend-v2/README.md)
-- [1. Business model](./learning/backend-v2/01-business-model.md) — Subject, Asset, JOKE, USE và Album.
-- [2. Kiến trúc và technical concept](./learning/backend-v2/02-architecture-technical.md) — service ownership, Kafka, CQRS, outbox, Redis và Elasticsearch.
-- [3. Use case và data flow](./learning/backend-v2/03-use-cases-data-flow.md) — use case hiện tại, FT013 và toàn bộ roadmap dự kiến.
-- [4. Database Map chi tiết](./learning/backend-v2/04-database-map.md) — table, ID, transaction và một file đi xuyên database như thế nào.
-- [5. FT013 primer](./learning/backend-v2/05-ft013-primer.md) — FT013 sẽ code gì và chưa làm gì.
-- [6. Đọc flow bằng Grafana/Kibana](./learning/backend-v2/06-observability-scan-to-query.md) — lần theo một
-  Scan E2E qua Scan, Catalog và Query.
+- [Mục lục Nhập môn Hệ thống](./learning/system-primer/README.md)
+- [1. Business model](./learning/system-primer/01-business-model.md) — Subject, Asset, JOKE, USE và Album.
+- [2. Kiến trúc Tổng quan](./learning/system-primer/02-architecture-overview.md) — service ownership, Kafka, CQRS, outbox, Redis và Elasticsearch.
+- [3. Use case và data flow](./learning/system-primer/03-use-cases-data-flow.md) — use case hiện tại, FT013 và toàn bộ roadmap dự kiến.
+- [4. Database Map chi tiết](./learning/system-primer/04-database-map.md) — table, ID, transaction và một file đi xuyên database như thế nào.
+- [5. FT013 primer](./learning/system-primer/05-ft013-primer.md) — FT013 sẽ code gì và chưa làm gì.
+- [6. Observability Flow Overview](./learning/system-primer/06-observability-overview.md) — lần theo một Scan E2E qua Scan, Catalog và Query.
+- [7. API Flows Overview](./learning/system-primer/07-api-flows-overview.md) — các luồng REST API chính theo hành trình người dùng.
 
 ### Vận hành dự án
 

@@ -2,6 +2,13 @@ package com.filemngt.v2.scan.adapter.in.web;
 
 import com.filemngt.v2.scan.application.ScanDecisionService;
 import com.filemngt.v2.scan.application.ScanService;
+import com.filemngt.v2.scan.application.dto.DecisionView;
+import com.filemngt.v2.scan.application.dto.ScanIssueView;
+import com.filemngt.v2.scan.application.dto.ScanPageView;
+import com.filemngt.v2.scan.application.dto.ScanProposalView;
+import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.dto.ScanRootView;
+import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -29,17 +36,22 @@ public class ScanController {
 
     @PostMapping("/previews")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ScanService.RunView start(@Valid @RequestBody StartScanRequest request) {
+    public ScanRunView start(@Valid @RequestBody StartScanRequest request) {
         return service.start(request.rootKey());
     }
 
+    @GetMapping("/roots")
+    public List<ScanRootView> roots() {
+        return service.roots();
+    }
+
     @GetMapping("/{scanId}")
-    public ScanService.RunView get(@PathVariable UUID scanId) {
+    public ScanRunView get(@PathVariable UUID scanId) {
         return service.get(scanId);
     }
 
     @GetMapping("/{scanId}/proposals")
-    public ScanService.PageView<ScanService.ProposalView> proposals(
+    public ScanPageView<ScanProposalView> proposals(
             @PathVariable UUID scanId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -47,7 +59,7 @@ public class ScanController {
     }
 
     @GetMapping("/{scanId}/issues")
-    public ScanService.PageView<ScanService.IssueView> issues(
+    public ScanPageView<ScanIssueView> issues(
             @PathVariable UUID scanId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -55,7 +67,7 @@ public class ScanController {
     }
 
     @PostMapping("/{scanId}/proposals/{proposalId}/decision")
-    public ScanDecisionService.DecisionView decide(
+    public DecisionView decide(
             @PathVariable UUID scanId, @PathVariable UUID proposalId, @Valid @RequestBody DecisionRequest request) {
         return decisions.decide(scanId, proposalId, request.decision());
     }

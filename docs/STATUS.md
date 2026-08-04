@@ -5,10 +5,12 @@ Updated: 2026-08-02
 ## Hiện tại
 
 - Phase: Phase 8 observability baseline đã hoàn tất để quan sát, debug và đo hệ thống hiện có; khi sẵn sàng sẽ quay lại Phase 4/FT013.
-- Active feature: không có feature đang triển khai. `014-observability-performance-foundation` đã `DONE`: Prometheus/Grafana và ECS log vào ELK đã được xác minh local. k6 được để feature sau.
+- Active feature: không có feature đang triển khai. [`017-scan-semantic-metadata-extraction`](./features/017-scan-semantic-metadata-extraction/03-plan.md) đã `DONE`: Scan trích xuất evidence có cấu trúc từ relative path/filename để review; chưa suy đoán actress/studio/tag.
 - Deferred feature: `013-media-worker-processing-foundation` vẫn `READY` nhưng chưa triển khai; không tạo thêm Plan status chỉ để biểu diễn tạm dừng.
+- Planned technical task: [`016-scan-service-boundary-cleanup`](./features/016-scan-service-boundary-cleanup/03-plan.md) `READY`; tách public result type/exception khỏi `ScanService`, không đổi Scan API hay nghiệp vụ.
+- Technical Debt Audit: [`TD-003`](./TECHNICAL_DEBT.md) (Virtual Threads Thread Pinning) đã audit 100% codebase: `scan-service` sạch 100% (`0` `synchronized`). Chỉ có 1 vị trí tại `query-service` (`ElasticsearchSearchAdapter.java`) đã được khoanh vùng xử lý ở Phase Query Service.
 - Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app, event envelope, module `platform/observability` và Docker Compose core/observability profile đã có.
-- Nginx media delivery V2 (`015`) đã DONE: container/config/port `18119` riêng, không dùng chung Nginx V1 `8888`; Gateway CORS chỉ allow origin Nginx V2.
+- Nginx media delivery V2 (`015`) đã DONE: container/config/port `18119` riêng, không dùng chung Nginx V1 `8888`; Gateway CORS allow Nginx V2 và Vite FE V2 `18120` theo allow-list hẹp.
 - Kiến trúc: monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
 - Catalog P1 `002-catalog-vertical-slice` đã DONE: migration `media_subject`/`media_asset`, API create/detail/list theo OpenAPI v1.
 - E2E HTTP `003-e2e-http-harness` đã DONE: `.http` dùng chung IntelliJ và Agent CLI.

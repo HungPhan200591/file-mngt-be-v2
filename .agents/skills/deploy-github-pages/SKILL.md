@@ -13,9 +13,10 @@ description: Deploy Docsify documentation site lên GitHub Pages khi người d�
 
 ## Kiểm tra trước deploy
 
-1. Kiểm tra `git status --short` và scope thay đổi; không stage `.env`, `target/`, file local hay source không liên quan.
-2. Kiểm tra sidebar đã sinh, `git diff --check`, tồn tại `index.html`, `_sidebar.md`, `.docsify/generate-sidebar.mjs` và `.nojekyll`.
-3. Khi người dùng yêu cầu local preview, chạy Docsify từ repository root; không build Java/Docker chỉ để xem docs.
+1. Đồng bộ remote trước bằng `git pull`; nếu worktree có thay đổi local hoặc pull gây conflict, dừng và báo người dùng xử lý trước khi deploy.
+2. Kiểm tra `git status --short` và scope thay đổi; không stage `.env`, `target/`, file local hay source không liên quan.
+3. Kiểm tra sidebar đã sinh, `git diff --check`, tồn tại `index.html`, `_sidebar.md`, `.docsify/generate-sidebar.mjs` và `.nojekyll`.
+4. Khi người dùng yêu cầu local preview, chạy Docsify từ repository root; không build Java/Docker chỉ để xem docs.
 
 ## Commit và publish
 

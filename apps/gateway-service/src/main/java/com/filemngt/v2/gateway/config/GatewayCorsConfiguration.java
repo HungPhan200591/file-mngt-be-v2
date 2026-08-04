@@ -10,7 +10,11 @@ class GatewayCorsConfiguration implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/v2/**")
-                .allowedOrigins("http://localhost:18119", "http://127.0.0.1:18119")
+                .allowedOrigins(
+                        "http://localhost:18119",
+                        "http://127.0.0.1:18119",
+                        "http://localhost:18120",
+                        "http://127.0.0.1:18120")
                 .allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("Content-Type", "X-Correlation-Id")
                 .exposedHeaders(

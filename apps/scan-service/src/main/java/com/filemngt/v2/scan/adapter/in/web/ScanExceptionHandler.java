@@ -1,9 +1,10 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
-import com.filemngt.v2.scan.application.ScanDecisionService;
-import com.filemngt.v2.scan.application.ScanService.InvalidScanException;
-import com.filemngt.v2.scan.application.ScanService.ScanNotFoundException;
-import com.filemngt.v2.scan.application.ScanService.ScanRunningException;
+import com.filemngt.v2.scan.application.exception.DecisionConflictException;
+import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
+import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
+import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
+import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -12,23 +13,23 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ScanExceptionHandler {
-    @ExceptionHandler(ScanNotFoundException.class)
+    @ExceptionHandler({ScanRunNotFoundException.class, ProposalNotFoundException.class})
     ProblemDetail notFound(RuntimeException e) {
         return problem(HttpStatus.NOT_FOUND, e);
     }
 
-    @ExceptionHandler(ScanRunningException.class)
+    @ExceptionHandler(ScanRunAlreadyRunningException.class)
     ProblemDetail conflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e);
     }
 
-    @ExceptionHandler(ScanDecisionService.DecisionConflictException.class)
+    @ExceptionHandler(DecisionConflictException.class)
     ProblemDetail decisionConflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e);
     }
 
     @ExceptionHandler({
-        InvalidScanException.class,
+        InvalidScanRootException.class,
         ScanController.InvalidRequestException.class,
         MethodArgumentNotValidException.class
     })

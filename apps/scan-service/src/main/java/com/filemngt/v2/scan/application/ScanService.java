@@ -6,6 +6,14 @@ import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanRunRepository;
+import com.filemngt.v2.scan.application.dto.ScanIssueView;
+import com.filemngt.v2.scan.application.dto.ScanPageView;
+import com.filemngt.v2.scan.application.dto.ScanProposalView;
+import com.filemngt.v2.scan.application.dto.ScanRootView;
+import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
+import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
+import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.ScanProfile;
 import com.filemngt.v2.scan.domain.ScanRunStatus;
@@ -13,6 +21,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,11 +36,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ScanService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanService.class);
+    private static final Set<String> VIDEO_EXTENSIONS = Set.of(".mp4", ".avi", ".mov", ".wmv");
 
     private final ScanProperties properties;
     private final ScanRunRepository runs;
     private final ScanProposalRepository proposals;
     private final ScanIssueRepository issues;
+    private final ScanMetadataExtractor metadataExtractor;
     private final TaskExecutor taskExecutor;
 
     public ScanService(
@@ -38,25 +50,34 @@ public class ScanService {
             ScanRunRepository runs,
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
+            ScanMetadataExtractor metadataExtractor,
             @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor) {
         this.properties = properties;
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
+        this.metadataExtractor = metadataExtractor;
         this.taskExecutor = taskExecutor;
     }
 
-    public RunView start(String rootKey) {
+    public ScanRunView start(String rootKey) {
         var root = properties.getRoots().stream()
                 .filter(item -> item.key().equals(rootKey))
                 .findFirst()
-                .orElseThrow(() -> new InvalidScanException("Unknown root key: " + rootKey));
+                .orElseThrow(() -> new InvalidScanRootException("Unknown root key: " + rootKey));
         if (runs.existsByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING)) {
-            throw new ScanRunningException(rootKey);
+            throw new ScanRunAlreadyRunningException(rootKey);
         }
         var run = runs.saveAndFlush(new ScanRunEntity(UUID.randomUUID(), root.key(), root.profile(), Instant.now()));
         taskExecutor.execute(() -> execute(run.id(), root));
         return view(run);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScanRootView> roots() {
+        return properties.getRoots().stream()
+                .map(root -> new ScanRootView(root.key(), root.profile()))
+                .toList();
     }
 
     public void execute(UUID runId, ScanProperties.Root root) {
@@ -65,6 +86,7 @@ public class ScanService {
         try (var paths = Files.walk(Path.of(root.path()))) {
             for (var path : paths.filter(Files::isRegularFile)
                     .filter(item -> !Files.isSymbolicLink(item))
+                    .filter(item -> supportsProfile(root.profile(), item))
                     .toList()) {
                 files++;
                 var relative = Path.of(root.path()).relativize(path).toString().replace('\\', '/');
@@ -87,7 +109,8 @@ public class ScanService {
                             parsed.type(),
                             parsed.key(),
                             parsed.title(),
-                            parsed.role()));
+                            parsed.role(),
+                            metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title())));
                     proposed++;
                     LOGGER.info(
                             "Discovered scan proposal runId={} relativePath={} identityKey={} candidateType={} title={}",
@@ -106,35 +129,36 @@ public class ScanService {
     }
 
     @Transactional(readOnly = true)
-    public RunView get(UUID id) {
-        return view(runs.findById(id).orElseThrow(() -> new ScanNotFoundException(id)));
+    public ScanRunView get(UUID id) {
+        return view(runs.findById(id).orElseThrow(() -> new ScanRunNotFoundException(id)));
     }
 
     @Transactional(readOnly = true)
-    public PageView<ProposalView> proposals(UUID id, int page, int size) {
+    public ScanPageView<ScanProposalView> proposals(UUID id, int page, int size) {
         ensure(id);
         var result = proposals.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
-        return page(result.map(item -> new ProposalView(
+        return page(result.map(item -> new ScanProposalView(
                 item.id(),
                 item.sourceRelativePath(),
                 item.profile(),
                 item.candidateType(),
                 item.identityKey(),
                 item.displayTitle(),
-                item.assetRole())));
+                item.assetRole(),
+                metadataExtractor.read(item.evidence()))));
     }
 
     @Transactional(readOnly = true)
-    public PageView<IssueView> issues(UUID id, int page, int size) {
+    public ScanPageView<ScanIssueView> issues(UUID id, int page, int size) {
         ensure(id);
         var result = issues.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
-        return page(
-                result.map(item -> new IssueView(item.id(), item.sourceRelativePath(), item.code(), item.detail())));
+        return page(result.map(
+                item -> new ScanIssueView(item.id(), item.sourceRelativePath(), item.code(), item.detail())));
     }
 
     private void ensure(UUID id) {
         if (!runs.existsById(id)) {
-            throw new ScanNotFoundException(id);
+            throw new ScanRunNotFoundException(id);
         }
     }
 
@@ -156,15 +180,26 @@ public class ScanService {
         String role = type.equals("ASSET")
                 ? (path.toLowerCase().endsWith(".gif") ? "GIF" : "IMAGE")
                 : (type.equals("VIDEO") ? "PRIMARY_VIDEO" : null);
-        return new Parsed(type, key, name, role);
+        String title = profile == ScanProfile.JOKE_VIDEO || profile == ScanProfile.JOKE_ASSET
+                ? name.replaceFirst("\\s*-?\\s*\\[[^]]+]\\s*$", "").trim()
+                : name;
+        return new Parsed(type, key, title, role);
+    }
+
+    private boolean supportsProfile(ScanProfile profile, Path path) {
+        if (profile != ScanProfile.JOKE_VIDEO && profile != ScanProfile.USE_VIDEO) {
+            return true;
+        }
+        String normalizedPath = path.toString().toLowerCase(Locale.ROOT);
+        return VIDEO_EXTENSIONS.stream().anyMatch(normalizedPath::endsWith);
     }
 
     private String normalize(String value) {
         return value.trim().replaceAll("\\s+", " ").toLowerCase();
     }
 
-    private RunView view(ScanRunEntity item) {
-        return new RunView(
+    private ScanRunView view(ScanRunEntity item) {
+        return new ScanRunView(
                 item.id(),
                 item.rootKey(),
                 item.profile(),
@@ -177,8 +212,8 @@ public class ScanService {
                 item.lastError());
     }
 
-    private <T> PageView<T> page(org.springframework.data.domain.Page<T> value) {
-        return new PageView<>(
+    private <T> ScanPageView<T> page(org.springframework.data.domain.Page<T> value) {
+        return new ScanPageView<>(
                 value.getContent(),
                 value.getNumber(),
                 value.getSize(),
@@ -187,47 +222,4 @@ public class ScanService {
     }
 
     private record Parsed(String type, String key, String title, String role) {}
-
-    public record RunView(
-            UUID id,
-            String rootKey,
-            ScanProfile profile,
-            ScanRunStatus status,
-            Instant startedAt,
-            Instant finishedAt,
-            long scannedFileCount,
-            long proposalCount,
-            long issueCount,
-            String lastError) {}
-
-    public record ProposalView(
-            UUID id,
-            String sourceRelativePath,
-            ScanProfile profile,
-            String candidateType,
-            String identityKey,
-            String displayTitle,
-            String assetRole) {}
-
-    public record IssueView(UUID id, String sourceRelativePath, String code, String detail) {}
-
-    public record PageView<T>(List<T> content, int page, int size, long totalElements, int totalPages) {}
-
-    public static class InvalidScanException extends RuntimeException {
-        public InvalidScanException(String m) {
-            super(m);
-        }
-    }
-
-    public static class ScanRunningException extends RuntimeException {
-        public ScanRunningException(String k) {
-            super("Scan already running: " + k);
-        }
-    }
-
-    public static class ScanNotFoundException extends RuntimeException {
-        public ScanNotFoundException(UUID id) {
-            super("Scan does not exist: " + id);
-        }
-    }
 }

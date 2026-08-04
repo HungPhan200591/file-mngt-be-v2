@@ -5,19 +5,61 @@
   * **ai-agent**
     * [Guide vận hành với AI Agent](/manual/ai-agent/operating-guide.md)
   * **learning**
-    * [📖 Từ vựng Kỹ thuật & Nghiệp vụ Dự án (Technical Glossary)](/manual/learning/technical-glossary.md)
-    * **backend-v2**
-      * [1. Business model](/manual/learning/backend-v2/01-business-model.md)
-      * [2. Kiến trúc và technical concept](/manual/learning/backend-v2/02-architecture-technical.md)
-      * [3. Use case và data flow](/manual/learning/backend-v2/03-use-cases-data-flow.md)
-      * [4. Database map chi tiết](/manual/learning/backend-v2/04-database-map.md)
-      * [5. FT013 primer](/manual/learning/backend-v2/05-ft013-primer.md)
-      * [6. Đọc flow Scan → Catalog → Query bằng Grafana và Kibana](/manual/learning/backend-v2/06-observability-scan-to-query.md)
-      * [Deep-dive các luồng API theo hành trình người dùng](/manual/learning/backend-v2/07-api-flows-deep-dive.md)
-      * [Hướng dẫn hiểu Backend V2](/manual/learning/backend-v2/README.md)
+    * [📖 Từ vựng Nghiệp vụ & Kỹ thuật Dự án (Technical & Domain Glossary)](/manual/learning/technical-glossary.md)
     * **deep-dive**
-      * [📊 Deep-Dive Observability Architecture & Operations](/manual/learning/deep-dive/01-observability-deep-dive.md)
-      * [📦 Deep-Dive Transactional Outbox Pattern](/manual/learning/deep-dive/02-transactional-outbox-pattern-deep-dive.md)
+      * **cqrs-read-projection**
+        * [📖 CQRS Lite & Eventual Consistency Overview](/manual/learning/deep-dive/cqrs-read-projection/00-overview.md)
+        * [⚡ Dual-Store Search: Fast Hit & Hydration Pattern](/manual/learning/deep-dive/cqrs-read-projection/01-elasticsearch-redis-hydration.md)
+        * [🔄 Data Reconciliation & Cache-Aside Eviction Pattern](/manual/learning/deep-dive/cqrs-read-projection/02-reconciliation-cache-aside.md)
+        * [📚 Deep-Dive: CQRS Lite, Read Projection & Dual-Store Search](/manual/learning/deep-dive/cqrs-read-projection/README.md)
+        * **question-bank**
+          * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: CQRS Lite, Read Projection & Dual-Store Search](/manual/learning/deep-dive/cqrs-read-projection/question-bank/00-cqrs-projection-questions.md)
+      * **observability**
+        * [📊 Observability Overview & Architecture](/manual/learning/deep-dive/observability/00-overview.md)
+        * [📈 Metrics Deep-Dive: Prometheus & Grafana](/manual/learning/deep-dive/observability/01-metrics-prometheus-grafana.md)
+        * [📜 Structured Logging Deep-Dive: Spring Boot ECS & ELK Stack](/manual/learning/deep-dive/observability/02-structured-logging-elk.md)
+        * [🔗 Correlation ID & Distributed Tracing Deep-Dive](/manual/learning/deep-dive/observability/03-correlation-id-tracing.md)
+        * [🚨 Dashboards, Alerting & Incident Response Deep-Dive](/manual/learning/deep-dive/observability/04-dashboards-alerting-incidents.md)
+        * [📊 Observability Deep-Dive & Architecture Hub](/manual/learning/deep-dive/observability/README.md)
+        * **question-bank**
+          * [❓ Observability Overview — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/00-overview-questions.md)
+          * [❓ Metrics & Prometheus — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/01-metrics-questions.md)
+          * [❓ Logging & ELK Stack — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/02-logging-questions.md)
+          * [❓ Correlation ID & Tracing — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/03-tracing-questions.md)
+          * [❓ Dashboards, Alerting & Incidents — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/04-dashboards-alerting-questions.md)
+        * **summary**
+          * [⚡ Structured Logging — Ultra-Short Summary](/manual/learning/deep-dive/observability/summary/02-structured-logging.md)
+      * **scan-service**
+        * [🔍 Scan Service Deep-Dive: Overview & Fundamentals](/manual/learning/deep-dive/scan-service/00-overview.md)
+        * [📁 Filesystem Preview Engine & Strategy Pattern](/manual/learning/deep-dive/scan-service/01-filesystem-preview-engine.md)
+        * [🔄 Approval Ingestion Flow & Transactional Outbox Integration](/manual/learning/deep-dive/scan-service/02-approval-and-outbox-flow.md)
+        * [💡 Scan Service: Technical Assessment & Improvement Ideas](/manual/learning/deep-dive/scan-service/03-improvements-and-ideas.md)
+      * **transactional-outbox**
+        * [📦 Transactional Outbox Pattern: Overview & Fundamentals](/manual/learning/deep-dive/transactional-outbox/00-overview.md)
+        * [🏗️ Outbox Architecture & Implementation Details](/manual/learning/deep-dive/transactional-outbox/01-architecture-implementation.md)
+        * [🛡️ Idempotency, Resilience & Outbox Optimization](/manual/learning/deep-dive/transactional-outbox/02-idempotency-and-resilience.md)
+        * [📦 Transactional Outbox Pattern Deep-Dive & Architecture Hub](/manual/learning/deep-dive/transactional-outbox/README.md)
+        * **question-bank**
+          * [❓ Transactional Outbox Pattern — Interview Question Bank](/manual/learning/deep-dive/transactional-outbox/question-bank/00-outbox-questions.md)
+      * **virtual-threads**
+        * [🧵 Virtual Threads: Overview & Fundamentals](/manual/learning/deep-dive/virtual-threads/00-overview.md)
+        * [🍃 Virtual Threads Integration in Spring Boot 3.4+ & JDK 25](/manual/learning/deep-dive/virtual-threads/01-spring-boot-integration.md)
+        * [⚖️ Virtual Threads: Use Cases, Trade-offs & Best Practices](/manual/learning/deep-dive/virtual-threads/02-use-cases-and-trade-offs.md)
+        * [🔄 Virtual Threads vs. Go Goroutines, Kotlin Coroutines & Node.js](/manual/learning/deep-dive/virtual-threads/03-comparison-virtual-threads-vs-others.md)
+        * [📌 Thread Pinning Deep-Dive: Native Monitors, Carrier Starvation & ReentrantLock Solution](/manual/learning/deep-dive/virtual-threads/04-thread-pinning-deep-dive.md)
+        * [🎟️ Semaphore Deep-Dive: Concurrency Throttling & Resource Protection in Virtual Threads](/manual/learning/deep-dive/virtual-threads/05-semaphore-concurrency-deep-dive.md)
+        * [⚡ Virtual Threads & Concurrency: Cheat-Sheet & Core Keywords](/manual/learning/deep-dive/virtual-threads/06-cheat-sheet-keywords-summary.md)
+        * **question-bank**
+          * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: Virtual Threads & Concurrency (JDK 25 / Spring Boot 3.4+)](/manual/learning/deep-dive/virtual-threads/question-bank/01-virtual-threads-questions.md)
+    * **system-primer**
+      * [1. Business model](/manual/learning/system-primer/01-business-model.md)
+      * [2. Kiến trúc Tổng quan & Concept Kỹ thuật](/manual/learning/system-primer/02-architecture-overview.md)
+      * [3. Use Cases và Data Flow (System Overview)](/manual/learning/system-primer/03-use-cases-data-flow.md)
+      * [4. Database map chi tiết](/manual/learning/system-primer/04-database-map.md)
+      * [5. FT013 Primer: Media Worker Processing Foundation](/manual/learning/system-primer/05-ft013-primer.md)
+      * [6. Observability Flow Overview (Scan → Catalog → Query)](/manual/learning/system-primer/06-observability-overview.md)
+      * [7. Tổng quan các luồng API theo hành trình người dùng](/manual/learning/system-primer/07-api-flows-overview.md)
+      * [Hướng dẫn hiểu Backend V2](/manual/learning/system-primer/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
@@ -26,6 +68,7 @@
     * [Hướng dẫn Vận hành Swagger UI & OpenAPI Contracts](/manual/operations/swagger-ui-openapi.md)
 * **docs**
   * [Trạng thái Backend V2](/docs/STATUS.md)
+  * [🛠️ Nợ Kỹ Thuật (Technical Debt) & Lộ Trình Refactor Backend V2](/docs/TECHNICAL_DEBT.md)
   * **adlc**
     * [ADLC workflow](/docs/adlc/WORKFLOW.md)
   * **adr**
@@ -111,6 +154,10 @@
       * [015 Nginx media delivery V2 tách biệt](/docs/features/015-isolated-nginx-media-delivery/01-brief.md)
       * [015 Nginx media delivery V2 tách biệt — Design](/docs/features/015-isolated-nginx-media-delivery/02-design.md)
       * [015 Nginx media delivery V2 tách biệt — Plan](/docs/features/015-isolated-nginx-media-delivery/03-plan.md)
+    * **016-scan-service-boundary-cleanup**
+      * [016 Scan service boundary cleanup](/docs/features/016-scan-service-boundary-cleanup/01-brief.md)
+      * [016 Scan service boundary cleanup — Design](/docs/features/016-scan-service-boundary-cleanup/02-design.md)
+      * [016 Scan service boundary cleanup — Plan](/docs/features/016-scan-service-boundary-cleanup/03-plan.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)

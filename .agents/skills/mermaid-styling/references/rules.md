@@ -4,13 +4,14 @@
 
 ---
 
-## 🎯 5 GOLDEN RULES
+## 🎯 6 GOLDEN RULES
 
 1. **LAYOUT TRƯỚC MÀU SẮC**: ưu tiên `flowchart TB`/`TD`; không nén một flow dài vào một hàng ngang.
 2. **TEXT MÀU TRẮNG BẮT BUỘC**: Mọi nhãn text bên trong node PHẢI bọc bằng thẻ `<font color='white'>Nhãn text</font>` để chống CSS theme IDE làm mờ chữ.
 3. **NGOẶC KÉP NHÃN MŨI TÊN BẮT BUỘC**: Tất cả nhãn văn bản gắn trên mũi tên liên kết PHẢI bọc trong dấu ngoặc kép `-->|"Nhãn text"|` để chống lỗi Mermaid syntax parse error khi có ký tự đặc biệt (`(`, `)`, `:`, `=`, `<br/>`).
-4. **NỀN ĐẬM**: dùng Material Design colors, KHÔNG pastel.
-5. **BORDER TRẮNG**: `stroke:#fff,stroke-width:2px`.
+4. **CẤM DÙNG CÚ PHÁP LIST `1. `, `2. ` TRONG NHÃN**: Nhãn bắt đầu bằng `1. `, `2. `, `3. ` (số + dấu chấm + khoảng trắng) sẽ bị Mermaid v10+ parse thành Markdown Ordered List và gây ra lỗi `Unsupported markdown: list`. BẮT BUỘC đổi sang `1 - `, `1: `, `[1] ` hoặc `Step 1: `.
+5. **NỀN ĐẬM**: dùng Material Design colors, KHÔNG pastel.
+6. **BORDER TRẮNG**: `stroke:#fff,stroke-width:2px`.
 
 ---
 
@@ -91,6 +92,7 @@ flowchart TB
 
 | ❌ BAD | ✅ GOOD |
 |--------|---------|
+| `1. Step name` hoặc `2. Action` | `1 - Step name` hoặc `1: Action` (tránh lỗi `Unsupported markdown: list`) |
 | `flowchart LR` với 6–10 node nối tiếp | `flowchart TB`, chia phase hoặc tách diagram |
 | Label dài trên một dòng | Wrap thành các dòng ngắn bằng `<br/>` |
 | Node text không bọc `<font color='white'>` | `A["<font color='white'>Text node</font>"]` |
