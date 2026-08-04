@@ -25,8 +25,8 @@ description: Thực hiện feature Backend V2 theo ADLC, từ tạo hoặc đọ
 - Chỉ code khi Plan là `READY`.
 - Giữ phạm vi trong owner. Nếu chạm REST/Kafka/database hoặc hai service, dùng thêm `$cross-service-contract`.
 - Không nhét rule feature vào `AGENTS.md` hoặc context service.
-- Sau handoff, cập nhật Plan thành `DONE` cùng kiểm tra đã chạy; cập nhật `docs/STATUS.md` nếu feature active đổi.
-- Nếu feature trả debt, cập nhật cùng lúc `docs/TECHNICAL_DEBT.md`: chuyển mục khỏi active backlog, link Plan/evidence và ghi trạng thái `DONE`; không để debt đã trả ở backlog active.
+- Sau handoff, cập nhật Plan thành `DONE` cùng kiểm tra đã chạy; distill `docs/STATUS.md` chỉ còn feature active/READY/deferred, gate còn mở và next action, không append lịch sử `DONE` hoặc kiến trúc đã có owner riêng.
+- Nếu feature trả debt, cập nhật cùng lúc `docs/TECHNICAL_DEBT.md`: xóa mục `TD-xxx` khỏi active backlog khi `DONE`; giữ evidence ở Plan/commit, không tạo lịch sử debt đã trả.
 - Audit source of truth: architecture, contract, ownership hoặc rule đổi thì cập nhật owner tương ứng; nếu không đổi, nêu rõ không cần cập nhật tài liệu.
 
 ## Bàn giao

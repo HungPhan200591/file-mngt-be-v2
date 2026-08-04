@@ -4,36 +4,18 @@ Updated: 2026-08-04
 
 ## Hiện tại
 
-- Phase: Phase 8 observability baseline đã hoàn tất để quan sát, debug và đo hệ thống hiện có; khi sẵn sàng sẽ quay lại Phase 4/FT013.
-- Active feature: không có feature đang triển khai.
-- Scan maintenance: [`016-scan-service-boundary-cleanup`](./features/016-scan-service-boundary-cleanup/03-plan.md) đã `DONE`: public view/exception đã tách khỏi `ScanService`; Scan API và nghiệp vụ không đổi.
-- Scan semantic metadata: [`017-scan-semantic-metadata-extraction`](./features/017-scan-semantic-metadata-extraction/03-plan.md) đã `DONE`: Scan trích xuất evidence có cấu trúc từ relative path/filename để review; chưa suy đoán actress/studio/tag.
-- Deferred feature: `013-media-worker-processing-foundation` vẫn `READY` nhưng chưa triển khai; không tạo thêm Plan status chỉ để biểu diễn tạm dừng.
-- Technical Debt Audit: [`TD-003`](./TECHNICAL_DEBT.md) (Virtual Threads Thread Pinning) đã audit 100% codebase: `scan-service` sạch 100% (`0` `synchronized`). Chỉ có 1 vị trí tại `query-service` (`ElasticsearchSearchAdapter.java`) đã được khoanh vùng xử lý ở Phase Query Service.
-- Code: Maven multi-module, Maven Wrapper 3.9.16, năm Spring Boot app, event envelope, module `platform/observability` và Docker Compose core/observability profile đã có.
-- Nginx media delivery V2 (`015`) đã DONE: container/config/port `18119` riêng, không dùng chung Nginx V1 `8888`; Gateway CORS allow Nginx V2 và Vite FE V2 `18120` theo allow-list hẹp.
-- Kiến trúc: monorepo 5 service, PostgreSQL tách database/user theo service, Kafka, Redis và ADLC.
-- Catalog P1 `002-catalog-vertical-slice` đã DONE: migration `media_subject`/`media_asset`, API create/detail/list theo OpenAPI v1.
-- E2E HTTP `003-e2e-http-harness` đã DONE: `.http` dùng chung IntelliJ và Agent CLI.
-- Scan P2/P3 (`004`, `005`) đã DONE: scan preview, approve idempotent, transactional outbox, Kafka publisher, Catalog consumer, retry/DLT, fixture E2E.
-- Catalog P4 `006-catalog-subject-changed-outbox` đã DONE: full snapshot event versioned, outbox, DLT observer, operations API và metrics.
-- Query P1/P2/P3 (`007`–`009`) đã DONE: projection versioned, Elasticsearch search/fallback, Redis detail cache + metrics.
-- Phase 6 foundation (`010`, `011`) đã DONE: Gateway/correlation và Media Library smoke UI. Gateway Media Delivery của FT011 còn trong code như legacy proof-of-concept nhưng đã bị thay thế kiến trúc bởi [ADR-005](./adr/ADR-005-nginx-direct-media-delivery.md); không dùng cho feature mới.
-- Gallery V2 (`012`) đã chốt thiết kế nhưng `DRAFT`; không triển khai frontend trước backend parity.
+- Phase hiện tại: observability baseline đã hoàn tất; chưa có feature active.
+- Feature kế tiếp: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) đang `READY`; bắt đầu khi chủ dự án sẵn sàng quay lại Phase 4.
+- Không tạo Plan trạng thái tạm dừng. [`012-gallery-v2-parity-foundation`](./features/012-gallery-v2-parity-foundation/03-plan.md) vẫn `DRAFT` và chỉ triển khai sau backend parity.
+- Debt cần lưu ý khi chạm owner: [`TD-002`–`TD-005`](./TECHNICAL_DEBT.md); riêng `TD-003` đã khoanh vùng tại `query-service`, không phải `scan-service`.
 
-## Gap trước khi cutover frontend
+## Gate còn mở trước cutover frontend
 
 - **Phase 4:** Media Worker chưa có processing pipeline: technical metadata, thumbnail, GIF, hash, completion event và Catalog update.
 - **Phase 7:** chưa có importer/backfill V1: inventory root, dry-run, batch idempotent, checkpoint và reconciliation.
-- **Phase 8:** observability baseline đã có metrics/dashboard và ELK correlation search. OpenTelemetry trace xuyên Kafka, alert/SLO, profiling sâu và k6 nằm ngoài FT014.
+- **Observability mở rộng:** OpenTelemetry trace xuyên Kafka, alert/SLO, profiling sâu và k6 nằm ngoài FT014; không chặn FT013.
 
 ## Việc kế tiếp
 
 1. Dùng dashboard/log để đọc và debug lại các flow 002–011 cho đến khi chủ dự án nắm vững.
 2. Khi chủ dự án sẵn sàng, quay lại **FT013 — Media Worker processing foundation**; sau đó mới lập feature Import/backfill V1.
-
-## Bất biến cần nhớ
-
-- V1 chạy song song, không bị sửa hoặc xóa bởi V2.
-- Catalog là canonical write model; Query chỉ là projection.
-- Scan tạo proposal, Worker xử lý nền, Gateway không chứa domain logic.

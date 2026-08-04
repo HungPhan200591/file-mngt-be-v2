@@ -10,6 +10,7 @@
 - Port local V2 bắt buộc theo `docs/adr/ADR-004-local-port-allocation.md`; không tự chọn port chuẩn hoặc port mới trước khi kiểm tra ADR và port đang listen.
 - Khi cần tham chiếu hoặc đối chiếu hành vi/implementation của V1, dùng **link refer** (chỉ đọc, không sửa khi chưa được yêu cầu rõ): **BE V1** `D:\Study\Project\file_mngt`; **FE V1** `D:\Study\Project\file_mngt_FE`.
 - Khi gợi ý câu lệnh CLI cho người dùng, luôn viết từ thư mục gốc dự án (dùng cờ prefix hoặc đường dẫn từ root); không bắt người dùng gõ lệnh `cd` chuyển thư mục.
+- Context hygiene: `docs/STATUS.md` và `docs/TECHNICAL_DEBT.md` chỉ là snapshot hiện tại; khi task hoàn tất, xóa debt đã trả và nội dung stale/trùng lặp, giữ bằng chứng chi tiết ở Plan/commit và link thay vì sao chép.
 
 Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corretto-25` (JDK 25).
 
@@ -42,4 +43,4 @@ Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về 
 
 Khi đổi contract hoặc boundary, cập nhật source of truth tương ứng trong cùng task; không sao chép rule sang nhiều nơi.
 
-Trước bàn giao, audit source of truth: nếu architecture, contract, ownership hoặc rule đổi thì cập nhật đúng owner trong cùng task; nếu không đổi, nêu rõ không cần cập nhật tài liệu. Luôn đề xuất 1–3 việc tiếp theo theo mức ưu tiên, nhưng không tự mở rộng phạm vi hoặc làm tiếp khi chưa được yêu cầu.
+Trước bàn giao, audit source of truth: nếu architecture, contract, ownership hoặc rule đổi thì cập nhật đúng owner trong cùng task; nếu không đổi, nêu rõ không cần cập nhật tài liệu. Đồng thời distill `STATUS.md`/`TECHNICAL_DEBT.md`: chỉ giữ việc active/READY/deferred, gate hoặc debt còn mở; xóa history đã DONE. Luôn đề xuất 1–3 việc tiếp theo theo mức ưu tiên, nhưng không tự mở rộng phạm vi hoặc làm tiếp khi chưa được yêu cầu.

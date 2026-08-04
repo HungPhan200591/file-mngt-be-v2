@@ -27,15 +27,7 @@ Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn 
 
 ---
 
-## ✅ 3. Nợ Kỹ Thuật Đã Trả (Resolved Debt)
-
-| ID | Service | Đã xử lý | Evidence | Trạng thái |
-| :--- | :--- | :--- | :--- | :--- |
-| **`TD-001`** | `scan-service` | Public view record và exception đã tách khỏi `ScanService`; `Parsed` giữ private, HTTP/API nghiệp vụ không đổi. | [FT016 — Scan Service Boundary Cleanup](./features/016-scan-service-boundary-cleanup/03-plan.md), commit `0750098` | ✅ `DONE` |
-
----
-
-## ⚙️ 4. Quy Trình Quản Lý & Trả Nợ Kỹ Thuật (Debt Resolution Protocol)
+## ⚙️ 3. Quy Trình Quản Lý & Trả Nợ Kỹ Thuật (Debt Resolution Protocol)
 
 1. **Nguyên tắc Không sửa tự do**: 
    - Không tự ý thực hiện refactor lớn mà không nằm trong kế hoạch ADLC Feature hoặc được phê duyệt rõ ràng.
@@ -43,4 +35,4 @@ Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn 
    - Khi phát hiện Code Smell hoặc nợ phát sinh trong quá trình code Feature, Developer/Agent bổ sung 1 dòng mới vào bảng `Active Technical Debt Backlog` với ID `TD-xxx`.
 3. **Quy trình Trả nợ (Paydown Protocol)**:
    - Khi triển khai một Feature mới chạm vào Service chứa Debt, xem xét kết hợp trả nợ `TD-xxx` trong cùng Implementation Plan đó.
-   - Khi hoàn tất, chuyển mục khỏi `Active Technical Debt Backlog` sang `Resolved Debt`, link Plan/evidence và cập nhật trạng thái `DONE` trong cùng task.
+   - Khi hoàn tất, xóa mục `TD-xxx` khỏi `Active Technical Debt Backlog` trong cùng task. Bằng chứng hoàn tất nằm ở Feature Plan và commit; không tạo lịch sử debt đã trả tại đây.

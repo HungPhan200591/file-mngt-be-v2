@@ -40,7 +40,7 @@ Design: [02-design.md](./02-design.md)
 
 ## Source-of-truth audit
 
-- Không đổi architecture, service ownership, database schema, REST/Kafka contract hay ADR; đã cập nhật task tracking và [`TD-001`](../../TECHNICAL_DEBT.md) trong cùng task.
+- Không đổi architecture, service ownership, database schema, REST/Kafka contract hay ADR; đã xóa `TD-001` khỏi active technical-debt backlog khi hoàn tất. Evidence nằm trong Plan này và commit `0750098`.
 
 ## Implementation handoff — 2026-08-04
 
