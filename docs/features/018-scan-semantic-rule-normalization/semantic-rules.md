@@ -1,6 +1,6 @@
 # FT018 — Semantic Rulebook
 
-Status: DRAFT — đây là source of truth duy nhất cho rule semantic của FT018. Chỉ tạo Design/Plan khi mọi mục `CẦN CHỐT` đã được quyết định.
+Status: PENDING — đây là source of truth duy nhất cho rule semantic của FT018. FT018 chỉ tiếp tục sau khi [FT019](../019-catalog-master-data-registry/03-plan.md) cung cấp Catalog master data và registry snapshot REST.
 
 ## Cách đọc
 
@@ -14,19 +14,19 @@ Status: DRAFT — đây là source of truth duy nhất cho rule semantic của F
 | CHỐT | Semantic chỉ đến từ filename và registry; folder chỉ chọn `ScanProfile`. |
 | CHỐT | Raw evidence giữ nguyên. Parser chỉ bỏ duplicate counter cuối như ` (1)` trên bản parse. |
 | CHỐT | Khi không đủ bằng chứng: tạo proposal `PARTIAL`/`AMBIGUOUS` cùng warning, không đoán. |
-| CHỐT | Tag filename được resolve thành `semantic.tagNames` qua registry có canonical spelling/alias, ví dụ `4K` → `4k`. |
+| CHỐT | Tag filename được resolve thành `semantic.tagNames` qua `normalized_name` case-insensitive, ví dụ `4K` → `4k`. |
 | CẦN CHỐT | Token parenthesized không có trong registry: review hay tự tạo canonical tag. |
 
 ## Parsing registry
 
-`registry` không phải JSON runtime của Scan. Studio/Tag canonical do `catalog-service` sở hữu trong `catalog_db`; Scan chỉ giữ projection read-only phục vụ parse, không đọc BE V1 khi runtime và không query `catalog_db`.
+`registry` không phải JSON runtime của Scan. Studio/Tag canonical do `catalog-service` sở hữu trong `catalog_db`; khi bắt đầu mỗi scan run, Scan lấy một REST snapshot immutable từ Catalog. Không đọc BE V1 khi runtime và không query `catalog_db`.
 
 | Registry | Owner/source of truth | Seed ban đầu | Dùng để làm gì |
 | --- | --- | --- | --- |
 | Studio + studio code | Catalog tables `studio`, `studio_code` | `studios.json` V1, sau khi review code trùng | Map unique code/prefix → studio candidate; phát hiện ambiguity |
-| Tag + tag alias | Catalog tables `tag`, `tag_alias` | Tag V1: `Best of`, `4k`, `Best`, `Uncensored`, `Sharpness`, `Collection`, `Cover` | Canonical spelling, alias và parser syntax |
+| Tag | Catalog table `tag` | Tag V1: `Best of`, `4k`, `Best`, `Uncensored`, `Sharpness`, `Collection`, `Cover` | Canonical spelling và case-insensitive parser syntax |
 
-Catalog phát versioned registry snapshot event; Scan consume idempotently vào local projection, ví dụ `scan_parser_studio_code` và `scan_parser_tag_alias`. Snapshot mang `registryVersion`; parser ghi version đã dùng vào evidence. Thay đổi registry cần review, outbox và fixture/test tương ứng.
+FT019 trả snapshot theo `JOKE`/`USE`, có `registryVersion`, Studio Code của region và Tag global active. Parser ghi version đã dùng vào evidence; thay đổi registry chỉ tác động run mới.
 
 Catalog vẫn là owner duy nhất của Studio/Tag canonical. Khi có canonical handoff sau approval, Catalog validate/upsert theo contract event riêng; Scan chỉ gửi candidate đã parse.
 
@@ -55,7 +55,7 @@ Catalog vẫn là owner duy nhất của Studio/Tag canonical. Khi có canonical
 | Trạng thái | Rule |
 | --- | --- |
 | CHỐT | FT018 chỉ persist/trả semantic candidate ở `scan_proposal.evidence`; Scan không ghi Catalog. |
-| CẦN CHỐT | Registry projection cần event snapshot riêng từ Catalog; không nhét registry vào `media.file.discovered.v1`. |
+| PENDING FT019 | Scan lấy REST registry snapshot trước khi tạo run; không nhét registry vào `media.file.discovered.v1`. |
 | CẦN CHỐT | Nếu `APPROVE` phải materialize tag/semantic canonical, tạo event version mới mang `baseCode`, `part`, tag đã review và metadata candidate. `media.file.discovered.v1` hiện không đủ payload. |
 
 ## Điều kiện sang Design
@@ -63,5 +63,5 @@ Catalog vẫn là owner duy nhất của Studio/Tag canonical. Khi có canonical
 1. Chốt policy token tag lạ.
 2. Chốt policy `Best of` và code studio trùng.
 3. Chốt precedence USE khi nhiều studio code xuất hiện.
-4. Chốt registry snapshot event và local Scan projection trong FT018 hay feature contract tiếp theo.
+4. Hoàn tất FT019 để Scan có REST registry snapshot theo từng run.
 5. Chốt có hay không canonical handoff trong FT018 hay feature contract tiếp theo.

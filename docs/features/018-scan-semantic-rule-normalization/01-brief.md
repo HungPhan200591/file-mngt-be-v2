@@ -2,6 +2,7 @@
 
 Owner: `scan-service` / `scan_db`  
 Predecessor: [FT017 — Scan semantic metadata extraction](../017-scan-semantic-metadata-extraction/01-brief.md)
+Status: PENDING — chờ [FT019 — Catalog master data registry](../019-catalog-master-data-registry/03-plan.md) hoàn tất.
 Rule source of truth: [semantic-rules.md](./semantic-rules.md)
 
 ## Vấn đề
@@ -16,7 +17,7 @@ Chuẩn hóa rule semantic theo từng `ScanProfile`, chỉ trích xuất dữ l
 
 - Có rule matrix đã được duyệt cho `JOKE_VIDEO`, `JOKE_ASSET`, `USE_VIDEO`, `USE_ASSET` và `USE_ALBUM`: input, precedence, output semantic, warning và ví dụ.
 - Studio registry có owner/version, phát hiện code trùng thay vì chọn theo thứ tự nạp.
-- Normalization, tag và duplicate counter có semantics rõ; raw evidence không bị ghi đè. Tag filename được resolve qua registry có alias/case normalization; token lạ không tự tạo canonical tag.
+- Normalization, tag và duplicate counter có semantics rõ; raw evidence không bị ghi đè. Tag filename được resolve qua `normalized_name` case-insensitive; token lạ không tự tạo canonical tag.
 - Với JOKE, mỗi cặp `(baseCode, part)` là một subject riêng; code đơn lẻ không được dùng để ghép proposal/video/asset hoặc làm canonical identity.
 - Không rule nào suy diễn actress/studio/tag chỉ từ folder cluster; folder chỉ chọn `ScanProfile`.
 - Khi rule không khớp hoặc ambiguous, proposal vẫn được tạo để review với `PARTIAL`/`AMBIGUOUS`, không có canonical write, Catalog lookup hay event change.

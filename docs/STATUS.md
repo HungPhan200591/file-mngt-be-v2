@@ -4,7 +4,8 @@ Updated: 2026-08-04
 
 ## Hiện tại
 
-- Active discovery: [`FT018`](./features/018-scan-semantic-rule-normalization/00-discovery.md) đang chốt semantic rule; chưa có Design/Plan/code.
+- Active feature: [`FT019 — Catalog master data registry`](./features/019-catalog-master-data-registry/03-plan.md) `READY`: import/CRUD master data và REST registry snapshot cho Scan.
+- Pending: [`FT018`](./features/018-scan-semantic-rule-normalization/semantic-rules.md) chờ FT019; sau đó mới làm semantic parser và event Scan → Catalog v2.
 - Feature kế tiếp: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) đang `READY`; bắt đầu khi chủ dự án sẵn sàng quay lại Phase 4.
 - Không tạo Plan trạng thái tạm dừng. [`012-gallery-v2-parity-foundation`](./features/012-gallery-v2-parity-foundation/03-plan.md) vẫn `DRAFT` và chỉ triển khai sau backend parity.
 - Debt cần lưu ý khi chạm owner: [`TD-002`–`TD-005`](./TECHNICAL_DEBT.md); riêng `TD-003` đã khoanh vùng tại `query-service`, không phải `scan-service`.
