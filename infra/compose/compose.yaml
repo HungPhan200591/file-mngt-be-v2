@@ -82,7 +82,7 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "${KAFKA_UI_PORT:-18120}:8080"
+      - "${KAFKA_UI_PORT:-18121}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: backend-v2-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
