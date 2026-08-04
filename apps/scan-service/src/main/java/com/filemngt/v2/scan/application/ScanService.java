@@ -23,7 +23,11 @@ import com.filemngt.v2.scan.domain.ScanRunStatus;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,6 +38,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Service quản lý luồng Scan Preview thư mục filesystem.
+ * Chịu trách nhiệm khởi tạo ScanRun, duyệt đĩa bất đồng bộ, trích xuất metadata và lưu các Proposal/Issue.
+ */
 @Service
 public class ScanService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanService.class);
@@ -64,34 +72,80 @@ public class ScanService {
         this.catalogClient = catalogClient;
     }
 
+    /**
+     * Bắt đầu một đợt scan preview mới theo rootKey.
+     * Trước khi quét đĩa, hệ thống bắt buộc gọi lấy RegistrySnapshot từ catalog-service để làm căn cứ đối soát.
+     *
+     * @param rootKey Key định danh thư mục gốc cấu hình trong properties
+     * @return ScanRunView phản ánh thông tin đợt scan vừa khởi tạo
+     */
     public ScanRunView start(String rootKey) {
+        LOGGER.info("Nhận yêu cầu khởi chạy scan preview: rootKey={}", rootKey);
+
+        // 1. Kiểm tra cấu hình rootKey hợp lệ
         var root = properties.getRoots().stream()
                 .filter(item -> item.key().equals(rootKey))
                 .findFirst()
-                .orElseThrow(() -> new InvalidScanRootException("Unknown root key: " + rootKey));
+                .orElseThrow(() -> {
+                    LOGGER.warn("Root key không hợp lệ: rootKey={}", rootKey);
+                    return new InvalidScanRootException("Unknown root key: " + rootKey);
+                });
+
+        // 2. Chống chạy trùng đợt scan trên cùng rootKey đang ở trạng thái RUNNING
         if (runs.existsByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING)) {
+            LOGGER.warn("Đợt scan cho rootKey={} đang chạy, hủy yêu cầu mới", rootKey);
             throw new ScanRunAlreadyRunningException(rootKey);
         }
-        // FT019: fetch registry snapshot trước khi tạo run; 503 nếu unavailable
+
+        // 3. Tải RegistrySnapshot từ Catalog Service trước khi khởi tạo run
         String region = mapRegion(root.profile());
-        RegistrySnapshot snapshot =
-                catalogClient.fetch(region).orElseThrow(() -> new CatalogRegistryUnavailableException(region));
+        LOGGER.info("Đang tải RegistrySnapshot từ Catalog Service: region={}", region);
+        RegistrySnapshot snapshot = catalogClient.fetch(region).orElseThrow(() -> {
+            LOGGER.error("Catalog Service không khả dụng khi lấy snapshot: region={}", region);
+            return new CatalogRegistryUnavailableException(region);
+        });
+
+        LOGGER.info("Đã tải RegistrySnapshot thành công: region={}, version={}", region, snapshot.registryVersion());
+
+        // 4. Khởi tạo thực thể ScanRunEntity trạng thái RUNNING
         var run = runs.saveAndFlush(new ScanRunEntity(
                 UUID.randomUUID(), root.key(), root.profile(), Instant.now(), snapshot.registryVersion()));
+        LOGGER.info(
+                "Đã khởi tạo ScanRun thành công: runId={}, rootKey={}, profile={}, status=RUNNING",
+                run.id(),
+                root.key(),
+                root.profile());
+
+        // 5. Khởi chạy tiến trình duyệt đĩa bất đồng bộ via TaskExecutor
         taskExecutor.execute(() -> execute(run.id(), root, snapshot));
+
         return view(run);
     }
 
+    /**
+     * Lấy danh sách các thư mục gốc (roots) được cấu hình trong hệ thống.
+     */
     @Transactional(readOnly = true)
     public List<ScanRootView> roots() {
+        LOGGER.debug("Truy vấn danh sách scan roots cấu hình");
         return properties.getRoots().stream()
                 .map(root -> new ScanRootView(root.key(), root.profile()))
                 .toList();
     }
 
+    /**
+     * Tiến trình thực thi quét đĩa bất đồng bộ.
+     * Duyệt qua cây thư mục, phân tích filename theo profile, phân loại Proposal hoặc Issue.
+     *
+     * @param runId    ID của đợt scan
+     * @param root     Cấu hình thư mục gốc
+     * @param snapshot Snapshot danh mục từ Catalog
+     */
     public void execute(UUID runId, ScanProperties.Root root, RegistrySnapshot snapshot) {
+        LOGGER.info("Bắt đầu tiến trình quét đĩa bất đồng bộ: runId={}, path={}", runId, root.path());
         var run = runs.findById(runId).orElseThrow();
         long files = 0, proposed = 0, issue = 0;
+
         try (var paths = Files.walk(Path.of(root.path()))) {
             for (var path : paths.filter(Files::isRegularFile)
                     .filter(item -> !Files.isSymbolicLink(item))
@@ -100,16 +154,15 @@ public class ScanService {
                 files++;
                 var relative = Path.of(root.path()).relativize(path).toString().replace('\\', '/');
                 var parsed = parse(root.profile(), relative);
+
                 if (parsed == null) {
+                    // Lỗi không phân tích được tên file theo strategy profile
                     issues.save(new ScanIssueEntity(
                             UUID.randomUUID(), runId, relative, "UNPARSEABLE", "Filename does not match profile"));
                     issue++;
-                    LOGGER.warn(
-                            "Discovered scan issue runId={} relativePath={} error=UNPARSEABLE message={}",
-                            runId,
-                            relative,
-                            "Filename does not match profile");
+                    LOGGER.warn("Phát hiện sự cố scan (UNPARSEABLE): runId={}, relativePath={}", runId, relative);
                 } else {
+                    // Trích xuất metadata và kiểm tra Tag chưa đăng ký
                     String rawEv =
                             metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title(), snapshot);
                     Map<String, Object> evidenceMap = metadataExtractor.read(rawEv);
@@ -117,6 +170,7 @@ public class ScanService {
                     List<String> unrecognizedTags = (List<String>) evidenceMap.get("unrecognizedTags");
 
                     if (unrecognizedTags != null && !unrecognizedTags.isEmpty()) {
+                        // Lỗi phát hiện Tag chưa đăng ký trong Catalog Registry
                         issues.save(new ScanIssueEntity(
                                 UUID.randomUUID(),
                                 runId,
@@ -125,11 +179,12 @@ public class ScanService {
                                 "Phát hiện Tag chưa đăng ký trong Catalog: " + String.join(", ", unrecognizedTags)));
                         issue++;
                         LOGGER.warn(
-                                "Discovered scan issue runId={} relativePath={} error=UNRECOGNIZED_TAG tags={}",
+                                "Phát hiện sự cố scan (UNRECOGNIZED_TAG): runId={}, relativePath={}, tags={}",
                                 runId,
                                 relative,
                                 unrecognizedTags);
                     } else {
+                        // Tạo đề xuất (Proposal) thành công
                         proposals.save(new ScanProposalEntity(
                                 UUID.randomUUID(),
                                 runId,
@@ -142,36 +197,57 @@ public class ScanService {
                                 rawEv));
                         proposed++;
                         LOGGER.info(
-                                "Discovered scan proposal runId={} relativePath={} identityKey={} candidateType={} title={}",
+                                "Tạo đề xuất scan thành công: runId={}, relativePath={}, identityKey={}, candidateType={}",
                                 runId,
                                 relative,
                                 parsed.key(),
-                                parsed.type(),
-                                parsed.title());
+                                parsed.type());
                     }
                 }
             }
+
+            // Hoàn tất đợt scan
             run.complete(files, proposed, issue);
+            LOGGER.info(
+                    "Hoàn tất đợt scan runId={}: tổng số file={}, proposed={}, issue={}",
+                    runId,
+                    files,
+                    proposed,
+                    issue);
         } catch (Exception exception) {
+            LOGGER.error("Tiến trình scan thất bại runId={}: error={}", runId, exception.getMessage(), exception);
             run.fail(exception.getMessage());
         }
+
         runs.save(run);
     }
 
+    /**
+     * Lấy danh sách các đợt scan gần đây (phân trang).
+     */
     @Transactional(readOnly = true)
     public ScanPageView<ScanRunView> recentRuns(int page, int size) {
+        LOGGER.debug("Truy vấn lịch sử các đợt scan: page={}, size={}", page, size);
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startedAt"));
         var result = runs.findAll(pageable);
         return page(result.map(this::view));
     }
 
+    /**
+     * Lấy thông tin chi tiết của một đợt scan theo ID.
+     */
     @Transactional(readOnly = true)
     public ScanRunView get(UUID id) {
+        LOGGER.debug("Truy vấn thông tin đợt scan: runId={}", id);
         return view(runs.findById(id).orElseThrow(() -> new ScanRunNotFoundException(id)));
     }
 
+    /**
+     * Lấy danh sách Proposal đề xuất của đợt scan (phân trang).
+     */
     @Transactional(readOnly = true)
     public ScanPageView<ScanProposalView> proposals(UUID id, int page, int size) {
+        LOGGER.debug("Truy vấn danh sách proposal của scan runId={}: page={}, size={}", id, page, size);
         ensure(id);
         var result = proposals.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
         return page(result.map(item -> new ScanProposalView(
@@ -185,8 +261,18 @@ public class ScanService {
                 metadataExtractor.read(item.evidence()))));
     }
 
+    /**
+     * Lấy danh sách Issue sự cố của đợt scan (hỗ trợ lọc theo mã lỗi và tìm kiếm).
+     */
     @Transactional(readOnly = true)
     public ScanPageView<ScanIssueView> issues(UUID id, String code, String search, int page, int size) {
+        LOGGER.debug(
+                "Truy vấn danh sách issue của scan runId={}: code={}, search={}, page={}, size={}",
+                id,
+                code,
+                search,
+                page,
+                size);
         ensure(id);
         var pageable = PageRequest.of(page, size, Sort.by("sourceRelativePath"));
         boolean hasCode = code != null && !code.isBlank();
@@ -211,6 +297,7 @@ public class ScanService {
 
     private void ensure(UUID id) {
         if (!runs.existsById(id)) {
+            LOGGER.warn("Scan runId={} không tồn tại", id);
             throw new ScanRunNotFoundException(id);
         }
     }
