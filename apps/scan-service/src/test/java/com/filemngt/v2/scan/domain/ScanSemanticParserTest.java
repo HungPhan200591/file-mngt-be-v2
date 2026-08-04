@@ -66,6 +66,25 @@ class ScanSemanticParserTest {
     }
 
     @Test
+    void parsesUseVideoWithTags() {
+        var result = ScanSemanticParser.parse(
+                ScanProfile.USE_VIDEO,
+                "4k/Alyx Star - Simple Contract - Blacked (4k).mp4",
+                "Alyx Star - Simple Contract - Blacked (4k).mp4",
+                true,
+                false,
+                registry);
+
+        assertThat(result.parseStatus()).isEqualTo("COMPLETED");
+        assertThat(result.identityKey()).isEqualTo("USE:ALYX STAR:SIMPLE CONTRACT:BLACKED");
+        assertThat(result.actressNames()).containsExactly("Alyx Star");
+        assertThat(result.title()).isEqualTo("Simple Contract");
+        assertThat(result.studioCode()).isEqualTo("BLACKED");
+        assertThat(result.baseCode()).isEqualTo("BLACKED");
+        assertThat(result.tagNames()).containsExactly("4K");
+    }
+
+    @Test
     void rejectsUseVideoNonStrictFormat() {
         var result = ScanSemanticParser.parse(
                 ScanProfile.USE_VIDEO,

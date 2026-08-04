@@ -190,8 +190,38 @@ public class ScanSemanticParser {
             boolean isAsset,
             RegistrySnapshot registry) {
 
+        // 1. Tách Tags trong ngoặc tròn (...)
+        List<String> recognizedTags = new ArrayList<>();
+        List<String> unrecognizedTags = new ArrayList<>();
+        Set<String> activeTagsUpper = new HashSet<>();
+        if (registry != null && registry.tags() != null) {
+            for (String t : registry.tags()) {
+                activeTagsUpper.add(t.toUpperCase(Locale.ROOT));
+            }
+        }
+
+        Matcher parenMatcher = PAREN_PATTERN.matcher(cleanName);
+        while (parenMatcher.find()) {
+            String token = parenMatcher.group(1).trim();
+            if (token.isBlank()) continue;
+            String tokenUpper = token.toUpperCase(Locale.ROOT);
+            if (activeTagsUpper.contains(tokenUpper)) {
+                if (!recognizedTags.contains(tokenUpper)) {
+                    recognizedTags.add(tokenUpper);
+                }
+            } else {
+                if (!unrecognizedTags.contains(token)) {
+                    unrecognizedTags.add(token);
+                }
+            }
+        }
+
+        // Loại bỏ phần ngoặc tròn (...) khỏi cleanName để parse tiếp
+        String workingName =
+                cleanName.replaceAll("\\([^)]+\\)", " ").replaceAll("\\s+", " ").trim();
+
         // Strict Format cho USE Region: <actress> - <title> - <studioCode>
-        String[] parts = cleanName.split("\\s+-\\s+");
+        String[] parts = workingName.split("\\s+-\\s+");
 
         if (parts.length < 3) {
             // Không tuân thủ format strict -> PARTIAL/UNPARSEABLE
@@ -202,10 +232,10 @@ public class ScanSemanticParser {
                     null,
                     null,
                     null,
-                    cleanName,
+                    workingName,
                     List.of(),
-                    List.of(),
-                    List.of(),
+                    recognizedTags,
+                    unrecognizedTags,
                     false,
                     List.of());
         }
@@ -228,8 +258,8 @@ public class ScanSemanticParser {
                 rawStudioCode,
                 title,
                 actressList,
-                List.of(),
-                List.of(),
+                recognizedTags,
+                unrecognizedTags,
                 false,
                 List.of());
     }
