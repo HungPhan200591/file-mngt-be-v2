@@ -64,7 +64,7 @@ public class ScanController {
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "20") int size) {
         return service.issues(scanId, code, search, valid(page, size), size);
     }
 
