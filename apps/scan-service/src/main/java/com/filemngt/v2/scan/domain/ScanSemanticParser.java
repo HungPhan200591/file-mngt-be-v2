@@ -165,6 +165,8 @@ public class ScanSemanticParser {
 
         String parseStatus = (baseCode != null || isBestOf) ? "COMPLETED" : "PARTIAL";
 
+        List<String> actressList = parseActressNames(actressName);
+
         return new SemanticParseResult(
                 parseStatus,
                 isVideo ? "VIDEO" : "ASSET",
@@ -173,7 +175,7 @@ public class ScanSemanticParser {
                 part,
                 studioCode,
                 title,
-                actressName != null ? List.of(actressName) : List.of(),
+                actressList,
                 recognizedTags,
                 unrecognizedTags,
                 false,
@@ -208,11 +210,13 @@ public class ScanSemanticParser {
                     List.of());
         }
 
-        String actressName = parts[0].trim();
+        String rawActress = parts[0].trim();
         String title = parts[1].trim();
         String rawStudioCode = parts[2].trim().toUpperCase(Locale.ROOT);
 
-        String identityKey = "USE:" + actressName.toUpperCase(Locale.ROOT) + ":" + title.toUpperCase(Locale.ROOT) + ":"
+        List<String> actressList = parseActressNames(rawActress);
+
+        String identityKey = "USE:" + rawActress.toUpperCase(Locale.ROOT) + ":" + title.toUpperCase(Locale.ROOT) + ":"
                 + rawStudioCode;
 
         return new SemanticParseResult(
@@ -223,7 +227,7 @@ public class ScanSemanticParser {
                 null,
                 rawStudioCode,
                 title,
-                List.of(actressName),
+                actressList,
                 List.of(),
                 List.of(),
                 false,
@@ -247,5 +251,18 @@ public class ScanSemanticParser {
             return filename.substring(0, idx);
         }
         return filename;
+    }
+
+    private static List<String> parseActressNames(String raw) {
+        if (raw == null || raw.isBlank()) return List.of();
+        String[] tokens = raw.split("(?i)\\s*(?:,|&|\\+|/|\\band\\b)\\s*");
+        List<String> list = new ArrayList<>();
+        for (String t : tokens) {
+            String trimmed = t.trim();
+            if (!trimmed.isBlank() && !list.contains(trimmed)) {
+                list.add(trimmed);
+            }
+        }
+        return list.isEmpty() ? List.of(raw.trim()) : list;
     }
 }

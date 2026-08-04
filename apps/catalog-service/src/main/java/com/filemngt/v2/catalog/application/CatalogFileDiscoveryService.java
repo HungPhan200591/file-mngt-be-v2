@@ -8,6 +8,10 @@ import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventRepository;
 import com.filemngt.v2.catalog.domain.MediaAssetRole;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
+import com.filemngt.v2.catalog.masterdata.adapter.out.persistence.ActressEntity;
+import com.filemngt.v2.catalog.masterdata.adapter.out.persistence.ActressRepository;
+import com.filemngt.v2.catalog.masterdata.application.MasterDataVersionService;
+import com.filemngt.v2.catalog.masterdata.domain.MasterDataNormalizer;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import java.time.Instant;
@@ -24,12 +28,20 @@ public class CatalogFileDiscoveryService {
     private final ProcessedEventRepository processed;
     private final MediaSubjectRepository subjects;
     private final CatalogSubjectOutboxService outbox;
+    private final ActressRepository actressRepository;
+    private final MasterDataVersionService versionService;
 
     public CatalogFileDiscoveryService(
-            ProcessedEventRepository processed, MediaSubjectRepository subjects, CatalogSubjectOutboxService outbox) {
+            ProcessedEventRepository processed,
+            MediaSubjectRepository subjects,
+            CatalogSubjectOutboxService outbox,
+            ActressRepository actressRepository,
+            MasterDataVersionService versionService) {
         this.processed = processed;
         this.subjects = subjects;
         this.outbox = outbox;
+        this.actressRepository = actressRepository;
+        this.versionService = versionService;
     }
 
     @Transactional
@@ -90,6 +102,29 @@ public class CatalogFileDiscoveryService {
             subjects.saveAndFlush(subject);
             outbox.enqueue(subject);
         }
+
+        // Tự động khởi tạo và lưu các Actress mới chưa từng có trong Catalog Registry
+        if (event.actressNames() != null && !event.actressNames().isEmpty()) {
+            boolean actressCreated = false;
+            for (String actressName : event.actressNames()) {
+                if (actressName == null || actressName.isBlank()) continue;
+                String normalized = MasterDataNormalizer.normalizeName(actressName);
+                if (!actressRepository.existsByRegionAndNormalizedName(event.region(), normalized)) {
+                    var newActress = new ActressEntity(
+                            UUID.randomUUID(), event.region(), actressName, normalized, Instant.now());
+                    actressRepository.save(newActress);
+                    actressCreated = true;
+                    LOGGER.info(
+                            "Auto-created new Actress in Catalog: region={} displayName={}",
+                            event.region(),
+                            actressName);
+                }
+            }
+            if (actressCreated) {
+                versionService.bumpVersion();
+            }
+        }
+
         processed.save(new ProcessedEventEntity(event.eventId(), Instant.now()));
         LOGGER.info(
                 "Processed media discovery v2 eventId={} subjectId={} identityKey={} relativePath={} baseCode={} part={}",

@@ -1,18 +1,17 @@
-{
-  "JOKE": [
-    {
-      "studio": "Test Studio A",
-      "code": ["TST-001", "TST-002", "TESTA"]
-    },
-    {
-      "studio": "Test Studio B",
-      "code": ["TST-003", "TESTB"]
-    }
-  ],
-  "USE": [
-    {
-      "studio": "Test Studio C",
-      "code": ["TST-004", "TESTC"]
-    }
-  ]
-}
+[
+  {
+    "region": "JOKE",
+    "displayName": "Test Studio A",
+    "codes": ["TEST-001", "STU-A"]
+  },
+  {
+    "region": "JOKE",
+    "displayName": "Test Studio B",
+    "codes": ["TEST-002", "STU-B"]
+  },
+  {
+    "region": "USE",
+    "displayName": "Test Studio C",
+    "codes": ["STU-C"]
+  }
+]

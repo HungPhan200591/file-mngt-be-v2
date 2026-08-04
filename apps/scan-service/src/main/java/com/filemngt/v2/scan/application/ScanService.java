@@ -23,14 +23,12 @@ import com.filemngt.v2.scan.domain.ScanRunStatus;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -112,25 +110,45 @@ public class ScanService {
                             relative,
                             "Filename does not match profile");
                 } else {
-                    proposals.save(new ScanProposalEntity(
-                            UUID.randomUUID(),
-                            runId,
-                            relative,
-                            root.profile(),
-                            parsed.type(),
-                            parsed.key(),
-                            parsed.title(),
-                            parsed.role(),
-                            metadataExtractor.extract(
-                                    root.profile(), relative, parsed.key(), parsed.title(), snapshot)));
-                    proposed++;
-                    LOGGER.info(
-                            "Discovered scan proposal runId={} relativePath={} identityKey={} candidateType={} title={}",
-                            runId,
-                            relative,
-                            parsed.key(),
-                            parsed.type(),
-                            parsed.title());
+                    String rawEv =
+                            metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title(), snapshot);
+                    Map<String, Object> evidenceMap = metadataExtractor.read(rawEv);
+                    @SuppressWarnings("unchecked")
+                    List<String> unrecognizedTags = (List<String>) evidenceMap.get("unrecognizedTags");
+
+                    if (unrecognizedTags != null && !unrecognizedTags.isEmpty()) {
+                        issues.save(new ScanIssueEntity(
+                                UUID.randomUUID(),
+                                runId,
+                                relative,
+                                "UNRECOGNIZED_TAG",
+                                "Phát hiện Tag chưa đăng ký trong Catalog: " + String.join(", ", unrecognizedTags)));
+                        issue++;
+                        LOGGER.warn(
+                                "Discovered scan issue runId={} relativePath={} error=UNRECOGNIZED_TAG tags={}",
+                                runId,
+                                relative,
+                                unrecognizedTags);
+                    } else {
+                        proposals.save(new ScanProposalEntity(
+                                UUID.randomUUID(),
+                                runId,
+                                relative,
+                                root.profile(),
+                                parsed.type(),
+                                parsed.key(),
+                                parsed.title(),
+                                parsed.role(),
+                                rawEv));
+                        proposed++;
+                        LOGGER.info(
+                                "Discovered scan proposal runId={} relativePath={} identityKey={} candidateType={} title={}",
+                                runId,
+                                relative,
+                                parsed.key(),
+                                parsed.type(),
+                                parsed.title());
+                    }
                 }
             }
             run.complete(files, proposed, issue);
@@ -161,9 +179,25 @@ public class ScanService {
     }
 
     @Transactional(readOnly = true)
-    public ScanPageView<ScanIssueView> issues(UUID id, int page, int size) {
+    public ScanPageView<ScanIssueView> issues(UUID id, String code, String search, int page, int size) {
         ensure(id);
-        var result = issues.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
+        var pageable = PageRequest.of(page, size, Sort.by("sourceRelativePath"));
+        boolean hasCode = code != null && !code.isBlank();
+        boolean hasSearch = search != null && !search.isBlank();
+
+        Page<ScanIssueEntity> result;
+        if (hasCode && hasSearch) {
+            result = issues.findByScanRunIdAndCodeAndSourceRelativePathContainingIgnoreCaseOrDetailContainingIgnoreCase(
+                    id, code, search, search, pageable);
+        } else if (hasCode) {
+            result = issues.findByScanRunIdAndCode(id, code, pageable);
+        } else if (hasSearch) {
+            result = issues.findByScanRunIdAndSourceRelativePathContainingIgnoreCaseOrDetailContainingIgnoreCase(
+                    id, search, search, pageable);
+        } else {
+            result = issues.findByScanRunId(id, pageable);
+        }
+
         return page(result.map(
                 item -> new ScanIssueView(item.id(), item.sourceRelativePath(), item.code(), item.detail())));
     }

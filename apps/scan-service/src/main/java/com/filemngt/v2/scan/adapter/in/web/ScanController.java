@@ -61,9 +61,11 @@ public class ScanController {
     @GetMapping("/{scanId}/issues")
     public ScanPageView<ScanIssueView> issues(
             @PathVariable UUID scanId,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return service.issues(scanId, valid(page, size), size);
+        return service.issues(scanId, code, search, valid(page, size), size);
     }
 
     @PostMapping("/{scanId}/proposals/{proposalId}/decision")

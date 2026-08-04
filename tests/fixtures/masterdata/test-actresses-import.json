@@ -1,11 +1,14 @@
-{
-  "JOKE": [
-    "Actress Alpha",
-    "Actress Beta",
-    "Actress Gamma"
-  ],
-  "USE": [
-    "Model One",
-    "Model Two"
-  ]
-}
+[
+  {
+    "region": "JOKE",
+    "displayName": "Test Actress 1"
+  },
+  {
+    "region": "JOKE",
+    "displayName": "Test Actress 2"
+  },
+  {
+    "region": "USE",
+    "displayName": "Test Actress 3"
+  }
+]

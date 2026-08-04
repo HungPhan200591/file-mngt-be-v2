@@ -9,6 +9,8 @@ public interface ActressRepository extends JpaRepository<ActressEntity, UUID> {
 
     boolean existsByRegionAndNormalizedName(String region, String normalizedName);
 
+    java.util.Optional<ActressEntity> findByRegionAndNormalizedName(String region, String normalizedName);
+
     Page<ActressEntity> findByRegion(String region, Pageable pageable);
 
     Page<ActressEntity> findByRegionAndActive(String region, boolean active, Pageable pageable);

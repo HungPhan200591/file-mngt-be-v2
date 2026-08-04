@@ -77,4 +77,18 @@ class ScanSemanticParserTest {
 
         assertThat(result.parseStatus()).isEqualTo("PARTIAL");
     }
+
+    @Test
+    void parsesMultipleActresses() {
+        var result = ScanSemanticParser.parse(
+                ScanProfile.JOKE_VIDEO,
+                "Studio/Actress/Alice, Bob & Charlie - [JOKE-001].mp4",
+                "Alice, Bob & Charlie - [JOKE-001].mp4",
+                true,
+                false,
+                registry);
+
+        assertThat(result.parseStatus()).isEqualTo("COMPLETED");
+        assertThat(result.actressNames()).containsExactly("Alice", "Bob", "Charlie");
+    }
 }
