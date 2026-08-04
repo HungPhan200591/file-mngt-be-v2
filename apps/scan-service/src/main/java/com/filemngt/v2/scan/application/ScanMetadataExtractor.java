@@ -1,6 +1,9 @@
 package com.filemngt.v2.scan.application;
 
+import com.filemngt.v2.scan.adapter.out.catalog.RegistrySnapshot;
 import com.filemngt.v2.scan.domain.ScanProfile;
+import com.filemngt.v2.scan.domain.ScanSemanticParser;
+import com.filemngt.v2.scan.domain.ScanSemanticParser.SemanticParseResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -12,19 +15,32 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
-class ScanMetadataExtractor {
-    private static final String PARSER_VERSION = "v1";
+public class ScanMetadataExtractor {
+    private static final String PARSER_VERSION = "v2";
 
     private final ObjectMapper objectMapper;
 
-    ScanMetadataExtractor(ObjectMapper objectMapper) {
+    public ScanMetadataExtractor(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
-    String extract(ScanProfile profile, String relativePath, String identityKey, String displayTitle) {
-        String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
+    public String extract(
+            ScanProfile profile,
+            String relativePath,
+            String identityKey,
+            String displayTitle,
+            RegistrySnapshot registry) {
+        String fileName =
+                relativePath.contains("/") ? relativePath.substring(relativePath.lastIndexOf('/') + 1) : relativePath;
         String fileStem = fileName.replaceFirst("\\.[^.]+$", "");
         String parentPath = relativePath.contains("/") ? relativePath.substring(0, relativePath.lastIndexOf('/')) : "";
+
+        boolean isVideo = profile == ScanProfile.JOKE_VIDEO || profile == ScanProfile.USE_VIDEO;
+        boolean isAsset = profile == ScanProfile.JOKE_ASSET || profile == ScanProfile.USE_ASSET;
+
+        SemanticParseResult parseResult =
+                ScanSemanticParser.parse(profile, relativePath, fileName, isVideo, isAsset, registry);
+
         Map<String, Object> evidence = new LinkedHashMap<>();
         evidence.put("parserVersion", PARSER_VERSION);
         evidence.put("fileName", fileName);
@@ -33,23 +49,28 @@ class ScanMetadataExtractor {
         evidence.put("parentPath", parentPath);
         evidence.put(
                 "pathSegments", parentPath.isEmpty() ? List.of() : new ArrayList<>(List.of(parentPath.split("/"))));
-        evidence.put("semantic", semantic(displayTitle));
-        addProfileEvidence(evidence, profile, relativePath, identityKey);
+        evidence.put("unrecognizedTags", parseResult.unrecognizedTags());
+        evidence.put("semantic", semantic(displayTitle, parseResult));
+        addProfileEvidence(evidence, profile, relativePath, identityKey, parseResult);
         return write(evidence);
     }
 
-    private Map<String, Object> semantic(String displayTitle) {
+    private Map<String, Object> semantic(String displayTitle, SemanticParseResult parseResult) {
         Map<String, Object> semantic = new LinkedHashMap<>();
-        semantic.put("title", displayTitle);
-        semantic.put("actressNames", List.of());
-        semantic.put("studioName", "");
-        semantic.put("tagNames", List.of());
-        semantic.put("status", "PARTIAL");
-        semantic.put("warnings", List.of("ACTRESS_NOT_ENCODED", "STUDIO_NOT_ENCODED"));
+        semantic.put("title", parseResult.title() != null ? parseResult.title() : displayTitle);
+        semantic.put("baseCode", parseResult.baseCode());
+        semantic.put("part", parseResult.part());
+        semantic.put("actressNames", parseResult.actressNames());
+        semantic.put("studioCode", parseResult.studioCode());
+        semantic.put("tagNames", parseResult.tagNames());
+        semantic.put("status", parseResult.parseStatus());
+        semantic.put("isAmbiguous", parseResult.isAmbiguous());
+        semantic.put("ambiguousStudioNames", parseResult.ambiguousStudioNames());
         return semantic;
     }
 
-    Map<String, Object> read(String rawEvidence) {
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> read(String rawEvidence) {
         if (rawEvidence == null || rawEvidence.isBlank()) {
             return Map.of();
         }
@@ -71,11 +92,15 @@ class ScanMetadataExtractor {
     }
 
     private void addProfileEvidence(
-            Map<String, Object> evidence, ScanProfile profile, String relativePath, String identityKey) {
+            Map<String, Object> evidence,
+            ScanProfile profile,
+            String relativePath,
+            String identityKey,
+            SemanticParseResult parseResult) {
         switch (profile) {
             case JOKE_VIDEO, JOKE_ASSET -> {
                 evidence.put("identitySource", "bracketCode");
-                evidence.put("bracketCode", identityKey);
+                evidence.put("bracketCode", parseResult.baseCode() != null ? parseResult.baseCode() : identityKey);
             }
             case USE_VIDEO, USE_ASSET -> {
                 evidence.put("identitySource", "normalizedBasename");

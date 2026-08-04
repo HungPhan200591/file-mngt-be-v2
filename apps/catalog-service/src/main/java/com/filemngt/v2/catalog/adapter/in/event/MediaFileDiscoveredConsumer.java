@@ -2,6 +2,7 @@ package com.filemngt.v2.catalog.adapter.in.event;
 
 import com.filemngt.v2.catalog.application.CatalogFileDiscoveryService;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
+import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -18,10 +19,14 @@ public class MediaFileDiscoveredConsumer {
     }
 
     @KafkaListener(
-            topics = "media.file.discovered.v1",
+            topics = {"media.file.discovered.v1", "media.file.discovered.v2"},
             groupId = "catalog-service",
             autoStartup = "${catalog.kafka.consumer.enabled:true}")
     public void consume(String payload) throws JacksonException {
-        service.handle(json.readValue(payload, MediaFileDiscoveredV1.class));
+        if (payload.contains("\"eventType\":\"media.file.discovered.v2\"")) {
+            service.handleV2(json.readValue(payload, MediaFileDiscoveredV2.class));
+        } else {
+            service.handle(json.readValue(payload, MediaFileDiscoveredV1.class));
+        }
     }
 }

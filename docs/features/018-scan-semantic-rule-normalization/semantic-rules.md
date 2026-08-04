@@ -1,67 +1,66 @@
 # FT018 — Semantic Rulebook
 
-Status: PENDING — đây là source of truth duy nhất cho rule semantic của FT018. FT018 chỉ tiếp tục sau khi [FT019](../019-catalog-master-data-registry/03-plan.md) cung cấp Catalog master data và registry snapshot REST.
+Status: CHỐT — Source of truth duy nhất cho rule semantic và parser normalization của FT018.
 
-## Cách đọc
+---
 
-- `CHỐT`: được phép đưa vào Design/Plan/code.
-- `CẦN CHỐT`: là proposal, chưa được code.
-
-## Rule chung
+## 1. Rule Chung & Boundary
 
 | Trạng thái | Rule |
 | --- | --- |
-| CHỐT | Semantic chỉ đến từ filename và registry; folder chỉ chọn `ScanProfile`. |
-| CHỐT | Raw evidence giữ nguyên. Parser chỉ bỏ duplicate counter cuối như ` (1)` trên bản parse. |
-| CHỐT | Khi không đủ bằng chứng: tạo proposal `PARTIAL`/`AMBIGUOUS` cùng warning, không đoán. |
-| CHỐT | Tag filename được resolve thành `semantic.tagNames` qua `normalized_name` case-insensitive, ví dụ `4K` → `4k`. |
-| CẦN CHỐT | Token parenthesized không có trong registry: review hay tự tạo canonical tag. |
+| CHỐT | Semantic chỉ được parse từ filename/foldername và Catalog REST Registry snapshot; folder chỉ dùng để chọn `ScanProfile`. |
+| CHỐT | Raw evidence giữ nguyên. Parser chỉ loại bỏ duplicate counter ở cuối filename (ví dụ ` (1)`) trên bản parse semantic. |
+| CHỐT | Khi không đủ bằng chứng hoặc vi phạm format: Tạo proposal `PARTIAL`/`AMBIGUOUS`/`UNPARSEABLE` kèm warning/issue chi tiết, không tự đoán. |
+| CHỐT | Catalog là owner duy nhất của Studio, Studio Code, Tag, Actress. Scan chỉ dùng REST snapshot read-only từ Catalog cho mỗi run. |
 
-## Parsing registry
+---
 
-`registry` không phải JSON runtime của Scan. Studio/Tag canonical do `catalog-service` sở hữu trong `catalog_db`; khi bắt đầu mỗi scan run, Scan lấy một REST snapshot immutable từ Catalog. Không đọc BE V1 khi runtime và không query `catalog_db`.
-
-| Registry | Owner/source of truth | Seed ban đầu | Dùng để làm gì |
-| --- | --- | --- | --- |
-| Studio + studio code | Catalog tables `studio`, `studio_code` | `studios.json` V1, sau khi review code trùng | Map unique code/prefix → studio candidate; phát hiện ambiguity |
-| Tag | Catalog table `tag` | Tag V1: `Best of`, `4k`, `Best`, `Uncensored`, `Sharpness`, `Collection`, `Cover` | Canonical spelling và case-insensitive parser syntax |
-
-FT019 trả snapshot theo `JOKE`/`USE`, có `registryVersion`, Studio Code của region và Tag global active. Parser ghi version đã dùng vào evidence; thay đổi registry chỉ tác động run mới.
-
-Catalog vẫn là owner duy nhất của Studio/Tag canonical. Khi có canonical handoff sau approval, Catalog validate/upsert theo contract event riêng; Scan chỉ gửi candidate đã parse.
-
-## JOKE
-
-| Profile | Trạng thái | Rule |
-| --- | --- | --- |
-| `JOKE_VIDEO` | CHỐT | Nhận `<actress> - [<baseCode>] [<part?>]` và `Best of <actress> [<part?>]`; tách suffix tag đã đăng ký. |
-| `JOKE_VIDEO` | CHỐT | Mỗi `(baseCode, part)` là một subject riêng. `[TEST-001] A` và `[TEST-001] B` không được gộp. |
-| `JOKE_VIDEO` | CHỐT | `matchKey = JOKE:<baseCode>:<part-or-_>`; video/asset chỉ liên kết khi toàn bộ pair khớp. |
-| `JOKE_ASSET` | CHỐT | Chỉ lấy code, part và tag khi chúng được mã hóa trong filename; không coi `Cover` hay tên asset mơ hồ là actress/title. |
-| `JOKE_*` | CẦN CHỐT | `Best of` chỉ là tag, hay đồng thời là `studioName` để tương thích V1. |
-| `JOKE_*` | CẦN CHỐT | Code studio trùng registry (`FSDSS`, `MIST`): giữ `AMBIGUOUS` hay có rule disambiguation được xác nhận. |
-
-## USE
-
-| Profile | Trạng thái | Rule |
-| --- | --- | --- |
-| `USE_VIDEO` | CẦN CHỐT | Parse format strict `<actress> - <title> - <studioCode>`; studio chỉ resolve khi code unique. |
-| `USE_ASSET` | CẦN CHỐT | Chỉ semantic hóa khi filename tự khớp format strict; basename/link key đơn lẻ giữ `PARTIAL`. |
-| `USE_ALBUM` | CẦN CHỐT | Identity là relative folder; chỉ parse semantic khi leaf folder khớp format USE strict. |
-| `USE_*` | CẦN CHỐT | Khi nhiều studio code xuất hiện: chọn longest unique match hay trả `AMBIGUOUS`. |
-
-## Canonical handoff
+## 2. Tag & Token Policy
 
 | Trạng thái | Rule |
 | --- | --- |
-| CHỐT | FT018 chỉ persist/trả semantic candidate ở `scan_proposal.evidence`; Scan không ghi Catalog. |
-| PENDING FT019 | Scan lấy REST registry snapshot trước khi tạo run; không nhét registry vào `media.file.discovered.v1`. |
-| CẦN CHỐT | Nếu `APPROVE` phải materialize tag/semantic canonical, tạo event version mới mang `baseCode`, `part`, tag đã review và metadata candidate. `media.file.discovered.v1` hiện không đủ payload. |
+| CHỐT | Tag syntax: Tag chỉ nằm trong ngoặc tròn `(...)`, **KHÔNG** nằm trong ngoặc vuông `[...]`. Ngoặc vuông `[...]` dành riêng cho Studio Code / Part. |
+| CHỐT | Nếu token trong `(...)` khớp với `Tag.normalized_name` trong Registry snapshot (case-insensitive) → Parse thành `semantic.tagNames`. |
+| CHỐT | Nếu token trong `(...)` chưa có trong Catalog Tag Registry → Đưa vào `evidence.unrecognizedTags` để User review và khởi tạo Tag mới tại FE `metadata-admin`. **Không tự động biến token lạ thành Tag mới**. |
+| CHỐT | Tag `Best`: Hệ thống hỗ trợ candidate asset link để gộp asset `Best` (cover/image/video phụ) vào `PRIMARY_VIDEO` tương ứng, mặc dù bản thân file `Best` vẫn có thể đứng độc lập như một primary video. |
 
-## Điều kiện sang Design
+---
 
-1. Chốt policy token tag lạ.
-2. Chốt policy `Best of` và code studio trùng.
-3. Chốt precedence USE khi nhiều studio code xuất hiện.
-4. Hoàn tất FT019 để Scan có REST registry snapshot theo từng run.
-5. Chốt có hay không canonical handoff trong FT018 hay feature contract tiếp theo.
+## 3. Disambiguation & Studio Policy
+
+| Trạng thái | Rule |
+| --- | --- |
+| CHỐT | Rule `Best of`: Xử lý thành Studio Code = `BESTOF` và Studio Name = `Best Of`. |
+| CHỐT | Studio Code bị trùng/mơ hồ: Nếu 1 Studio Code (ví dụ `FSDSS`) map với nhiều hơn 1 Studio trong Registry → Trả proposal `AMBIGUOUS` kèm danh sách các Studio nghi vấn để User chọn owner khi review. |
+| CHỐT | Longest Unique Match: Khi filename chứa nhiều token khớp studio code, ưu tiên match token có độ dài lớn nhất và duy nhất. |
+
+---
+
+## 4. JOKE Region Rules
+
+| Profile | Trạng thái | Rule |
+| --- | --- | --- |
+| `JOKE_VIDEO` | CHỐT | Format chuẩn: `<actress> - [<baseCode>] [<part?>]` hoặc `Best of <actress> [<part?>]`. Tách tag trong `(...)`. |
+| `JOKE_VIDEO` | CHỐT | Mỗi `(baseCode, part)` đại diện cho 1 subject riêng. `[TEST-001] A` và `[TEST-001] B` không gộp chung. |
+| `JOKE_VIDEO` | CHỐT | `matchKey = JOKE:<baseCode>:<part-or-_>`; Video và Asset chỉ liên kết khi `matchKey` khớp hoàn toàn. |
+| `JOKE_ASSET` | CHỐT | Chỉ lấy code, part và tag khi được mã hóa rõ ràng trong filename; không tự coi tên file asset mơ hồ là title hay actress. |
+
+---
+
+## 5. USE Region Rules
+
+| Profile | Trạng thái | Rule |
+| --- | --- | --- |
+| `USE_*` | CHỐT | Format strict duy nhất: `<actress> - <title> - <studioCode>`. Mọi file/folder không đúng format này sẽ xếp vào nhóm phân loại xử lý sau (`PARTIAL`/`UNPARSEABLE`). |
+| `USE_VIDEO` | CHỐT | Bắt buộc tách đúng 3 thành phần `<actress>`, `<title>`, `<studioCode>`. Studio Code phải resolve thành công và duy nhất. |
+| `USE_ASSET` | CHỐT | Chỉ parse semantic khi filename tự thỏa mãn format strict; nếu không chỉ giữ basename/link key (`PARTIAL`). |
+| `USE_ALBUM` | CHỐT | Leaf folder name **bắt buộc** phải tuân thủ format strict `<actress> - <title> - <studioCode>`. Tên của các file ảnh bên trong folder album không quan trọng (chỉ cần là định dạng ảnh hợp lệ) và sẽ được thu thập trọn bộ vào album đó. |
+
+---
+
+## 6. Canonical Handoff & Event Contract
+
+| Trạng thái | Rule |
+| --- | --- |
+| CHỐT | Scan chỉ lưu trữ candidate kết quả parse tại `scan_proposal.evidence` và không trực tiếp ghi vào database Catalog. |
+| CHỐT | Khi User bấm `APPROVE` một Proposal: `scan-service` phát event `media.file.discovered.v2` (hoặc nâng cấp payload) mang đầy đủ thông tin semantic candidate (`baseCode`, `part`, `studioCode`, `actressNames`, `tagNames`) để Catalog materialize và upsert canonical metadata. |

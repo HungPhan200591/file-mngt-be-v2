@@ -177,7 +177,7 @@ class ScanIntegrationTest {
                 .getResponse()
                 .getContentAsString();
         var proposal = json.readTree(proposalPage).get("content").get(0);
-        assertThat(proposal.get("evidence").get("parserVersion").asText()).isEqualTo("v1");
+        assertThat(proposal.get("evidence").get("parserVersion").asText()).isEqualTo("v2");
         assertThat(proposal.get("evidence").get("extension").asText()).isEqualTo("mp4");
         assertThat(proposal.get("evidence").get("bracketCode").asText()).isEqualTo("JOKE-001");
         assertThat(proposal.get("evidence").get("semantic").get("title").asText())

@@ -1,6 +1,6 @@
 package com.filemngt.v2.scan.application;
 
-import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
+import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventEntity;
@@ -12,6 +12,8 @@ import com.filemngt.v2.scan.application.exception.DecisionConflictException;
 import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,18 +31,21 @@ public class ScanDecisionService {
     private final ScanDecisionRepository decisions;
     private final ScanOutboxEventRepository outbox;
     private final ObjectMapper json;
+    private final ScanMetadataExtractor metadataExtractor;
 
     public ScanDecisionService(
             ScanRunRepository runs,
             ScanProposalRepository proposals,
             ScanDecisionRepository decisions,
             ScanOutboxEventRepository outbox,
-            ObjectMapper json) {
+            ObjectMapper json,
+            ScanMetadataExtractor metadataExtractor) {
         this.runs = runs;
         this.proposals = proposals;
         this.decisions = decisions;
         this.outbox = outbox;
         this.json = json;
+        this.metadataExtractor = metadataExtractor;
     }
 
     @Transactional
@@ -67,16 +72,32 @@ public class ScanDecisionService {
                 proposal.sourceRelativePath());
         if ("APPROVE".equals(decision)) {
             var run = runs.findById(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
-            var event = new MediaFileDiscoveredV1(
+            Map<String, Object> evidence = metadataExtractor.read(proposal.evidence());
+            @SuppressWarnings("unchecked")
+            Map<String, Object> semantic = (Map<String, Object>) evidence.getOrDefault("semantic", Map.of());
+            String baseCode = (String) semantic.get("baseCode");
+            String part = (String) semantic.get("part");
+            String studioCode = (String) semantic.get("studioCode");
+            @SuppressWarnings("unchecked")
+            List<String> actressNames = (List<String>) semantic.getOrDefault("actressNames", List.of());
+            @SuppressWarnings("unchecked")
+            List<String> tagNames = (List<String>) semantic.getOrDefault("tagNames", List.of());
+
+            var event = new MediaFileDiscoveredV2(
                     eventId,
-                    "media.file.discovered.v1",
+                    "media.file.discovered.v2",
                     Instant.now(),
                     scanId,
                     proposalId,
                     proposal.profile().name().startsWith("JOKE") ? "JOKE" : "USE",
                     "ALBUM".equals(proposal.candidateType()) ? "ALBUM" : "VIDEO",
                     proposal.identityKey(),
+                    baseCode,
+                    part,
+                    studioCode,
                     proposal.displayTitle(),
+                    actressNames,
+                    tagNames,
                     proposal.assetRole(),
                     run.rootKey(),
                     proposal.sourceRelativePath());

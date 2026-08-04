@@ -121,7 +121,8 @@ public class ScanService {
                             parsed.key(),
                             parsed.title(),
                             parsed.role(),
-                            metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title())));
+                            metadataExtractor.extract(
+                                    root.profile(), relative, parsed.key(), parsed.title(), snapshot)));
                     proposed++;
                     LOGGER.info(
                             "Discovered scan proposal runId={} relativePath={} identityKey={} candidateType={} title={}",

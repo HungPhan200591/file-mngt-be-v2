@@ -1,30 +1,27 @@
-# 018 Scan semantic rule normalization
-
-Owner: `scan-service` / `scan_db`  
-Predecessor: [FT017 — Scan semantic metadata extraction](../017-scan-semantic-metadata-extraction/01-brief.md)
-Status: PENDING — chờ [FT019 — Catalog master data registry](../019-catalog-master-data-registry/03-plan.md) hoàn tất.
-Rule source of truth: [semantic-rules.md](./semantic-rules.md)
-
-## Vấn đề
-
-FT017 đã persist evidence cấu trúc nhưng chủ động để semantic ở `PARTIAL`: `actressNames`, `studioName` và `tagNames` chưa được suy ra. BE V1 có các parser JOKE/USE và registry studio, nhưng có fallback mơ hồ, registry trùng code và không dùng folder để suy luận semantic. Cần chốt rule deterministic trước khi đưa vào V2.
+# Feature Brief — FT018: Scan Semantic Rule Normalization
 
 ## Mục tiêu
+Nâng cấp `scan-service` để tự động parse và chuẩn hóa semantic metadata (Studio Code, Actress, Title, Part, Tag) từ filename/foldername dựa trên Catalog REST Registry Snapshot thu thập từ FT019. Khi proposal được `APPROVE`, `scan-service` phát event `media.file.discovered.v2` mang đầy đủ payload semantic candidate để Catalog materialize canonical metadata.
 
-Chuẩn hóa rule semantic theo từng `ScanProfile`, chỉ trích xuất dữ liệu được mã hóa rõ trong filename hoặc registry versioned. Proposal trả evidence reviewable gồm giá trị semantic, parser/rule version và warning khi không đủ bằng chứng hoặc có ambiguity.
+## Phạm vi (Scope)
+1. **Catalog Registry Integration**:
+   - Sử dụng `RegistrySnapshot` (studioCodes, tags) lấy từ `catalog-service` qua REST API tại đầu mỗi `scan_run`.
+2. **Semantic Parser Engine (`scan-service`)**:
+   - **JOKE Profile**:
+     - Format: `<actress> - [<baseCode>] [<part?>]` hoặc `Best of <actress> [<part?>]`.
+     - Studio Code `Best of` → Code `BESTOF`, Name `Best Of`.
+     - Ngoặc tròn `(...)` chứa Tag. Nếu Tag khớp Registry → map `semantic.tagNames`. Nếu Tag chưa có trong Registry → đưa vào `evidence.unrecognizedTags`.
+     - Ngoặc vuông `[...]` chứa BaseCode và Part.
+     - Part normalized: `A`, `B`, `PART 1`, `CD 1`... Mỗi `(baseCode, part)` đại diện cho một Subject độc lập `JOKE:<baseCode>:<part-or-_>`.
+     - Asset Candidate Link: File `Best` (cover/image/video phụ) liên kết với `PRIMARY_VIDEO` tương ứng.
+     - Studio Code Disambiguation: Nếu Studio Code map với nhiều Studio trong Registry → trả proposal `AMBIGUOUS`.
+   - **USE Profile (`USE_VIDEO`, `USE_ASSET`, `USE_ALBUM`)**:
+     - Format Strict: `<actress> - <title> - <studioCode>`. Mọi file/folder không khớp format strict này sẽ chuyển sang `PARTIAL`/`UNPARSEABLE`.
+     - `USE_ALBUM`: Folder leaf name bắt buộc theo format strict. Các file ảnh trong folder album được gom trọn bộ vào album đó.
+3. **Event Contract Upgrade**:
+   - Khởi tạo Event contract `media.file.discovered.v2` mở rộng payload chứa candidate semantic: `baseCode`, `part`, `studioCode`, `actressNames`, `tagNames`.
+   - Bổ sung `MediaFileDiscoveredConsumer` ở `catalog-service` hỗ trợ v2 event.
 
-## Acceptance criteria
-
-- Có rule matrix đã được duyệt cho `JOKE_VIDEO`, `JOKE_ASSET`, `USE_VIDEO`, `USE_ASSET` và `USE_ALBUM`: input, precedence, output semantic, warning và ví dụ.
-- Studio registry có owner/version, phát hiện code trùng thay vì chọn theo thứ tự nạp.
-- Normalization, tag và duplicate counter có semantics rõ; raw evidence không bị ghi đè. Tag filename được resolve qua `normalized_name` case-insensitive; token lạ không tự tạo canonical tag.
-- Với JOKE, mỗi cặp `(baseCode, part)` là một subject riêng; code đơn lẻ không được dùng để ghép proposal/video/asset hoặc làm canonical identity.
-- Không rule nào suy diễn actress/studio/tag chỉ từ folder cluster; folder chỉ chọn `ScanProfile`.
-- Khi rule không khớp hoặc ambiguous, proposal vẫn được tạo để review với `PARTIAL`/`AMBIGUOUS`, không có canonical write, Catalog lookup hay event change.
-- Design, Plan và code chỉ bắt đầu sau khi discovery được chốt.
-
-## Ngoài phạm vi
-
-- Catalog lookup/write, versioning canonical DTO/event, migration/backfill scan run cũ.
-- Suy đoán bằng AI/fuzzy matching, metadata kỹ thuật, thumbnail/GIF/hash và đổi filesystem.
-- Sao chép fallback thiếu an toàn hoặc hành vi map-override của BE V1.
+## Ngoài phạm vi (Out of Scope)
+- Không tự động sinh Tag mới trong Catalog Registry khi gặp Tag lạ trong `(...)` (chỉ ghi nhận vào `unrecognizedTags` để User xem/tạo tại `metadata-admin`).
+- Không scan hay query trực tiếp DB `catalog_db`.

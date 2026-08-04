@@ -4,9 +4,9 @@ Updated: 2026-08-04
 
 ## Hiện tại
 
-- Active feature: [`FT019 — Catalog master data registry`](./features/019-catalog-master-data-registry/03-plan.md) `DONE`: import/CRUD master data full-stack (catalog-service, scan-service, metadata-admin FE).
-- Feature tiếp theo: [`FT018 — Scan semantic rule normalization`](./features/018-scan-semantic-rule-normalization/semantic-rules.md) `READY`: dùng registry snapshot từ FT019 để validate Studio Code và Tag khi scan parsing.
-- Feature kế tiếp: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) đang `READY`; bắt đầu khi quay lại Phase 4.
+- Active feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
+- Feature hoàn thành gần nhất: [`FT018 — Scan semantic rule normalization`](./features/018-scan-semantic-rule-normalization/03-plan.md) `DONE`: parser semantic (Studio, Tag, Actress, Part), unrecognizedTags, USE strict format và Event Discovered V2.
+- Feature liên quan đã hoàn thành: [`FT019 — Catalog master data registry`](./features/019-catalog-master-data-registry/03-plan.md) `DONE`.
 - Không tạo Plan trạng thái tạm dừng. [`012-gallery-v2-parity-foundation`](./features/012-gallery-v2-parity-foundation/03-plan.md) vẫn `DRAFT` và chỉ triển khai sau backend parity.
 - Debt cần lưu ý khi chạm owner: [`TD-002`–`TD-005`](./TECHNICAL_DEBT.md); riêng `TD-003` đã khoanh vùng tại `query-service`, không phải `scan-service`.
 
