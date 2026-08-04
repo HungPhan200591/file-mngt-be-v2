@@ -1,5 +1,7 @@
 package com.filemngt.v2.scan.application;
 
+import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
+import com.filemngt.v2.scan.adapter.out.catalog.RegistrySnapshot;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalEntity;
@@ -11,6 +13,7 @@ import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
@@ -44,6 +47,7 @@ public class ScanService {
     private final ScanIssueRepository issues;
     private final ScanMetadataExtractor metadataExtractor;
     private final TaskExecutor taskExecutor;
+    private final CatalogRegistryClient catalogClient;
 
     public ScanService(
             ScanProperties properties,
@@ -51,13 +55,15 @@ public class ScanService {
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
             ScanMetadataExtractor metadataExtractor,
-            @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor) {
+            @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
+            CatalogRegistryClient catalogClient) {
         this.properties = properties;
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
         this.metadataExtractor = metadataExtractor;
         this.taskExecutor = taskExecutor;
+        this.catalogClient = catalogClient;
     }
 
     public ScanRunView start(String rootKey) {
@@ -68,8 +74,13 @@ public class ScanService {
         if (runs.existsByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING)) {
             throw new ScanRunAlreadyRunningException(rootKey);
         }
-        var run = runs.saveAndFlush(new ScanRunEntity(UUID.randomUUID(), root.key(), root.profile(), Instant.now()));
-        taskExecutor.execute(() -> execute(run.id(), root));
+        // FT019: fetch registry snapshot trước khi tạo run; 503 nếu unavailable
+        String region = mapRegion(root.profile());
+        RegistrySnapshot snapshot =
+                catalogClient.fetch(region).orElseThrow(() -> new CatalogRegistryUnavailableException(region));
+        var run = runs.saveAndFlush(new ScanRunEntity(
+                UUID.randomUUID(), root.key(), root.profile(), Instant.now(), snapshot.registryVersion()));
+        taskExecutor.execute(() -> execute(run.id(), root, snapshot));
         return view(run);
     }
 
@@ -80,7 +91,7 @@ public class ScanService {
                 .toList();
     }
 
-    public void execute(UUID runId, ScanProperties.Root root) {
+    public void execute(UUID runId, ScanProperties.Root root, RegistrySnapshot snapshot) {
         var run = runs.findById(runId).orElseThrow();
         long files = 0, proposed = 0, issue = 0;
         try (var paths = Files.walk(Path.of(root.path()))) {
@@ -198,6 +209,13 @@ public class ScanService {
         return value.trim().replaceAll("\\s+", " ").toLowerCase();
     }
 
+    private String mapRegion(ScanProfile profile) {
+        return switch (profile) {
+            case JOKE_VIDEO, JOKE_ASSET -> "JOKE";
+            case USE_VIDEO, USE_ASSET, USE_ALBUM -> "USE";
+        };
+    }
+
     private ScanRunView view(ScanRunEntity item) {
         return new ScanRunView(
                 item.id(),
@@ -209,7 +227,8 @@ public class ScanService {
                 item.scannedFileCount(),
                 item.proposalCount(),
                 item.issueCount(),
-                item.lastError());
+                item.lastError(),
+                item.registryVersion());
     }
 
     private <T> ScanPageView<T> page(org.springframework.data.domain.Page<T> value) {

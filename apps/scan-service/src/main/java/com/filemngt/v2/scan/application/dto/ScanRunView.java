@@ -15,4 +15,5 @@ public record ScanRunView(
         long scannedFileCount,
         long proposalCount,
         long issueCount,
-        String lastError) {}
+        String lastError,
+        Long registryVersion) {}

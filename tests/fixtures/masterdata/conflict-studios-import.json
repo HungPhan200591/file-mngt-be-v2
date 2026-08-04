@@ -1,0 +1,12 @@
+{
+  "JOKE": [
+    {
+      "studio": "Studio Conflict One",
+      "code": ["SHARED_CODE", "CODE1"]
+    },
+    {
+      "studio": "Studio Conflict Two",
+      "code": ["SHARED_CODE", "CODE2"]
+    }
+  ]
+}

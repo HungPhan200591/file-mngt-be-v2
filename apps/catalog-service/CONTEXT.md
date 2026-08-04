@@ -7,8 +7,9 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 ## Owns
 
 - Database `catalog_db`, Flyway Catalog, outbox và processed-event Catalog.
-- Command tạo/sửa subject và metadata.
-- API write/read canonical ở mức domain.
+- Các bảng master data: `studio`, `studio_code`, `tag`, `actress`, `master_data_registry`, `master_data_import`.
+- Command tạo/sửa subject và metadata, CRUD/Import Master Data Registry.
+- Internal API `GET /api/v2/master-data/scan-registry` cung cấp snapshot cho `scan-service`.
 - Event `media.subject.changed.v1`, `media.metadata.changed.v1`.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 

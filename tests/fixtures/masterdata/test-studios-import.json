@@ -1,0 +1,18 @@
+{
+  "JOKE": [
+    {
+      "studio": "Test Studio A",
+      "code": ["TST-001", "TST-002", "TESTA"]
+    },
+    {
+      "studio": "Test Studio B",
+      "code": ["TST-003", "TESTB"]
+    }
+  ],
+  "USE": [
+    {
+      "studio": "Test Studio C",
+      "code": ["TST-004", "TESTC"]
+    }
+  ]
+}

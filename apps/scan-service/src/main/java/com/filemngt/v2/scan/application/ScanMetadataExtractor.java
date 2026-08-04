@@ -24,16 +24,15 @@ class ScanMetadataExtractor {
     String extract(ScanProfile profile, String relativePath, String identityKey, String displayTitle) {
         String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
         String fileStem = fileName.replaceFirst("\\.[^.]+$", "");
-        String parentPath = relativePath.contains("/")
-                ? relativePath.substring(0, relativePath.lastIndexOf('/'))
-                : "";
+        String parentPath = relativePath.contains("/") ? relativePath.substring(0, relativePath.lastIndexOf('/')) : "";
         Map<String, Object> evidence = new LinkedHashMap<>();
         evidence.put("parserVersion", PARSER_VERSION);
         evidence.put("fileName", fileName);
         evidence.put("fileStem", fileStem);
         evidence.put("extension", extension(fileName));
         evidence.put("parentPath", parentPath);
-        evidence.put("pathSegments", parentPath.isEmpty() ? List.of() : new ArrayList<>(List.of(parentPath.split("/"))));
+        evidence.put(
+                "pathSegments", parentPath.isEmpty() ? List.of() : new ArrayList<>(List.of(parentPath.split("/"))));
         evidence.put("semantic", semantic(displayTitle));
         addProfileEvidence(evidence, profile, relativePath, identityKey);
         return write(evidence);

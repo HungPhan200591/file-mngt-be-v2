@@ -5,17 +5,24 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
+import com.filemngt.v2.scan.adapter.out.catalog.RegistrySnapshot;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -41,6 +48,15 @@ class ScanIntegrationTest {
 
     @Autowired
     ScanOutboxEventRepository outbox;
+
+    @MockitoBean
+    CatalogRegistryClient catalogClient;
+
+    @BeforeEach
+    void setUp() {
+        Mockito.when(catalogClient.fetch("JOKE"))
+                .thenReturn(Optional.of(new RegistrySnapshot(100L, "JOKE", List.of("JOKE-001"), List.of())));
+    }
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -81,6 +97,16 @@ class ScanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rootKey\":\"missing\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void scanReturns503WhenCatalogUnavailable() throws Exception {
+        Mockito.when(catalogClient.fetch("JOKE")).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v2/scans/previews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rootKey\":\"fixture\"}"))
+                .andExpect(status().isServiceUnavailable());
     }
 
     @Test
@@ -154,8 +180,10 @@ class ScanIntegrationTest {
         assertThat(proposal.get("evidence").get("parserVersion").asText()).isEqualTo("v1");
         assertThat(proposal.get("evidence").get("extension").asText()).isEqualTo("mp4");
         assertThat(proposal.get("evidence").get("bracketCode").asText()).isEqualTo("JOKE-001");
-        assertThat(proposal.get("evidence").get("semantic").get("title").asText()).isEqualTo("A");
-        assertThat(proposal.get("evidence").get("semantic").get("actressNames").isArray()).isTrue();
+        assertThat(proposal.get("evidence").get("semantic").get("title").asText())
+                .isEqualTo("A");
+        assertThat(proposal.get("evidence").get("semantic").get("actressNames").isArray())
+                .isTrue();
         assertThat(proposal.get("evidence").toString()).doesNotContain(ROOT.toString());
         String proposalId = proposal.get("id").asText();
         return new ScanProposalRef(id, proposalId);

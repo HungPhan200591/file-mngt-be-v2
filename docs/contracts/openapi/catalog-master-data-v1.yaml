@@ -1,0 +1,853 @@
+openapi: 3.1.1
+info:
+  title: Catalog Master Data API
+  version: v1
+  description: |
+    Admin API để quản trị Studio, Tag, Actress và import master data.
+    Endpoint scan-registry là internal giữa scan-service và catalog-service,
+    không route qua Gateway và không dành cho UI quản trị.
+servers:
+  - url: http://localhost:18101
+    description: Local Catalog theo ADR-004 (direct, không qua Gateway)
+
+paths:
+  # ── Studio ──────────────────────────────────────────────────────────────────
+  /api/v2/master-data/studios:
+    get:
+      operationId: listStudios
+      summary: List studios with optional filter
+      parameters:
+        - $ref: '#/components/parameters/Region'
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+          description: Partial name search (case-insensitive).
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of studios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioPage'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+    post:
+      operationId: createStudio
+      summary: Create a new studio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudioRequest'
+      responses:
+        '201':
+          description: Studio created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioDetail'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
+
+  /api/v2/master-data/studios/{studioId}:
+    get:
+      operationId: getStudio
+      summary: Get studio by id
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+      responses:
+        '200':
+          description: Studio detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+    patch:
+      operationId: updateStudio
+      summary: Update studio display name
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStudioRequest'
+      responses:
+        '200':
+          description: Studio updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioDetail'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  /api/v2/master-data/studios/{studioId}/enable:
+    post:
+      operationId: enableStudio
+      summary: Re-enable a disabled studio
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+      responses:
+        '200':
+          description: Studio enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  /api/v2/master-data/studios/{studioId}/disable:
+    post:
+      operationId: disableStudio
+      summary: Disable a studio (keeps record, removes from scan-registry snapshot)
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+      responses:
+        '200':
+          description: Studio disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  # ── Studio Code ─────────────────────────────────────────────────────────────
+  /api/v2/master-data/studios/{studioId}/codes:
+    get:
+      operationId: listStudioCodes
+      summary: List codes belonging to a studio
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of studio codes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudioCodeDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+    post:
+      operationId: addStudioCode
+      summary: Add a new code to a studio
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddStudioCodeRequest'
+      responses:
+        '201':
+          description: Studio code added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCodeDetail'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
+
+  /api/v2/master-data/studios/{studioId}/codes/{codeId}:
+    delete:
+      operationId: removeStudioCode
+      summary: Remove a studio code (hard delete; bump registryVersion)
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+        - name: codeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Studio code removed
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  /api/v2/master-data/studios/{studioId}/codes/{codeId}/enable:
+    post:
+      operationId: enableStudioCode
+      summary: Re-enable a disabled studio code
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+        - name: codeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Studio code enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCodeDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  /api/v2/master-data/studios/{studioId}/codes/{codeId}/disable:
+    post:
+      operationId: disableStudioCode
+      summary: Disable a studio code (removes from scan-registry snapshot)
+      parameters:
+        - $ref: '#/components/parameters/StudioId'
+        - name: codeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Studio code disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCodeDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  # ── Studio Import ────────────────────────────────────────────────────────────
+  /api/v2/master-data/imports/studios:
+    post:
+      operationId: importStudios
+      summary: Import studios from JSON (dry-run or apply)
+      description: |
+        Nhận JSON theo schema `{JOKE:[{studio, code:[]}], USE:[...]}`.
+        dryRun=true (default): chỉ trả report, không ghi DB.
+        dryRun=false: apply atomic khi zero conflict.
+      parameters:
+        - name: dryRun
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioImportPayload'
+      responses:
+        '200':
+          description: Import report (dry-run or successful apply)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportReport'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '409':
+          description: Conflict detected; no data written
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ImportConflictProblem'
+
+  # ── Tag ─────────────────────────────────────────────────────────────────────
+  /api/v2/master-data/tags:
+    get:
+      operationId: listTags
+      summary: List tags
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of tags
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagPage'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+    post:
+      operationId: createTag
+      summary: Create a new tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '201':
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagDetail'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
+
+  /api/v2/master-data/tags/{tagId}/enable:
+    post:
+      operationId: enableTag
+      summary: Re-enable a disabled tag
+      parameters:
+        - $ref: '#/components/parameters/TagId'
+      responses:
+        '200':
+          description: Tag enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  /api/v2/master-data/tags/{tagId}/disable:
+    post:
+      operationId: disableTag
+      summary: Disable a tag
+      parameters:
+        - $ref: '#/components/parameters/TagId'
+      responses:
+        '200':
+          description: Tag disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  # ── Actress ──────────────────────────────────────────────────────────────────
+  /api/v2/master-data/actresses:
+    get:
+      operationId: listActresses
+      summary: List actresses with optional filter
+      parameters:
+        - $ref: '#/components/parameters/Region'
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of actresses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActressPage'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+    post:
+      operationId: createActress
+      summary: Create a new actress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActressRequest'
+      responses:
+        '201':
+          description: Actress created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActressDetail'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
+
+  /api/v2/master-data/actresses/{actressId}/enable:
+    post:
+      operationId: enableActress
+      summary: Re-enable a disabled actress
+      parameters:
+        - $ref: '#/components/parameters/ActressId'
+      responses:
+        '200':
+          description: Actress enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActressDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  /api/v2/master-data/actresses/{actressId}/disable:
+    post:
+      operationId: disableActress
+      summary: Disable an actress
+      parameters:
+        - $ref: '#/components/parameters/ActressId'
+      responses:
+        '200':
+          description: Actress disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActressDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+
+  # ── Internal: Scan Registry ──────────────────────────────────────────────────
+  /api/v2/master-data/scan-registry:
+    get:
+      operationId: getScanRegistry
+      summary: "[Internal] Get immutable registry snapshot for a scan region"
+      description: |
+        Internal API dùng bởi scan-service trước khi tạo scan_run.
+        Không route qua Gateway. Không dùng cho UI quản trị.
+        Trả Studio Code active của region yêu cầu và Tag global active.
+      parameters:
+        - name: region
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Region'
+      responses:
+        '200':
+          description: Registry snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrySnapshot'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '503':
+          description: Registry temporarily unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+components:
+  parameters:
+    Region:
+      name: region
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/Region'
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    StudioId:
+      name: studioId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TagId:
+      name: tagId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ActressId:
+      name: actressId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    ValidationProblem:
+      description: Request validation failed
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    ConflictProblem:
+      description: Canonical identity already exists
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    NotFoundProblem:
+      description: Resource does not exist
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+  schemas:
+    # ── Enums ──────────────────────────────────────────────────────────────────
+    Region:
+      type: string
+      enum: [JOKE, USE]
+
+    # ── Studio ─────────────────────────────────────────────────────────────────
+    CreateStudioRequest:
+      type: object
+      required: [region, displayName]
+      properties:
+        region:
+          $ref: '#/components/schemas/Region'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    UpdateStudioRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    StudioDetail:
+      type: object
+      required: [id, region, displayName, normalizedName, active, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        region:
+          $ref: '#/components/schemas/Region'
+        displayName:
+          type: string
+        normalizedName:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioCodeDetail'
+
+    StudioPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioDetail'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    # ── Studio Code ────────────────────────────────────────────────────────────
+    AddStudioCodeRequest:
+      type: object
+      required: [rawCode]
+      properties:
+        rawCode:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    StudioCodeDetail:
+      type: object
+      required: [id, studioId, region, rawCode, normalizedCode, active, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        studioId:
+          type: string
+          format: uuid
+        region:
+          $ref: '#/components/schemas/Region'
+        rawCode:
+          type: string
+        normalizedCode:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Studio Import ──────────────────────────────────────────────────────────
+    StudioImportPayload:
+      type: object
+      description: |
+        Top-level keys are region strings (JOKE, USE).
+        Each entry has a studio display name and an array of codes.
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/components/schemas/StudioImportRow'
+
+    StudioImportRow:
+      type: object
+      required: [studio, code]
+      properties:
+        studio:
+          type: string
+          minLength: 1
+          maxLength: 255
+        code:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+    ImportReport:
+      type: object
+      required: [dryRun, totalInput, createdCount, mergedCount, conflictCount]
+      properties:
+        dryRun:
+          type: boolean
+        totalInput:
+          type: integer
+        createdCount:
+          type: integer
+        mergedCount:
+          type: integer
+        conflictCount:
+          type: integer
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportConflictItem'
+
+    ImportConflictItem:
+      type: object
+      required: [region, normalizedCode, conflictingStudios]
+      properties:
+        region:
+          $ref: '#/components/schemas/Region'
+        normalizedCode:
+          type: string
+        conflictingStudios:
+          type: array
+          items:
+            type: string
+          description: Display names of studios claiming the same code.
+
+    ImportConflictProblem:
+      type: object
+      required: [type, title, status, conflicts]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportConflictItem'
+
+    # ── Tag ────────────────────────────────────────────────────────────────────
+    CreateTagRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    TagDetail:
+      type: object
+      required: [id, displayName, normalizedName, active, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        normalizedName:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    TagPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagDetail'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    # ── Actress ────────────────────────────────────────────────────────────────
+    CreateActressRequest:
+      type: object
+      required: [region, displayName]
+      properties:
+        region:
+          $ref: '#/components/schemas/Region'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    ActressDetail:
+      type: object
+      required: [id, region, displayName, normalizedName, active, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        region:
+          $ref: '#/components/schemas/Region'
+        displayName:
+          type: string
+        normalizedName:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    ActressPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActressDetail'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    # ── Registry Snapshot (internal) ───────────────────────────────────────────
+    RegistrySnapshot:
+      type: object
+      required: [registryVersion, region, studioCodes, tags]
+      properties:
+        registryVersion:
+          type: integer
+          format: int64
+          description: Monotonically increasing; incremented on every master data mutation.
+        region:
+          $ref: '#/components/schemas/Region'
+        studioCodes:
+          type: array
+          items:
+            type: string
+          description: Active normalized studio codes for the requested region.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Active normalized tag names (global, not region-filtered).
+
+    # ── Shared ─────────────────────────────────────────────────────────────────
+    ProblemDetail:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string

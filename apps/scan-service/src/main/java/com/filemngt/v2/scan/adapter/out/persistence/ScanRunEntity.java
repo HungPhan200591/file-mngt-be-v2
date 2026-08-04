@@ -30,15 +30,17 @@ public class ScanRunEntity {
     private long proposalCount;
     private long issueCount;
     private String lastError;
+    private Long registryVersion;
 
     protected ScanRunEntity() {}
 
-    public ScanRunEntity(UUID id, String rootKey, ScanProfile profile, Instant startedAt) {
+    public ScanRunEntity(UUID id, String rootKey, ScanProfile profile, Instant startedAt, Long registryVersion) {
         this.id = id;
         this.rootKey = rootKey;
         this.profile = profile;
         this.startedAt = startedAt;
         this.status = ScanRunStatus.RUNNING;
+        this.registryVersion = registryVersion;
     }
 
     public void complete(long files, long proposals, long issues) {
@@ -93,5 +95,9 @@ public class ScanRunEntity {
 
     public String lastError() {
         return lastError;
+    }
+
+    public Long registryVersion() {
+        return registryVersion;
     }
 }

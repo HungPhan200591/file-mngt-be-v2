@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
+import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.DecisionConflictException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
@@ -26,6 +27,11 @@ public class ScanExceptionHandler {
     @ExceptionHandler(DecisionConflictException.class)
     ProblemDetail decisionConflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e);
+    }
+
+    @ExceptionHandler(CatalogRegistryUnavailableException.class)
+    ProblemDetail catalogUnavailable(RuntimeException e) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, e);
     }
 
     @ExceptionHandler({

@@ -1,0 +1,5 @@
+package com.filemngt.v2.catalog.masterdata.application.dto;
+
+import java.util.List;
+
+public record MasterDataPageView<T>(List<T> content, int page, int size, long totalElements, int totalPages) {}
