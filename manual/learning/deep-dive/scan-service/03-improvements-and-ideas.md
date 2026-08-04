@@ -35,11 +35,20 @@ Tài liệu tổng hợp đánh giá kỹ thuật, các điểm hạn chế/trad
   - Cung cấp API **Bulk Decision Batch** `POST /api/v2/scans/{scanId}/proposals/bulk-decision` cho phép truyền mảng ID hoặc bộ lọc criteria.
   - Thực hiện Batch SQL Inserts vào `scan_decision` và `scan_outbox_event` trong 1 Single DB Transaction (dùng `JdbcTemplate.batchUpdate()`), giảm thời gian duyệt 10,000 item từ vài chục giây xuống $< 500ms$.
 
-### ⚠️ 5. Outbox Polling Concurrency ở Môi trường Multi-Node (High Availability / Multi-Instance)
-- **Hiện trạng**: Outbox Poller quét bảng `scan_outbox_event` theo chu kỳ để publish sang Kafka.
-- **Hạn chế**: Khi triển khai `scan-service` scale ngang (Multi-Pod trên Kubernetes / Cloud), các Instance poller có thể tranh chấp lock hoặc bắn trùng event sang Kafka.
-- **Đề xuất cải tiến**:
-  - Áp dụng kỹ thuật **`FOR UPDATE SKIP LOCKED`** (PostgreSQL) trong câu query Outbox Poller. Giúp các Instance Pods quét và xử lý song song các batch outbox event khác nhau mà không bao giờ bị lock chéo DB hay trùng lặp message.
+### ⚠️ 6. Thiếu Dead Letter Queue (DLQ / DLT) xử lý Poison Pill Event
+- **Hiện trạng**: Khi Consumer nhận tin nhắn từ Kafka mà gặp ngoại lệ (Poison Pill dữ liệu dị tật), Consumer lặp vô tận việc đọc lỗi.
+- **Hạn chế**: Gây nghẽn toàn bộ Kafka Partition (Head-of-Line Blocking), treo tiến trình xử lý của các message hợp lệ khác.
+- **Đề xuất cải tiến**: Cấu hình `DeadLetterPublishingRecoverer` đẩy tin nhắn lỗi sang Dead Letter Topic (`media.file.discovered.v2.DLT`) sau 3 lần retry thất bại.
+
+### ⚠️ 7. Thiếu Circuit Breaker & TimeLimiter cho Synchronous Call (Catalog Registry Client)
+- **Hiện trạng**: `scan-service` gọi HTTP đồng bộ sang `catalog-service` xin `RegistrySnapshot` trước khi scan.
+- **Hạn chế**: Nếu Catalog Service phản hồi chậm (slow response > 10s), các thread khởi tạo scan bị nghẽn (Cascading Latency).
+- **Đề xuất cải tiến**: Tích hợp **Resilience4j Circuit Breaker + TimeLimiter** (Timeout 2s Fail-Fast).
+
+### ⚠️ 8. Đứt đoạn Correlation ID Tracing qua Kafka Record Headers
+- **Hiện trạng**: `X-Correlation-ID` chỉ truyền qua HTTP Header. Khi `scan-service` ghi Outbox và bắn sang Kafka chưa nhúng Correlation ID vào Kafka Header.
+- **Hạn chế**: Mất vết Distributed Tracing khi event sang Catalog Service và Query Service.
+- **Đề xuất cải tiến**: Nhúng `correlationId` vào Kafka Record Header để tracing liên tục end-to-end.
 
 ---
 

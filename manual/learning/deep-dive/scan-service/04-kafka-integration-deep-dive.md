@@ -271,6 +271,30 @@ INFO  c.f.v.c.a.CatalogDiscoveredService  : Upserted media subject identityKey=s
 
 ---
 
+### 🔴 Lỗi 4: Multi-Node Outbox Polling Concurrency (Race Condition)
+- **Biểu hiện**: Khi scale ngang `scan-service` thành nhiều Pods trên Kubernetes/Cloud, xuất hiện các tin nhắn trùng lặp bắn sang Kafka.
+- **Nguyên nhân**: Các Instance Poller cùng chạy câu lệnh SQL `SELECT ... WHERE published_at IS NULL` tại cùng một thời điểm và nhận về cùng một tập dữ liệu PENDING.
+- **Xử lý**:
+  Áp dụng **`FOR UPDATE SKIP LOCKED`** (PostgreSQL) trong câu query Repository hoặc dùng **`ShedLock` (Redis Distributed Lock)** để đảm bảo chỉ 1 Instance được xử lý 1 batch tại 1 thời điểm.
+
+---
+
+### 🔴 Lỗi 5: Message dị tật gây tắc nghẽn Kafka (Poison Pill & Thiếu DLT)
+- **Biểu hiện**: Consumer ở Catalog/Query Service lặp vô tận việc đọc-lỗi-đọc-lỗi, khiến toàn bộ tiến trình tiêu thụ tin nhắn bị tắc nghẽn (Head-of-Line Blocking).
+- **Nguyên nhân**: Một message bị hỏng JSON hoặc thiếu dữ liệu bắt buộc làm code Consumer ném Unhandled Exception mà không được retry/skip đúng cách.
+- **Xử lý**:
+  Cấu hình Kafka Listener Container Factory dùng **`DeadLetterPublishingRecoverer`**. Sau 3 lần retry thất bại, tự động đẩy message sang Dead Letter Topic (`media.file.discovered.v2.DLT`) để cảnh báo Admin.
+
+---
+
+### 🔴 Lỗi 6: Mất dấu vết Distributed Tracing khi tìm kiếm log sự cố
+- **Biểu hiện**: Tra cứu log bằng Correlation ID trên Kibana/Grafana chỉ thấy log từ `gateway-service` và `scan-service`, nhưng không tìm thấy vết log tiếp theo tại `catalog-service`.
+- **Nguyên nhân**: `scan-service` chưa nhúng `X-Correlation-ID` vào **Kafka Record Header** khi bắn outbox event.
+- **Xử lý**:
+  Bổ sung header `X-Correlation-ID` vào `ProducerRecord` trong `KafkaOutboxMessagePublisher` và trích xuất header ở `@KafkaListener` để gắn lại MDC context (`MDC.put("traceId", ...)`).
+
+---
+
 ## 🔗 Tài liệu liên quan trong Dự án
 
 - [02-approval-and-outbox-flow.md](file:///d:/Study/Project/file_mngt_microservice/manual/learning/deep-dive/scan-service/02-approval-and-outbox-flow.md) — Chi tiết luồng duyệt Approve & Outbox Pattern.
