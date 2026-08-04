@@ -8,14 +8,14 @@ Design: [02-design.md](./02-design.md)
 - Owner: `catalog-service`/`catalog_db`; `scan-service` chỉ thêm REST client và snapshot-per-run, không truy cập `catalog_db`.
 - Scope: Catalog Flyway/entity/repository/service/web/OpenAPI/test; Scan REST client, immutable parser context, run/proposal registry version và E2E HTTP.
 - Must preserve: Catalog subject/asset behavior, Scan filesystem read-only, existing event v1, no absolute path, existing root port/ownership, source dưới 500 dòng/file.
-- Read on demand: Catalog/Scan context, Catalog migrations/entities, Scan start flow, Scan OpenAPI, `docs/contracts/openapi/` và `tests/e2e/README.md`.
+- Read on demand: Catalog/Scan context, Catalog migrations/entities, Scan start flow, Scan OpenAPI, [Studio import contract](./04-studio-import-contract.md), `docs/contracts/openapi/` và `tests/e2e/README.md`.
 
 ## Bước triển khai
 
-1. Viết `catalog-master-data-v1.yaml`: import dry-run/apply, CRUD/search/page, enable/disable và internal scan-registry snapshot; xác định 400/404/409/503 compatibility.
-2. Thêm Catalog Flyway cho master tables, normalized unique/index, registry version và import audit. Seed fixture JSON nằm ở test/resource; không chạy import thật.
-3. Cài Catalog domain/application CRUD + import validate-all-then-apply; mỗi mutation tăng registry version atomically.
-4. Cài Catalog web adapter và integration test: dry-run không ghi, apply hợp lệ, duplicate conflict theo region, disable, snapshot theo region chỉ trả Studio Code/Tag active và version tăng.
+1. Viết `catalog-master-data-v1.yaml`: Studio import endpoint theo `04-studio-import-contract.md`, CRUD/search/page, enable/disable và internal scan-registry snapshot; xác định 400/404/409/503 compatibility.
+2. Thêm Catalog Flyway cho master tables, normalized unique/index, registry version và import audit. Tạo fixture V2 độc lập theo schema import; không chạy import thật.
+3. Cài Catalog domain/application CRUD + Studio import validate-all-then-apply: merge Studio cùng region/name, report duplicate-code conflict, atomic/idempotent, mỗi mutation tăng registry version.
+4. Cài Catalog web adapter và integration test với data test riêng: dry-run không ghi, apply hợp lệ, duplicate conflict theo region, disable, snapshot theo region chỉ trả Studio Code/Tag active và version tăng.
 5. Thêm Scan REST client với timeout/config; trước khi persist run lấy snapshot. Persist `registryVersion` ở run và truyền snapshot immutable vào parser.
 6. Update Scan OpenAPI response nếu `registryVersion` được expose; thêm test Catalog unavailable trả `503` không tạo run, và test run giữ snapshot version.
 7. Bổ sung E2E HTTP fixture: import/CRUD master data → snapshot → start Scan; không assert semantic extraction của FT018.

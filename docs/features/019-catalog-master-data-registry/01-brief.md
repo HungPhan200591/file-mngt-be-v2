@@ -15,6 +15,7 @@ Xây đủ master data tối thiểu để bắt đầu full scan: import an to�
 - `catalog_db` sở hữu Studio/Studio Code, Tag, Actress và registry version.
 - Studio và Studio Code thuộc đúng một `region` (`JOKE` hoặc `USE`); Tag là global, Actress thuộc `region`.
 - Có import JSON với `dryRun` mặc định, validate toàn bộ trước apply và không overwrite/đoán conflict.
+- Studio import tương thích schema `studios.json` theo [import contract](./04-studio-import-contract.md); Tag và Actress dùng CRUD hoặc fixture/import payload V2 do người dùng cung cấp.
 - Có CRUD cơ bản, pagination/search và enable/disable cho Studio, Tag, Actress và Studio Code.
 - `GET` registry theo region trả `registryVersion`, Studio Code của region đó và Tag global active; không trả filesystem path hay data không cần cho parser.
 - Scan lấy snapshot qua REST trước khi tạo run; lỗi Catalog/registry khiến request scan fail rõ ràng, không tạo run parse thiếu registry.

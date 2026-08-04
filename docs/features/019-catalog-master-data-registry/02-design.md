@@ -40,6 +40,7 @@ Catalog thêm OpenAPI `catalog-master-data-v1.yaml`:
 
 - CRUD/search/pagination cho `/api/v2/master-data/studios`, `tags`, `actresses`; Studio Code là sub-resource của Studio.
 - `POST /api/v2/master-data/imports` nhận JSON payload + `dryRun` (default `true`). Apply chỉ được phép khi `dryRun=false`, payload hợp lệ và không conflict.
+- `POST /api/v2/master-data/imports/studios?dryRun=true|false` nhận đúng schema [Studio import contract](./04-studio-import-contract.md); không để Catalog đọc path BE V1.
 - `GET /api/v2/master-data/scan-registry?region=JOKE|USE` trả `{ registryVersion, region, studioCodes, tags }`: chỉ Studio Code của region yêu cầu, còn Tag global active. Đây là API nội bộ giữa service, không route qua Gateway và không dùng để UI quản trị.
 
 ## Luồng Scan
@@ -52,7 +53,8 @@ Catalog thêm OpenAPI `catalog-master-data-v1.yaml`:
 
 ## Import, validation và failure
 
-- Seed V1 là input JSON một lần, không là runtime dependency. Import dry-run trả counts, duplicate studio code/tag/actress và lỗi validation.
+- Studio JSON V1 là input một lần, không là runtime dependency. Import dry-run trả counts, merge Studio trùng cùng region, conflict Studio Code và lỗi validation; apply atomic/idempotent theo import contract.
+- Tag và Actress nhận CRUD hoặc fixture/import payload V2 độc lập; không hard-code dữ liệu V1 trong migration hay test.
 - Apply conflict trả `409` cùng item lỗi; không partial-write. Admin sửa payload/CRUD rồi import lại.
 - Disable giữ lịch sử canonical nhưng loại entry khỏi snapshot active. Tag/Studio Code inactive không được parser resolve.
 - FT019 không phát Kafka event: Scan pull snapshot lúc bắt đầu run vì dataset nhỏ và cần consistency theo run. Không có cross-database access.
