@@ -1,6 +1,6 @@
 # 🛠️ Nợ Kỹ Thuật (Technical Debt) & Lộ Trình Refactor Backend V2
 
-Updated: 2026-08-03
+Updated: 2026-08-04
 
 Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn bộ **Nợ kỹ thuật (Technical Debt)**, các đoạn mã nguồn cũ (Legacy Code), Code Smells và Kế hoạch cải tiến (Refactoring Backlog) của hệ thống Backend V2.
 
@@ -20,7 +20,6 @@ Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn 
 
 | ID | Service | Cấp độ | Tóm tắt Nợ Kỹ thuật | Nguyên nhân / Ngữ cảnh | Kế hoạch Trả nợ (Resolution Plan) | Trạng thái |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`TD-001`** | `scan-service` | 🔴 CRITICAL | `ScanService` trả về public result type và exception leak ra bên ngoài controller. | Code giai đoạn P1/P2 chưa tách biệt hoàn toàn Application DTO & Controller DTO. | Triển khai plan [FT016 — Scan Service Boundary Cleanup](./features/016-scan-service-boundary-cleanup/03-plan.md). | ⏳ `READY` (Planned) |
 | **`TD-002`** | `gateway-service` | 🟡 MEDIUM | Mã nguồn Gateway Media Delivery (FT011) cũ vẫn nằm trong codebase. | Kiến trúc Media Delivery đã được thay thế bởi Nginx Direct Media Delivery theo [ADR-005](./adr/ADR-005-nginx-direct-media-delivery.md) (Port `18119`). | Xóa bỏ legacy media routing handler trong `gateway-service` ở đợt Cleanup Gateway. | 📝 `BACKLOG` |
 | **`TD-003`** | `query-service` | 🟡 MEDIUM | Rủi ro Thread Pinning tại `ensureAlias()` khi bật Virtual Threads. | Audit 100% Java code: `scan-service` sạch 100% (`0` synchronized). Chỉ `query-service` dính 1 vị trí tại `ElasticsearchSearchAdapter.java` (`ensureAlias()`). | Refactor `ensureAlias()` trong `query-service` từ `synchronized` sang `ReentrantLock` khi đến Phase Query Service. *(Xem [04-thread-pinning-deep-dive.md](../manual/learning/deep-dive/virtual-threads/04-thread-pinning-deep-dive.md))*. | 🔍 `AUDITED` |
 | **`TD-004`** | `platform/observability` | 🟢 LOW | Metrics Prometheus (`scan_run_duration_seconds`) chưa được gắn MDC Trace ID. | Phân tán giữa Micrometer metrics và OpenTelemetry Tracing. | Cấu hình MDC Correlation ID vào Micrometer custom Observation Handler. | 📝 `BACKLOG` |
@@ -28,11 +27,20 @@ Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn 
 
 ---
 
-## ⚙️ 3. Quy Trình Quản Lý & Trả Nợ Kỹ Thuật (Debt Resolution Protocol)
+## ✅ 3. Nợ Kỹ Thuật Đã Trả (Resolved Debt)
+
+| ID | Service | Đã xử lý | Evidence | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- |
+| **`TD-001`** | `scan-service` | Public view record và exception đã tách khỏi `ScanService`; `Parsed` giữ private, HTTP/API nghiệp vụ không đổi. | [FT016 — Scan Service Boundary Cleanup](./features/016-scan-service-boundary-cleanup/03-plan.md), commit `0750098` | ✅ `DONE` |
+
+---
+
+## ⚙️ 4. Quy Trình Quản Lý & Trả Nợ Kỹ Thuật (Debt Resolution Protocol)
 
 1. **Nguyên tắc Không sửa tự do**: 
    - Không tự ý thực hiện refactor lớn mà không nằm trong kế hoạch ADLC Feature hoặc được phê duyệt rõ ràng.
 2. **Quy trình Đăng ký Nợ mới**:
    - Khi phát hiện Code Smell hoặc nợ phát sinh trong quá trình code Feature, Developer/Agent bổ sung 1 dòng mới vào bảng `Active Technical Debt Backlog` với ID `TD-xxx`.
 3. **Quy trình Trả nợ (Paydown Protocol)**:
-   - Khi triển khai một Feature mới chạm vào Service chứa Debt, xem xét kết hợp trả nợ `TD-xxx` trong cùng Implementation Plan đó và cập nhật trạng thái sang `DONE`.
+   - Khi triển khai một Feature mới chạm vào Service chứa Debt, xem xét kết hợp trả nợ `TD-xxx` trong cùng Implementation Plan đó.
+   - Khi hoàn tất, chuyển mục khỏi `Active Technical Debt Backlog` sang `Resolved Debt`, link Plan/evidence và cập nhật trạng thái `DONE` trong cùng task.

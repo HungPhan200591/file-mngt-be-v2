@@ -1,6 +1,6 @@
 # 016 Scan service boundary cleanup — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -40,4 +40,11 @@ Design: [02-design.md](./02-design.md)
 
 ## Source-of-truth audit
 
-- Không đổi architecture, service ownership, database schema, REST/Kafka contract hay ADR; không cần cập nhật source of truth ngoài task tracking và kế hoạch này.
+- Không đổi architecture, service ownership, database schema, REST/Kafka contract hay ADR; đã cập nhật task tracking và [`TD-001`](../../TECHNICAL_DEBT.md) trong cùng task.
+
+## Implementation handoff — 2026-08-04
+
+- Hoàn tất tại commit `0750098`: public view records đã chuyển sang `application.dto`; exception Scan đã chuyển sang `application.exception` và caller/web handler dùng top-level type.
+- `ScanService` chỉ còn `Parsed` private implementation detail; không còn import `ScanService.SomeType` trong source production/test.
+- `ScanController` và `ScanExceptionHandler` đã đổi import nhưng giữ response/error boundary hiện có; không có thay đổi database, Kafka event, filesystem behavior hoặc service ownership.
+- Xác minh tĩnh khi đồng bộ status: không có public nested record/exception trong `ScanService`; các DTO/exception top-level hiện có đúng package. Không chạy Maven/Docker trong task cập nhật tracking này.

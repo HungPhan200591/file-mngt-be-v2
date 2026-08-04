@@ -25,6 +25,7 @@ Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corrett
 8. Viết/chạy E2E HTTP: đọc `tests/e2e/README.md`; chỉ đọc feature/contract của API được kiểm tra.
 9. Sửa Docsify/GitHub Pages hoặc khi người dùng yêu cầu preview/deploy docs: dùng `$deploy-github-pages`; trước khi khảo sát hoặc deploy phải đồng bộ remote bằng `git pull`; Agent chạy `node ./.docsify/generate-sidebar.mjs` ngay trước commit/push. Sidebar chỉ sinh từ `manual/` và `docs/`, không sửa tay.
 10. Tạo/sửa trọn bộ deep-dive + summary + question bank: dùng `$study-topic-workflow`; nếu chỉ sửa một artifact, dùng đúng `$deep-dive-technical-topic`, `$distill-study-summary` hoặc `$build-question-bank`.
+11. Refactor, debt audit hoặc trả nợ kỹ thuật: đọc `docs/TECHNICAL_DEBT.md` cùng owner context; Plan phải link `TD-xxx` liên quan và cập nhật debt trong cùng task.
 
 Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về ADLC, contract và session nằm trong skill tương ứng.
 
@@ -32,6 +33,7 @@ Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về 
 
 - Kiến trúc: `docs/architecture/`.
 - Trạng thái hiện tại: `docs/STATUS.md`.
+- Nợ kỹ thuật/refactor backlog: `docs/TECHNICAL_DEBT.md`.
 - Context nghiệp vụ/owner: `apps/<service>/CONTEXT.md`.
 - Feature đang làm: `docs/features/<feature-id>/`.
 - REST và Kafka contract: `docs/contracts/`.
