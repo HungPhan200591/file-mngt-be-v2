@@ -34,6 +34,7 @@
         * [📁 Filesystem Preview Engine & Strategy Pattern](/manual/learning/deep-dive/scan-service/01-filesystem-preview-engine.md)
         * [🔄 Approval Ingestion Flow & Transactional Outbox Integration](/manual/learning/deep-dive/scan-service/02-approval-and-outbox-flow.md)
         * [💡 Scan Service: Technical Assessment & Improvement Ideas](/manual/learning/deep-dive/scan-service/03-improvements-and-ideas.md)
+        * [⚡ Kafka Integration Deep-Dive trong Scan Service](/manual/learning/deep-dive/scan-service/04-kafka-integration-deep-dive.md)
       * **transactional-outbox**
         * [📦 Transactional Outbox Pattern: Overview & Fundamentals](/manual/learning/deep-dive/transactional-outbox/00-overview.md)
         * [🏗️ Outbox Architecture & Implementation Details](/manual/learning/deep-dive/transactional-outbox/01-architecture-implementation.md)
