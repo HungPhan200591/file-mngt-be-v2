@@ -91,6 +91,12 @@ public class MasterDataController {
         return studioService.setActive(studioId, false);
     }
 
+    @DeleteMapping("/studios/{studioId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteStudio(@PathVariable UUID studioId) {
+        studioService.delete(studioId);
+    }
+
     // ── Studio Codes ──────────────────────────────────────────────────────────
 
     @GetMapping("/studios/{studioId}/codes")
@@ -168,6 +174,12 @@ public class MasterDataController {
         return tagService.setActive(tagId, false);
     }
 
+    @DeleteMapping("/tags/{tagId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTag(@PathVariable UUID tagId) {
+        tagService.delete(tagId);
+    }
+
     // ── Actresses ────────────────────────────────────────────────────────────
 
     @GetMapping("/actresses")
@@ -194,6 +206,12 @@ public class MasterDataController {
     @PostMapping("/actresses/{actressId}/disable")
     public ActressView disableActress(@PathVariable UUID actressId) {
         return actressService.setActive(actressId, false);
+    }
+
+    @DeleteMapping("/actresses/{actressId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteActress(@PathVariable UUID actressId) {
+        actressService.delete(actressId);
     }
 
     // ── Validation helpers ────────────────────────────────────────────────────

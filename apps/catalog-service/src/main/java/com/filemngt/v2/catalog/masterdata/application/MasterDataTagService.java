@@ -62,6 +62,13 @@ public class MasterDataTagService {
         return toView(tag);
     }
 
+    @Transactional
+    public void delete(UUID id) {
+        var tag = tagRepository.findById(id).orElseThrow(() -> new TagNotFoundException(id));
+        tagRepository.delete(tag);
+        versionService.bumpVersion();
+    }
+
     private TagView toView(TagEntity entity) {
         return new TagView(
                 entity.id(), entity.displayName(), entity.normalizedName(), entity.active(), entity.createdAt());

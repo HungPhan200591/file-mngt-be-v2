@@ -71,6 +71,13 @@ public class MasterDataActressService {
         return toView(actress);
     }
 
+    @Transactional
+    public void delete(UUID id) {
+        var actress = actressRepository.findById(id).orElseThrow(() -> new ActressNotFoundException(id));
+        actressRepository.delete(actress);
+        versionService.bumpVersion();
+    }
+
     private ActressView toView(ActressEntity entity) {
         return new ActressView(
                 entity.id(),

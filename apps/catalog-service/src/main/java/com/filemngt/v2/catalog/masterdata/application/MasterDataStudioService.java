@@ -106,6 +106,13 @@ public class MasterDataStudioService {
         return toView(studio, codes);
     }
 
+    @Transactional
+    public void delete(UUID id) {
+        var studio = findStudio(id);
+        studioRepository.delete(studio);
+        versionService.bumpVersion();
+    }
+
     // ── Studio Code ────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
