@@ -34,6 +34,23 @@ Xem quy ước thư mục, trạng thái và card use case tại [Use case study
 
 Thứ tự này cố ý đi từ **hệ thống đang có**: Scan chỉ phát hiện và chờ review; Catalog mới tạo dữ liệu canonical; Query chỉ dựng read model. Không bắt đầu bằng một bài upload hoặc một Saga giả định vì chúng chưa phải boundary trung tâm của V2.
 
+## Scale & Capacity Track — các bài toán quy mô
+
+Sáu use case trên trả lời **đúng/sai trong hệ phân tán**. Để luyện phỏng vấn Senior, phải làm thêm một lượt thứ hai trả lời **hệ thống còn đúng không khi volume, traffic và thời gian chạy tăng lên**. Track này không thay thế flow chính: chỉ bắt đầu từng bài khi vertical slice tương ứng đã đúng ở quy mô nhỏ.
+
+> `1 triệu người dùng` không phải workload đủ rõ để thiết kế. Trước mỗi bài phải chốt traffic mix: registered/DAU, peak RPS đọc-ghi, kích thước payload, hot-key ratio, data retention và SLO. Các con số dưới đây là quy mô lab để ép lộ bottleneck, không phải năng lực đã xác nhận của V2.
+
+| ID | Bài toán quy mô | Gắn sau | Câu hỏi Senior phải bảo vệ |
+| --- | --- | --- | --- |
+| SC-01 | Scan 1 triệu filesystem entry | UC-01 | Làm sao duyệt cây thư mục với memory bị chặn, progress/checkpoint, batch persistence và backpressure mà không biến preview thành một HTTP response khổng lồ? |
+| SC-02 | Import/backfill 1 triệu record V1 | UC-01 + UC-02 | Làm sao dry-run, chia batch, checkpoint/restart, dedupe và đối soát khi process chết giữa chừng mà không ghi vào DB V1? |
+| SC-03 | Catalog chứa hàng trăm triệu đến 1 tỷ asset | UC-01 | Partition/index/archive chọn theo access pattern nào; uniqueness, migration và truy vấn canonical còn hoạt động ra sao? |
+| SC-04 | Query/search trên hàng trăm triệu document với peak read lớn | UC-02 + UC-03 | Read model, pagination, Elasticsearch shard/index lifecycle, cache-key/hot-key và degraded mode bảo vệ SLO thế nào? |
+| SC-05 | Outbox/Kafka backlog và replay ở quy mô lớn | UC-01 + UC-02 | Partition key, consumer concurrency, lag, retention, DLT/replay và duplicate/stale event được đo/kiểm soát thế nào? |
+| SC-06 | Hàng triệu media-processing job | UC-04 | Bounded concurrency, disk/network saturation, queue backlog, retry budget và fairness tránh làm Worker/Storage quá tải thế nào? |
+
+Chi tiết thứ tự, workload contract và bằng chứng cần thu thập xem tại [Scale & Capacity Track](./use-cases/scale-capacity/README.md). Chỉ sau SC-01 đến SC-04 mới có dữ liệu hợp lý để thảo luận scale-out, sharding hoặc multi-region; không chọn chúng như điểm xuất phát.
+
 ## UC-01 — Scan → Catalog canonical ingestion
 
 ### Scenario

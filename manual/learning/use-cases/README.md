@@ -28,3 +28,7 @@ Không tạo một bản deep-dive, summary hoặc question bank riêng trong th
 | UC-06 | Import V1, replay và đối soát | Deferred | Chỉ tạo khi Phase 7 bắt đầu |
 
 `Đang học` nghĩa là có scope hiện tại, chưa khẳng định mọi artifact đã đủ. `Chờ` nghĩa là không tự tạo code hay nội dung chi tiết trước prerequisite. Trạng thái triển khai chính thức luôn xem ở [`docs/STATUS.md`](../../../docs/STATUS.md).
+
+## Scale & Capacity Track
+
+Sau khi một vertical slice đúng ở quy mô nhỏ, dùng [Scale & Capacity Track](./scale-capacity/README.md) để học bài toán volume/load tương ứng. Track hiện đã định nghĩa các lab Scan 1 triệu entry, Import 1 triệu record, Catalog/Query đến hàng trăm triệu hoặc 1 tỷ record, Kafka replay/backlog và Worker queue quy mô lớn; chưa tạo deep-dive chi tiết trước prerequisite.
