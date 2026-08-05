@@ -2,14 +2,20 @@ package com.filemngt.v2.scan.adapter.out.persistence;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.util.UUID;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "scan_issue")
-public class ScanIssueEntity {
+public class ScanIssueEntity implements Persistable<UUID> {
     @Id
     private UUID id;
+
+    @Transient
+    private boolean isNew = true;
 
     private UUID scanRunId;
     private String sourceRelativePath;
@@ -40,5 +46,20 @@ public class ScanIssueEntity {
 
     public String detail() {
         return detail;
+    }
+
+    @Override
+    public UUID getId() {
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
+    @PostLoad
+    protected void markNotNew() {
+        this.isNew = false;
     }
 }

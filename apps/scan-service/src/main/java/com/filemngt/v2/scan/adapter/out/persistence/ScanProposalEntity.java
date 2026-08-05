@@ -5,14 +5,20 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.util.UUID;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "scan_proposal")
-public class ScanProposalEntity {
+public class ScanProposalEntity implements Persistable<UUID> {
     @Id
     private UUID id;
+
+    @Transient
+    private boolean isNew = true;
 
     private UUID scanRunId;
     private String sourceRelativePath;
@@ -83,5 +89,20 @@ public class ScanProposalEntity {
 
     public String evidence() {
         return evidence;
+    }
+
+    @Override
+    public UUID getId() {
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
+    @PostLoad
+    protected void markNotNew() {
+        this.isNew = false;
     }
 }

@@ -26,6 +26,7 @@ import com.filemngt.v2.scan.domain.ScanRunStatus;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -156,31 +157,41 @@ public class ScanService {
     }
 
     /**
-     * Tiến trình thực thi quét đĩa bất đồng bộ.
-     * Duyệt qua cây thư mục, phân tích filename theo profile, phân loại Proposal hoặc Issue.
+     * Tiến trình thực thi quét đĩa bất đồng bộ (tối ưu hóa Batch Insert siêu tốc).
+     * Duyệt qua cây thư mục theo Stream lười, phân tích filename theo profile, phân loại Proposal hoặc Issue.
      *
      * @param runId    ID của đợt scan
      * @param root     Cấu hình thư mục gốc
      * @param snapshot Snapshot danh mục từ Catalog
      */
     public void execute(UUID runId, ScanProperties.Root root, RegistrySnapshot snapshot) {
-        LOGGER.info("Bắt đầu tiến trình quét đĩa bất đồng bộ: runId={}, path={}", runId, root.path());
+        LOGGER.info("Bắt đầu tiến trình quét đĩa bất đồng bộ siêu tốc: runId={}, path={}", runId, root.path());
         var run = runs.findById(runId).orElseThrow();
-        long files = 0, proposed = 0, issue = 0;
+        long totalFiles = 0, totalProposed = 0, totalIssues = 0;
 
-        try (var paths = Files.walk(Path.of(root.path()))) {
-            for (var path : paths.filter(Files::isRegularFile)
+        final int BATCH_SIZE = 500;
+        List<ScanProposalEntity> proposalBuffer = new ArrayList<>(BATCH_SIZE);
+        List<ScanIssueEntity> issueBuffer = new ArrayList<>(BATCH_SIZE);
+
+        Path rootPath = Path.of(root.path());
+
+        try (var paths = Files.walk(rootPath)) {
+            var iterator = paths.filter(Files::isRegularFile)
                     .filter(item -> !Files.isSymbolicLink(item))
                     .filter(item -> supportsProfile(root.profile(), item))
-                    .toList()) {
-                files++;
-                var relative = Path.of(root.path()).relativize(path).toString().replace('\\', '/');
+                    .iterator();
+
+            while (iterator.hasNext()) {
+                Path path = iterator.next();
+                totalFiles++;
+                var relative = rootPath.relativize(path).toString().replace('\\', '/');
                 var parsed = parse(root.profile(), relative);
 
-                String rawEv = parsed != null
-                        ? metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title(), snapshot)
+                ScanMetadataExtractor.ExtractionResult ext = parsed != null
+                        ? metadataExtractor.extractResult(root.profile(), relative, parsed.key(), parsed.title(), snapshot)
                         : null;
-                Map<String, Object> evidenceMap = rawEv != null ? metadataExtractor.read(rawEv) : Map.of();
+                String rawEv = ext != null ? ext.rawEvidence() : null;
+                Map<String, Object> evidenceMap = ext != null ? ext.evidenceMap() : Map.of();
 
                 @SuppressWarnings("unchecked")
                 List<String> unrecognizedTags = (List<String>) evidenceMap.get("unrecognizedTags");
@@ -190,7 +201,7 @@ public class ScanService {
                 var eval = ScanProposalEvaluator.evaluate(parsed, unrecognizedTags, semanticMap);
 
                 if (eval.isProposal()) {
-                    proposals.save(new ScanProposalEntity(
+                    proposalBuffer.add(new ScanProposalEntity(
                             UUID.randomUUID(),
                             runId,
                             relative,
@@ -200,24 +211,56 @@ public class ScanService {
                             parsed.title(),
                             parsed.role(),
                             rawEv));
-                    proposed++;
-                    LOGGER.info("Tạo đề xuất scan thành công: runId={}, relativePath={}", runId, relative);
+                    totalProposed++;
                 } else {
-                    issues.save(new ScanIssueEntity(
+                    issueBuffer.add(new ScanIssueEntity(
                             UUID.randomUUID(), runId, relative, eval.issueCode(), eval.issueDetail()));
-                    issue++;
-                    LOGGER.warn("Phát hiện sự cố scan ({}): runId={}, relativePath={}", eval.issueCode(), runId, relative);
+                    totalIssues++;
+                }
+
+                if (proposalBuffer.size() >= BATCH_SIZE) {
+                    proposals.saveAll(proposalBuffer);
+                    proposals.flush();
+                    proposalBuffer.clear();
+                }
+
+                if (issueBuffer.size() >= BATCH_SIZE) {
+                    issues.saveAll(issueBuffer);
+                    issues.flush();
+                    issueBuffer.clear();
+                }
+
+                if (totalFiles % 5000 == 0) {
+                    LOGGER.info(
+                            "Tiến độ scan runId={}: đã quét {} files (Proposals: {}, Issues: {})",
+                            runId,
+                            totalFiles,
+                            totalProposed,
+                            totalIssues);
                 }
             }
 
+            // Flush nốt bộ đệm còn dư
+            if (!proposalBuffer.isEmpty()) {
+                proposals.saveAll(proposalBuffer);
+                proposals.flush();
+                proposalBuffer.clear();
+            }
+
+            if (!issueBuffer.isEmpty()) {
+                issues.saveAll(issueBuffer);
+                issues.flush();
+                issueBuffer.clear();
+            }
+
             // Hoàn tất đợt scan
-            run.complete(files, proposed, issue);
+            run.complete(totalFiles, totalProposed, totalIssues);
             LOGGER.info(
-                    "Hoàn tất đợt scan runId={}: tổng số file={}, proposed={}, issue={}",
+                    "Hoàn tất đợt scan siêu tốc runId={}: tổng số file={}, proposed={}, issue={}",
                     runId,
-                    files,
-                    proposed,
-                    issue);
+                    totalFiles,
+                    totalProposed,
+                    totalIssues);
         } catch (Exception exception) {
             LOGGER.error("Tiến trình scan thất bại runId={}: error={}", runId, exception.getMessage(), exception);
             run.fail(exception.getMessage());

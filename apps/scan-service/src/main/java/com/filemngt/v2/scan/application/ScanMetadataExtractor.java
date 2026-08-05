@@ -24,7 +24,9 @@ public class ScanMetadataExtractor {
         this.objectMapper = objectMapper;
     }
 
-    public String extract(
+    public record ExtractionResult(String rawEvidence, Map<String, Object> evidenceMap) {}
+
+    public ExtractionResult extractResult(
             ScanProfile profile,
             String relativePath,
             String identityKey,
@@ -52,7 +54,16 @@ public class ScanMetadataExtractor {
         evidence.put("unrecognizedTags", parseResult.unrecognizedTags());
         evidence.put("semantic", semantic(displayTitle, parseResult));
         addProfileEvidence(evidence, profile, relativePath, identityKey, parseResult);
-        return write(evidence);
+        return new ExtractionResult(write(evidence), Collections.unmodifiableMap(evidence));
+    }
+
+    public String extract(
+            ScanProfile profile,
+            String relativePath,
+            String identityKey,
+            String displayTitle,
+            RegistrySnapshot registry) {
+        return extractResult(profile, relativePath, identityKey, displayTitle, registry).rawEvidence();
     }
 
     private Map<String, Object> semantic(String displayTitle, SemanticParseResult parseResult) {
