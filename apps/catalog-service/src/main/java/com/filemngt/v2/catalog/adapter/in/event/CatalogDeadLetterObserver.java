@@ -33,7 +33,7 @@ public class CatalogDeadLetterObserver {
             groupId = "catalog-dlt-observer",
             autoStartup = "${catalog.kafka.dlt-observer.enabled:true}")
     public void observe(ConsumerRecord<String, String> record) {
-        try {
+        try (var ignored = com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation.extractAndSetMdc(record)) {
             boolean recorded = service.record(new CatalogDeadLetterService.DeadLetterCommand(
                     headerString(record, KafkaHeaders.DLT_ORIGINAL_TOPIC, originalTopic(record.topic())),
                     headerInt(record, KafkaHeaders.DLT_ORIGINAL_PARTITION, record.partition()),

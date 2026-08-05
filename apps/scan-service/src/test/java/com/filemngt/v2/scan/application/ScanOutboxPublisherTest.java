@@ -56,6 +56,8 @@ class ScanOutboxPublisherTest {
                 "media.file.discovered.v1",
                 "JOKE:VIDEO:JOKE-001",
                 "{}",
+                "correlation-123",
+                null,
                 Instant.now());
     }
 }

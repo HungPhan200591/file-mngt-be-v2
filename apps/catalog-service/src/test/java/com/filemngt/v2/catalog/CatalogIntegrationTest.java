@@ -18,6 +18,7 @@ import com.filemngt.v2.catalog.domain.MediaAssetRole;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
+import com.filemngt.v2.observability.CorrelationId;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -89,14 +90,23 @@ class CatalogIntegrationTest {
         String body = """
                 {"subjectType":"VIDEO","region":"JOKE","identityKey":"START-001","displayTitle":"Sample","assets":[{"role":"PRIMARY_VIDEO","relativePath":"Root/sample.mp4","storageKey":"fixture"}]}
                 """;
+        String correlationId = "catalog-create-001";
         MvcResult created = mockMvc.perform(post("/api/v2/catalog/subjects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header(CorrelationId.HEADER, correlationId)
                         .content(body))
                 .andExpect(status().isCreated())
                 .andReturn();
         assertThat(outbox.count()).isEqualTo(outboxBefore + 1);
         String location = created.getResponse().getHeader("Location");
         assertThat(location).isNotBlank();
+        UUID createdSubjectId =
+                UUID.fromString(json.readTree(created.getResponse().getContentAsString())
+                        .get("id")
+                        .asText());
+        var createdOutbox = outbox.findBySubjectId(createdSubjectId).getFirst();
+        assertThat(createdOutbox.correlationId()).isEqualTo(correlationId);
+        assertThat(json.readTree(createdOutbox.payload()).has("correlationId")).isFalse();
         mockMvc.perform(get(location))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assets[0].storageKey").value("fixture"));
@@ -125,8 +135,10 @@ class CatalogIntegrationTest {
         long discoveryOutboxBefore = outbox.count();
         var event = event("JOKE", "EVENT-001", "PRIMARY_VIDEO", "Root/event.mp4");
         String payload = json.writeValueAsString(event);
-        consumer.consume(payload);
-        consumer.consume(payload);
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v1", 0, 0L, "key", payload));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v1", 0, 0L, "key", payload));
         assertThat(processed.count()).isEqualTo(processedBefore + 1);
         assertThat(outbox.count()).isEqualTo(discoveryOutboxBefore + 1);
         var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, "EVENT-001")
@@ -142,9 +154,12 @@ class CatalogIntegrationTest {
         MediaFileDiscoveredV1 image = event("USE", "use-title-studio", "IMAGE", "FullPics/sample (1).jpg");
         MediaFileDiscoveredV1 video = event("USE", "use-title-studio", "PRIMARY_VIDEO", "Syncdroid/sample.mp4");
 
-        consumer.consume(json.writeValueAsString(image));
-        consumer.consume(json.writeValueAsString(image));
-        consumer.consume(json.writeValueAsString(video));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v1", 0, 0L, "key", json.writeValueAsString(image)));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v1", 0, 0L, "key", json.writeValueAsString(image)));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v1", 0, 0L, "key", json.writeValueAsString(video)));
 
         var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(
                         Region.USE, SubjectType.VIDEO, "use-title-studio")

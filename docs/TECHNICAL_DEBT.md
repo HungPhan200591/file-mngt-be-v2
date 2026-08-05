@@ -1,6 +1,6 @@
 # 🛠️ Nợ Kỹ Thuật (Technical Debt) & Lộ Trình Refactor Backend V2
 
-Updated: 2026-08-04
+Updated: 2026-08-05
 
 Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn bộ **Nợ kỹ thuật (Technical Debt)**, các đoạn mã nguồn cũ (Legacy Code), Code Smells và Kế hoạch cải tiến (Refactoring Backlog) của hệ thống Backend V2.
 
@@ -24,6 +24,7 @@ Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn 
 | **`TD-003`** | `query-service` | 🟡 MEDIUM | Rủi ro Thread Pinning tại `ensureAlias()` khi bật Virtual Threads. | Audit 100% Java code: `scan-service` sạch 100% (`0` synchronized). Chỉ `query-service` dính 1 vị trí tại `ElasticsearchSearchAdapter.java` (`ensureAlias()`). | Refactor `ensureAlias()` trong `query-service` từ `synchronized` sang `ReentrantLock` khi đến Phase Query Service. *(Xem [04-thread-pinning-deep-dive.md](../manual/learning/deep-dive/virtual-threads/04-thread-pinning-deep-dive.md))*. | 🔍 `AUDITED` |
 | **`TD-004`** | `platform/observability` | 🟢 LOW | Metrics Prometheus (`scan_run_duration_seconds`) chưa được gắn MDC Trace ID. | Phân tán giữa Micrometer metrics và OpenTelemetry Tracing. | Cấu hình MDC Correlation ID vào Micrometer custom Observation Handler. | 📝 `BACKLOG` |
 | **`TD-005`** | `catalog-service` | 🟢 LOW | Enum & Status mapping trong Catalog Event chưa versioning chặt chẽ ở DTO level. | Catalog Event P1 dùng String raw cho một số metadata phụ. | Chuẩn hóa Envelope Schema Versioning trong `platform/event-contracts`. | 📝 `BACKLOG` |
+| **`TD-006`** | `platform/observability` | 🟡 MEDIUM | Runtime acceptance cho tracing Outbox → Kafka → Jaeger (`FT021`) còn mở. | Code đã lưu durable trace context ngoài event payload, dùng Spring Boot 4 OTLP auto-configuration và Spring Kafka Observation; chưa chạy flow thực tế với Jaeger trong task này. | Bật profile Jaeger, gọi approve scan proposal và xác nhận trace có HTTP, outbox/Kafka producer, Catalog và Query spans; xóa dòng này khi đạt. | 🟢 `READY` |
 
 ---
 

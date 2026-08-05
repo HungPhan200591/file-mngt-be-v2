@@ -20,6 +20,7 @@
     "test:query": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/query-service -am\"",
     "test:gateway": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/gateway-service -am\"",
     "test:media": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/media-worker-service -am\"",
-    "test:all": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test\""
+    "test:all": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test\"",
+    "reset:data": "node scripts/reset-dev-data.mjs"
   }
 }

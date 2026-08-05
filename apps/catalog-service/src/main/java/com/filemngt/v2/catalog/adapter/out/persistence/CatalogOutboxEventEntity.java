@@ -18,6 +18,8 @@ public class CatalogOutboxEventEntity {
     private String eventType;
     private String partitionKey;
     private String payload;
+    private String correlationId;
+    private String traceparent;
     private Instant createdAt;
     private Instant publishedAt;
     private int attemptCount;
@@ -32,6 +34,8 @@ public class CatalogOutboxEventEntity {
             String eventType,
             String partitionKey,
             String payload,
+            String correlationId,
+            String traceparent,
             Instant createdAt) {
         this.id = id;
         this.subjectId = subjectId;
@@ -39,6 +43,8 @@ public class CatalogOutboxEventEntity {
         this.eventType = eventType;
         this.partitionKey = partitionKey;
         this.payload = payload;
+        this.correlationId = correlationId;
+        this.traceparent = traceparent;
         this.createdAt = createdAt;
     }
 
@@ -64,6 +70,14 @@ public class CatalogOutboxEventEntity {
 
     public String payload() {
         return payload;
+    }
+
+    public String correlationId() {
+        return correlationId;
+    }
+
+    public String traceparent() {
+        return traceparent;
     }
 
     public Instant createdAt() {

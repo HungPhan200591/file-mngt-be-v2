@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.application;
 
+import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,8 @@ public class ScanOutboxPublisher {
     @Scheduled(fixedDelayString = "${scan.outbox.fixed-delay-ms:1000}")
     public void publishPending() {
         for (var event : events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()) {
-            try {
+            try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
+                    event.correlationId(), event.traceparent())) {
                 messages.publish(event.eventType(), event.partitionKey(), event.payload());
                 event.published();
                 events.save(event);

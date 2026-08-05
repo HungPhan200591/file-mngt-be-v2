@@ -35,6 +35,9 @@ Mọi **host port** của Backend V2 nằm trong dải dành riêng `18100–181
 | Nginx media delivery V2 | 18119 |
 | FE V2 Vite Dev Server | 18120 |
 | Kafka UI | 18121 |
+| Jaeger UI | 18122 |
+| Jaeger OTLP gRPC | 18123 |
+| Jaeger OTLP HTTP | 18124 |
 
 Quy tắc triển khai:
 

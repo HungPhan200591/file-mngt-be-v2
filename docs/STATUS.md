@@ -1,22 +1,21 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-04
+Updated: 2026-08-05
 
 ## Hiện tại
 
 - Active feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
-- Feature hoàn thành gần nhất: [`FT018 — Scan semantic rule normalization`](./features/018-scan-semantic-rule-normalization/03-plan.md) `DONE`: parser semantic (Studio, Tag, Actress, Part), unrecognizedTags, USE strict format và Event Discovered V2.
-- Feature liên quan đã hoàn thành: [`FT019 — Catalog master data registry`](./features/019-catalog-master-data-registry/03-plan.md) `DONE`.
-- Không tạo Plan trạng thái tạm dừng. [`012-gallery-v2-parity-foundation`](./features/012-gallery-v2-parity-foundation/03-plan.md) vẫn `DRAFT` và chỉ triển khai sau backend parity.
-- Debt cần lưu ý khi chạm owner: [`TD-002`–`TD-005`](./TECHNICAL_DEBT.md); riêng `TD-003` đã khoanh vùng tại `query-service`, không phải `scan-service`.
+- Ready verification: [`021-jaeger-opentelemetry-tracing-ui`](./features/021-jaeger-opentelemetry-tracing-ui/03-plan.md) `READY`: code tracing xuyên outbox/Kafka và OTLP đã hoàn tất, còn acceptance runtime Jaeger theo [`TD-006`](./TECHNICAL_DEBT.md).
+- Feature hoàn thành gần nhất: [`FT020 — OpenTelemetry Tracing Propagation`](./features/020-opentelemetry-tracing-propagation/03-plan.md) `DONE`: truyền Correlation ID / W3C Trace Context xuyên Kafka Header & MDC bridge.
+- Nợ kỹ thuật cần lưu ý: [`TD-002`–`TD-006`](./TECHNICAL_DEBT.md).
 
 ## Gate còn mở trước cutover frontend
 
 - **Phase 4:** Media Worker chưa có processing pipeline: technical metadata, thumbnail, GIF, hash, completion event và Catalog update.
-- **Phase 7:** chưa có importer/backfill V1: inventory root, dry-run, batch idempotent, checkpoint và reconciliation.
-- **Observability mở rộng:** OpenTelemetry trace xuyên Kafka, alert/SLO, profiling sâu và k6 nằm ngoài FT014; không chặn FT013.
+- **Phase 7:** Chưa có importer/backfill V1: inventory root, dry-run, batch idempotent, checkpoint và reconciliation.
+- **Observability mở rộng:** OpenTelemetry trace xuyên Kafka ([`FT020`](./features/020-opentelemetry-tracing-propagation/03-plan.md) `DONE`), alert/SLO, profiling sâu và k6.
 
 ## Việc kế tiếp
 
-1. Dùng dashboard/log để đọc và debug lại các flow 002–011 cho đến khi chủ dự án nắm vững.
-2. Khi chủ dự án sẵn sàng, quay lại **FT013 — Media Worker processing foundation**; sau đó mới lập feature Import/backfill V1.
+1. Quay lại **FT013 — Media Worker processing foundation** khi quay lại Phase 4.
+2. Lập feature Import/backfill V1.

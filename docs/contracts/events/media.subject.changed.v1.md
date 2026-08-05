@@ -44,5 +44,6 @@
 
 - Delivery at-least-once; thứ tự được giữ theo partition key `subjectId` trong một topic partition, nhưng consumer vẫn phải kiểm tra version.
 - Catalog chỉ đánh dấu outbox published sau Kafka acknowledgement. Kafka lỗi không rollback canonical transaction; pending event được retry.
+- `X-Correlation-Id` và W3C `traceparent` là Kafka headers, không phải field JSON. Catalog lưu metadata này cùng outbox transaction để relay khôi phục context trước khi publish; Query chấp nhận record cũ không có header.
 - Thêm field optional là backward-compatible. Không đổi nghĩa/xóa/đổi kiểu field v1; thay đổi breaking tạo event version mới.
 - DLT của consumer dùng `<source-topic>.DLT` và giữ record gốc cùng Kafka error headers. Chính sách retry/replay thuộc consumer feature, không nằm trong payload v1.

@@ -13,16 +13,16 @@ import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @AutoConfiguration
-@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnClass({HttpServletRequest.class, OncePerRequestFilter.class})
-@ConditionalOnProperty(
-        prefix = "observability.http-correlation",
-        name = "enabled",
-        havingValue = "true",
-        matchIfMissing = true)
 public class ObservabilityAutoConfiguration {
 
     @Bean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnClass({HttpServletRequest.class, OncePerRequestFilter.class})
+    @ConditionalOnProperty(
+            prefix = "observability.http-correlation",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true)
     @ConditionalOnMissingBean(name = "observabilityCorrelationIdFilter")
     FilterRegistrationBean<CorrelationIdMdcFilter> observabilityCorrelationIdFilter() {
         var registration = new FilterRegistrationBean<>(new CorrelationIdMdcFilter());

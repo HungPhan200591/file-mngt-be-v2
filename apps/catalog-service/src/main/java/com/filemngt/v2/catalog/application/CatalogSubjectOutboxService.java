@@ -4,6 +4,7 @@ import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventEntity;
 import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectEntity;
 import com.filemngt.v2.contracts.events.MediaSubjectChangedV1;
+import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class CatalogSubjectOutboxService {
     }
 
     public void enqueue(MediaSubjectEntity subject) {
+        var traceContext = KafkaTracingHeaderPropagation.captureOutboxTraceContext();
         var event = new MediaSubjectChangedV1(
                 UUID.randomUUID(),
                 EVENT_TYPE,
@@ -46,6 +48,8 @@ public class CatalogSubjectOutboxService {
                 event.eventType(),
                 subject.id().toString(),
                 serialize(event),
+                traceContext.correlationId(),
+                traceContext.traceparent(),
                 event.occurredAt()));
     }
 

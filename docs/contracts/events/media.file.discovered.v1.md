@@ -32,6 +32,7 @@
 
 - Delivery at-least-once. Catalog dedupe bằng `eventId` trong transaction với upsert canonical subject/asset.
 - Producer lưu outbox trước khi publish; `published_at` chỉ được set sau broker acknowledgement. Retry dùng cùng `eventId`.
+- `X-Correlation-Id` và W3C `traceparent` là Kafka headers, không phải field JSON. Producer lưu metadata này cùng outbox transaction để relay khôi phục context trước khi publish; consumer chấp nhận record cũ không có header.
 - Consumer lỗi thì xử lý tối đa 3 lần với backoff 1 giây, sau đó publish record gốc sang
   `media.file.discovered.v1.DLT`. Không sửa payload v1 theo cách breaking; thay đổi breaking tạo event version mới.
 

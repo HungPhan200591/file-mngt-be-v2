@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application;
 
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
+import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventEntity;
@@ -133,6 +134,7 @@ public class ScanDecisionService {
             @SuppressWarnings("unchecked")
             List<String> tagNames = (List<String>) semantic.getOrDefault("tagNames", List.of());
 
+            var traceContext = KafkaTracingHeaderPropagation.captureOutboxTraceContext();
             // Đóng gói đối tượng sự kiện MediaFileDiscoveredV2
             var event = new MediaFileDiscoveredV2(
                     eventId,
@@ -161,6 +163,8 @@ public class ScanDecisionService {
                         event.eventType(),
                         event.region() + ":" + event.subjectType() + ":" + event.identityKey(),
                         json.writeValueAsString(event),
+                        traceContext.correlationId(),
+                        traceContext.traceparent(),
                         Instant.now()));
                 LOGGER.info(
                         "Đã đóng gói và lưu transactional outbox event: eventId={}, topic=media.file.discovered.v2, identityKey={}",

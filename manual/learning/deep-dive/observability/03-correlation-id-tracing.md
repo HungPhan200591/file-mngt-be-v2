@@ -119,8 +119,8 @@ flowchart TB
    - Nhờ có `trace_id` trong MDC, mỗi câu log ECS JSON xuất ra file `.json` đều có thêm trường `trace_id`.
    - Giúp Kỹ sư vận hành trên **Kibana Discover** có thể **1-Click từ log lỗi nhảy thẳng sang Grafana Tempo / Jaeger** để xem Gantt Chart toàn bộ cuộc gọi distributed trace đó.
 3. **Tiến trình Tiến hóa (Migration Steps)**:
-   - **Hiện tại (Backend V2 hiện tại)**: Dùng `CorrelationIdMdcFilter` tự viết để sinh UUID và đẩy vào MDC (`MDC.put("correlationId", uuid)`).
-   - **Tương lai (Khi lên OpenTelemetry)**: Có thể gỡ bỏ `CorrelationIdMdcFilter` tự viết vì OTel Agent tự quản lý `traceparent` Header và tự bridge vào MDC, nhưng **vẫn phụ thuộc 100% vào cơ chế MDC của Logback** để in `trace_id` vào file log!
+   - **Đã triển khai (FT020 — OpenTelemetry Tracing & Kafka Header Propagation)**: Đã bổ sung `KafkaTracingHeaderPropagation` trong `platform/observability` để tự động inject `X-Correlation-Id` và `traceparent` (W3C Trace Context) vào Kafka `RecordHeaders` tại Outbox Publisher, đồng thời extract và bridge vào MDC tại các `@KafkaListener` Consumer.
+   - **Tương lai (Khi triển khai OTLP Exporter)**: Kết nối dữ liệu trace sang Grafana Tempo / Jaeger để hiển thị Gantt Chart.
 
 ---
 

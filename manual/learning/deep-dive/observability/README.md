@@ -12,6 +12,7 @@ Tài liệu tổng hợp toàn bộ hệ thống chuyên sâu về **Observabili
 - 📜 **[02. Structured Logging: Spring Boot ECS & ELK Stack](02-structured-logging-elk.md)**: Đi từ log event và component boundary đến runtime, backpressure, loss/duplicate, retention và quyết định production.
 - 🔗 **[03. Correlation ID & Distributed Tracing](03-correlation-id-tracing.md)**: Deep-dive Correlation ID propagation, SLF4J MDC ThreadLocal, Entity Business Key tracing model và OpenTelemetry roadmap.
 - 🚨 **[04. Dashboards, Alerting & Incident Response](04-dashboards-alerting-incidents.md)**: Four Golden Signals, Prometheus Alertmanager rules và quy trình khoanh vùng sự cố E2E 4 bước.
+- 🌐 **[05. OpenTelemetry Overview](05-opentelemetry-overview.md)**: Phân biệt bản chất Chuẩn hóa vs Thư viện/Agent, cấu trúc W3C `traceparent` header, luồng Kafka propagation và MDC bridge.
 
 ---
 

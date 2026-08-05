@@ -189,6 +189,16 @@ services:
     environment:
       URLS: "[{url: '/openapi/catalog-v1.yaml', name: 'Catalog API'}, {url: '/openapi/scan-v1.yaml', name: 'Scan API'}, {url: '/openapi/query-v1.yaml', name: 'Query API'}, {url: '/openapi/media-delivery-v1.yaml', name: 'Media Delivery API'}]"
 
+  jaeger:
+    image: jaegertracing/all-in-one:${JAEGER_VERSION:-1.60.0}
+    profiles: ["observability", "tracing"]
+    ports:
+      - "${JAEGER_UI_PORT:-18122}:16686"
+      - "${JAEGER_OTLP_PORT:-18123}:4317"
+      - "${JAEGER_OTLP_HTTP_PORT:-18124}:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
 volumes:
   postgres-data:
   kafka-data:

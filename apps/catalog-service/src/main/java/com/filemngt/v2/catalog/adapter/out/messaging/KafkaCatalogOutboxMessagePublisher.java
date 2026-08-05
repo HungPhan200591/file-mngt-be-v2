@@ -1,9 +1,11 @@
 package com.filemngt.v2.catalog.adapter.out.messaging;
 
 import com.filemngt.v2.catalog.application.CatalogOutboxMessagePublisher;
+import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +23,9 @@ public class KafkaCatalogOutboxMessagePublisher implements CatalogOutboxMessageP
     @Override
     public void publish(String topic, String key, String payload) {
         try {
-            kafka.send(topic, key, payload).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            var record = new ProducerRecord<String, String>(topic, key, payload);
+            KafkaTracingHeaderPropagation.injectTracingHeaders(record);
+            kafka.send(record).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while publishing Catalog outbox event", exception);
