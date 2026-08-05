@@ -162,12 +162,21 @@ public class ScanService {
                     issue++;
                     LOGGER.warn("Phát hiện sự cố scan (UNPARSEABLE): runId={}, relativePath={}", runId, relative);
                 } else {
-                    // Trích xuất metadata và kiểm tra Tag chưa đăng ký
+                    // Trích xuất metadata và kiểm tra toàn bộ tiêu chuẩn chất lượng
                     String rawEv =
                             metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title(), snapshot);
                     Map<String, Object> evidenceMap = metadataExtractor.read(rawEv);
                     @SuppressWarnings("unchecked")
                     List<String> unrecognizedTags = (List<String>) evidenceMap.get("unrecognizedTags");
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> semanticMap = (Map<String, Object>) evidenceMap.getOrDefault("semantic", Map.of());
+                    String parseStatus = (String) semanticMap.get("status");
+                    Boolean isAmbiguous = (Boolean) semanticMap.get("isAmbiguous");
+                    String baseCode = (String) semanticMap.get("baseCode");
+                    String title = (String) semanticMap.get("title");
+                    String studioCode = (String) semanticMap.get("studioCode");
+                    @SuppressWarnings("unchecked")
+                    List<String> actressNames = (List<String>) semanticMap.get("actressNames");
 
                     if (unrecognizedTags != null && !unrecognizedTags.isEmpty()) {
                         // Lỗi phát hiện Tag chưa đăng ký trong Catalog Registry
@@ -183,8 +192,50 @@ public class ScanService {
                                 runId,
                                 relative,
                                 unrecognizedTags);
+                    } else if ("UNPARSEABLE".equals(parseStatus)) {
+                        issues.save(new ScanIssueEntity(
+                                UUID.randomUUID(),
+                                runId,
+                                relative,
+                                "UNPARSEABLE",
+                                "Tên file không bóc tách được ngữ nghĩa (UNPARSEABLE)"));
+                        issue++;
+                        LOGGER.warn("Phát hiện sự cố scan (UNPARSEABLE): runId={}, relativePath={}", runId, relative);
+                    } else if ("PARTIAL".equals(parseStatus)) {
+                        issues.save(new ScanIssueEntity(
+                                UUID.randomUUID(),
+                                runId,
+                                relative,
+                                "PARTIAL",
+                                "Phân tích ngữ nghĩa file chỉ hoàn thành một phần (thiếu thông tin tiêu chuẩn)"));
+                        issue++;
+                        LOGGER.warn("Phát hiện sự cố scan (PARTIAL): runId={}, relativePath={}", runId, relative);
+                    } else if ("AMBIGUOUS".equals(parseStatus) || Boolean.TRUE.equals(isAmbiguous)) {
+                        issues.save(new ScanIssueEntity(
+                                UUID.randomUUID(),
+                                runId,
+                                relative,
+                                "AMBIGUOUS",
+                                "Tên file chứa thông tin mơ hồ không xác định rõ (AMBIGUOUS)"));
+                        issue++;
+                        LOGGER.warn("Phát hiện sự cố scan (AMBIGUOUS): runId={}, relativePath={}", runId, relative);
+                    } else if (isNoneOrBlank(baseCode)
+                            || isNoneOrBlank(title)
+                            || isNoneOrBlank(studioCode)
+                            || isNoneOrEmpty(actressNames)) {
+                        issues.save(new ScanIssueEntity(
+                                UUID.randomUUID(),
+                                runId,
+                                relative,
+                                "INCOMPLETE_METADATA",
+                                "Metadata chứa giá trị thiếu/None (yêu cầu đầy đủ Actress, Title, StudioCode và BaseCode)"));
+                        issue++;
+                        LOGGER.warn(
+                                "Phát hiện sự cố scan (INCOMPLETE_METADATA - chứa giá trị None): runId={}, relativePath={}",
+                                runId,
+                                relative);
                     } else {
-                        // Tạo đề xuất (Proposal) thành công
+                        // Tạo đề xuất (Proposal) thành công khi đạt tiêu chuẩn bóc tách 100% không chứa giá trị None
                         proposals.save(new ScanProposalEntity(
                                 UUID.randomUUID(),
                                 runId,
@@ -369,6 +420,28 @@ public class ScanService {
                 value.getSize(),
                 value.getTotalElements(),
                 value.getTotalPages());
+    }
+
+    private boolean isNoneOrBlank(String value) {
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("none")
+                || normalized.equals("—")
+                || normalized.equals("-")
+                || normalized.equals("no_actress")
+                || normalized.equals("no_title")
+                || normalized.equals("no_studio")
+                || normalized.equals("no_code")
+                || normalized.equals("no_label");
+    }
+
+    private boolean isNoneOrEmpty(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return true;
+        }
+        return values.stream().allMatch(this::isNoneOrBlank);
     }
 
     private record Parsed(String type, String key, String title, String role) {}
