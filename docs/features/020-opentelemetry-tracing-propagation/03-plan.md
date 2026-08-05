@@ -19,8 +19,8 @@ Design: [02-design.md](./02-design.md)
   - Tương thích 100% với schema JSON payload của tất cả Event V1/V2.
   - Không phá vỡ luồng retry / Dead Letter Topic đã cấu hình ở FT005/FT006.
 - Read on demand:
-  - [CorrelationId.java](file:///d:/Study/Project/file_mngt_microservice/platform/observability/src/main/java/com/filemngt/v2/observability/CorrelationId.java)
-  - [03-correlation-id-tracing.md](file:///d:/Study/Project/file_mngt_microservice/manual/learning/deep-dive/observability/03-correlation-id-tracing.md)
+  - [CorrelationId.java](../../../platform/observability/src/main/java/com/filemngt/v2/observability/CorrelationId.java)
+  - [03-correlation-id-tracing.md](../../../manual/learning/deep-dive/observability/03-correlation-id-tracing.md)
 
 ## Bước triển khai
 

@@ -53,7 +53,7 @@ flowchart TB
 
 ## Luồng lỗi, idempotency và consistency
 
-- **Lỗi thiếu Header khi Consume**: Nếu tin nhắn không chứa `X-Correlation-Id` hoặc `traceparent` (ví dụ event cũ hoặc từ nguồn ngoài), consumer tự động sinh `correlationId` mới và ghi log warning nhẹ, không quăng Exception gây nổ retry/DLQ.
+- **Lỗi thiếu Header khi Consume**: Nếu tin nhắn không chứa `X-Correlation-Id` (ví dụ event cũ hoặc từ nguồn ngoài), consumer tự động sinh `correlationId` mới; helper không ghi warning và không quăng Exception gây retry/DLQ. Nếu thiếu hoặc sai `traceparent`, `trace_id` không được đặt vào MDC; Spring Kafka Observation vẫn xử lý tracing theo context mà nó nhận được.
 - **Rò rỉ ThreadLocal Context**: Consumer thread pool tái sử dụng Thread liên tục, nếu không dọn dẹp MDC thì log event sau sẽ mang ID của event trước. Do đó, việc dọn dẹp MDC ở Consumer là bắt buộc 100%.
 
 ## Hiệu năng, quan sát và bảo mật tối thiểu

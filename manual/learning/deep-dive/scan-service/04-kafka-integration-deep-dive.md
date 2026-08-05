@@ -293,6 +293,8 @@ INFO  c.f.v.c.a.CatalogDiscoveredService  : Upserted media subject identityKey=s
 - **Xử lý**:
   Bổ sung header `X-Correlation-ID` vào `ProducerRecord` trong `KafkaOutboxMessagePublisher` và trích xuất header ở `@KafkaListener` để gắn lại MDC context (`MDC.put("traceId", ...)`).
 
+> **Cập nhật 2026-08-05 — Đã hoàn thành theo [FT020 — OpenTelemetry Tracing & Kafka Header Propagation](../../../docs/features/020-opentelemetry-tracing-propagation/03-plan.md):** `scan-service` hiện lưu durable `correlationId` và `traceparent` ngoài event payload trong outbox, rồi truyền qua Kafka headers `X-Correlation-Id` và `traceparent`. Catalog/Query consumer bridge `correlationId` và `trace_id` (khi `traceparent` hợp lệ) vào MDC, đồng thời dọn context sau mỗi message.
+
 ---
 
 ## 🔗 Tài liệu liên quan trong Dự án

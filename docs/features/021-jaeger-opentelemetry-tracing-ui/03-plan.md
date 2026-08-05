@@ -23,8 +23,8 @@ Design: [02-design.md](./02-design.md)
 ## Bước triển khai
 
 1. **Cập nhật Docker Compose (`infra/compose/compose.yaml`)**:
-   - Thêm service `jaeger` (image `jaegertracing/all-in-one:1.60.0`) dưới profile `observability`.
-   - Expose ports `18122:16686` (UI) và `18123:4317` (OTLP gRPC).
+   - Thêm service `jaeger` (image `jaegertracing/all-in-one:1.60.0`) dưới hai profile `observability` và `tracing`.
+   - Expose ports `18122:16686` (UI), `18123:4317` (OTLP gRPC) và `18124:4318` (OTLP HTTP).
 
 2. **Thêm OpenTelemetry OTLP Exporter dependency & Config**:
    - Dùng `spring-boot-starter-opentelemetry` tại `platform/observability`; Spring Boot tự cấu hình OTLP exporter thay vì tự tạo exporter bean không được tracer provider dùng.
@@ -41,7 +41,7 @@ Design: [02-design.md](./02-design.md)
 ## Kiểm tra
 
 - Command: `powershell -Command "$env:JAVA_HOME='C:\Users\admin\.jdks\corretto-25.0.4'; .\mvnw test -pl platform/observability -am"`
-- Manual test: Khởi động Jaeger UI tại `http://localhost:18122`, thực hiện 1 request API Approve và xác nhận Gantt Chart xuất hiện trên Jaeger UI.
+- Manual test: Khởi động Jaeger UI tại `http://localhost:18122`, thực hiện 1 request Approve tạo mutation mới và xác nhận trace có các span HTTP, outbox/Kafka producer, Catalog consumer và Query consumer. Không dùng `X-Correlation-Id` UUID làm Jaeger Trace ID; tìm trace theo service hoặc tag `correlation.id`.
 
 ## Rollout và rollback
 
@@ -51,4 +51,4 @@ Design: [02-design.md](./02-design.md)
 ## Tài liệu cần cập nhật
 
 - `docs/STATUS.md`: Giữ `021-jaeger-opentelemetry-tracing-ui` ở `READY` đến khi có bằng chứng runtime Jaeger.
-- `manual/learning/deep-dive/observability/05-opentelemetry-overview.md`: Ghi nhận tích hợp Jaeger UI thành công.
+- `manual/learning/deep-dive/observability/05-opentelemetry-overview.md`: Cập nhật khi runtime acceptance Jaeger hoàn tất.

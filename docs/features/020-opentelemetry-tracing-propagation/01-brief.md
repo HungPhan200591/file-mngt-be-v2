@@ -11,9 +11,9 @@ Hiện tại `CorrelationIdMdcFilter` chỉ hoạt động tại tầng HTTP (Se
 ## Mục tiêu và acceptance criteria
 
 1. **Kafka Header Tracing Injection (Outbox Publisher)**:
-   - Các Outbox Publisher (`KafkaOutboxMessagePublisher` ở `scan-service` và `KafkaCatalogOutboxMessagePublisher` ở `catalog-service`) tự động đọc `correlationId` / OpenTelemetry Context từ MDC và inject vào Kafka `RecordHeaders` dưới các khóa `X-Correlation-Id` và `traceparent`.
+   - Các Outbox Publisher (`KafkaOutboxMessagePublisher` ở `scan-service` và `KafkaCatalogOutboxMessagePublisher` ở `catalog-service`) lưu durable `correlationId` và `traceparent` ngoài JSON payload của outbox, rồi khôi phục context để inject vào Kafka `RecordHeaders` dưới các khóa `X-Correlation-Id` và `traceparent`.
 2. **Kafka Header Tracing Extraction & MDC Bridge (Consumer)**:
-   - Các Kafka Consumer (`MediaFileDiscoveredConsumer`, `MediaSubjectChangedConsumer`) tự động đọc Kafka `RecordHeaders` khi tiêu thụ message, gán `correlationId` và `trace_id` / `span_id` vào SLF4J MDC của Thread tiêu thụ.
+   - Các Kafka Consumer (`MediaFileDiscoveredConsumer`, `MediaSubjectChangedConsumer`) đọc Kafka `RecordHeaders` khi tiêu thụ message, gán `correlationId` và, khi có `traceparent` hợp lệ, `trace_id` vào SLF4J MDC của thread tiêu thụ.
    - Bắt buộc thực hiện `MDC.remove(...)` hoặc `MDC.clear()` sau khi hoàn tất xử lý event để tránh rò rỉ context giữa các lần polling/consume.
 3. **OpenTelemetry Context Bridge**:
    - Module `platform/observability` cung cấp helper / Interceptor chuẩn hóa cơ chế propagation W3C Trace Context và tương thích ngược với header `X-Correlation-Id` hiện tại.
@@ -29,4 +29,4 @@ Hiện tại `CorrelationIdMdcFilter` chỉ hoạt động tại tầng HTTP (Se
 ## Câu hỏi/rủi ro mở
 
 - **Overhead hiệu năng**: Cần đảm bảo việc serialize/deserialize Header String trên Kafka Record diễn ra nhẹ nhàng, không gây ảnh hưởng throughput của Outbox Relay.
-- **Fallback khi thiếu Header**: Khi nhận event cũ hoặc event từ nguồn bên ngoài thiếu header, Consumer tự sinh `trace_id` / `correlationId` ngẫu nhiên để ghi log thay vì gây ra lỗi NPE hay crash consumer.
+- **Fallback khi thiếu Header**: Khi nhận event cũ hoặc event từ nguồn bên ngoài thiếu `X-Correlation-Id`, Consumer tự sinh `correlationId` để ghi log thay vì gây lỗi NPE hay crash consumer. Nếu thiếu hoặc sai `traceparent`, không đặt `trace_id` vào MDC.

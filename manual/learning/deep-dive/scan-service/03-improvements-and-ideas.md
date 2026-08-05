@@ -50,6 +50,8 @@ Tài liệu tổng hợp đánh giá kỹ thuật, các điểm hạn chế/trad
 - **Hạn chế**: Mất vết Distributed Tracing khi event sang Catalog Service và Query Service.
 - **Đề xuất cải tiến**: Nhúng `correlationId` vào Kafka Record Header để tracing liên tục end-to-end.
 
+> **Cập nhật 2026-08-05 — Đã hoàn thành theo [FT020 — OpenTelemetry Tracing & Kafka Header Propagation](../../../docs/features/020-opentelemetry-tracing-propagation/03-plan.md):** `scan-service` hiện lưu `correlationId` và `traceparent` riêng trong outbox, rồi truyền chúng qua Kafka headers `X-Correlation-Id` và `traceparent`; consumer Catalog/Query bridge `correlationId` và `trace_id` hợp lệ vào MDC.
+
 ---
 
 ## 2. Các Ý tưởng Tính năng Mới (Innovation Roadmap)
