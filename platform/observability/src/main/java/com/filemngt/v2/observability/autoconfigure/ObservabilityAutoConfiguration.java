@@ -1,6 +1,8 @@
 package com.filemngt.v2.observability.autoconfigure;
 
 import com.filemngt.v2.observability.http.CorrelationIdMdcFilter;
+import com.filemngt.v2.observability.http.CorrelationIdTracingInterceptor;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -11,6 +13,8 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @AutoConfiguration
 public class ObservabilityAutoConfiguration {
@@ -30,5 +34,17 @@ public class ObservabilityAutoConfiguration {
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
         registration.addUrlPatterns("/*");
         return registration;
+    }
+
+    @Bean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnClass(WebMvcConfigurer.class)
+    WebMvcConfigurer observabilityCorrelationIdTracingConfigurer(Tracer tracer) {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addInterceptors(InterceptorRegistry registry) {
+                registry.addInterceptor(new CorrelationIdTracingInterceptor(tracer));
+            }
+        };
     }
 }
