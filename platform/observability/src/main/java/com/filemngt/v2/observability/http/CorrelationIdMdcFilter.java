@@ -1,6 +1,7 @@
 package com.filemngt.v2.observability.http;
 
 import com.filemngt.v2.observability.CorrelationId;
+import io.opentelemetry.api.trace.Span;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,7 @@ public final class CorrelationIdMdcFilter extends OncePerRequestFilter {
         boolean completed = false;
 
         MDC.put(CorrelationId.MDC_KEY, correlationId);
+        tagCurrentSpan(correlationId);
         response.setHeader(CorrelationId.HEADER, correlationId);
         try {
             filterChain.doFilter(request, response);
@@ -63,5 +65,12 @@ public final class CorrelationIdMdcFilter extends OncePerRequestFilter {
             return;
         }
         MDC.put(CorrelationId.MDC_KEY, previousCorrelationId);
+    }
+
+    private void tagCurrentSpan(String correlationId) {
+        Span currentSpan = Span.current();
+        if (currentSpan.getSpanContext().isValid()) {
+            currentSpan.setAttribute("correlation.id", correlationId);
+        }
     }
 }
