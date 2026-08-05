@@ -99,10 +99,24 @@ public class ScanService {
                     return new InvalidScanRootException("Unknown root key: " + rootKey);
                 });
 
-        // 2. Chống chạy trùng đợt scan trên cùng rootKey đang ở trạng thái RUNNING
-        if (runs.existsByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING)) {
-            LOGGER.warn("Đợt scan cho rootKey={} đang chạy, hủy yêu cầu mới", rootKey);
-            throw new ScanRunAlreadyRunningException(rootKey);
+        // 2. Kiểm tra các đợt scan đang ở trạng thái RUNNING
+        var runningScans = runs.findByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING);
+        if (!runningScans.isEmpty()) {
+            Instant timeoutThreshold = Instant.now().minus(15, java.time.temporal.ChronoUnit.MINUTES);
+            boolean hasActiveRun = false;
+            for (var running : runningScans) {
+                if (running.startedAt().isBefore(timeoutThreshold)) {
+                    running.fail("Stale scan run timed out (> 15m)");
+                    runs.save(running);
+                } else {
+                    hasActiveRun = true;
+                }
+            }
+            runs.flush();
+            if (hasActiveRun) {
+                LOGGER.warn("Đợt scan cho rootKey={} đang thực sự chạy, hủy yêu cầu mới", rootKey);
+                throw new ScanRunAlreadyRunningException(rootKey);
+            }
         }
 
         // 3. Tải RegistrySnapshot từ Catalog Service trước khi khởi tạo run
@@ -369,6 +383,25 @@ public class ScanService {
                 value.getSize(),
                 value.getTotalElements(),
                 value.getTotalPages());
+    }
+
+    /**
+     * Tự động dọn dẹp các đợt scan bị gián đoạn (mồ côi) khi backend được khởi động lại.
+     */
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    @Transactional
+    public void cleanupOrphanRunningScans() {
+        var orphanScans = runs.findAll().stream()
+                .filter(run -> run.status() == ScanRunStatus.RUNNING)
+                .toList();
+        if (!orphanScans.isEmpty()) {
+            for (var run : orphanScans) {
+                run.fail("Interrupted by service restart");
+                runs.save(run);
+            }
+            runs.flush();
+            LOGGER.info("Đã tự động dọn dẹp {} đợt scan bị gián đoạn do restart service", orphanScans.size());
+        }
     }
 
     private record Parsed(String type, String key, String title, String role) {}
