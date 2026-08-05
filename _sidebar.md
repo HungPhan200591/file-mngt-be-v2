@@ -69,6 +69,8 @@
       * [Use case study hub](/manual/learning/use-cases/README.md)
       * **01-scan-to-catalog-canonical-ingestion**
         * [UC-01 — Scan → Catalog canonical ingestion](/manual/learning/use-cases/01-scan-to-catalog-canonical-ingestion/README.md)
+      * **scale-capacity**
+        * [Scale & Capacity Track](/manual/learning/use-cases/scale-capacity/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
