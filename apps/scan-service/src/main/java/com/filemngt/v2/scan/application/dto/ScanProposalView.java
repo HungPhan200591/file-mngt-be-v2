@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application.dto;
 
 import com.filemngt.v2.scan.domain.ScanProfile;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -12,4 +13,6 @@ public record ScanProposalView(
         String identityKey,
         String displayTitle,
         String assetRole,
-        Map<String, Object> evidence) {}
+        Map<String, Object> evidence,
+        String decision,
+        Instant decidedAt) {}

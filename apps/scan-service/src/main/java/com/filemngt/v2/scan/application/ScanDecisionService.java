@@ -179,6 +179,32 @@ public class ScanDecisionService {
         return view(saved);
     }
 
+    /**
+     * Thực hiện ra quyết định hàng loạt (APPROVE hoặc REJECT) cho toàn bộ các Proposals của một đợt scan trong 1 Transaction.
+     *
+     * @param scanId   ID của đợt scan
+     * @param decision Quyết định (APPROVE / REJECT)
+     * @return Số lượng proposal đã ra quyết định thành công
+     */
+    @Transactional
+    public int decideAll(UUID scanId, String decision) {
+        LOGGER.info("Bắt đầu xử lý Batch Decision: scanId={}, decision={}", scanId, decision);
+        var run = runs.findById(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
+        var proposalList = proposals.findByScanRunId(scanId);
+
+        int count = 0;
+        for (var proposal : proposalList) {
+            var existing = decisions.findById(proposal.id());
+            if (existing.isPresent()) {
+                continue;
+            }
+            decide(scanId, proposal.id(), decision);
+            count++;
+        }
+        LOGGER.info("Hoàn tất Batch Decision: scanId={}, decision={}, processedCount={}", scanId, decision, count);
+        return count;
+    }
+
     private DecisionView view(ScanDecisionEntity d) {
         return new DecisionView(d.proposalId(), d.decision(), d.decidedAt(), d.eventId());
     }

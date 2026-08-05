@@ -2,6 +2,8 @@ package com.filemngt.v2.scan.application;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
 import com.filemngt.v2.scan.adapter.out.catalog.RegistrySnapshot;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalEntity;
@@ -19,6 +21,7 @@ import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.ScanProfile;
+import com.filemngt.v2.scan.domain.ScanProposalEvaluator;
 import com.filemngt.v2.scan.domain.ScanRunStatus;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +31,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -51,6 +56,7 @@ public class ScanService {
     private final ScanRunRepository runs;
     private final ScanProposalRepository proposals;
     private final ScanIssueRepository issues;
+    private final ScanDecisionRepository decisions;
     private final ScanMetadataExtractor metadataExtractor;
     private final TaskExecutor taskExecutor;
     private final CatalogRegistryClient catalogClient;
@@ -60,6 +66,7 @@ public class ScanService {
             ScanRunRepository runs,
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
+            ScanDecisionRepository decisions,
             ScanMetadataExtractor metadataExtractor,
             @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
             CatalogRegistryClient catalogClient) {
@@ -67,6 +74,7 @@ public class ScanService {
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
+        this.decisions = decisions;
         this.metadataExtractor = metadataExtractor;
         this.taskExecutor = taskExecutor;
         this.catalogClient = catalogClient;
@@ -155,105 +163,36 @@ public class ScanService {
                 var relative = Path.of(root.path()).relativize(path).toString().replace('\\', '/');
                 var parsed = parse(root.profile(), relative);
 
-                if (parsed == null) {
-                    // Lỗi không phân tích được tên file theo strategy profile
-                    issues.save(new ScanIssueEntity(
-                            UUID.randomUUID(), runId, relative, "UNPARSEABLE", "Filename does not match profile"));
-                    issue++;
-                    LOGGER.warn("Phát hiện sự cố scan (UNPARSEABLE): runId={}, relativePath={}", runId, relative);
-                } else {
-                    // Trích xuất metadata và kiểm tra toàn bộ tiêu chuẩn chất lượng
-                    String rawEv =
-                            metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title(), snapshot);
-                    Map<String, Object> evidenceMap = metadataExtractor.read(rawEv);
-                    @SuppressWarnings("unchecked")
-                    List<String> unrecognizedTags = (List<String>) evidenceMap.get("unrecognizedTags");
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> semanticMap = (Map<String, Object>) evidenceMap.getOrDefault("semantic", Map.of());
-                    String parseStatus = (String) semanticMap.get("status");
-                    Boolean isAmbiguous = (Boolean) semanticMap.get("isAmbiguous");
-                    String baseCode = (String) semanticMap.get("baseCode");
-                    String title = (String) semanticMap.get("title");
-                    String studioCode = (String) semanticMap.get("studioCode");
-                    @SuppressWarnings("unchecked")
-                    List<String> actressNames = (List<String>) semanticMap.get("actressNames");
+                String rawEv = parsed != null
+                        ? metadataExtractor.extract(root.profile(), relative, parsed.key(), parsed.title(), snapshot)
+                        : null;
+                Map<String, Object> evidenceMap = rawEv != null ? metadataExtractor.read(rawEv) : Map.of();
 
-                    if (unrecognizedTags != null && !unrecognizedTags.isEmpty()) {
-                        // Lỗi phát hiện Tag chưa đăng ký trong Catalog Registry
-                        issues.save(new ScanIssueEntity(
-                                UUID.randomUUID(),
-                                runId,
-                                relative,
-                                "UNRECOGNIZED_TAG",
-                                "Phát hiện Tag chưa đăng ký trong Catalog: " + String.join(", ", unrecognizedTags)));
-                        issue++;
-                        LOGGER.warn(
-                                "Phát hiện sự cố scan (UNRECOGNIZED_TAG): runId={}, relativePath={}, tags={}",
-                                runId,
-                                relative,
-                                unrecognizedTags);
-                    } else if ("UNPARSEABLE".equals(parseStatus)) {
-                        issues.save(new ScanIssueEntity(
-                                UUID.randomUUID(),
-                                runId,
-                                relative,
-                                "UNPARSEABLE",
-                                "Tên file không bóc tách được ngữ nghĩa (UNPARSEABLE)"));
-                        issue++;
-                        LOGGER.warn("Phát hiện sự cố scan (UNPARSEABLE): runId={}, relativePath={}", runId, relative);
-                    } else if ("PARTIAL".equals(parseStatus)) {
-                        issues.save(new ScanIssueEntity(
-                                UUID.randomUUID(),
-                                runId,
-                                relative,
-                                "PARTIAL",
-                                "Phân tích ngữ nghĩa file chỉ hoàn thành một phần (thiếu thông tin tiêu chuẩn)"));
-                        issue++;
-                        LOGGER.warn("Phát hiện sự cố scan (PARTIAL): runId={}, relativePath={}", runId, relative);
-                    } else if ("AMBIGUOUS".equals(parseStatus) || Boolean.TRUE.equals(isAmbiguous)) {
-                        issues.save(new ScanIssueEntity(
-                                UUID.randomUUID(),
-                                runId,
-                                relative,
-                                "AMBIGUOUS",
-                                "Tên file chứa thông tin mơ hồ không xác định rõ (AMBIGUOUS)"));
-                        issue++;
-                        LOGGER.warn("Phát hiện sự cố scan (AMBIGUOUS): runId={}, relativePath={}", runId, relative);
-                    } else if (isNoneOrBlank(baseCode)
-                            || isNoneOrBlank(title)
-                            || isNoneOrBlank(studioCode)
-                            || isNoneOrEmpty(actressNames)) {
-                        issues.save(new ScanIssueEntity(
-                                UUID.randomUUID(),
-                                runId,
-                                relative,
-                                "INCOMPLETE_METADATA",
-                                "Metadata chứa giá trị thiếu/None (yêu cầu đầy đủ Actress, Title, StudioCode và BaseCode)"));
-                        issue++;
-                        LOGGER.warn(
-                                "Phát hiện sự cố scan (INCOMPLETE_METADATA - chứa giá trị None): runId={}, relativePath={}",
-                                runId,
-                                relative);
-                    } else {
-                        // Tạo đề xuất (Proposal) thành công khi đạt tiêu chuẩn bóc tách 100% không chứa giá trị None
-                        proposals.save(new ScanProposalEntity(
-                                UUID.randomUUID(),
-                                runId,
-                                relative,
-                                root.profile(),
-                                parsed.type(),
-                                parsed.key(),
-                                parsed.title(),
-                                parsed.role(),
-                                rawEv));
-                        proposed++;
-                        LOGGER.info(
-                                "Tạo đề xuất scan thành công: runId={}, relativePath={}, identityKey={}, candidateType={}",
-                                runId,
-                                relative,
-                                parsed.key(),
-                                parsed.type());
-                    }
+                @SuppressWarnings("unchecked")
+                List<String> unrecognizedTags = (List<String>) evidenceMap.get("unrecognizedTags");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> semanticMap = (Map<String, Object>) evidenceMap.getOrDefault("semantic", Map.of());
+
+                var eval = ScanProposalEvaluator.evaluate(parsed, unrecognizedTags, semanticMap);
+
+                if (eval.isProposal()) {
+                    proposals.save(new ScanProposalEntity(
+                            UUID.randomUUID(),
+                            runId,
+                            relative,
+                            root.profile(),
+                            parsed.type(),
+                            parsed.key(),
+                            parsed.title(),
+                            parsed.role(),
+                            rawEv));
+                    proposed++;
+                    LOGGER.info("Tạo đề xuất scan thành công: runId={}, relativePath={}", runId, relative);
+                } else {
+                    issues.save(new ScanIssueEntity(
+                            UUID.randomUUID(), runId, relative, eval.issueCode(), eval.issueDetail()));
+                    issue++;
+                    LOGGER.warn("Phát hiện sự cố scan ({}): runId={}, relativePath={}", eval.issueCode(), runId, relative);
                 }
             }
 
@@ -294,22 +233,32 @@ public class ScanService {
     }
 
     /**
-     * Lấy danh sách Proposal đề xuất của đợt scan (phân trang).
+     * Lấy danh sách Proposal đề xuất của đợt scan (phân trang) kèm theo trạng thái decision nếu có.
      */
     @Transactional(readOnly = true)
     public ScanPageView<ScanProposalView> proposals(UUID id, int page, int size) {
         LOGGER.debug("Truy vấn danh sách proposal của scan runId={}: page={}, size={}", id, page, size);
         ensure(id);
         var result = proposals.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
-        return page(result.map(item -> new ScanProposalView(
-                item.id(),
-                item.sourceRelativePath(),
-                item.profile(),
-                item.candidateType(),
-                item.identityKey(),
-                item.displayTitle(),
-                item.assetRole(),
-                metadataExtractor.read(item.evidence()))));
+
+        List<UUID> proposalIds = result.getContent().stream().map(ScanProposalEntity::id).toList();
+        Map<UUID, ScanDecisionEntity> decisionMap = decisions.findAllById(proposalIds).stream()
+                .collect(Collectors.toMap(ScanDecisionEntity::proposalId, Function.identity()));
+
+        return page(result.map(item -> {
+            var d = decisionMap.get(item.id());
+            return new ScanProposalView(
+                    item.id(),
+                    item.sourceRelativePath(),
+                    item.profile(),
+                    item.candidateType(),
+                    item.identityKey(),
+                    item.displayTitle(),
+                    item.assetRole(),
+                    metadataExtractor.read(item.evidence()),
+                    d != null ? d.decision() : null,
+                    d != null ? d.decidedAt() : null);
+        }));
     }
 
     /**
@@ -420,28 +369,6 @@ public class ScanService {
                 value.getSize(),
                 value.getTotalElements(),
                 value.getTotalPages());
-    }
-
-    private boolean isNoneOrBlank(String value) {
-        if (value == null || value.isBlank()) {
-            return true;
-        }
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("none")
-                || normalized.equals("—")
-                || normalized.equals("-")
-                || normalized.equals("no_actress")
-                || normalized.equals("no_title")
-                || normalized.equals("no_studio")
-                || normalized.equals("no_code")
-                || normalized.equals("no_label");
-    }
-
-    private boolean isNoneOrEmpty(List<String> values) {
-        if (values == null || values.isEmpty()) {
-            return true;
-        }
-        return values.stream().allMatch(this::isNoneOrBlank);
     }
 
     private record Parsed(String type, String key, String title, String role) {}

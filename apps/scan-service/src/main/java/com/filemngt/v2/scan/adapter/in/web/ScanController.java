@@ -133,6 +133,18 @@ public class ScanController {
         return decisions.decide(scanId, proposalId, request.decision());
     }
 
+    /**
+     * API ra quyết định hàng loạt (APPROVE / REJECT) cho TOÀN BỘ proposals của đợt scan.
+     * POST /api/v2/scans/{scanId}/decisions
+     */
+    @PostMapping("/{scanId}/decisions")
+    public BatchDecisionResponse decideAll(
+            @PathVariable UUID scanId, @Valid @RequestBody DecisionRequest request) {
+        LOGGER.info("HTTP POST /api/v2/scans/{}/decisions -> Batch Decision: {}", scanId, request.decision());
+        int count = decisions.decideAll(scanId, request.decision());
+        return new BatchDecisionResponse(scanId, request.decision(), count);
+    }
+
     private int valid(int page, int size) {
         if (page < 0 || size < 1 || size > 100) {
             LOGGER.warn("Tham số phân trang không hợp lệ: page={}, size={}", page, size);
@@ -145,6 +157,8 @@ public class ScanController {
 
     public record DecisionRequest(
             @NotBlank @Pattern(regexp = "APPROVE|REJECT") String decision) {}
+
+    public record BatchDecisionResponse(UUID scanId, String decision, int processedCount) {}
 
     public static class InvalidRequestException extends RuntimeException {
         public InvalidRequestException(String m) {
