@@ -5,6 +5,8 @@
   * **ai-agent**
     * [Guide vận hành với AI Agent](/manual/ai-agent/operating-guide.md)
   * **learning**
+    * [Lộ trình study Microservices nâng cao — Senior Java](/manual/learning/ADVANCED_MICROSERVICES_STUDY_ROADMAP.md)
+    * [Learning hub — Senior Java / Microservices](/manual/learning/README.md)
     * [📖 Từ vựng Nghiệp vụ & Kỹ thuật Dự án (Technical & Domain Glossary)](/manual/learning/technical-glossary.md)
     * **deep-dive**
       * **cqrs-read-projection**
@@ -20,6 +22,7 @@
         * [Structured Logging & ELK — từ log event đến kiến trúc vận hành](/manual/learning/deep-dive/observability/02-structured-logging-elk.md)
         * [🔗 Correlation ID & Distributed Tracing Deep-Dive](/manual/learning/deep-dive/observability/03-correlation-id-tracing.md)
         * [🚨 Dashboards, Alerting & Incident Response Deep-Dive](/manual/learning/deep-dive/observability/04-dashboards-alerting-incidents.md)
+        * [05. OpenTelemetry Overview: Khung Chuẩn & Cơ Chế Hoạt Động](/manual/learning/deep-dive/observability/05-opentelemetry-overview.md)
         * [📊 Observability Deep-Dive & Architecture Hub](/manual/learning/deep-dive/observability/README.md)
         * **question-bank**
           * [❓ Observability Overview — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/00-overview-questions.md)
@@ -62,6 +65,10 @@
       * [7. Tổng quan các luồng API theo hành trình người dùng](/manual/learning/system-primer/07-api-flows-overview.md)
       * [🚀 Khung Tư Duy Kiến Trúc PRD-Ready (Production Readiness Framework)](/manual/learning/system-primer/08-prd-readiness-framework.md)
       * [Hướng dẫn hiểu Backend V2](/manual/learning/system-primer/README.md)
+    * **use-cases**
+      * [Use case study hub](/manual/learning/use-cases/README.md)
+      * **01-scan-to-catalog-canonical-ingestion**
+        * [UC-01 — Scan → Catalog canonical ingestion](/manual/learning/use-cases/01-scan-to-catalog-canonical-ingestion/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
@@ -176,6 +183,14 @@
       * [019 Catalog master data registry — Design](/docs/features/019-catalog-master-data-registry/02-design.md)
       * [019 Catalog master data registry — Plan](/docs/features/019-catalog-master-data-registry/03-plan.md)
       * [FT019 — Studio import contract](/docs/features/019-catalog-master-data-registry/04-studio-import-contract.md)
+    * **020-opentelemetry-tracing-propagation**
+      * [FT020 — OpenTelemetry Tracing & Kafka Header Propagation](/docs/features/020-opentelemetry-tracing-propagation/01-brief.md)
+      * [FT020 — OpenTelemetry Tracing & Kafka Header Propagation — Design](/docs/features/020-opentelemetry-tracing-propagation/02-design.md)
+      * [FT020 — OpenTelemetry Tracing & Kafka Header Propagation — Plan](/docs/features/020-opentelemetry-tracing-propagation/03-plan.md)
+    * **021-jaeger-opentelemetry-tracing-ui**
+      * [FT021: Tích hợp Jaeger UI & OpenTelemetry OTLP Exporter](/docs/features/021-jaeger-opentelemetry-tracing-ui/01-brief.md)
+      * [FT021: Tích hợp Jaeger UI & OpenTelemetry OTLP Exporter — Design](/docs/features/021-jaeger-opentelemetry-tracing-ui/02-design.md)
+      * [FT021: Tích hợp Jaeger UI & OpenTelemetry OTLP Exporter — Plan](/docs/features/021-jaeger-opentelemetry-tracing-ui/03-plan.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)
