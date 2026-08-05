@@ -20,7 +20,6 @@ Tài liệu này là **Nguồn sự thật duy nhất (SSOT)** quản lý toàn 
 
 | ID | Service | Cấp độ | Tóm tắt Nợ Kỹ thuật | Nguyên nhân / Ngữ cảnh | Kế hoạch Trả nợ (Resolution Plan) | Trạng thái |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`TD-003`** | `query-service` | 🟡 MEDIUM | Rủi ro Thread Pinning tại `ensureAlias()` khi bật Virtual Threads. | Audit 100% Java code: `scan-service` sạch 100% (`0` synchronized). Chỉ `query-service` dính 1 vị trí tại `ElasticsearchSearchAdapter.java` (`ensureAlias()`). | Refactor `ensureAlias()` trong `query-service` từ `synchronized` sang `ReentrantLock` khi đến Phase Query Service. *(Xem [04-thread-pinning-deep-dive.md](../manual/learning/deep-dive/virtual-threads/04-thread-pinning-deep-dive.md))*. | 🔍 `AUDITED` |
 | **`TD-004`** | `platform/observability` | 🟢 LOW | Metrics Prometheus (`scan_run_duration_seconds`) chưa được gắn MDC Trace ID. | Phân tán giữa Micrometer metrics và OpenTelemetry Tracing. | Cấu hình MDC Correlation ID vào Micrometer custom Observation Handler. | 📝 `BACKLOG` |
 | **`TD-005`** | `catalog-service` | 🟢 LOW | Enum & Status mapping trong Catalog Event chưa versioning chặt chẽ ở DTO level. | Catalog Event P1 dùng String raw cho một số metadata phụ. | Chuẩn hóa Envelope Schema Versioning trong `platform/event-contracts`. | 📝 `BACKLOG` |
 

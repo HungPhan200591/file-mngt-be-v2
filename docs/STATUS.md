@@ -5,7 +5,7 @@ Updated: 2026-08-05
 ## Hiện tại
 
 - Active feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
-- Nợ kỹ thuật cần lưu ý: [`TD-003`–`TD-005`](./TECHNICAL_DEBT.md).
+- Nợ kỹ thuật cần lưu ý: [`TD-004`–`TD-005`](./TECHNICAL_DEBT.md).
 
 ## Gate còn mở trước cutover frontend
 

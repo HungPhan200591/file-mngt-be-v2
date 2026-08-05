@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,6 +20,7 @@ public class ElasticsearchSearchAdapter {
     static final String ALIAS = "media-subject-search";
 
     private final ElasticsearchClient client;
+    private final ReentrantLock aliasLock = new ReentrantLock();
 
     public ElasticsearchSearchAdapter(ElasticsearchClient client) {
         this.client = client;
@@ -121,18 +123,24 @@ public class ElasticsearchSearchAdapter {
         client.indices().delete(request -> request.index(index));
     }
 
-    private synchronized void ensureAlias() throws IOException {
+    private void ensureAlias() throws IOException {
         if (client.indices().existsAlias(request -> request.name(ALIAS)).value()) return;
-        var index = createCandidateIndex();
+        aliasLock.lock();
         try {
-            activate(index);
-        } catch (IOException | RuntimeException exception) {
+            if (client.indices().existsAlias(request -> request.name(ALIAS)).value()) return;
+            var index = createCandidateIndex();
             try {
-                deleteIndex(index);
-            } catch (IOException cleanupException) {
-                exception.addSuppressed(cleanupException);
+                activate(index);
+            } catch (IOException | RuntimeException exception) {
+                try {
+                    deleteIndex(index);
+                } catch (IOException cleanupException) {
+                    exception.addSuppressed(cleanupException);
+                }
+                throw exception;
             }
-            throw exception;
+        } finally {
+            aliasLock.unlock();
         }
     }
 
