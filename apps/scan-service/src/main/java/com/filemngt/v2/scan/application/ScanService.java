@@ -307,7 +307,9 @@ public class ScanService {
         String key =
                 switch (profile) {
                     case JOKE_VIDEO, JOKE_ASSET ->
-                        name.matches(".*\\[[^]]+].*") ? name.replaceFirst(".*\\[([^]]+)].*", "$1") : null;
+                        name.toLowerCase(Locale.ROOT).startsWith("best of ")
+                                ? name
+                                : (name.matches(".*\\[[^]]+].*") ? name.replaceFirst(".*\\[([^]]+)].*", "$1") : null);
                     case USE_VIDEO -> normalize(name);
                     case USE_ASSET -> normalize(name.replaceFirst(" \\(\\d+\\)$", ""));
                     case USE_ALBUM ->
