@@ -53,7 +53,7 @@ Cấu trúc một chuỗi `traceparent` chuẩn W3C:
 
 ## 3. Luồng Truyền Context Xuyên Kafka & MDC Bridge (Liên hệ FT020)
 
-Trong hệ thống Backend V2 (kế hoạch triển khai tại [`FT020`](../../docs/features/020-opentelemetry-tracing-propagation/03-plan.md)), OpenTelemetry hoạt động song hành cùng SLF4J MDC như sau:
+Trong Backend V2, cơ chế này đã được triển khai tại [`FT020`](../../docs/features/020-opentelemetry-tracing-propagation/03-plan.md); trace được export và xác nhận trên Jaeger local tại [`FT021`](../../docs/features/021-jaeger-opentelemetry-tracing-ui/03-plan.md). OpenTelemetry hoạt động song hành cùng SLF4J MDC như sau:
 
 [Skill: mermaid-styling]
 
@@ -96,3 +96,4 @@ flowchart TB
 - 🔗 [03. Correlation ID & Distributed Tracing](03-correlation-id-tracing.md)
 - 📜 [02. Structured Logging: Spring Boot ECS & ELK Stack](02-structured-logging-elk.md)
 - 📋 [FT020 — OpenTelemetry Tracing & Kafka Header Propagation](../../docs/features/020-opentelemetry-tracing-propagation/01-brief.md)
+- 📋 [FT021 — Jaeger UI & OpenTelemetry OTLP Exporter](../../docs/features/021-jaeger-opentelemetry-tracing-ui/03-plan.md)

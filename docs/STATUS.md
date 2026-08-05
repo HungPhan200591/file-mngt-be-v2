@@ -5,15 +5,14 @@ Updated: 2026-08-05
 ## Hiện tại
 
 - Active feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
-- Ready verification: [`021-jaeger-opentelemetry-tracing-ui`](./features/021-jaeger-opentelemetry-tracing-ui/03-plan.md) `READY`: code tracing xuyên outbox/Kafka và OTLP đã hoàn tất, còn acceptance runtime Jaeger theo [`TD-006`](./TECHNICAL_DEBT.md).
-- Feature hoàn thành gần nhất: [`FT020 — OpenTelemetry Tracing Propagation`](./features/020-opentelemetry-tracing-propagation/03-plan.md) `DONE`: truyền Correlation ID / W3C Trace Context xuyên Kafka Header & MDC bridge.
-- Nợ kỹ thuật cần lưu ý: [`TD-002`–`TD-006`](./TECHNICAL_DEBT.md).
+- Feature hoàn thành gần nhất: [`FT021 — Jaeger UI & OpenTelemetry OTLP Exporter`](./features/021-jaeger-opentelemetry-tracing-ui/03-plan.md) `DONE`: runtime xác nhận một trace xuyên Gateway → Scan → Catalog → Query qua Outbox/Kafka.
+- Nợ kỹ thuật cần lưu ý: [`TD-002`–`TD-005`](./TECHNICAL_DEBT.md).
 
 ## Gate còn mở trước cutover frontend
 
 - **Phase 4:** Media Worker chưa có processing pipeline: technical metadata, thumbnail, GIF, hash, completion event và Catalog update.
 - **Phase 7:** Chưa có importer/backfill V1: inventory root, dry-run, batch idempotent, checkpoint và reconciliation.
-- **Observability mở rộng:** OpenTelemetry trace xuyên Kafka ([`FT020`](./features/020-opentelemetry-tracing-propagation/03-plan.md) `DONE`), alert/SLO, profiling sâu và k6.
+- **Observability mở rộng:** alert/SLO, profiling sâu và k6.
 
 ## Việc kế tiếp
 

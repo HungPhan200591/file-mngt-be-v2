@@ -4,7 +4,7 @@ Owner: `platform/observability`
 
 ## Vấn đề
 
-Feature FT020 đã hoàn thành việc truyền Trace Context (`traceparent` W3C) và MDC Logging Correlation. FT021 đã bổ sung Jaeger local cùng OTLP exporter; còn cần xác nhận runtime một mutation mới tạo được trace đầy đủ xuyên HTTP, outbox và Kafka trên Jaeger UI.
+Feature FT020 đã hoàn thành việc truyền Trace Context (`traceparent` W3C) và MDC Logging Correlation. FT021 đã bổ sung Jaeger local cùng OTLP exporter và đã xác nhận runtime một mutation mới tạo trace đầy đủ xuyên HTTP, outbox và Kafka trên Jaeger UI.
 
 ## Mục tiêu và acceptance criteria
 

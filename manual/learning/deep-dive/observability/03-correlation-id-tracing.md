@@ -120,7 +120,7 @@ flowchart TB
    - Giúp Kỹ sư vận hành trên **Kibana Discover** có thể **1-Click từ log lỗi nhảy thẳng sang Grafana Tempo / Jaeger** để xem Gantt Chart toàn bộ cuộc gọi distributed trace đó.
 3. **Tiến trình Tiến hóa (Migration Steps)**:
    - **Đã triển khai (FT020 — OpenTelemetry Tracing & Kafka Header Propagation)**: Đã bổ sung `KafkaTracingHeaderPropagation` trong `platform/observability` để tự động inject `X-Correlation-Id` và `traceparent` (W3C Trace Context) vào Kafka `RecordHeaders` tại Outbox Publisher, đồng thời extract và bridge vào MDC tại các `@KafkaListener` Consumer.
-   - **Tương lai (Khi triển khai OTLP Exporter)**: Kết nối dữ liệu trace sang Grafana Tempo / Jaeger để hiển thị Gantt Chart.
+   - **Đã triển khai (FT021 — Jaeger UI & OpenTelemetry OTLP Exporter)**: Spring Boot export trace qua OTLP HTTP tới Jaeger local; runtime đã xác nhận trace xuyên Gateway → Scan → Catalog → Query. Grafana Tempo vẫn là lựa chọn backend trace khác, chưa nằm trong local stack hiện tại.
 
 ---
 

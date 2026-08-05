@@ -1,6 +1,6 @@
 # FT021: Tích hợp Jaeger UI & OpenTelemetry OTLP Exporter — Plan
 
-Status: READY
+Status: DONE
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -36,7 +36,7 @@ Design: [02-design.md](./02-design.md)
 4. **Kiểm chứng & Chạy thử**:
    - Biên dịch dự án bằng JDK 25 (`.\mvnw test-compile`).
    - Chạy unit/integration test cho helper và outbox metadata.
-   - Chờ kiểm chứng runtime Jaeger theo acceptance criteria trước khi chuyển `DONE`.
+   - Đã xác nhận runtime trace `61c9414f1e4f518f4ce027a80ae6af68` có HTTP Gateway/Scan, hai Outbox producer, Catalog consumer và Query consumer trong cùng một trace.
 
 ## Kiểm tra
 
@@ -50,5 +50,5 @@ Design: [02-design.md](./02-design.md)
 
 ## Tài liệu cần cập nhật
 
-- `docs/STATUS.md`: Giữ `021-jaeger-opentelemetry-tracing-ui` ở `READY` đến khi có bằng chứng runtime Jaeger.
-- `manual/learning/deep-dive/observability/05-opentelemetry-overview.md`: Cập nhật khi runtime acceptance Jaeger hoàn tất.
+- `docs/STATUS.md`: Đã cập nhật `FT021` sang `DONE` sau runtime acceptance Jaeger.
+- `manual/learning/deep-dive/observability/05-opentelemetry-overview.md`: Đã cập nhật trạng thái tích hợp Jaeger local.
