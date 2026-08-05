@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "scan")
+/** Binding cấu hình các filesystem root và tham số vận hành scan. */
 public class ScanProperties {
     private List<Root> roots = new ArrayList<>();
 

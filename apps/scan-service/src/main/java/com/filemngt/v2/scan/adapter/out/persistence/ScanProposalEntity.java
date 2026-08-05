@@ -13,6 +13,7 @@ import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "scan_proposal")
+/** Proposal persistence chứa candidate đã vượt policy metadata và chờ người dùng ra quyết định. */
 public class ScanProposalEntity implements Persistable<UUID> {
     @Id
     private UUID id;

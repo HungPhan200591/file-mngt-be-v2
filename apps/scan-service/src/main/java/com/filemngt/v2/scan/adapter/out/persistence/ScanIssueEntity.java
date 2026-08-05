@@ -10,6 +10,7 @@ import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "scan_issue")
+/** Issue persistence lưu nguyên nhân file không thể trở thành proposal để người dùng tra cứu hoặc sửa nguồn dữ liệu. */
 public class ScanIssueEntity implements Persistable<UUID> {
     @Id
     private UUID id;

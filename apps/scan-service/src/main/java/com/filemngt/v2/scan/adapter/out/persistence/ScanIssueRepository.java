@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+/** Repository ownership của issue được tạo trong quá trình scan. */
 public interface ScanIssueRepository extends JpaRepository<ScanIssueEntity, UUID> {
     Page<ScanIssueEntity> findByScanRunId(UUID scanRunId, Pageable pageable);
 

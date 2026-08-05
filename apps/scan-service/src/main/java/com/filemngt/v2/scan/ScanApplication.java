@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableConfigurationProperties({ScanProperties.class, CatalogClientProperties.class})
 @EnableScheduling
+/** Điểm khởi động Scan Service và kích hoạt cấu hình/scheduler thuộc phạm vi service này. */
 public class ScanApplication {
 
     public static void main(String[] args) {

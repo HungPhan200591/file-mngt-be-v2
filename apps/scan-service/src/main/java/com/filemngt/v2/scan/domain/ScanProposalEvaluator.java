@@ -2,97 +2,74 @@ package com.filemngt.v2.scan.domain;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
+import java.util.Set;
 
-/**
- * Component kiểm định chất lượng bóc tách metadata từ tên file và đường dẫn.
- * Đảm bảo chỉ những file khớp pattern 100% và không chứa giá trị thiếu/None mới được coi là Proposal hợp lệ.
- */
-public class ScanProposalEvaluator {
+/** Áp dụng policy chất lượng metadata để quyết định candidate trở thành proposal hay issue cần người dùng xử lý. */
+public final class ScanProposalEvaluator {
+    private static final String FILE_NAME_MISMATCH = "Filename does not match profile";
+    private static final String UNPARSEABLE_DETAIL = "Tên file không bóc tách được ngữ nghĩa (UNPARSEABLE)";
+    private static final String PARTIAL_DETAIL =
+            "Phân tích ngữ nghĩa file chỉ hoàn thành một phần (thiếu thông tin tiêu chuẩn)";
+    private static final String AMBIGUOUS_DETAIL = "Tên file chứa thông tin mơ hồ không xác định rõ (AMBIGUOUS)";
+    private static final String INCOMPLETE_DETAIL =
+            "Metadata chứa giá trị thiếu/None (yêu cầu đầy đủ Actress, Title, StudioCode và BaseCode)";
+    private static final Set<String> MISSING_MARKERS =
+            Set.of("none", "—", "-", "no_actress", "no_title", "no_studio", "no_code", "no_label");
 
-    public record EvaluationResult(boolean isProposal, String issueCode, String issueDetail) {
-        public static EvaluationResult proposal() {
+    private ScanProposalEvaluator() {}
+
+    /** Đánh giá theo thứ tự: candidate, tag lạ, trạng thái parser, ambiguity rồi tính đầy đủ metadata. */
+    public static EvaluationResult evaluate(ScanCandidate candidate, ScanSemanticResult semantic) {
+        if (candidate == null) {
+            return EvaluationResult.issue(ScanIssueCode.UNPARSEABLE, FILE_NAME_MISMATCH);
+        }
+        if (semantic == null) {
+            return EvaluationResult.issue(ScanIssueCode.UNPARSEABLE, UNPARSEABLE_DETAIL);
+        }
+        if (!semantic.unrecognizedTags().isEmpty()) {
+            String tags = String.join(", ", semantic.unrecognizedTags());
+            return EvaluationResult.issue(
+                    ScanIssueCode.UNRECOGNIZED_TAG, "Phát hiện Tag chưa đăng ký trong Catalog: " + tags);
+        }
+        return switch (semantic.parseStatus()) {
+            case UNPARSEABLE -> EvaluationResult.issue(ScanIssueCode.UNPARSEABLE, UNPARSEABLE_DETAIL);
+            case PARTIAL -> EvaluationResult.issue(ScanIssueCode.PARTIAL, PARTIAL_DETAIL);
+            case AMBIGUOUS -> EvaluationResult.issue(ScanIssueCode.AMBIGUOUS, AMBIGUOUS_DETAIL);
+            case COMPLETED ->
+                semantic.isAmbiguous()
+                        ? EvaluationResult.issue(ScanIssueCode.AMBIGUOUS, AMBIGUOUS_DETAIL)
+                        : evaluateCompleted(candidate, semantic);
+        };
+    }
+
+    private static EvaluationResult evaluateCompleted(ScanCandidate candidate, ScanSemanticResult semantic) {
+        String title = semantic.title() != null ? semantic.title() : candidate.title();
+        boolean incomplete = isMissing(semantic.baseCode())
+                || isMissing(title)
+                || isMissing(semantic.studioCode())
+                || isMissing(semantic.actressNames());
+        return incomplete
+                ? EvaluationResult.issue(ScanIssueCode.INCOMPLETE_METADATA, INCOMPLETE_DETAIL)
+                : EvaluationResult.proposal();
+    }
+
+    private static boolean isMissing(String value) {
+        return value == null
+                || value.isBlank()
+                || MISSING_MARKERS.contains(value.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean isMissing(List<String> values) {
+        return values == null || values.isEmpty() || values.stream().allMatch(ScanProposalEvaluator::isMissing);
+    }
+
+    public record EvaluationResult(boolean isProposal, ScanIssueCode issueCode, String issueDetail) {
+        static EvaluationResult proposal() {
             return new EvaluationResult(true, null, null);
         }
 
-        public static EvaluationResult issue(String code, String detail) {
+        static EvaluationResult issue(ScanIssueCode code, String detail) {
             return new EvaluationResult(false, code, detail);
         }
-    }
-
-    public static EvaluationResult evaluate(
-            Object parsed,
-            List<String> unrecognizedTags,
-            Map<String, Object> semanticMap) {
-
-        if (parsed == null) {
-            return EvaluationResult.issue("UNPARSEABLE", "Filename does not match profile");
-        }
-
-        if (unrecognizedTags != null && !unrecognizedTags.isEmpty()) {
-            return EvaluationResult.issue(
-                    "UNRECOGNIZED_TAG",
-                    "Phát hiện Tag chưa đăng ký trong Catalog: " + String.join(", ", unrecognizedTags));
-        }
-
-        if (semanticMap == null || semanticMap.isEmpty()) {
-            return EvaluationResult.issue("UNPARSEABLE", "Tên file không bóc tách được ngữ nghĩa (UNPARSEABLE)");
-        }
-
-        String parseStatus = (String) semanticMap.get("status");
-        Boolean isAmbiguous = (Boolean) semanticMap.get("isAmbiguous");
-        String baseCode = (String) semanticMap.get("baseCode");
-        String title = (String) semanticMap.get("title");
-        String studioCode = (String) semanticMap.get("studioCode");
-
-        @SuppressWarnings("unchecked")
-        List<String> actressNames = (List<String>) semanticMap.get("actressNames");
-
-        if ("UNPARSEABLE".equals(parseStatus)) {
-            return EvaluationResult.issue("UNPARSEABLE", "Tên file không bóc tách được ngữ nghĩa (UNPARSEABLE)");
-        }
-
-        if ("PARTIAL".equals(parseStatus)) {
-            return EvaluationResult.issue(
-                    "PARTIAL", "Phân tích ngữ nghĩa file chỉ hoàn thành một phần (thiếu thông tin tiêu chuẩn)");
-        }
-
-        if ("AMBIGUOUS".equals(parseStatus) || Boolean.TRUE.equals(isAmbiguous)) {
-            return EvaluationResult.issue(
-                    "AMBIGUOUS", "Tên file chứa thông tin mơ hồ không xác định rõ (AMBIGUOUS)");
-        }
-
-        if (isNoneOrBlank(baseCode)
-                || isNoneOrBlank(title)
-                || isNoneOrBlank(studioCode)
-                || isNoneOrEmpty(actressNames)) {
-            return EvaluationResult.issue(
-                    "INCOMPLETE_METADATA",
-                    "Metadata chứa giá trị thiếu/None (yêu cầu đầy đủ Actress, Title, StudioCode và BaseCode)");
-        }
-
-        return EvaluationResult.proposal();
-    }
-
-    private static boolean isNoneOrBlank(String value) {
-        if (value == null || value.isBlank()) {
-            return true;
-        }
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("none")
-                || normalized.equals("—")
-                || normalized.equals("-")
-                || normalized.equals("no_actress")
-                || normalized.equals("no_title")
-                || normalized.equals("no_studio")
-                || normalized.equals("no_code")
-                || normalized.equals("no_label");
-    }
-
-    private static boolean isNoneOrEmpty(List<String> values) {
-        if (values == null || values.isEmpty()) {
-            return true;
-        }
-        return values.stream().allMatch(ScanProposalEvaluator::isNoneOrBlank);
     }
 }

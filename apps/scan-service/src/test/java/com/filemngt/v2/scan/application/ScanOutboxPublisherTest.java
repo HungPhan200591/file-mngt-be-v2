@@ -30,7 +30,7 @@ class ScanOutboxPublisherTest {
         assertThat(event.attemptCount()).isZero();
         assertThat(event.lastError()).isNull();
         verify(messages).publish(event.eventType(), event.partitionKey(), event.payload());
-        verify(events).save(event);
+        verify(events).saveAll(List.of(event));
     }
 
     @Test
@@ -48,7 +48,7 @@ class ScanOutboxPublisherTest {
         assertThat(event.publishedAt()).isNull();
         assertThat(event.attemptCount()).isOne();
         assertThat(event.lastError()).contains("broker unavailable");
-        verify(events).save(event);
+        verify(events).saveAll(List.of(event));
     }
 
     private ScanOutboxEventEntity event() {

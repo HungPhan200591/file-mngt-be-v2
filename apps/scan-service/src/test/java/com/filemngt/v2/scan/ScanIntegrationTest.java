@@ -6,8 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
-import com.filemngt.v2.scan.adapter.out.catalog.RegistrySnapshot;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventRepository;
+import com.filemngt.v2.scan.domain.ScanRegistrySnapshot;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -55,7 +55,7 @@ class ScanIntegrationTest {
     @BeforeEach
     void setUp() {
         Mockito.when(catalogClient.fetch("JOKE"))
-                .thenReturn(Optional.of(new RegistrySnapshot(100L, "JOKE", List.of("JOKE-001"), List.of())));
+                .thenReturn(Optional.of(new ScanRegistrySnapshot(100L, "JOKE", List.of("JOKE-001"), List.of())));
     }
 
     @DynamicPropertySource
@@ -70,25 +70,14 @@ class ScanIntegrationTest {
 
     @Test
     void scansApprovesIdempotentlyAndRejectsConflictingDecision() throws Exception {
+        long initialOutboxCount = outbox.count();
         ScanProposalRef proposal = scanAndGetProposal();
         String decisionPath = decisionPath(proposal);
-        String approved = mockMvc.perform(post(decisionPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"decision\":\"APPROVE\"}"))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+        String approved = decide(decisionPath, "APPROVE");
         String eventId = json.readTree(approved).get("eventId").asText();
-        String repeated = mockMvc.perform(post(decisionPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"decision\":\"APPROVE\"}"))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+        String repeated = decide(decisionPath, "APPROVE");
         assertThat(json.readTree(repeated).get("eventId").asText()).isEqualTo(eventId);
-        assertThat(outbox.count()).isEqualTo(1);
+        assertThat(outbox.count()).isEqualTo(initialOutboxCount + 1);
         mockMvc.perform(post(decisionPath)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"REJECT\"}"))
@@ -115,18 +104,9 @@ class ScanIntegrationTest {
         ScanProposalRef proposal = scanAndGetProposal();
         String decisionPath = decisionPath(proposal);
 
-        String rejected = mockMvc.perform(post(decisionPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"decision\":\"REJECT\"}"))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+        String rejected = decide(decisionPath, "REJECT");
         assertThat(json.readTree(rejected).get("eventId").isNull()).isTrue();
-        mockMvc.perform(post(decisionPath)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"decision\":\"REJECT\"}"))
-                .andExpect(status().isOk());
+        decide(decisionPath, "REJECT");
         assertThat(outbox.count()).isEqualTo(outboxCount);
 
         mockMvc.perform(post(decisionPath)
@@ -137,6 +117,21 @@ class ScanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"APPROVE\"}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void approvesBatchWithBulkPersistenceAndNoDuplicateOutbox() throws Exception {
+        long outboxCount = outbox.count();
+        ScanProposalRef proposal = scanAndGetProposal();
+        String decisionPath = "/api/v2/scans/" + proposal.scanId() + "/decisions";
+
+        String approved = decide(decisionPath, "APPROVE");
+        assertThat(json.readTree(approved).get("processedCount").asInt()).isEqualTo(1);
+        assertThat(outbox.count()).isEqualTo(outboxCount + 1);
+
+        String repeated = decide(decisionPath, "APPROVE");
+        assertThat(json.readTree(repeated).get("processedCount").asInt()).isZero();
+        assertThat(outbox.count()).isEqualTo(outboxCount + 1);
     }
 
     @Test
@@ -202,6 +197,16 @@ class ScanIntegrationTest {
 
     private String decisionPath(ScanProposalRef proposal) {
         return "/api/v2/scans/" + proposal.scanId() + "/proposals/" + proposal.proposalId() + "/decision";
+    }
+
+    private String decide(String path, String decision) throws Exception {
+        return mockMvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"" + decision + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
     }
 
     private static Path createRoot() {

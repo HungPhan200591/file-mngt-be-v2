@@ -5,6 +5,7 @@ import com.filemngt.v2.scan.domain.ScanRunStatus;
 import java.time.Instant;
 import java.util.UUID;
 
+/** Dữ liệu trạng thái và số liệu tổng kết của một scan run. */
 public record ScanRunView(
         UUID id,
         String rootKey,

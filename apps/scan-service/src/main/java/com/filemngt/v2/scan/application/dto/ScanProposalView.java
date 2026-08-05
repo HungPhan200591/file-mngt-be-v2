@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+/** Dữ liệu review một candidate đủ điều kiện, gồm evidence và quyết định hiện tại nếu có. */
 public record ScanProposalView(
         UUID id,
         String sourceRelativePath,

@@ -7,6 +7,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+/** Adapter Kafka publish payload outbox tới topic đã được factory gắn vào event type. */
 public class KafkaOutboxMessagePublisher implements OutboxMessagePublisher {
     private final KafkaTemplate<String, String> kafka;
 
@@ -15,6 +16,7 @@ public class KafkaOutboxMessagePublisher implements OutboxMessagePublisher {
     }
 
     @Override
+    /** Gửi payload đã serialize với partition key ổn định để broker giữ thứ tự theo media identity. */
     public void publish(String topic, String key, String payload) {
         var record = new ProducerRecord<String, String>(topic, key, payload);
         KafkaTracingHeaderPropagation.injectTracingHeaders(record);

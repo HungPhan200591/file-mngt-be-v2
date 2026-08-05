@@ -3,6 +3,7 @@ package com.filemngt.v2.scan.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "catalog.registry")
+/** Binding endpoint và timeout cho adapter lấy registry từ Catalog Service. */
 public class CatalogClientProperties {
 
     private String baseUrl = "http://localhost:18101";

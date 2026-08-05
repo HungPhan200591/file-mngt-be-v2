@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
 import com.filemngt.v2.scan.application.ScanDecisionService;
+import com.filemngt.v2.scan.application.ScanQueryService;
 import com.filemngt.v2.scan.application.ScanService;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
@@ -9,8 +10,6 @@ import com.filemngt.v2.scan.application.dto.ScanProposalView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -34,10 +33,12 @@ public class ScanController {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanController.class);
 
     private final ScanService service;
+    private final ScanQueryService queries;
     private final ScanDecisionService decisions;
 
-    public ScanController(ScanService service, ScanDecisionService decisions) {
+    public ScanController(ScanService service, ScanQueryService queries, ScanDecisionService decisions) {
         this.service = service;
+        this.queries = queries;
         this.decisions = decisions;
     }
 
@@ -59,7 +60,7 @@ public class ScanController {
     @GetMapping("/roots")
     public List<ScanRootView> roots() {
         LOGGER.info("HTTP GET /api/v2/scans/roots -> Truy vấn danh sách scan roots");
-        return service.roots();
+        return queries.roots();
     }
 
     /**
@@ -70,7 +71,7 @@ public class ScanController {
     public ScanPageView<ScanRunView> recentRuns(
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         LOGGER.info("HTTP GET /api/v2/scans -> Lấy lịch sử đợt scan: page={}, size={}", page, size);
-        return service.recentRuns(valid(page, size), size);
+        return queries.recentRuns(valid(page, size), size);
     }
 
     /**
@@ -80,7 +81,7 @@ public class ScanController {
     @GetMapping("/{scanId}")
     public ScanRunView get(@PathVariable UUID scanId) {
         LOGGER.info("HTTP GET /api/v2/scans/{} -> Lấy thông tin đợt scan", scanId);
-        return service.get(scanId);
+        return queries.get(scanId);
     }
 
     /**
@@ -94,7 +95,7 @@ public class ScanController {
             @RequestParam(defaultValue = "50") int size) {
         LOGGER.info(
                 "HTTP GET /api/v2/scans/{}/proposals -> Lấy danh sách proposals: page={}, size={}", scanId, page, size);
-        return service.proposals(scanId, valid(page, size), size);
+        return queries.proposals(scanId, valid(page, size), size);
     }
 
     /**
@@ -115,7 +116,7 @@ public class ScanController {
                 search,
                 page,
                 size);
-        return service.issues(scanId, code, search, valid(page, size), size);
+        return queries.issues(scanId, code, search, valid(page, size), size);
     }
 
     /**
@@ -138,8 +139,7 @@ public class ScanController {
      * POST /api/v2/scans/{scanId}/decisions
      */
     @PostMapping("/{scanId}/decisions")
-    public BatchDecisionResponse decideAll(
-            @PathVariable UUID scanId, @Valid @RequestBody DecisionRequest request) {
+    public BatchDecisionResponse decideAll(@PathVariable UUID scanId, @Valid @RequestBody DecisionRequest request) {
         LOGGER.info("HTTP POST /api/v2/scans/{}/decisions -> Batch Decision: {}", scanId, request.decision());
         int count = decisions.decideAll(scanId, request.decision());
         return new BatchDecisionResponse(scanId, request.decision(), count);
@@ -151,18 +151,5 @@ public class ScanController {
             throw new InvalidRequestException("page must be >= 0 and size must be between 1 and 100");
         }
         return page;
-    }
-
-    public record StartScanRequest(@NotBlank String rootKey) {}
-
-    public record DecisionRequest(
-            @NotBlank @Pattern(regexp = "APPROVE|REJECT") String decision) {}
-
-    public record BatchDecisionResponse(UUID scanId, String decision, int processedCount) {}
-
-    public static class InvalidRequestException extends RuntimeException {
-        public InvalidRequestException(String m) {
-            super(m);
-        }
     }
 }

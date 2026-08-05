@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refactor Spring Service"
+  short_description: "Audit và refactor clean code Java/Spring"
+  default_prompt: "Dùng $refactor-spring-service để audit và làm sạch service Java mà không đổi hành vi."

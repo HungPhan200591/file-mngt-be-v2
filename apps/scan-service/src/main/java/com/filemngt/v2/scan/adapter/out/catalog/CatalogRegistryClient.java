@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.adapter.out.catalog;
 
 import com.filemngt.v2.scan.config.CatalogClientProperties;
+import com.filemngt.v2.scan.domain.ScanRegistrySnapshot;
 import java.time.Duration;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -11,7 +12,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * Gọi Catalog scan-registry endpoint và trả RegistrySnapshot.
+ * Adapter HTTP lấy ScanRegistrySnapshot từ Catalog Service.
  * Trả Optional.empty() khi Catalog không khả dụng (5xx, I/O error, timeout).
  * Không throw exception ra ngoài; caller xử lý empty = registry unavailable.
  */
@@ -19,6 +20,7 @@ import org.springframework.web.client.RestClientException;
 public class CatalogRegistryClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogRegistryClient.class);
+    private static final String REGISTRY_PATH = "/api/v2/master-data/scan-registry?region={region}";
 
     private final RestClient restClient;
 
@@ -39,13 +41,11 @@ public class CatalogRegistryClient {
      * @param region "JOKE" hoặc "USE"
      * @return Optional chứa snapshot nếu thành công; empty nếu Catalog unavailable.
      */
-    public Optional<RegistrySnapshot> fetch(String region) {
+    /** Lấy snapshot cho một vùng; caller quyết định cách xử lý khi Catalog không khả dụng. */
+    public Optional<ScanRegistrySnapshot> fetch(String region) {
         try {
-            var snapshot = restClient
-                    .get()
-                    .uri("/api/v2/master-data/scan-registry?region={region}", region)
-                    .retrieve()
-                    .body(RegistrySnapshot.class);
+            var snapshot =
+                    restClient.get().uri(REGISTRY_PATH, region).retrieve().body(ScanRegistrySnapshot.class);
             if (snapshot == null) {
                 LOGGER.warn("catalog.registry returned null body for region={}", region);
                 return Optional.empty();

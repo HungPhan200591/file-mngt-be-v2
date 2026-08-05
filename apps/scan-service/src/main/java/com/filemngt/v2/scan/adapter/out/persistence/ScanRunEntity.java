@@ -12,6 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "scan_run")
+/** Aggregate persistence lưu vòng đời và số liệu tổng kết của một lần scan root. */
 public class ScanRunEntity {
     @Id
     private UUID id;
@@ -43,6 +44,7 @@ public class ScanRunEntity {
         this.registryVersion = registryVersion;
     }
 
+    /** Đóng scan thành công bằng số liệu executor đã tích lũy. */
     public void complete(long files, long proposals, long issues) {
         scannedFileCount = files;
         proposalCount = proposals;
@@ -51,6 +53,7 @@ public class ScanRunEntity {
         status = ScanRunStatus.COMPLETED;
     }
 
+    /** Đóng scan thất bại và giữ nguyên nhân cuối để API hiển thị. */
     public void fail(String error) {
         finishedAt = Instant.now();
         lastError = error;

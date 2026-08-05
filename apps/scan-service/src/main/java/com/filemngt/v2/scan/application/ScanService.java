@@ -1,451 +1,130 @@
 package com.filemngt.v2.scan.application;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
-import com.filemngt.v2.scan.adapter.out.catalog.RegistrySnapshot;
-import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.ScanDecisionRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.ScanIssueRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanRunRepository;
-import com.filemngt.v2.scan.application.dto.ScanIssueView;
-import com.filemngt.v2.scan.application.dto.ScanPageView;
-import com.filemngt.v2.scan.application.dto.ScanProposalView;
-import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
-import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.config.ScanProperties;
-import com.filemngt.v2.scan.domain.ScanProfile;
-import com.filemngt.v2.scan.domain.ScanProposalEvaluator;
+import com.filemngt.v2.scan.domain.ScanCandidateParser;
+import com.filemngt.v2.scan.domain.ScanRegistrySnapshot;
 import com.filemngt.v2.scan.domain.ScanRunStatus;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Service quản lý luồng Scan Preview thư mục filesystem.
- * Chịu trách nhiệm khởi tạo ScanRun, duyệt đĩa bất đồng bộ, trích xuất metadata và lưu các Proposal/Issue.
- */
 @Service
+/**
+ * Điều phối vòng đời một đợt scan: kiểm tra root, khóa scan đang chạy, lấy snapshot Catalog và giao việc nền.
+ * Không chứa luật bóc tách tên file hay truy vấn danh sách kết quả.
+ */
 public class ScanService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanService.class);
-    private static final Set<String> VIDEO_EXTENSIONS = Set.of(".mp4", ".avi", ".mov", ".wmv");
+    private static final int RUN_TIMEOUT_MINUTES = 15;
+    private static final String STALE_RUN_DETAIL = "Stale scan run timed out (> 15m)";
+    private static final String RESTART_INTERRUPTION_DETAIL = "Interrupted by service restart";
 
     private final ScanProperties properties;
     private final ScanRunRepository runs;
-    private final ScanProposalRepository proposals;
-    private final ScanIssueRepository issues;
-    private final ScanDecisionRepository decisions;
-    private final ScanMetadataExtractor metadataExtractor;
+    private final ScanExecutor executor;
     private final TaskExecutor taskExecutor;
     private final CatalogRegistryClient catalogClient;
 
     public ScanService(
             ScanProperties properties,
             ScanRunRepository runs,
-            ScanProposalRepository proposals,
-            ScanIssueRepository issues,
-            ScanDecisionRepository decisions,
-            ScanMetadataExtractor metadataExtractor,
+            ScanExecutor executor,
             @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
             CatalogRegistryClient catalogClient) {
         this.properties = properties;
         this.runs = runs;
-        this.proposals = proposals;
-        this.issues = issues;
-        this.decisions = decisions;
-        this.metadataExtractor = metadataExtractor;
+        this.executor = executor;
         this.taskExecutor = taskExecutor;
         this.catalogClient = catalogClient;
     }
 
-    /**
-     * Bắt đầu một đợt scan preview mới theo rootKey.
-     * Trước khi quét đĩa, hệ thống bắt buộc gọi lấy RegistrySnapshot từ catalog-service để làm căn cứ đối soát.
-     *
-     * @param rootKey Key định danh thư mục gốc cấu hình trong properties
-     * @return ScanRunView phản ánh thông tin đợt scan vừa khởi tạo
-     */
+    /** Khởi tạo scan mới cho root hợp lệ và trả ngay trạng thái RUNNING cho HTTP caller. */
     public ScanRunView start(String rootKey) {
-        LOGGER.info("Nhận yêu cầu khởi chạy scan preview: rootKey={}", rootKey);
+        var root = findRoot(rootKey);
+        expireStaleRuns(rootKey);
+        var snapshot = fetchSnapshot(root);
+        var run = createRun(root, snapshot);
+        taskExecutor.execute(() -> executor.execute(run.id(), root, snapshot));
+        return ScanViewMapper.run(run);
+    }
 
-        // 1. Kiểm tra cấu hình rootKey hợp lệ
-        var root = properties.getRoots().stream()
-                .filter(item -> item.key().equals(rootKey))
+    /** Chỉ cho phép scan các root được khai báo trong cấu hình service. */
+    private ScanProperties.Root findRoot(String rootKey) {
+        return properties.getRoots().stream()
+                .filter(root -> root.key().equals(rootKey))
                 .findFirst()
-                .orElseThrow(() -> {
-                    LOGGER.warn("Root key không hợp lệ: rootKey={}", rootKey);
-                    return new InvalidScanRootException("Unknown root key: " + rootKey);
-                });
+                .orElseThrow(() -> new InvalidScanRootException("Unknown root key: " + rootKey));
+    }
 
-        // 2. Kiểm tra các đợt scan đang ở trạng thái RUNNING
+    /** Kết thúc các run quá timeout trước khi kiểm tra root còn run hoạt động hay không. */
+    private void expireStaleRuns(String rootKey) {
         var runningScans = runs.findByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING);
-        if (!runningScans.isEmpty()) {
-            Instant timeoutThreshold = Instant.now().minus(15, java.time.temporal.ChronoUnit.MINUTES);
-            boolean hasActiveRun = false;
-            for (var running : runningScans) {
-                if (running.startedAt().isBefore(timeoutThreshold)) {
-                    running.fail("Stale scan run timed out (> 15m)");
-                    runs.save(running);
-                } else {
-                    hasActiveRun = true;
-                }
-            }
-            runs.flush();
-            if (hasActiveRun) {
-                LOGGER.warn("Đợt scan cho rootKey={} đang thực sự chạy, hủy yêu cầu mới", rootKey);
-                throw new ScanRunAlreadyRunningException(rootKey);
-            }
+        if (runningScans.isEmpty()) {
+            return;
         }
 
-        // 3. Tải RegistrySnapshot từ Catalog Service trước khi khởi tạo run
-        String region = mapRegion(root.profile());
-        LOGGER.info("Đang tải RegistrySnapshot từ Catalog Service: region={}", region);
-        RegistrySnapshot snapshot = catalogClient.fetch(region).orElseThrow(() -> {
+        Instant timeoutThreshold = Instant.now().minus(RUN_TIMEOUT_MINUTES, ChronoUnit.MINUTES);
+        boolean hasActiveRun = false;
+        var staleRuns = new ArrayList<ScanRunEntity>();
+        for (var running : runningScans) {
+            if (running.startedAt().isBefore(timeoutThreshold)) {
+                running.fail(STALE_RUN_DETAIL);
+                staleRuns.add(running);
+            } else {
+                hasActiveRun = true;
+            }
+        }
+        runs.saveAll(staleRuns);
+        runs.flush();
+        if (hasActiveRun) {
+            throw new ScanRunAlreadyRunningException(rootKey);
+        }
+    }
+
+    /** Lấy snapshot Catalog trước khi tạo run để toàn bộ file dùng chung phiên bản registry. */
+    private ScanRegistrySnapshot fetchSnapshot(ScanProperties.Root root) {
+        String region = ScanCandidateParser.region(root.profile()).name();
+        return catalogClient.fetch(region).orElseThrow(() -> {
             LOGGER.error("Catalog Service không khả dụng khi lấy snapshot: region={}", region);
             return new CatalogRegistryUnavailableException(region);
         });
-
-        LOGGER.info("Đã tải RegistrySnapshot thành công: region={}, version={}", region, snapshot.registryVersion());
-
-        // 4. Khởi tạo thực thể ScanRunEntity trạng thái RUNNING
-        var run = runs.saveAndFlush(new ScanRunEntity(
-                UUID.randomUUID(), root.key(), root.profile(), Instant.now(), snapshot.registryVersion()));
-        LOGGER.info(
-                "Đã khởi tạo ScanRun thành công: runId={}, rootKey={}, profile={}, status=RUNNING",
-                run.id(),
-                root.key(),
-                root.profile());
-
-        // 5. Khởi chạy tiến trình duyệt đĩa bất đồng bộ via TaskExecutor
-        taskExecutor.execute(() -> execute(run.id(), root, snapshot));
-
-        return view(run);
     }
 
-    /**
-     * Lấy danh sách các thư mục gốc (roots) được cấu hình trong hệ thống.
-     */
-    @Transactional(readOnly = true)
-    public List<ScanRootView> roots() {
-        LOGGER.debug("Truy vấn danh sách scan roots cấu hình");
-        return properties.getRoots().stream()
-                .map(root -> new ScanRootView(root.key(), root.profile()))
-                .toList();
+    /** Persist run RUNNING trước khi giao executor, tránh worker chạy không có trạng thái theo dõi. */
+    private ScanRunEntity createRun(ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
+        var run = new ScanRunEntity(
+                UUID.randomUUID(), root.key(), root.profile(), Instant.now(), snapshot.registryVersion());
+        return runs.saveAndFlush(run);
     }
 
-    /**
-     * Tiến trình thực thi quét đĩa bất đồng bộ (tối ưu hóa Batch Insert siêu tốc).
-     * Duyệt qua cây thư mục theo Stream lười, phân tích filename theo profile, phân loại Proposal hoặc Issue.
-     *
-     * @param runId    ID của đợt scan
-     * @param root     Cấu hình thư mục gốc
-     * @param snapshot Snapshot danh mục từ Catalog
-     */
-    public void execute(UUID runId, ScanProperties.Root root, RegistrySnapshot snapshot) {
-        LOGGER.info("Bắt đầu tiến trình quét đĩa bất đồng bộ siêu tốc: runId={}, path={}", runId, root.path());
-        var run = runs.findById(runId).orElseThrow();
-        long totalFiles = 0, totalProposed = 0, totalIssues = 0;
-
-        final int BATCH_SIZE = 500;
-        List<ScanProposalEntity> proposalBuffer = new ArrayList<>(BATCH_SIZE);
-        List<ScanIssueEntity> issueBuffer = new ArrayList<>(BATCH_SIZE);
-
-        Path rootPath = Path.of(root.path());
-
-        try (var paths = Files.walk(rootPath)) {
-            var iterator = paths.filter(Files::isRegularFile)
-                    .filter(item -> !Files.isSymbolicLink(item))
-                    .filter(item -> supportsProfile(root.profile(), item))
-                    .iterator();
-
-            while (iterator.hasNext()) {
-                Path path = iterator.next();
-                totalFiles++;
-                var relative = rootPath.relativize(path).toString().replace('\\', '/');
-                var parsed = parse(root.profile(), relative);
-
-                ScanMetadataExtractor.ExtractionResult ext = parsed != null
-                        ? metadataExtractor.extractResult(root.profile(), relative, parsed.key(), parsed.title(), snapshot)
-                        : null;
-                String rawEv = ext != null ? ext.rawEvidence() : null;
-                Map<String, Object> evidenceMap = ext != null ? ext.evidenceMap() : Map.of();
-
-                @SuppressWarnings("unchecked")
-                List<String> unrecognizedTags = (List<String>) evidenceMap.get("unrecognizedTags");
-                @SuppressWarnings("unchecked")
-                Map<String, Object> semanticMap = (Map<String, Object>) evidenceMap.getOrDefault("semantic", Map.of());
-
-                var eval = ScanProposalEvaluator.evaluate(parsed, unrecognizedTags, semanticMap);
-
-                if (eval.isProposal()) {
-                    proposalBuffer.add(new ScanProposalEntity(
-                            UUID.randomUUID(),
-                            runId,
-                            relative,
-                            root.profile(),
-                            parsed.type(),
-                            parsed.key(),
-                            parsed.title(),
-                            parsed.role(),
-                            rawEv));
-                    totalProposed++;
-                } else {
-                    issueBuffer.add(new ScanIssueEntity(
-                            UUID.randomUUID(), runId, relative, eval.issueCode(), eval.issueDetail()));
-                    totalIssues++;
-                }
-
-                if (proposalBuffer.size() >= BATCH_SIZE) {
-                    proposals.saveAll(proposalBuffer);
-                    proposals.flush();
-                    proposalBuffer.clear();
-                }
-
-                if (issueBuffer.size() >= BATCH_SIZE) {
-                    issues.saveAll(issueBuffer);
-                    issues.flush();
-                    issueBuffer.clear();
-                }
-
-                if (totalFiles % 5000 == 0) {
-                    LOGGER.info(
-                            "Tiến độ scan runId={}: đã quét {} files (Proposals: {}, Issues: {})",
-                            runId,
-                            totalFiles,
-                            totalProposed,
-                            totalIssues);
-                }
-            }
-
-            // Flush nốt bộ đệm còn dư
-            if (!proposalBuffer.isEmpty()) {
-                proposals.saveAll(proposalBuffer);
-                proposals.flush();
-                proposalBuffer.clear();
-            }
-
-            if (!issueBuffer.isEmpty()) {
-                issues.saveAll(issueBuffer);
-                issues.flush();
-                issueBuffer.clear();
-            }
-
-            // Hoàn tất đợt scan
-            run.complete(totalFiles, totalProposed, totalIssues);
-            LOGGER.info(
-                    "Hoàn tất đợt scan siêu tốc runId={}: tổng số file={}, proposed={}, issue={}",
-                    runId,
-                    totalFiles,
-                    totalProposed,
-                    totalIssues);
-        } catch (Exception exception) {
-            LOGGER.error("Tiến trình scan thất bại runId={}: error={}", runId, exception.getMessage(), exception);
-            run.fail(exception.getMessage());
-        }
-
-        runs.save(run);
-    }
-
-    /**
-     * Lấy danh sách các đợt scan gần đây (phân trang).
-     */
-    @Transactional(readOnly = true)
-    public ScanPageView<ScanRunView> recentRuns(int page, int size) {
-        LOGGER.debug("Truy vấn lịch sử các đợt scan: page={}, size={}", page, size);
-        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startedAt"));
-        var result = runs.findAll(pageable);
-        return page(result.map(this::view));
-    }
-
-    /**
-     * Lấy thông tin chi tiết của một đợt scan theo ID.
-     */
-    @Transactional(readOnly = true)
-    public ScanRunView get(UUID id) {
-        LOGGER.debug("Truy vấn thông tin đợt scan: runId={}", id);
-        return view(runs.findById(id).orElseThrow(() -> new ScanRunNotFoundException(id)));
-    }
-
-    /**
-     * Lấy danh sách Proposal đề xuất của đợt scan (phân trang) kèm theo trạng thái decision nếu có.
-     */
-    @Transactional(readOnly = true)
-    public ScanPageView<ScanProposalView> proposals(UUID id, int page, int size) {
-        LOGGER.debug("Truy vấn danh sách proposal của scan runId={}: page={}, size={}", id, page, size);
-        ensure(id);
-        var result = proposals.findByScanRunId(id, PageRequest.of(page, size, Sort.by("sourceRelativePath")));
-
-        List<UUID> proposalIds = result.getContent().stream().map(ScanProposalEntity::id).toList();
-        Map<UUID, ScanDecisionEntity> decisionMap = decisions.findAllById(proposalIds).stream()
-                .collect(Collectors.toMap(ScanDecisionEntity::proposalId, Function.identity()));
-
-        return page(result.map(item -> {
-            var d = decisionMap.get(item.id());
-            return new ScanProposalView(
-                    item.id(),
-                    item.sourceRelativePath(),
-                    item.profile(),
-                    item.candidateType(),
-                    item.identityKey(),
-                    item.displayTitle(),
-                    item.assetRole(),
-                    metadataExtractor.read(item.evidence()),
-                    d != null ? d.decision() : null,
-                    d != null ? d.decidedAt() : null);
-        }));
-    }
-
-    /**
-     * Lấy danh sách Issue sự cố của đợt scan (hỗ trợ lọc theo mã lỗi và tìm kiếm).
-     */
-    @Transactional(readOnly = true)
-    public ScanPageView<ScanIssueView> issues(UUID id, String code, String search, int page, int size) {
-        LOGGER.debug(
-                "Truy vấn danh sách issue của scan runId={}: code={}, search={}, page={}, size={}",
-                id,
-                code,
-                search,
-                page,
-                size);
-        ensure(id);
-        var pageable = PageRequest.of(page, size, Sort.by("sourceRelativePath"));
-        boolean hasCode = code != null && !code.isBlank();
-        boolean hasSearch = search != null && !search.isBlank();
-
-        Page<ScanIssueEntity> result;
-        if (hasCode && hasSearch) {
-            result = issues.findByScanRunIdAndCodeAndSourceRelativePathContainingIgnoreCaseOrDetailContainingIgnoreCase(
-                    id, code, search, search, pageable);
-        } else if (hasCode) {
-            result = issues.findByScanRunIdAndCode(id, code, pageable);
-        } else if (hasSearch) {
-            result = issues.findByScanRunIdAndSourceRelativePathContainingIgnoreCaseOrDetailContainingIgnoreCase(
-                    id, search, search, pageable);
-        } else {
-            result = issues.findByScanRunId(id, pageable);
-        }
-
-        return page(result.map(
-                item -> new ScanIssueView(item.id(), item.sourceRelativePath(), item.code(), item.detail())));
-    }
-
-    private void ensure(UUID id) {
-        if (!runs.existsById(id)) {
-            LOGGER.warn("Scan runId={} không tồn tại", id);
-            throw new ScanRunNotFoundException(id);
-        }
-    }
-
-    private Parsed parse(ScanProfile profile, String path) {
-        String name = path.substring(path.lastIndexOf('/') + 1).replaceFirst("\\.[^.]+$", "");
-        String key =
-                switch (profile) {
-                    case JOKE_VIDEO, JOKE_ASSET ->
-                        name.toLowerCase(Locale.ROOT).startsWith("best of ")
-                                ? name
-                                : (name.matches(".*\\[[^]]+].*") ? name.replaceFirst(".*\\[([^]]+)].*", "$1") : null);
-                    case USE_VIDEO -> normalize(name);
-                    case USE_ASSET -> normalize(name.replaceFirst(" \\(\\d+\\)$", ""));
-                    case USE_ALBUM ->
-                        path.contains("/") ? normalize(path.substring(0, path.lastIndexOf('/'))) : normalize(name);
-                };
-        if (key == null || key.isBlank()) return null;
-        String type = profile == ScanProfile.USE_ALBUM
-                ? "ALBUM"
-                : profile == ScanProfile.JOKE_ASSET || profile == ScanProfile.USE_ASSET ? "ASSET" : "VIDEO";
-        String role = type.equals("ASSET")
-                ? (path.toLowerCase().endsWith(".gif") ? "GIF" : "IMAGE")
-                : (type.equals("VIDEO") ? "PRIMARY_VIDEO" : null);
-        String title = profile == ScanProfile.JOKE_VIDEO || profile == ScanProfile.JOKE_ASSET
-                ? name.replaceFirst("\\s*-?\\s*\\[[^]]+]\\s*$", "").trim()
-                : name;
-        return new Parsed(type, key, title, role);
-    }
-
-    private boolean supportsProfile(ScanProfile profile, Path path) {
-        if (profile != ScanProfile.JOKE_VIDEO && profile != ScanProfile.USE_VIDEO) {
-            return true;
-        }
-        String normalizedPath = path.toString().toLowerCase(Locale.ROOT);
-        return VIDEO_EXTENSIONS.stream().anyMatch(normalizedPath::endsWith);
-    }
-
-    private String normalize(String value) {
-        return value.trim().replaceAll("\\s+", " ").toLowerCase();
-    }
-
-    private String mapRegion(ScanProfile profile) {
-        return switch (profile) {
-            case JOKE_VIDEO, JOKE_ASSET -> "JOKE";
-            case USE_VIDEO, USE_ASSET, USE_ALBUM -> "USE";
-        };
-    }
-
-    private ScanRunView view(ScanRunEntity item) {
-        return new ScanRunView(
-                item.id(),
-                item.rootKey(),
-                item.profile(),
-                item.status(),
-                item.startedAt(),
-                item.finishedAt(),
-                item.scannedFileCount(),
-                item.proposalCount(),
-                item.issueCount(),
-                item.lastError(),
-                item.registryVersion());
-    }
-
-    private <T> ScanPageView<T> page(org.springframework.data.domain.Page<T> value) {
-        return new ScanPageView<>(
-                value.getContent(),
-                value.getNumber(),
-                value.getSize(),
-                value.getTotalElements(),
-                value.getTotalPages());
-    }
-
-    /**
-     * Tự động dọn dẹp các đợt scan bị gián đoạn (mồ côi) khi backend được khởi động lại.
-     */
-    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    @EventListener(ApplicationReadyEvent.class)
     @Transactional
+    /** Đánh dấu các scan còn RUNNING từ tiến trình trước là thất bại sau khi service khởi động lại. */
     public void cleanupOrphanRunningScans() {
-        var orphanScans = runs.findAll().stream()
-                .filter(run -> run.status() == ScanRunStatus.RUNNING)
-                .toList();
+        var orphanScans = runs.findByStatus(ScanRunStatus.RUNNING);
+        for (var run : orphanScans) {
+            run.fail(RESTART_INTERRUPTION_DETAIL);
+        }
         if (!orphanScans.isEmpty()) {
-            for (var run : orphanScans) {
-                run.fail("Interrupted by service restart");
-                runs.save(run);
-            }
+            runs.saveAll(orphanScans);
             runs.flush();
-            LOGGER.info("Đã tự động dọn dẹp {} đợt scan bị gián đoạn do restart service", orphanScans.size());
+            LOGGER.info("Đã dọn dẹp {} scan run bị gián đoạn do service restart", orphanScans.size());
         }
     }
-
-    private record Parsed(String type, String key, String title, String role) {}
 }

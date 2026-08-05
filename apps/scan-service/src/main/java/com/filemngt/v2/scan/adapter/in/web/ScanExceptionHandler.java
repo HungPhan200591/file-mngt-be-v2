@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
+/** Chuẩn hóa lỗi nghiệp vụ Scan thành HTTP Problem Detail cho API caller. */
 public class ScanExceptionHandler {
     @ExceptionHandler({ScanRunNotFoundException.class, ProposalNotFoundException.class})
     ProblemDetail notFound(RuntimeException e) {
@@ -36,7 +37,7 @@ public class ScanExceptionHandler {
 
     @ExceptionHandler({
         InvalidScanRootException.class,
-        ScanController.InvalidRequestException.class,
+        InvalidRequestException.class,
         MethodArgumentNotValidException.class
     })
     ProblemDetail badRequest(Exception e) {
