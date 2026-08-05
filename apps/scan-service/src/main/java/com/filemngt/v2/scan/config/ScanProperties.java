@@ -1,6 +1,6 @@
 package com.filemngt.v2.scan.config;
 
-import com.filemngt.v2.scan.domain.ScanProfile;
+import com.filemngt.v2.scan.domain.scan.ScanProfile;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;

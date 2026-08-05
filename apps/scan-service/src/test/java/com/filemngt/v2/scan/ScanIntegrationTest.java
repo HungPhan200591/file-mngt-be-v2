@@ -6,8 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
-import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventRepository;
-import com.filemngt.v2.scan.domain.ScanRegistrySnapshot;
+import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
+import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;

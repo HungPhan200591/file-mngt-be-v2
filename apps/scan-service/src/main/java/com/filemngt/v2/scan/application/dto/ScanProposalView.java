@@ -1,6 +1,6 @@
 package com.filemngt.v2.scan.application.dto;
 
-import com.filemngt.v2.scan.domain.ScanProfile;
+import com.filemngt.v2.scan.domain.scan.ScanProfile;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;

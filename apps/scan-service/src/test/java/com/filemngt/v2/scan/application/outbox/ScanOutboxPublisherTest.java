@@ -1,0 +1,65 @@
+package com.filemngt.v2.scan.application.outbox;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class ScanOutboxPublisherTest {
+
+    @Test
+    void marksEventPublishedAfterBrokerAcknowledgement() {
+        ScanOutboxEventRepository events = mock(ScanOutboxEventRepository.class);
+        OutboxMessagePublisher messages = mock(OutboxMessagePublisher.class);
+        ScanOutboxEventEntity event = event();
+        when(events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()).thenReturn(List.of(event));
+
+        new ScanOutboxPublisher(events, messages, Tracer.NOOP, Propagator.NOOP).publishPending();
+
+        assertThat(event.publishedAt()).isNotNull();
+        assertThat(event.attemptCount()).isZero();
+        assertThat(event.lastError()).isNull();
+        verify(messages).publish(event.eventType(), event.partitionKey(), event.payload());
+        verify(events).saveAll(List.of(event));
+    }
+
+    @Test
+    void keepsEventPendingAndRecordsFailureForNextPoll() {
+        ScanOutboxEventRepository events = mock(ScanOutboxEventRepository.class);
+        OutboxMessagePublisher messages = mock(OutboxMessagePublisher.class);
+        ScanOutboxEventEntity event = event();
+        when(events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()).thenReturn(List.of(event));
+        doThrow(new IllegalStateException("broker unavailable"))
+                .when(messages)
+                .publish(event.eventType(), event.partitionKey(), event.payload());
+
+        new ScanOutboxPublisher(events, messages, Tracer.NOOP, Propagator.NOOP).publishPending();
+
+        assertThat(event.publishedAt()).isNull();
+        assertThat(event.attemptCount()).isOne();
+        assertThat(event.lastError()).contains("broker unavailable");
+        verify(events).saveAll(List.of(event));
+    }
+
+    private ScanOutboxEventEntity event() {
+        return new ScanOutboxEventEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "media.file.discovered.v1",
+                "JOKE:VIDEO:JOKE-001",
+                "{}",
+                "correlation-123",
+                null,
+                Instant.now());
+    }
+}

@@ -1,7 +1,7 @@
 package com.filemngt.v2.scan.adapter.out.messaging;
 
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
-import com.filemngt.v2.scan.application.OutboxEventSerializer;
+import com.filemngt.v2.scan.application.outbox.OutboxEventSerializer;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;

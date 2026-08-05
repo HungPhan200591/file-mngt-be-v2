@@ -1,7 +1,7 @@
 package com.filemngt.v2.scan.adapter.out.catalog;
 
 import com.filemngt.v2.scan.config.CatalogClientProperties;
-import com.filemngt.v2.scan.domain.ScanRegistrySnapshot;
+import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.time.Duration;
 import java.util.Optional;
 import org.slf4j.Logger;

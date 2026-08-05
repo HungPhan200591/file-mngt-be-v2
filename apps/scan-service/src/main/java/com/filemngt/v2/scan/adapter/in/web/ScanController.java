@@ -1,14 +1,18 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
-import com.filemngt.v2.scan.application.ScanDecisionService;
-import com.filemngt.v2.scan.application.ScanQueryService;
-import com.filemngt.v2.scan.application.ScanService;
+import com.filemngt.v2.scan.adapter.in.web.dto.BatchDecisionResponse;
+import com.filemngt.v2.scan.adapter.in.web.dto.DecisionRequest;
+import com.filemngt.v2.scan.adapter.in.web.dto.StartScanRequest;
+import com.filemngt.v2.scan.adapter.in.web.error.InvalidRequestException;
+import com.filemngt.v2.scan.application.decision.ScanDecisionService;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.query.ScanQueryService;
+import com.filemngt.v2.scan.application.scan.ScanService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;

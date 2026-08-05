@@ -45,6 +45,15 @@ description: Refactor và audit clean code Java 25/Spring Boot 4 theo kiến tr�
 - Tách file khi class có nhiều lý do thay đổi; không tách thành class chỉ forward call hoặc utility dùng một lần.
 - Chỉ tạo port/interface ở boundary ngoài service, khi có nhiều implementation hoặc khi nó che giấu dependency có giá trị.
 
+## Cấu trúc package
+
+- Mỗi package trực tiếp tối đa 8 production type, không tính `package-info.java`; package gốc của một layer tối đa 5 type.
+- Khi vượt ngưỡng, tách theo capability/domain responsibility trước; chỉ adapter mới ưu tiên nhóm theo kỹ thuật như HTTP, Kafka hoặc persistence aggregate.
+- Một leaf package nên có 2-8 type cùng thay đổi vì một lý do. Chấp nhận một type khi đó là entrypoint, use-case owner hoặc external boundary độc lập.
+- Không tạo package `util`, `common`, `misc`, `helper` để gom code thừa; đặt helper package-private cạnh owner sử dụng nó.
+- Subpackage domain chỉ phụ thuộc theo hướng model ổn định; cấm dependency cycle và cấm dùng package split để che coupling sai tầng.
+- Test mirror package của production type; sau khi move phải audit package declaration, import và số type trực tiếp từng package.
+
 ## Comment phục vụ đọc nghiệp vụ
 
 - Comment/Javadoc viết tiếng Việt có dấu, nêu trách nhiệm của class và boundary nó sở hữu.

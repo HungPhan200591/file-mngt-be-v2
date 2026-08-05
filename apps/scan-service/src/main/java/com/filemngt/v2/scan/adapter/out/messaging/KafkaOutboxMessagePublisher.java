@@ -1,7 +1,7 @@
 package com.filemngt.v2.scan.adapter.out.messaging;
 
 import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
-import com.filemngt.v2.scan.application.OutboxMessagePublisher;
+import com.filemngt.v2.scan.application.outbox.OutboxMessagePublisher;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
