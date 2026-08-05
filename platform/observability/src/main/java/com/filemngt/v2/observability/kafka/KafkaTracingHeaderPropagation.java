@@ -1,6 +1,8 @@
 package com.filemngt.v2.observability.kafka;
 
 import com.filemngt.v2.observability.CorrelationId;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.TraceFlags;
@@ -59,6 +61,37 @@ public final class KafkaTracingHeaderPropagation {
 
         return () -> {
             scope.close();
+            restoreMdc(CorrelationId.MDC_KEY, previousCorrelationId);
+            restoreMdc(TRACE_ID_MDC_KEY, previousTraceId);
+        };
+    }
+
+    public static MdcContext restoreOutboxTraceContext(
+            String correlationId, String traceparent, Tracer tracer, Propagator propagator) {
+        String previousCorrelationId = MDC.get(CorrelationId.MDC_KEY);
+        String previousTraceId = MDC.get(TRACE_ID_MDC_KEY);
+        String resolvedCorrelationId = correlationId;
+        if (resolvedCorrelationId == null || resolvedCorrelationId.isBlank()) {
+            resolvedCorrelationId = UUID.randomUUID().toString();
+        }
+
+        MDC.put(CorrelationId.MDC_KEY, resolvedCorrelationId);
+        String traceId = traceId(traceparent);
+        if (traceId != null) {
+            MDC.put(TRACE_ID_MDC_KEY, traceId);
+        }
+
+        io.micrometer.tracing.Span restoredSpan = restoreMicrometerSpan(traceparent, propagator);
+        Tracer.SpanInScope spanScope = restoredSpan == null ? () -> {} : tracer.withSpan(restoredSpan);
+        if (restoredSpan != null) {
+            restoredSpan.tag("correlation.id", resolvedCorrelationId);
+        }
+
+        return () -> {
+            spanScope.close();
+            if (restoredSpan != null) {
+                restoredSpan.end();
+            }
             restoreMdc(CorrelationId.MDC_KEY, previousCorrelationId);
             restoreMdc(TRACE_ID_MDC_KEY, previousTraceId);
         };
@@ -137,6 +170,16 @@ public final class KafkaTracingHeaderPropagation {
             return () -> {};
         }
         return Context.current().with(Span.wrap(spanContext)).makeCurrent();
+    }
+
+    private static io.micrometer.tracing.Span restoreMicrometerSpan(String traceparent, Propagator propagator) {
+        if (traceId(traceparent) == null) {
+            return null;
+        }
+        return propagator
+                .extract(traceparent, (carrier, headerName) -> TRACEPARENT_HEADER.equals(headerName) ? carrier : null)
+                .name("outbox trace context")
+                .start();
     }
 
     private static String headerValue(Headers headers, String headerName) {

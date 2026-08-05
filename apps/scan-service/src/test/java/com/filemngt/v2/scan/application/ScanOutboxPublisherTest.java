@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 
 import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.ScanOutboxEventRepository;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +24,7 @@ class ScanOutboxPublisherTest {
         ScanOutboxEventEntity event = event();
         when(events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()).thenReturn(List.of(event));
 
-        new ScanOutboxPublisher(events, messages).publishPending();
+        new ScanOutboxPublisher(events, messages, Tracer.NOOP, Propagator.NOOP).publishPending();
 
         assertThat(event.publishedAt()).isNotNull();
         assertThat(event.attemptCount()).isZero();
@@ -41,7 +43,7 @@ class ScanOutboxPublisherTest {
                 .when(messages)
                 .publish(event.eventType(), event.partitionKey(), event.payload());
 
-        new ScanOutboxPublisher(events, messages).publishPending();
+        new ScanOutboxPublisher(events, messages, Tracer.NOOP, Propagator.NOOP).publishPending();
 
         assertThat(event.publishedAt()).isNull();
         assertThat(event.attemptCount()).isOne();

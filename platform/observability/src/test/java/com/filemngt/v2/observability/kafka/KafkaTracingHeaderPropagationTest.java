@@ -1,8 +1,17 @@
 package com.filemngt.v2.observability.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.filemngt.v2.observability.CorrelationId;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.TraceFlags;
@@ -92,6 +101,35 @@ class KafkaTracingHeaderPropagationTest {
             assertThat(traceContext.traceparent()).isEqualTo("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
         }
 
+        assertThat(MDC.getCopyOfContextMap()).isEmpty();
+    }
+
+    @Test
+    void restoresDurableTraceparentIntoMicrometerScopeForKafkaObservation() {
+        Tracer tracer = mock(Tracer.class);
+        Propagator propagator = mock(Propagator.class);
+        io.micrometer.tracing.Span.Builder spanBuilder = mock(io.micrometer.tracing.Span.Builder.class);
+        io.micrometer.tracing.Span restoredSpan = mock(io.micrometer.tracing.Span.class);
+        Tracer.SpanInScope spanScope = mock(Tracer.SpanInScope.class);
+        String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+
+        when(propagator.extract(anyString(), any(Propagator.Getter.class))).thenReturn(spanBuilder);
+        when(spanBuilder.name("outbox trace context")).thenReturn(spanBuilder);
+        when(spanBuilder.start()).thenReturn(restoredSpan);
+        when(tracer.withSpan(restoredSpan)).thenReturn(spanScope);
+
+        try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
+                "request-correlation", traceparent, tracer, propagator)) {
+            assertThat(MDC.get(CorrelationId.MDC_KEY)).isEqualTo("request-correlation");
+            assertThat(MDC.get(KafkaTracingHeaderPropagation.TRACE_ID_MDC_KEY))
+                    .isEqualTo("4bf92f3577b34da6a3ce929d0e0e4736");
+            verify(propagator).extract(eq(traceparent), any(Propagator.Getter.class));
+            verify(restoredSpan).tag("correlation.id", "request-correlation");
+        }
+
+        var ordered = inOrder(spanScope, restoredSpan);
+        ordered.verify(spanScope).close();
+        ordered.verify(restoredSpan).end();
         assertThat(MDC.getCopyOfContextMap()).isEmpty();
     }
 

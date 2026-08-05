@@ -19,6 +19,8 @@ import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
 import com.filemngt.v2.observability.CorrelationId;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -191,13 +193,16 @@ class CatalogIntegrationTest {
                 (topic, key, payload) -> {
                     throw new IllegalStateException("Kafka unavailable");
                 },
-                outboxMetrics);
+                outboxMetrics,
+                Tracer.NOOP,
+                Propagator.NOOP);
         failingPublisher.publishPending();
         var event = outbox.findBySubjectId(subjectId).getFirst();
         assertThat(event.attemptCount()).isEqualTo(1);
         assertThat(event.publishedAt()).isNull();
 
-        var succeedingPublisher = new CatalogOutboxPublisher(outbox, (topic, key, payload) -> {}, outboxMetrics);
+        var succeedingPublisher = new CatalogOutboxPublisher(
+                outbox, (topic, key, payload) -> {}, outboxMetrics, Tracer.NOOP, Propagator.NOOP);
         succeedingPublisher.publishPending();
         assertThat(outbox.findById(event.id()).orElseThrow().publishedAt()).isNotNull();
 

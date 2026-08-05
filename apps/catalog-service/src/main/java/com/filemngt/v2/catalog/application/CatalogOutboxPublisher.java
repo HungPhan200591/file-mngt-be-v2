@@ -2,6 +2,8 @@ package com.filemngt.v2.catalog.application;
 
 import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventRepository;
 import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,19 +19,27 @@ public class CatalogOutboxPublisher {
     private final CatalogOutboxEventRepository events;
     private final CatalogOutboxMessagePublisher messages;
     private final CatalogOutboxMetrics metrics;
+    private final Tracer tracer;
+    private final Propagator propagator;
 
     public CatalogOutboxPublisher(
-            CatalogOutboxEventRepository events, CatalogOutboxMessagePublisher messages, CatalogOutboxMetrics metrics) {
+            CatalogOutboxEventRepository events,
+            CatalogOutboxMessagePublisher messages,
+            CatalogOutboxMetrics metrics,
+            Tracer tracer,
+            Propagator propagator) {
         this.events = events;
         this.messages = messages;
         this.metrics = metrics;
+        this.tracer = tracer;
+        this.propagator = propagator;
     }
 
     @Scheduled(fixedDelayString = "${catalog.outbox.fixed-delay-ms:1000}")
     public void publishPending() {
         for (var event : events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()) {
             try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
-                    event.correlationId(), event.traceparent())) {
+                    event.correlationId(), event.traceparent(), tracer, propagator)) {
                 messages.publish(event.eventType(), event.partitionKey(), event.payload());
                 event.published();
                 events.save(event);
