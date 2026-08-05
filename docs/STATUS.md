@@ -5,8 +5,7 @@ Updated: 2026-08-05
 ## Hiện tại
 
 - Active feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
-- Feature hoàn thành gần nhất: [`FT021 — Jaeger UI & OpenTelemetry OTLP Exporter`](./features/021-jaeger-opentelemetry-tracing-ui/03-plan.md) `DONE`: runtime xác nhận một trace xuyên Gateway → Scan → Catalog → Query qua Outbox/Kafka.
-- Nợ kỹ thuật cần lưu ý: [`TD-002`–`TD-005`](./TECHNICAL_DEBT.md).
+- Nợ kỹ thuật cần lưu ý: [`TD-003`–`TD-005`](./TECHNICAL_DEBT.md).
 
 ## Gate còn mở trước cutover frontend
 

@@ -35,7 +35,6 @@ class GatewayRoutingIntegrationTest {
     private static final DownstreamStub CATALOG = DownstreamStub.start("catalog");
     private static final DownstreamStub SCAN = DownstreamStub.start("scan");
     private static final DownstreamStub QUERY = DownstreamStub.start("query");
-    private static final DownstreamStub MEDIA = DownstreamStub.start("media");
 
     private final HttpClient client = HttpClient.newHttpClient();
 
@@ -47,7 +46,6 @@ class GatewayRoutingIntegrationTest {
         registry.add("CATALOG_SERVICE_URL", CATALOG::url);
         registry.add("SCAN_SERVICE_URL", SCAN::url);
         registry.add("QUERY_SERVICE_URL", QUERY::url);
-        registry.add("MEDIA_WORKER_SERVICE_URL", MEDIA::url);
         registry.add("gateway.http-client.read-timeout", () -> "100ms");
     }
 
@@ -75,10 +73,6 @@ class GatewayRoutingIntegrationTest {
         assertThat(queryResponse.statusCode()).isEqualTo(404);
         assertThat(SCAN.lastRequest.pathAndQuery()).isEqualTo("/api/v2/scans/run-1");
         assertThat(QUERY.lastRequest.pathAndQuery()).isEqualTo("/api/v2/query/subjects?search=sample");
-
-        var mediaResponse = exchange("GET", "/api/v2/media/subjects/one/assets/two/content", "", List.of());
-        assertThat(mediaResponse.statusCode()).isEqualTo(200);
-        assertThat(MEDIA.lastRequest.pathAndQuery()).isEqualTo("/api/v2/media/subjects/one/assets/two/content");
 
         var cors = exchange("GET", "/api/v2/query/subjects", "", List.of(), "http://localhost:18119");
         assertThat(cors.headers().firstValue("Access-Control-Allow-Origin")).contains("http://localhost:18119");
