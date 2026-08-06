@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architecture Quality Review"
+  short_description: "Review architecture and code quality"
+  default_prompt: "Use $architecture-quality-review to review this diff or feature for PRD readiness, code quality, and architectural boundary integrity."
