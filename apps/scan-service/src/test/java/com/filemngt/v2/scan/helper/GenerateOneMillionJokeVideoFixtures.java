@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Helper Utility Class siêu tốc sinh 1 triệu file rỗng fixture phục vụ benchmark Use Case SC-01.
- * Đã tối ưu bằng Java 25 Virtual Threads + FileOutputStream nhẹ để đẩy I/O song song lên đĩa SSD.
+ * Đã tối ưu bằng Java 25 Virtual Threads + FileOutputStream nhẹ và log tiến độ mượt mà (mỗi 10,000 files).
  */
 public class GenerateOneMillionJokeVideoFixtures {
     private static final String TARGET_DIR = "D:/Study/Project/file_mngt_fixtures/one_million_joke_video";
@@ -47,16 +47,17 @@ public class GenerateOneMillionJokeVideoFixtures {
                             String fileIdStr = String.format("%07d", fileId);
                             String fileName = "Joke_AT_" + fileIdStr + " [JOKE-" + fileIdStr + "].mp4";
                             File file = dirPath.resolve(fileName).toFile();
-                            
-                            // Dùng FileOutputStream đơn giản siêu nhanh, tránh NIO attributes checks
+
                             new FileOutputStream(file).close();
                         }
 
                         int completed = dirsCompleted.incrementAndGet();
-                        if (completed % 100 == 0 || completed == SUB_DIRS_COUNT) {
+                        // In log liên tục mỗi 10 thư mục (tương đương 10,000 files / 1% tiến độ)
+                        if (completed % 10 == 0 || completed == SUB_DIRS_COUNT) {
                             double elapsed = (System.currentTimeMillis() - startTime) / 1000.0;
-                            System.out.printf("... Tiến độ: %,d / %,d files (%d/%d folders) [%.1fs]%n",
+                            System.out.printf("... Tiến độ: đã tạo %,d / %,d files (%,d/%,d folders) [%.1fs]%n",
                                     completed * FILES_PER_DIR, TOTAL_FILES, completed, SUB_DIRS_COUNT, elapsed);
+                            System.out.flush();
                         }
                     } catch (IOException e) {
                         throw new RuntimeException("Lỗi tạo file ở sub dir: " + dirIndex, e);
