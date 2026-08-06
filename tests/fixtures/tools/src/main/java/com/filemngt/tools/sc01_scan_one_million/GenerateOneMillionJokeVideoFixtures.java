@@ -12,28 +12,29 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Fixture Generator chuẩn hóa cho SC-01 (Scan 1 triệu filesystem entry).
- * Package: com.filemngt.tools.sc01_scan_one_million
- * Target: D:/Study/Project/file_mngt_fixtures/one_million_joke_video
+ * Fixture Generator tối ưu cho SC-01 (Scan 1 triệu filesystem entry).
+ *
+ * Cấu hình:
+ * 1. Virtual Threads: Dùng Executors.newVirtualThreadPerTaskExecutor() cho I/O song song cực đại.
+ * 2. 5,000 files / folder: Giảm số lượng thư mục con xuống 200 dirs để giảm NTFS directory overhead.
+ * 3. Correctness: CompletableFuture fail-fast, post-verification count, StandardOpenOption.CREATE_NEW.
  */
 public class GenerateOneMillionJokeVideoFixtures {
     private static final String DEFAULT_TARGET_DIR = "D:/Study/Project/file_mngt_fixtures/one_million_joke_video";
     private static final int DEFAULT_TOTAL_FILES = 1_000_000;
-    private static final int DEFAULT_SUB_DIRS = 1_000;
-    private static final int DEFAULT_CONCURRENCY = 32;
+    private static final int DEFAULT_FILES_PER_DIR = 5_000;
+    private static final int DEFAULT_SUB_DIRS = DEFAULT_TOTAL_FILES / DEFAULT_FILES_PER_DIR; // 200 dirs
 
     public static void main(String[] args) throws Exception {
         String targetDirStr = System.getProperty("targetDir", DEFAULT_TARGET_DIR);
         int totalFiles = Integer.getInteger("totalFiles", DEFAULT_TOTAL_FILES);
-        int subDirsCount = Integer.getInteger("subDirs", DEFAULT_SUB_DIRS);
-        int concurrency = Integer.getInteger("concurrency", DEFAULT_CONCURRENCY);
-        int filesPerDir = totalFiles / subDirsCount;
+        int filesPerDir = Integer.getInteger("filesPerDir", DEFAULT_FILES_PER_DIR);
+        int subDirsCount = totalFiles / filesPerDir;
 
         System.out.println("====================================================");
-        System.out.println("🚀 SC-01 SCAN ONE MILLION FIXTURE GENERATOR");
+        System.out.println("🚀 SC-01 FIXTURE GENERATOR (JAVA 25 VIRTUAL THREADS)");
         System.out.println("📍 Target Path: " + targetDirStr);
         System.out.println("📁 Subdirectories: " + subDirsCount + " | Files/Dir: " + filesPerDir);
-        System.out.println("⚡ Bounded Concurrency: " + concurrency + " threads");
         System.out.println("====================================================");
 
         Path rootPath = Path.of(targetDirStr);
@@ -42,7 +43,8 @@ public class GenerateOneMillionJokeVideoFixtures {
         long startNano = System.nanoTime();
         AtomicInteger completedDirs = new AtomicInteger(0);
 
-        try (var executor = Executors.newFixedThreadPool(concurrency)) {
+        // Chuyển lại về Java 25 Virtual Threads cho I/O song song
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = new ArrayList<>(subDirsCount);
 
             for (int d = 1; d <= subDirsCount; d++) {
@@ -51,7 +53,7 @@ public class GenerateOneMillionJokeVideoFixtures {
                     try {
                         createSubDirFiles(rootPath, dirIndex, filesPerDir);
                         int done = completedDirs.incrementAndGet();
-                        if (done % 50 == 0 || done == subDirsCount) {
+                        if (done % 10 == 0 || done == subDirsCount) {
                             double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
                             long currentFiles = (long) done * filesPerDir;
                             System.out.printf("... Tiến độ: %,d / %,d files (%,d/%,d dirs) [%.2fs]%n",
@@ -65,6 +67,7 @@ public class GenerateOneMillionJokeVideoFixtures {
                 futures.add(future);
             }
 
+            // Fail-Fast check: Wait for ALL tasks and propagate unhandled exception
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
 
@@ -84,7 +87,7 @@ public class GenerateOneMillionJokeVideoFixtures {
         }
 
         System.out.println("====================================================");
-        System.out.printf("✅ TẠO HOÀN HẢO %,d FILES TRONG %.3f GIÂY (Throughput: %,.0f files/s)%n",
+        System.out.printf("⚡ TẠO HOÀN HẢO %,d FILES TRONG %.3f GIÂY (Throughput: %,.0f files/s)%n",
                 actualFiles, totalSec, actualFiles / totalSec);
         System.out.println("====================================================");
     }

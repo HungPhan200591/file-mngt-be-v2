@@ -16,7 +16,20 @@ Summary chỉ cô đọng từ deep-dive; question bank chỉ sinh từ nội du
 
 Xem [UC-01](../../core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) cho flow nhỏ làm prerequisite. Không thay architecture, contract, owner context hoặc `docs/STATUS.md`.
 
-Build/chạy tool từ project root; output mặc định nằm ngoài repository:
+Chạy nhanh qua NPM scripts từ root repository:
+
+```bash
+# Sinh 1 triệu file fixture rỗng cho SC-01
+npm run fixture:sc01:gen
+
+# Dọn dẹp / xóa sạch 1 triệu file fixture SC-01
+npm run fixture:sc01:clean
+
+# Xem trợ giúp lệnh fixture
+npm run help:fixture
+```
+
+Hoặc chạy trực tiếp CLI / Maven compile:
 
 ```text
 mvn -f tests/fixtures/tools/pom.xml compile

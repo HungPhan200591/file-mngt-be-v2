@@ -45,6 +45,13 @@ const categories = {
     commands: [
       { cmd: 'npm run reset:data', desc: 'Reset lại dữ liệu dev/local database' },
     ]
+  },
+  fixture: {
+    title: 'FIXTURE & BENCHMARK TOOLS (SC-01 / JAVA 25)',
+    commands: [
+      { cmd: 'npm run fixture:sc01:gen', desc: 'Sinh 1 triệu file rỗng fixture cho SC-01 bằng Java 25' },
+      { cmd: 'npm run fixture:sc01:clean', desc: 'Dọn dẹp / xóa sạch 1 triệu file rỗng fixture của SC-01' },
+    ]
   }
 };
 

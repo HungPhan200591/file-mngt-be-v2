@@ -11,21 +11,18 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Cleaner Class chuẩn xác và an toàn dọn dẹp / xóa 1 triệu file rỗng fixture.
+ * Cleaner Class chuẩn xác và siêu tốc dọn dẹp / xóa 1 triệu file rỗng fixture bằng Java 25 Virtual Threads.
  * Package: com.filemngt.tools.sc01_scan_one_million
  */
 public class CleanOneMillionJokeVideoFixtures {
     private static final String DEFAULT_TARGET_DIR = "D:/Study/Project/file_mngt_fixtures/one_million_joke_video";
-    private static final int DEFAULT_CONCURRENCY = 32;
 
     public static void main(String[] args) throws Exception {
         String targetDirStr = System.getProperty("targetDir", DEFAULT_TARGET_DIR);
-        int concurrency = Integer.getInteger("concurrency", DEFAULT_CONCURRENCY);
 
         System.out.println("====================================================");
-        System.out.println("🗑️ SC-01 FIXTURE CLEANER (BENCHMARK READY)");
+        System.out.println("🗑️ SC-01 FIXTURE CLEANER (JAVA 25 VIRTUAL THREADS)");
         System.out.println("📍 Target Path: " + targetDirStr);
-        System.out.println("⚡ Bounded Concurrency: " + concurrency + " threads");
         System.out.println("====================================================");
 
         Path rootPath = Path.of(targetDirStr);
@@ -47,7 +44,7 @@ public class CleanOneMillionJokeVideoFixtures {
         int totalDirs = subDirs.length;
         AtomicInteger completedDirs = new AtomicInteger(0);
 
-        try (var executor = Executors.newFixedThreadPool(concurrency)) {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = new ArrayList<>(totalDirs);
 
             for (File subDir : subDirs) {
@@ -55,7 +52,7 @@ public class CleanOneMillionJokeVideoFixtures {
                     try {
                         deleteDirRecursivelyStrict(subDir);
                         int done = completedDirs.incrementAndGet();
-                        if (done % 50 == 0 || done == totalDirs) {
+                        if (done % 10 == 0 || done == totalDirs) {
                             double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
                             System.out.printf("... Tiến độ xóa: %,d / %,d dirs [%.2fs]%n", done, totalDirs, elapsedSec);
                             System.out.flush();
