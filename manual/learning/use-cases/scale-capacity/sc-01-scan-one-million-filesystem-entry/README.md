@@ -8,6 +8,7 @@ Scenario, prerequisite, workload contract và evidence cần thu thập do [road
 | --- | --- | --- |
 | Deep-dive | [01-deep-dive.md](./01-deep-dive.md) | Đã tạo |
 | Chi tiết Luồng & Điểm chạm | [02-architecture-touchpoints-and-flows.md](./02-architecture-touchpoints-and-flows.md) | Đã tạo |
+| Giải pháp Lọc trùng Xuyên Service | [03-cross-service-deduplication.md](./03-cross-service-deduplication.md) | Đã tạo |
 | Java 25 Fixture Tool | [fixture-tools](../../../../tests/fixtures/tools/pom.xml) (package `com.filemngt.tools.sc01_scan_one_million`) | Đã tạo |
 | Summary | `summary/` | Chưa yêu cầu |
 | Question bank | `question-bank/` | Chưa yêu cầu |

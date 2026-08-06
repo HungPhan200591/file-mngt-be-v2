@@ -14,6 +14,7 @@ flowchart TD
     API["<font color='white'>1 - Scan REST API<br/>202 + scanId</font>"]
     LEASE["<font color='white'>2 - Job lease<br/>owner + heartbeat</font>"]
     WALK["<font color='white'>3 - File walker<br/>bounded discovery</font>"]
+    INVENTORY["<font color='white'>3.5 - Inventory + watcher<br/>change queue</font>"]
     PARSER["<font color='white'>4 - Proposal parser<br/>proposal hoặc issue</font>"]
     BATCH["<font color='white'>5 - Chunk writer<br/>checkpoint + counters</font>"]
     DB[("<font color='white'>scan_db</font>")]
@@ -25,7 +26,8 @@ flowchart TD
     FE -->|"Tạo scan"| API
     API -->|"Tạo run"| LEASE
     LEASE -->|"Worker được phép chạy"| WALK
-    WALK -->|"Path theo chunk"| PARSER
+    WALK -->|"Full reconcile"| INVENTORY
+    INVENTORY -->|"Path mới hoặc đổi"| PARSER
     PARSER -->|"Proposal / issue"| BATCH
     BATCH -->|"Commit local transaction"| DB
     FE -->|"Review cursor"| QUERY
@@ -39,6 +41,7 @@ flowchart TD
     style API fill:#2196F3,stroke:#fff,stroke-width:2px
     style LEASE fill:#FF9800,stroke:#fff,stroke-width:2px
     style WALK fill:#009688,stroke:#fff,stroke-width:2px
+    style INVENTORY fill:#4CAF50,stroke:#fff,stroke-width:2px
     style PARSER fill:#FF9800,stroke:#fff,stroke-width:2px
     style BATCH fill:#FF9800,stroke:#fff,stroke-width:2px
     style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
@@ -53,6 +56,7 @@ flowchart TD
 | 1 | `ScanController` + `ScanService` | `POST /api/v2/scans/previews {rootKey}` → `202 {scanId}` | Tạo `scan_run`, giao worker nền, không giữ HTTP request. |
 | 2 | `ScanLeaseManager` | `scanId + workerId` → granted/lost | Một `rootKey` có một owner active; worker mất lease dừng trước chunk sau. |
 | 3 | `ScanWalker` | root + checkpoint boundary → `Path` chunk | `Files.walk()` đọc lazy; queue bounded `1.000` là buffer giữa discovery và DB. |
+| 3.5 | `ScanFileWatcher` + inventory | filesystem event → `scan_change_queue` | Watcher theo dõi root, chỉ đưa path create/modify/delete vào incremental worker; full walk chỉ dùng seed/reconcile. |
 | 4 | `ScanFileAnalyzer` | `Path` → proposal/issue | Parse thuần theo profile/registry; không giữ state của toàn run. |
 | 5 | `ScanChunkWriter` | tối đa 500 item → commit | Ghi `scan_proposal`/`scan_issue`, checkpoint và counter cùng transaction. |
 | 6 | `ScanQueryService` | cursor → trang proposal | Cursor `(source_relative_path, id)`, không OFFSET sâu. |
@@ -119,6 +123,12 @@ Transaction của một chunk:
 3. Commit; chỉ sau đó worker mới nhận chunk tiếp.
 
 Unique key `(scan_run_id, source_relative_path)` giữ retry không tạo proposal trùng. Checkpoint là mốc dữ liệu đã commit, không phải filesystem snapshot: implementation dev đầu tiên có thể rewalk từ root và dedupe record đã có sau restart. Resume chính xác theo directory partition chỉ là tối ưu tiếp theo, không chặn touchpoint này.
+
+### 3.5. Incremental scan: inventory, watcher và change queue
+
+Sau full scan đầu tiên, `scan_file_inventory` trong `scan_db` giữ `root_key`, `relative_path`, `file_key` (nếu có), `size`, `modified_at` và trạng thái hiện diện. `ScanFileWatcher` là component chạy cùng Scan Service, đăng ký theo dõi các thư mục của root rồi ghi `CREATE`/`MODIFY`/`DELETE` vào `scan_change_queue` bền vững. Incremental worker chỉ drain các path trong queue; ngày mai thêm hai video thì chỉ parse/check Catalog hai path đó.
+
+Watcher không tự theo dõi thư mục con mới, nên khi thấy directory `CREATE`, worker đăng ký directory đó trước khi tiếp tục. Khi service restart hoặc watcher báo `OVERFLOW`, root chuyển sang `RECONCILE_REQUIRED`; lần full walk kế tiếp rebuild inventory. Chi tiết schema, luồng incremental và batch Catalog nằm ở [03-cross-service-deduplication.md](./03-cross-service-deduplication.md).
 
 ## 4. Worker crash và lease takeover
 
@@ -232,7 +242,7 @@ flowchart TD
 ## 8. Thứ tự lập plan
 
 1. Touchpoint 1–2: mở rộng `scan_run`, API start/status, lease manager và lifecycle worker.
-2. Touchpoint 3–5: tách walker/parser/chunk writer, queue bounded, checkpoint và rewalk-dedupe khi restart.
+2. Touchpoint 3–5: tách walker, inventory/watcher/change queue, parser/chunk writer, queue bounded và checkpoint.
 3. Touchpoint 6: đổi proposal API sang keyset cursor + composite index.
 4. Touchpoint 7: schema/API/worker cho `bulk_decision_job`.
 5. Touchpoint 8: upgrade publisher cho bulk backlog và xác nhận event `media.file.discovered.v2` với Catalog.
