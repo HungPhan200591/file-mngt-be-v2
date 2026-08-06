@@ -1,4 +1,4 @@
-package com.filemngt.tools.sc01_scan_one_million;
+package com.filemngt.v2.scan.fixture;
 
 import java.io.IOException;
 import java.io.PrintStream;

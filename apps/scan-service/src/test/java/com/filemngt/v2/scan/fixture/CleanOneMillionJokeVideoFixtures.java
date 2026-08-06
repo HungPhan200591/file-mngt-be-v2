@@ -1,4 +1,4 @@
-package com.filemngt.tools.sc01_scan_one_million;
+package com.filemngt.v2.scan.fixture;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Cleaner Class chuẩn xác và siêu tốc dọn dẹp / xóa 1 triệu file rỗng fixture bằng Java 25 Virtual Threads.
- * Package: com.filemngt.tools.sc01_scan_one_million
+ * Package: com.filemngt.v2.scan.fixture
  */
 public class CleanOneMillionJokeVideoFixtures {
     private static final String DEFAULT_TARGET_DIR = "D:/Study/Project/file_mngt_fixtures/one_million_joke_video";
