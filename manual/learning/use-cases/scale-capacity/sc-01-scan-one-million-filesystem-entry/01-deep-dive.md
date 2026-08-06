@@ -24,21 +24,29 @@ Một triệu file có ba đặc tính làm khác scan fixture nhỏ:
 
 “Quét xong” chưa đủ. Hệ thống cần trả lời được: đã đi đến đâu, restart có quét lại/mất item nào không, chạy lại có tạo bản sao không, và admin có thể duyệt phạm vi nào mà không treo browser hay transaction.
 
+### Giai đoạn 1: Discovery, Bounded Chunking & Persist Tiến độ
+
 ```mermaid
-flowchart TB
-    START["<font color='white'>Admin bắt đầu<br/>scan root</font>"] --> JOB["<font color='white'>Scan job có lease<br/>và checkpoint</font>"]
-    JOB --> WALK["<font color='white'>Duyệt filesystem<br/>theo partition/chunk</font>"]
-    WALK --> WRITE["<font color='white'>Ghi proposal/issue<br/>theo batch giới hạn</font>"]
-    WRITE --> DB[("<font color='white'>scan_db<br/>kết quả + tiến độ</font>")]
-    DB --> REVIEW["<font color='white'>Review bằng keyset<br/>và filter snapshot</font>"]
-    REVIEW --> BULK["<font color='white'>Bulk decision job<br/>theo chunk</font>"]
-    BULK --> OUTBOX[("<font color='white'>Decision + outbox<br/>cùng transaction</font>")]
-    OUTBOX --> KAFKA["<font color='white'>Kafka<br/>at-least-once</font>"]
+flowchart LR
+    START["<font color='white'>1 - Admin gửi scan<br/>Nhận Job 202</font>"] -->|"Cấp Lease"| JOB["<font color='white'>2 - Worker nhận Job<br/>Gia hạn Lease</font>"]
+    JOB -->|"Chunk I/O"| WRITE["<font color='white'>3 - Duyệt & Ghi batch<br/>Proposal / Issue</font>"]
+    WRITE -->|"Commit + Checkpoint"| DB[("<font color='white'>4 - scan_db<br/>Dữ liệu + Tiến độ</font>")]
 
     style START fill:#4CAF50,stroke:#fff,stroke-width:2px
     style JOB fill:#FF9800,stroke:#fff,stroke-width:2px
-    style WALK fill:#009688,stroke:#fff,stroke-width:2px
-    style WRITE fill:#FF9800,stroke:#fff,stroke-width:2px
+    style WRITE fill:#009688,stroke:#fff,stroke-width:2px
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
+```
+
+### Giai đoạn 2: Review Keyset Pagination & Bulk Decision Outbox
+
+```mermaid
+flowchart LR
+    DB[("<font color='white'>1 - scan_db<br/>Snapshot Filter</font>")] -->|"Keyset Cursor"| REVIEW["<font color='white'>2 - FE Review trang<br/>Không OFFSET sâu</font>"]
+    REVIEW -->|"Bulk Approve"| BULK["<font color='white'>3 - Worker Bulk Job<br/>Xử lý từng Chunk</font>"]
+    BULK -->|"Transactional Outbox"| OUTBOX[("<font color='white'>4 - DB Outbox<br/>Atomic Decision</font>")]
+    OUTBOX -->|"Publisher"| KAFKA["<font color='white'>5 - Kafka Event<br/>At-least-once</font>"]
+
     style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
     style REVIEW fill:#2196F3,stroke:#fff,stroke-width:2px
     style BULK fill:#FF9800,stroke:#fff,stroke-width:2px
