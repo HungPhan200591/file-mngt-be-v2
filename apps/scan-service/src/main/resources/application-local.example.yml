@@ -1,5 +1,8 @@
 scan:
   roots:
+    - key: one-million-joke-video
+      path: D:/Study/Project/file_mngt_fixtures/one_million_joke_video
+      profile: JOKE_VIDEO
     - key: fixture-media-delivery
       path: D:/Study/Project/file_mngt_microservice/tests/fixtures/scan/media-delivery
       profile: JOKE_VIDEO

@@ -1,6 +1,6 @@
 ---
 name: add-glossary-term
-description: "Thực hiện thêm thuật ngữ mới vào Từ điển IT Glossary (NoteRepo) một cách chuẩn hóa. Đảm bảo cập nhật đồng thời cả file SSOT tóm tắt (d:\\Study\\Project\\NoteRepo\\glossary\\it-glossary.md) và file chi tiết tương ứng trong thư mục details/."
+description: "Thực hiện thêm thuật ngữ mới vào Từ điển IT Glossary (NoteRepo) một cách chuẩn hóa, sau đó tự động git commit và push thay đổi lên remote repository. Đảm bảo cập nhật đồng thời cả file SSOT tóm tắt (d:\\Study\\Project\\NoteRepo\\glossary\\it-glossary.md) và file chi tiết tương ứng trong thư mục details/."
 ---
 
 # 📖 Add Glossary Term Skill
@@ -22,7 +22,7 @@ Skill này quy định quy trình chuẩn để thêm mới thuật ngữ chuyê
 
 ---
 
-## 📐 Quy Trình 3 Bước Thêm Thuật Ngữ Mới
+## 📐 Quy Trình 4 Bước Thêm Thuật Ngữ Mới
 
 ### Bước 1: Xác Định Nhóm Nghiệp Vụ & File Chi Tiết Tương Ứng
 Xác định thuật ngữ mới thuộc 1 trong 6 nhóm nghiệp vụ trên.
@@ -48,6 +48,14 @@ Thêm mục chi tiết vào cuối file chi tiết tương ứng với cấu tr�
 - **Định nghĩa**: [Giải thích bản chất kỹ thuật trong 2-3 câu tiếng Việt dễ hiểu]
 - **Tóm tắt 1 dòng**: *[Cụm từ chốt hạ bản chất]*
 - **Ví dụ thực tế**: [Ví dụ gắn liền với Spring Boot, PostgreSQL, Kafka, Prometheus, ELK, hoặc Docker trong dự án]
+```
+
+### Bước 4: Commit Và Push Thay Đổi Lên Repository (NoteRepo)
+Sau khi cập nhật xong 2 file ở Bước 2 và Bước 3, thực hiện commit và push tự động trên repository `NoteRepo`:
+```bash
+git -C "d:\Study\Project\NoteRepo" add glossary/
+git -C "d:\Study\Project\NoteRepo" commit -m "docs(glossary): add <Term_Name> term"
+git -C "d:\Study\Project\NoteRepo" push origin main
 ```
 
 ---

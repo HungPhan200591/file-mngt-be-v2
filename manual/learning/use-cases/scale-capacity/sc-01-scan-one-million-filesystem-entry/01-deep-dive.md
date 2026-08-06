@@ -136,6 +136,7 @@ Không nên hứa “đúng một lần” cho việc đọc filesystem hoặc p
 
 ## Tài liệu tham khảo trong dự án
 
+- [scripts/generate-one-million-joke-video-fixtures.mjs](./scripts/generate-one-million-joke-video-fixtures.mjs) — Script sinh 1 triệu file rỗng dummy JOKE VIDEO fixture để benchmark SC-01.
 - `apps/scan-service/CONTEXT.md` — ownership và invariant Scan.
 - `docs/features/004-scan-preview/02-design.md` — boundary preview hiện hành.
 - `docs/contracts/openapi/scan-v1.yaml` — API hiện hành; thay đổi sau này phải qua contract workflow.

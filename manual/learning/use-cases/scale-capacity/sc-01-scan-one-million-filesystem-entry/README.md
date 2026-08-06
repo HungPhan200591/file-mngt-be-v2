@@ -7,6 +7,7 @@ Scenario, prerequisite, workload contract và evidence cần thu thập do [road
 | Artifact | Vị trí | Trạng thái |
 | --- | --- | --- |
 | Deep-dive | [01-deep-dive.md](./01-deep-dive.md) | Đã tạo |
+| Generator Script | [scripts/generate-one-million-joke-video-fixtures.mjs](./scripts/generate-one-million-joke-video-fixtures.mjs) | Đã tạo |
 | Summary | `summary/` | Chưa yêu cầu |
 | Question bank | `question-bank/` | Chưa yêu cầu |
 | Evidence benchmark/failure drill | Link từ đây khi có | Chưa tạo |
