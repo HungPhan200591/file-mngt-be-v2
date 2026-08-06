@@ -56,7 +56,7 @@ public class CleanOneMillionJokeVideoFixtures {
                     try {
                         deleteDirRecursivelyStrict(subDir);
                         int done = completedDirs.incrementAndGet();
-                        if (done % 50 == 0 || done == totalDirs) {
+                        if (done % 10 == 0 || done == totalDirs) {
                             double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
                             System.out.printf("... Tiến độ xóa: %,d / %,d dirs [%.2fs]%n", done, totalDirs, elapsedSec);
                             System.out.flush();

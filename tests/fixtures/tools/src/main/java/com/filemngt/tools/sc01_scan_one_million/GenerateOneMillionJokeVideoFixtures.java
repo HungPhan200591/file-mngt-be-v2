@@ -14,12 +14,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Fixture Generator benchmark cho SC-01 với Batch size = 500 files/folder (2,000 sub-directories song song).
+ * Fixture Generator cho SC-01 (1,000 sub-directories x 1,000 files).
+ * In log liên tục mỗi 10 thư mục (10,000 files / 1% tiến độ) để người dùng theo dõi ngay từ giây đầu tiên.
  */
 public class GenerateOneMillionJokeVideoFixtures {
     private static final String DEFAULT_TARGET_DIR = "D:/Study/Project/file_mngt_fixtures/one_million_joke_video";
     private static final int DEFAULT_TOTAL_FILES = 1_000_000;
-    private static final int DEFAULT_SUB_DIRS = 2_000; // 2,000 subdirs x 500 files
+    private static final int DEFAULT_SUB_DIRS = 1_000;
 
     public static void main(String[] args) throws Exception {
         System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
@@ -27,10 +28,10 @@ public class GenerateOneMillionJokeVideoFixtures {
         String targetDirStr = System.getProperty("targetDir", DEFAULT_TARGET_DIR);
         int totalFiles = Integer.getInteger("totalFiles", DEFAULT_TOTAL_FILES);
         int subDirsCount = Integer.getInteger("subDirs", DEFAULT_SUB_DIRS);
-        int filesPerDir = totalFiles / subDirsCount; // 500 files/dir
+        int filesPerDir = totalFiles / subDirsCount;
 
         System.out.println("====================================================");
-        System.out.println("🚀 SC-01 SCAN ONE MILLION FIXTURE GENERATOR (2,000 DIRS x 500 FILES)");
+        System.out.println("🚀 SC-01 SCAN ONE MILLION FIXTURE GENERATOR (1,000 DIRS x 1,000 FILES)");
         System.out.println("📍 Target Path: " + targetDirStr);
         System.out.println("📁 Subdirectories: " + subDirsCount + " | Files/Dir: " + filesPerDir);
         System.out.println("====================================================");
@@ -50,8 +51,8 @@ public class GenerateOneMillionJokeVideoFixtures {
                     try {
                         createSubDirFiles(rootPath, dirIndex, filesPerDir);
                         int done = completedDirs.incrementAndGet();
-                        // In log realtime mỗi 100 thư mục (50,000 files / 5% tiến độ)
-                        if (done % 100 == 0 || done == subDirsCount) {
+                        // In log realtime ngay từ đầu: Mỗi 10 thư mục (10,000 files / 1% tiến độ)
+                        if (done % 10 == 0 || done == subDirsCount) {
                             double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
                             long currentFiles = (long) done * filesPerDir;
                             System.out.printf("... Tiến độ: %,d / %,d files (%,d/%,d dirs) [%.2fs]%n",
