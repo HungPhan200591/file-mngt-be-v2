@@ -29,6 +29,22 @@ Mục tiêu: code ít lớp nhưng rõ owner, nhất quán và dễ review. Áp 
 - Null chỉ ở boundary hoặc khi framework bắt buộc; chuẩn hóa collection thành rỗng ngay tại boundary. Không trả `null` collection.
 - Mọi clock/UUID/random không cần abstraction trước; chỉ bọc khi cần deterministic test hoặc có nhiều implementation.
 
+## Giữ code dễ thay đổi
+
+- Trước khi code, khảo sát type owner, package lân cận và dependency trực tiếp để đặt trách nhiệm đúng layer/package. Sau khi code, tự audit và refactor phần vừa chạm trước khi handoff; không chờ một task refactor riêng cho code mới.
+- Method tối đa 30 dòng logic, 4 parameter (không tính constructor) và 2 mức nesting; dùng guard clause. Tuyệt đối không quá 50 dòng. Nếu buộc giữ quá 30 dòng, comment ngắn ngay trước method nêu lý do không thể tách an toàn.
+- Class tối đa 250 dòng và 7 constructor dependency. Vượt ngưỡng là tín hiệu tách theo trách nhiệm/capability; tuyệt đối không quá 500 dòng. Nếu tạm vượt 250 dòng, Javadoc class phải nêu cohesion và lý do giữ nguyên.
+- Tách method khi nó trộn điều phối use case với validate, map, policy, tạo object hoặc I/O. Tách class/package khi có nhiều lý do thay đổi; không tạo lớp chỉ forward lời gọi hoặc abstraction một lần dùng.
+- Chuỗi `if/else` quá 3 nhánh phải đổi thành guard clause, exhaustive `switch`, lookup table hoặc Strategy tùy biến thể nghiệp vụ. Magic string/number có nghĩa, status, regex, threshold và issue code lặp lại phải thành constant hoặc type phù hợp.
+- Package trực tiếp tối đa 8 production type; root package của một layer tối đa 5. Leaf package thường có 2–8 type cùng thay đổi vì một lý do. Tách theo capability/domain trước; cấm `util`, `common`, `misc`, `helper` làm nơi gom code không owner.
+- Ưu tiên enum, record, sealed type hoặc value object cho tập giá trị đóng; không dùng raw `String`, `Object`, `Map<String, Object>` hay raw generic trong core logic khi có type nghiệp vụ rõ hơn.
+
+## Comment phục vụ quyết định
+
+- Comment/Javadoc viết tiếng Việt có dấu, giải thích trách nhiệm, boundary, invariant hoặc lý do kỹ thuật không suy ra từ tên code.
+- Public use case có side effect, transaction, batch rule hoặc ngữ nghĩa không hiển nhiên phải mô tả mục đích nghiệp vụ và điều kiện quan trọng.
+- Không comment lại từng câu lệnh, getter/setter, DTO/record/enum/repository theo convention. Tên rõ ràng là tài liệu đầu tiên.
+
 ## Tài liệu phiên bản và API
 
 - Stack hiện hành được pin ở root `pom.xml` và Compose. Với Spring Boot 4/Spring Framework 7/Spring Kafka 4,

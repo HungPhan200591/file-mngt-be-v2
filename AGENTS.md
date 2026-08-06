@@ -6,6 +6,7 @@
 - Một Agent chính tự thực hiện toàn bộ khảo sát, triển khai và review; không dùng sub-agent.
 - Không tự chạy migration/import thật, xóa dữ liệu, reset repository, khởi động service, Docker Compose, git commit/push hoặc sinh sidebar/deploy docs nếu chưa được yêu cầu rõ ràng.
 - File source tối đa 500 dòng; tách theo trách nhiệm, không tách vụn.
+- Với Java mới/sửa, Agent bắt buộc khảo sát owner/package bị chạm trước khi code và tự audit/refactor ngay sau khi code theo `docs/architecture/03-CODING_RULES.md`; không bàn giao code vượt ngưỡng mà không tách hoặc ghi ngoại lệ.
 - Service chỉ truy cập database của chính nó. Redis không là source of truth; Kafka không thay thế mọi HTTP call.
 - Port local V2 bắt buộc theo `docs/adr/ADR-004-local-port-allocation.md`; không tự chọn port chuẩn hoặc port mới trước khi kiểm tra ADR và port đang listen.
 - Khi cần tham chiếu hoặc đối chiếu hành vi/implementation của V1, dùng **link refer** (chỉ đọc, không sửa khi chưa được yêu cầu rõ): **BE V1** `D:\Study\Project\file_mngt`; **FE V1** `D:\Study\Project\file_mngt_FE`.
