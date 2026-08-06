@@ -7,8 +7,8 @@ description: Tạo hoặc sửa study card, deep-dive, summary, question bank ha
 
 ## Nạp context tối thiểu
 
-1. Đọc `manual/learning/use-cases/README.md`, card UC/SC đích và đúng deep-dive owner liên quan.
-2. Chỉ đọc `ADVANCED_MICROSERVICES_STUDY_ROADMAP.md` khi cần prerequisite hoặc thứ tự học; đọc code/contract thật khi ghi claim project-specific.
+1. Đọc `manual/learning/ADVANCED_MICROSERVICES_STUDY_ROADMAP.md`, card UC/SC đích và đúng deep-dive owner liên quan.
+2. Đọc code/contract thật khi ghi claim project-specific; không nạp card UC/SC khác ngoài dependency trực tiếp.
 3. Kiểm tra `git status --short`; giữ nguyên thay đổi sẵn có.
 
 ## Chọn owner artifact
