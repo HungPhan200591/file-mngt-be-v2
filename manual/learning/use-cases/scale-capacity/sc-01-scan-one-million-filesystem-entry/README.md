@@ -7,7 +7,10 @@ Scenario, prerequisite, workload contract và evidence cần thu thập do [road
 | Artifact | Vị trí | Trạng thái |
 | --- | --- | --- |
 | Deep-dive | [01-deep-dive.md](./01-deep-dive.md) | Đã tạo |
-| Generator Script | [scripts/generate-one-million-joke-video-fixtures.mjs](./scripts/generate-one-million-joke-video-fixtures.mjs) | Đã tạo |
+| Generator Script (Node.js) | [scripts/generate-one-million-joke-video-fixtures.mjs](./scripts/generate-one-million-joke-video-fixtures.mjs) | Đã tạo |
+| Generator Script (Java 25 - CLI) | [scripts/GenerateOneMillionJokeVideoFixtures.java](./scripts/GenerateOneMillionJokeVideoFixtures.java) | Đã tạo |
+| Helper Class (Java 25 - Generator) | [GenerateOneMillionJokeVideoFixtures.java](../../../../apps/scan-service/src/test/java/com/filemngt/v2/scan/helper/GenerateOneMillionJokeVideoFixtures.java) | Đã tạo |
+| Cleaner Class (Java 25 - Cleanup) | [CleanOneMillionJokeVideoFixtures.java](../../../../apps/scan-service/src/test/java/com/filemngt/v2/scan/helper/CleanOneMillionJokeVideoFixtures.java) | Đã tạo |
 | Summary | `summary/` | Chưa yêu cầu |
 | Question bank | `question-bank/` | Chưa yêu cầu |
 | Evidence benchmark/failure drill | Link từ đây khi có | Chưa tạo |
