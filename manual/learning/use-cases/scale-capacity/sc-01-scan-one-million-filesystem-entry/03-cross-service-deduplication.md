@@ -1,105 +1,77 @@
-# SC-01 — Incremental scan và khử trùng xuyên service
+# SC-01 — Full scan có inventory và khử trùng xuyên service
 
-> Mục tiêu: scan lần đầu một root lớn; những lần sau chỉ xử lý file thêm/sửa/xóa, không gửi lại một triệu record sang Catalog.
+> Mục tiêu: mỗi lần vẫn duyệt filesystem để nhìn đúng trạng thái thực tế, nhưng không parse, ghi proposal hay gọi Catalog cho file không đổi.
 
-`scan-service` sở hữu inventory và change queue trong `scan_db`. `catalog-service` vẫn là owner duy nhất của canonical subject/asset trong `catalog_db`; Scan không join hay đọc trực tiếp database Catalog.
+Không dùng watcher. Đây là baseline đơn giản: `scan-service` full walk root, đối chiếu inventory của chính nó trong `scan_db`, rồi chỉ gửi tập path mới/đổi sang Catalog batch check.
 
-## 1. Nguồn của watcher
-
-Watcher không phải hạ tầng bên ngoài. Nó là `ScanFileWatcher`, component chạy trong `scan-service`, đăng ký theo dõi các directory của từng root cấu hình bằng filesystem watch API của Java/OS.
-
-- Khi có file mới: nhận `CREATE`.
-- Khi file thay đổi: nhận `MODIFY`.
-- Khi file biến mất hoặc đổi tên: nhận `DELETE`; rename thường là một `DELETE` cũ và một `CREATE` mới.
-- Khi có directory mới: đăng ký watcher cho subtree đó ngay.
-
-Watcher chỉ ghi change event vào database, không parse hay gọi Catalog trong watcher thread. Vì vậy event đến dồn dập vẫn chỉ làm queue lớn hơn; worker xử lý theo chunk.
-
-## 2. Kiến trúc incremental
+## 1. Luồng xử lý
 
 ```mermaid
 flowchart TD
-    FS[("<font color='white'>Filesystem root</font>")]
-    WATCH["<font color='white'>ScanFileWatcher<br/>CREATE / MODIFY / DELETE</font>"]
-    QUEUE[("<font color='white'>scan_change_queue<br/>persistent + deduplicated</font>")]
-    WORKER["<font color='white'>Incremental worker<br/>drain 500 path</font>"]
-    INV[("<font color='white'>scan_file_inventory<br/>fingerprint local</font>")]
-    PARSE["<font color='white'>Parse candidate<br/>chỉ path đổi</font>"]
+    FS[("<font color='white'>Filesystem root<br/>full walk</font>")]
+    WALK["<font color='white'>Files.walk()<br/>đọc từng path</font>"]
+    INV[("<font color='white'>scan_file_inventory<br/>fingerprint lần trước</font>")]
+    MATCH["<font color='white'>Inventory matcher<br/>unchanged / changed</font>"]
+    SKIP["<font color='white'>Unchanged<br/>không parse, không HTTP</font>"]
+    PARSE["<font color='white'>Parse path đổi<br/>proposal hoặc issue</font>"]
     CATALOG["<font color='white'>Catalog batch check<br/>tối đa 500 item</font>"]
-    PROPOSAL[("<font color='white'>scan_db<br/>proposal / issue</font>")]
+    DB[("<font color='white'>scan_db<br/>inventory + proposal</font>")]
 
-    FS -->|"Filesystem event"| WATCH
-    WATCH -->|"Upsert change"| QUEUE
-    QUEUE -->|"Claim chunk"| WORKER
-    WORKER -->|"Đọc/update fingerprint"| INV
-    WORKER -->|"New hoặc modified"| PARSE
+    FS -->|"Read entry"| WALK
+    WALK -->|"Metadata"| MATCH
+    INV -->|"Fingerprint cũ"| MATCH
+    MATCH -->|"Không đổi"| SKIP
+    MATCH -->|"Mới hoặc đổi"| PARSE
     PARSE -->|"Batch existence"| CATALOG
-    CATALOG -->|"Kết quả phân loại"| PROPOSAL
+    CATALOG -->|"Classification"| DB
+    MATCH -->|"Upsert inventory"| DB
 
     style FS fill:#009688,stroke:#fff,stroke-width:2px
-    style WATCH fill:#4CAF50,stroke:#fff,stroke-width:2px
-    style QUEUE fill:#E91E63,stroke:#fff,stroke-width:2px
-    style WORKER fill:#FF9800,stroke:#fff,stroke-width:2px
+    style WALK fill:#009688,stroke:#fff,stroke-width:2px
     style INV fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style MATCH fill:#FF9800,stroke:#fff,stroke-width:2px
+    style SKIP fill:#4CAF50,stroke:#fff,stroke-width:2px
     style PARSE fill:#FF9800,stroke:#fff,stroke-width:2px
     style CATALOG fill:#2196F3,stroke:#fff,stroke-width:2px
-    style PROPOSAL fill:#9C27B0,stroke:#fff,stroke-width:2px
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
-Ví dụ: full scan đầu tiên thấy 1.000.000 entry và seed inventory. Ngày mai thêm hai video; watcher ghi hai `CREATE`, incremental worker parse đúng hai path và gửi một batch Catalog gồm hai item. Không có lần đọc hoặc HTTP check nào cho 999.998 path còn lại.
+Ví dụ: hôm nay root có 1M file và inventory được seed. Ngày mai full walk vẫn đọc 1M directory entry, nhưng với 999.998 file có fingerprint không đổi, worker chỉ update dấu `last_seen` theo batch; chỉ 2 file mới đi qua parser và một Catalog batch gồm 2 item.
 
-## 3. Dữ liệu Scan Service sở hữu
+## 2. Inventory Scan Service sở hữu
 
 ```sql
 create table scan_file_inventory (
     root_key varchar(100) not null,
     relative_path varchar(2048) not null,
-    file_key varchar(512),
     file_size bigint not null,
     modified_at timestamptz not null,
     state varchar(16) not null,
-    last_seen_at timestamptz not null,
+    last_seen_run_id uuid not null,
     primary key (root_key, relative_path)
-);
-
-create table scan_change_queue (
-    id uuid primary key,
-    root_key varchar(100) not null,
-    relative_path varchar(2048) not null,
-    change_type varchar(16) not null,
-    observed_at timestamptz not null,
-    claimed_at timestamptz,
-    processed_at timestamptz,
-    unique (root_key, relative_path)
 );
 ```
 
-`scan_change_queue` deduplicate theo `(root_key, relative_path)`: nhiều `MODIFY` liên tiếp của cùng file chỉ cần một queue item. `change_type` được nâng cấp theo mức mạnh hơn: `DELETE` thắng `MODIFY`; một `CREATE` sau `DELETE` trở thành `UPSERT`.
+Fingerprint baseline là `(file_size, modified_at)`:
 
-Fingerprint ban đầu là `size + modifiedAt`, đủ để quyết định có cần parse lại hay không. Không hash file trong Scan; hash là trách nhiệm Media Worker khi cần phân biệt nội dung cùng locator.
+| So với inventory | Worker xử lý |
+| --- | --- |
+| Không có row | File mới: parse và Catalog check. |
+| Size + modified time giống | Bỏ qua parser/Catalog; update `last_seen_run_id`. |
+| Khác fingerprint | File thay đổi: parse lại và Catalog check. |
+| Row inventory không được thấy trong full run | Mark `MISSING`; không tự xóa Catalog asset. |
 
-## 4. Luồng xử lý từng loại thay đổi
+Không hash file ở Scan. Nếu locator giống nhưng nội dung thực sự cần kiểm chứng, Media Worker xử lý hash trong flow riêng.
 
-| Event | Worker làm gì | Kết quả Catalog |
-| --- | --- | --- |
-| `CREATE` | Đọc metadata, upsert inventory, parse. | Batch check; tạo proposal nếu asset/subject cần xử lý. |
-| `MODIFY` | So fingerprint; giống thì bỏ qua, khác thì parse lại. | Phân loại asset đã có locator nhưng source thay đổi để review/update sau. |
-| `DELETE` | Mark inventory `MISSING`, xóa queue item. | Không tự xóa Catalog asset; để review/reconcile quyết định. |
-| Rename | `DELETE old` + `CREATE new`. | Locator mới được batch check; có thể là asset mới hoặc move cần review. |
-| Directory `CREATE` | Register watcher cho subtree, enqueue subtree scan. | Từng file con vẫn đi qua inventory/batch flow. |
+## 3. Chunk database không nổ memory
 
-## 5. Full scan chỉ còn là seed và reconcile
+Không load cả inventory 1M row vào `HashMap`. File walker gom tối đa 500 path; repository lấy inventory cho đúng 500 `(rootKey, relativePath)` đó, so fingerprint rồi flush cập nhật/proposal theo cùng batch.
 
-Full walk vẫn cần hai thời điểm:
+Với file không đổi, chỉ có local DB read/update. Với file mới/đổi, worker mới dựng candidate để gọi Catalog. Vì thế full scan có I/O filesystem, nhưng cross-service traffic và proposal volume tỷ lệ theo số file thay đổi.
 
-1. Root chưa có inventory: seed toàn bộ `scan_file_inventory`.
-2. Watcher báo `OVERFLOW`, service restart hoặc admin yêu cầu reconcile: walk lại root, upsert fingerprint và đánh dấu entry không còn xuất hiện là `MISSING`.
+## 4. Catalog batch existence check
 
-Nó không phải đường chạy hàng ngày. Ngay cả full reconcile cũng chỉ gửi Catalog batch check cho path mới/đổi fingerprint; path không đổi dừng ở inventory local.
-
-## 6. Catalog batch existence check
-
-Catalog không nhận một triệu path; chỉ nhận candidate đã qua inventory. Contract target là internal API, ví dụ:
+Catalog là owner của canonical asset/subject. Scan gửi một batch tối đa 500 candidate đã thay đổi qua internal API target:
 
 ```text
 POST /internal/v2/catalog/scan-existence
@@ -122,32 +94,33 @@ POST /internal/v2/catalog/scan-existence
 }
 ```
 
-Catalog lookup theo hai khóa:
+Catalog lookup theo locator `storageKey + relativePath` và semantic subject identity. Response phân loại:
 
-| Status trả về | Ý nghĩa | Scan làm gì |
+| Status | Ý nghĩa | Scan làm gì |
 | --- | --- | --- |
-| `EXACT_ASSET_EXISTS` | Có `storageKey + relativePath` đúng locator. | Skip proposal. |
-| `EXISTING_SUBJECT_NEW_ASSET` | Subject identity có rồi nhưng locator chưa có. | Tạo proposal thêm asset. |
-| `NEW_SUBJECT` | Chưa có subject/asset tương ứng. | Tạo proposal mới. |
-| `CONFLICT` | Locator hoặc identity không thể auto quyết định. | Tạo proposal review. |
+| `EXACT_ASSET_EXISTS` | Locator canonical đã có. | Skip proposal. |
+| `EXISTING_SUBJECT_NEW_ASSET` | Subject có rồi, locator mới. | Tạo proposal thêm asset. |
+| `NEW_SUBJECT` | Chưa có subject/asset. | Tạo proposal mới. |
+| `CONFLICT` | Không thể auto quyết định. | Tạo proposal review. |
 
-`media_asset` cần index theo `(storage_key, relative_path)`. Với data dev reset được, có thể thêm unique partial index cho locator có `storage_key` để Catalog chặn race ở write-side; legacy asset không có storage key không nằm trong invariant này.
+`media_asset` cần index `(storage_key, relative_path)`; data dev có thể reset để bổ sung unique partial index cho locator có `storage_key`.
 
-## 7. Chốt cuối tại Catalog
+## 5. Rename, delete và canonical Catalog
 
-Batch check chỉ giảm rác proposal. Sau approval, Scan ghi decision và outbox cùng transaction rồi publish `media.file.discovered.v2`; Catalog consumer vẫn dedupe theo `eventId` và kiểm tra locator/subject khi ghi canonical data. Điều này bảo vệ race: hai worker cùng thấy path chưa tồn tại thì Catalog vẫn chỉ chấp nhận một kết quả canonical.
+- Rename path: full scan thấy path mới là `NEW/MODIFIED`, path cũ thành `MISSING`. Đây là locator mới, tạo proposal để review thay vì cố đoán rename.
+- Delete: chỉ mark inventory `MISSING`; Scan không tự xóa asset canonical ở Catalog.
+- Sau approval, Scan ghi decision và outbox cùng transaction; Catalog consumer vẫn dedupe `eventId` khi nhận `media.file.discovered.v2`. Batch check chỉ giảm proposal rác, không thay write-side idempotency.
 
-## 8. Thứ tự implement
+## 6. Thứ tự implement
 
-1. Schema `scan_file_inventory` và full scan seed inventory.
-2. `ScanFileWatcher` đăng ký root/subdirectory, ghi `scan_change_queue`.
-3. Incremental worker claim queue + cập nhật inventory + parser.
-4. Internal Catalog batch existence contract, index locator và classification response.
-5. Nối proposal/approval/outbox hiện có vào classification mới.
+1. Thêm `scan_file_inventory`; full scan seed inventory và mark `MISSING` cuối run.
+2. Đổi `ScanExecutor` sang chunk lookup inventory, chỉ parse path mới/đổi fingerprint.
+3. Thêm internal Catalog batch existence contract và index locator.
+4. Gắn classification vào proposal/approval/outbox hiện có.
 
 ## Tham chiếu
 
 - [Overview SC-01](./01-deep-dive.md)
-- [Touchpoint 3.5 trong luồng chính](./02-architecture-touchpoints-and-flows.md)
+- [Luồng scan chính](./02-architecture-touchpoints-and-flows.md)
 - `apps/scan-service/CONTEXT.md`
 - `apps/catalog-service/CONTEXT.md`

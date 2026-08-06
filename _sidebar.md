@@ -66,11 +66,15 @@
       * [🚀 Khung Tư Duy Kiến Trúc PRD-Ready (Production Readiness Framework)](/manual/learning/system-primer/08-prd-readiness-framework.md)
       * [Hướng dẫn hiểu Backend V2](/manual/learning/system-primer/README.md)
     * **use-cases**
-      * [Use case study hub](/manual/learning/use-cases/README.md)
-      * **01-scan-to-catalog-canonical-ingestion**
-        * [UC-01 — Scan → Catalog canonical ingestion](/manual/learning/use-cases/01-scan-to-catalog-canonical-ingestion/README.md)
+      * **core-flows**
+        * **uc-01-scan-to-catalog-canonical-ingestion**
+          * [UC-01 — Scan → Catalog canonical ingestion](/manual/learning/use-cases/core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md)
       * **scale-capacity**
-        * [Scale & Capacity Track](/manual/learning/use-cases/scale-capacity/README.md)
+        * **sc-01-scan-one-million-filesystem-entry**
+          * [SC-01 — Scan một triệu filesystem entry](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/01-deep-dive.md)
+          * [SC-01 — Chi tiết các luồng và điểm chạm kiến trúc](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/02-architecture-touchpoints-and-flows.md)
+          * [SC-01 — Full scan có inventory và khử trùng xuyên service](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/03-cross-service-deduplication.md)
+          * [SC-01 — Scan một triệu filesystem entry](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
