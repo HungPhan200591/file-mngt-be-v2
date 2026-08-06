@@ -1,5 +1,7 @@
-# Scan quy mô lớn: từ một triệu file đến thao tác review an toàn
+# SC-01 — Scan một triệu filesystem entry
 
+> Câu hỏi trọng tâm: **Làm sao duyệt cây thư mục với memory bị chặn, progress/checkpoint, batch persistence và backpressure mà không biến preview thành một HTTP response khổng lồ?**
+>
 > Artifact nghiên cứu cho feature candidate **Large-scale scan foundation**. Đây không phải Brief, Design hay Plan ADLC và không ấn định contract hay schema mới.
 
 ## Mục tiêu học và prerequisite

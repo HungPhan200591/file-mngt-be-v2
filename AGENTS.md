@@ -28,6 +28,7 @@ Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corrett
 9. Sửa Docsify/GitHub Pages hoặc khi người dùng yêu cầu preview/deploy docs: dùng `$deploy-github-pages`; trước khi khảo sát hoặc deploy phải đồng bộ remote bằng `git pull`; Agent chạy `node ./.docsify/generate-sidebar.mjs` ngay trước commit/push. Sidebar chỉ sinh từ `manual/` và `docs/`, không sửa tay.
 10. Tạo/sửa trọn bộ deep-dive + summary + question bank: dùng `$study-topic-workflow`; nếu chỉ sửa một artifact, dùng đúng `$deep-dive-technical-topic`, `$distill-study-summary` hoặc `$build-question-bank`.
 11. Refactor giữ nguyên hành vi, tách hàm/tách file hoặc cleanup Java: dùng `$refactor-spring-service`; chỉ đọc và cập nhật `docs/TECHNICAL_DEBT.md` khi task trả một debt đã đăng ký.
+12. Tạo/sửa học liệu UC-xx, SC-xx, scenario hoặc Scale & Capacity: dùng `$study-use-case-scenario`; card/evidence ở `manual/learning/use-cases/`, deep-dive dùng chung ở `manual/learning/deep-dive/`.
 
 Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về ADLC, contract và session nằm trong skill tương ứng.
 
