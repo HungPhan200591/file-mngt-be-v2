@@ -1,1 +1,3 @@
 com.filemngt.v2.observability.autoconfigure.ObservabilityAutoConfiguration
+com.filemngt.v2.observability.autoconfigure.P6SpyAutoConfiguration
+
