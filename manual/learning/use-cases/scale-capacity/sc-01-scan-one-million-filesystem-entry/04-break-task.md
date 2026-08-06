@@ -11,7 +11,7 @@
 
 | Thứ tự | Break task | Owner | Kết quả dừng để test |
 | --- | --- | --- | --- |
-| BT-01 | Durable scan run | Scan | Run có progress/counter checkpoint theo chunk; scan đang chạy vẫn đi hết flow cũ. |
+| BT-01 | Durable scan run + lease | Scan | Run có lease, progress/counter và checkpoint theo chunk; worker khác không claim cùng root. |
 | BT-02 | File inventory seed | Scan | Full scan tạo/cập nhật `scan_file_inventory`; chưa thay đổi parser/proposal hiện tại. |
 | BT-03 | Inventory matcher | Scan | Lần scan lại vẫn walk root nhưng bỏ parser/proposal cho path có `size + modifiedAt` không đổi; mark `MISSING` cuối run. |
 | BT-04 | Catalog batch existence API | Catalog | Internal API nhận tối đa 500 candidate, trả classification locator/subject; chưa gọi từ Scan. |
@@ -24,9 +24,10 @@
 
 ### BT-01 — Durable scan run
 
-- Thêm state kỹ thuật cho run: progress counters và checkpoint boundary theo chunk.
-- Tách worker để commit chunk độc lập; chưa có inventory hay gọi Catalog mới.
-- Test: scan fixture nhỏ; quan sát counter tiến dần và run kết thúc đúng.
+- Thêm state kỹ thuật cho run: `workerId`, `leaseUntil`, progress counters và checkpoint boundary theo chunk.
+- Claim root bằng lease; worker mất lease không được commit chunk tiếp theo. Tách worker để commit chunk độc lập; chưa có inventory hay gọi Catalog mới.
+- Test: scan fixture nhỏ, worker thứ hai không claim được cùng `rootKey`; chủ động dừng worker sau chunk N rồi khởi động lại để xác nhận chunk đã commit không mất và worker mới khôi phục logical progress.
+- Không yêu cầu resume `Files.walk()` chính xác từ path N ở BT-01; BT-03 mới dùng inventory để full walk lại mà không parse/gọi Catalog cho path đã không đổi.
 
 ### BT-02 — File inventory seed
 
