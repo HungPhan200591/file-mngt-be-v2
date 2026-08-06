@@ -1,9 +1,8 @@
 package com.filemngt.v2.scan.application.scan;
 
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
@@ -11,6 +10,7 @@ import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 /**
- * Thực thi scan bất đồng bộ trên filesystem và lưu proposal/issue theo batch.
- * Class này sở hữu tiến độ và persistence batch, còn phân tích một file được giao cho {@link ScanFileAnalyzer}.
+ * Thực thi scan bất đồng bộ trên filesystem và lưu proposal/issue theo batch chunk độc lập.
+ * Class này sở hữu tiến độ và điều phối chunk persistence qua {@link ScanChunkCommitter}.
  */
 public class ScanExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanExecutor.class);
@@ -29,28 +29,30 @@ public class ScanExecutor {
     private static final int PROGRESS_LOG_INTERVAL = 5_000;
 
     private final ScanRunRepository runs;
-    private final ScanProposalRepository proposals;
-    private final ScanIssueRepository issues;
+    private final ScanChunkCommitter chunkCommitter;
     private final ScanFileAnalyzer analyzer;
+    private final ScanProperties properties;
 
     public ScanExecutor(
             ScanRunRepository runs,
-            ScanProposalRepository proposals,
-            ScanIssueRepository issues,
-            ScanFileAnalyzer analyzer) {
+            ScanChunkCommitter chunkCommitter,
+            ScanFileAnalyzer analyzer,
+            ScanProperties properties) {
         this.runs = runs;
-        this.proposals = proposals;
-        this.issues = issues;
+        this.chunkCommitter = chunkCommitter;
         this.analyzer = analyzer;
+        this.properties = properties;
     }
 
     /** Quét root theo snapshot đã chốt, rồi hoàn tất hoặc đánh dấu thất bại cho scan run. */
     public void execute(UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
         LOGGER.info("Bắt đầu scan bất đồng bộ: runId={}, rootKey={}", runId, root.key());
-        var run = runs.findById(runId).orElseThrow();
         try {
-            var progress = scanFiles(runId, root, snapshot);
-            run.complete(progress.files, progress.proposals, progress.issues);
+            var run = runs.findById(runId).orElseThrow();
+            var progress = scanFiles(run, root, snapshot);
+            var completedRun = runs.findById(runId).orElseThrow();
+            completedRun.complete(progress.files, progress.proposals, progress.issues);
+            runs.save(completedRun);
             LOGGER.info(
                     "Hoàn tất scan runId={}: files={}, proposals={}, issues={}",
                     runId,
@@ -59,18 +61,23 @@ public class ScanExecutor {
                     progress.issues);
         } catch (Exception exception) {
             LOGGER.error("Scan thất bại runId={}: error={}", runId, exception.getMessage(), exception);
-            run.fail(exception.getMessage());
+            runs.findById(runId).ifPresent(failedRun -> {
+                failedRun.fail(exception.getMessage());
+                runs.save(failedRun);
+            });
         }
-        runs.save(run);
     }
 
-    /** Duyệt filesystem một lần, phân loại từng file và flush riêng proposal/issue khi đầy batch. */
-    private ScanProgress scanFiles(UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot)
+    /** Duyệt filesystem một lần, phân loại từng file và flush chunk độc lập với gia hạn lease. */
+    private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot)
             throws IOException {
         var progress = new ScanProgress();
         List<ScanProposalEntity> proposalBuffer = new ArrayList<>(BATCH_SIZE);
         List<ScanIssueEntity> issueBuffer = new ArrayList<>(BATCH_SIZE);
         Path rootPath = Path.of(root.path());
+        UUID runId = run.id();
+        String workerId = run.workerId();
+        int chunkIndex = run.checkpointChunk();
 
         try (var paths = Files.walk(rootPath)) {
             var files = paths.filter(Files::isRegularFile)
@@ -85,48 +92,36 @@ public class ScanExecutor {
                     case ScanFileAnalyzer.Proposal(var proposal) -> proposalBuffer.add(proposal);
                     case ScanFileAnalyzer.Issue(var issue) -> issueBuffer.add(issue);
                 }
-                flushFullBatches(proposalBuffer, issueBuffer);
+                if (proposalBuffer.size() + issueBuffer.size() >= BATCH_SIZE) {
+                    chunkIndex++;
+                    commitChunk(runId, workerId, chunkIndex, proposalBuffer, issueBuffer, progress);
+                }
                 logProgress(runId, progress);
             }
         }
-        flush(proposalBuffer, issueBuffer);
+        if (!proposalBuffer.isEmpty() || !issueBuffer.isEmpty()) {
+            chunkIndex++;
+            commitChunk(runId, workerId, chunkIndex, proposalBuffer, issueBuffer, progress);
+        }
         return progress;
+    }
+
+    private void commitChunk(
+            UUID runId,
+            String workerId,
+            int chunkIndex,
+            List<ScanProposalEntity> proposalBuffer,
+            List<ScanIssueEntity> issueBuffer,
+            ScanProgress progress) {
+        Instant nextLeaseUntil = Instant.now().plusSeconds(properties.getLeaseDurationSeconds());
+        var lease = new ScanChunkCommitter.ChunkLease(runId, workerId, nextLeaseUntil);
+        var batch = new ScanChunkCommitter.ChunkBatch(chunkIndex, proposalBuffer, issueBuffer);
+        var chunkProgress = new ScanChunkCommitter.ChunkProgress(progress.files, progress.proposals, progress.issues);
+        chunkCommitter.commitChunk(lease, batch, chunkProgress);
     }
 
     private String relativePath(Path rootPath, Path path) {
         return rootPath.relativize(path).toString().replace('\\', '/');
-    }
-
-    /** Chỉ ghi batch đã đầy để giới hạn memory nhưng vẫn giảm số round-trip database. */
-    private void flushFullBatches(List<ScanProposalEntity> proposalBuffer, List<ScanIssueEntity> issueBuffer) {
-        if (proposalBuffer.size() >= BATCH_SIZE) {
-            saveProposals(proposalBuffer);
-        }
-        if (issueBuffer.size() >= BATCH_SIZE) {
-            saveIssues(issueBuffer);
-        }
-    }
-
-    /** Ghi phần buffer còn lại sau khi kết thúc duyệt filesystem. */
-    private void flush(List<ScanProposalEntity> proposalBuffer, List<ScanIssueEntity> issueBuffer) {
-        if (!proposalBuffer.isEmpty()) {
-            saveProposals(proposalBuffer);
-        }
-        if (!issueBuffer.isEmpty()) {
-            saveIssues(issueBuffer);
-        }
-    }
-
-    private void saveProposals(List<ScanProposalEntity> buffer) {
-        proposals.saveAll(buffer);
-        proposals.flush();
-        buffer.clear();
-    }
-
-    private void saveIssues(List<ScanIssueEntity> buffer) {
-        issues.saveAll(buffer);
-        issues.flush();
-        buffer.clear();
     }
 
     private void logProgress(UUID runId, ScanProgress progress) {

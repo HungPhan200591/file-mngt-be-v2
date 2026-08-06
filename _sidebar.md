@@ -74,6 +74,7 @@
           * [SC-01 — Scan một triệu filesystem entry](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/01-deep-dive.md)
           * [SC-01 — Chi tiết các luồng và điểm chạm kiến trúc](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/02-architecture-touchpoints-and-flows.md)
           * [SC-01 — Full scan có inventory và khử trùng xuyên service](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/03-cross-service-deduplication.md)
+          * [SC-01 — Break task triển khai](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md)
           * [SC-01 — Scan một triệu filesystem entry](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
@@ -197,6 +198,11 @@
       * [FT021: Tích hợp Jaeger UI & OpenTelemetry OTLP Exporter](/docs/features/021-jaeger-opentelemetry-tracing-ui/01-brief.md)
       * [FT021: Tích hợp Jaeger UI & OpenTelemetry OTLP Exporter — Design](/docs/features/021-jaeger-opentelemetry-tracing-ui/02-design.md)
       * [FT021: Tích hợp Jaeger UI & OpenTelemetry OTLP Exporter — Plan](/docs/features/021-jaeger-opentelemetry-tracing-ui/03-plan.md)
+    * **022-durable-scan-run-lease**
+      * [022 Durable scan run lease (BT-01)](/docs/features/022-durable-scan-run-lease/01-brief.md)
+      * [022 Durable scan run lease (BT-01) — Design](/docs/features/022-durable-scan-run-lease/02-design.md)
+      * [022 Durable scan run lease (BT-01) — Plan](/docs/features/022-durable-scan-run-lease/03-plan.md)
+      * [022 Durable scan run lease (BT-01) — Kế hoạch & Hướng dẫn Test Thủ công](/docs/features/022-durable-scan-run-lease/04-manual-testing-guide.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)

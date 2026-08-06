@@ -27,13 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 /**
- * Điều phối vòng đời một đợt scan: kiểm tra root, khóa scan đang chạy, lấy snapshot Catalog và giao việc nền.
+ * Điều phối vòng đời một đợt scan: kiểm tra root, claim lease đang chạy, lấy snapshot Catalog và giao việc nền.
  * Không chứa luật bóc tách tên file hay truy vấn danh sách kết quả.
  */
 public class ScanService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanService.class);
     private static final int RUN_TIMEOUT_MINUTES = 15;
-    private static final String STALE_RUN_DETAIL = "Stale scan run timed out (> 15m)";
+    private static final String STALE_RUN_DETAIL = "Stale scan run timed out or lease expired";
     private static final String RESTART_INTERRUPTION_DETAIL = "Interrupted by service restart";
 
     private final ScanProperties properties;
@@ -60,7 +60,14 @@ public class ScanService {
         var root = findRoot(rootKey);
         expireStaleRuns(rootKey);
         var snapshot = fetchSnapshot(root);
-        var run = createRun(root, snapshot);
+        String workerId = "worker-" + UUID.randomUUID();
+        var run = createRun(root, snapshot, workerId);
+        LOGGER.info(
+                "Khởi tạo đợt scan thành công: runId={}, rootKey={}, workerId={}, leaseUntil={}",
+                run.id(),
+                rootKey,
+                workerId,
+                run.leaseUntil());
         taskExecutor.execute(() -> executor.execute(run.id(), root, snapshot));
         return ScanViewMapper.run(run);
     }
@@ -73,18 +80,26 @@ public class ScanService {
                 .orElseThrow(() -> new InvalidScanRootException("Unknown root key: " + rootKey));
     }
 
-    /** Kết thúc các run quá timeout trước khi kiểm tra root còn run hoạt động hay không. */
+    /** Kết thúc các run quá timeout hoặc lease đã hết hạn trước khi kiểm tra root còn run hoạt động hay không. */
     private void expireStaleRuns(String rootKey) {
         var runningScans = runs.findByRootKeyAndStatus(rootKey, ScanRunStatus.RUNNING);
         if (runningScans.isEmpty()) {
             return;
         }
 
-        Instant timeoutThreshold = Instant.now().minus(RUN_TIMEOUT_MINUTES, ChronoUnit.MINUTES);
+        Instant now = Instant.now();
+        Instant timeoutThreshold = now.minus(RUN_TIMEOUT_MINUTES, ChronoUnit.MINUTES);
         boolean hasActiveRun = false;
         var staleRuns = new ArrayList<ScanRunEntity>();
         for (var running : runningScans) {
-            if (running.startedAt().isBefore(timeoutThreshold)) {
+            boolean isLeaseValid = running.isLeaseActive(now);
+            boolean isWithinTimeout = running.startedAt().isAfter(timeoutThreshold);
+            if (!isLeaseValid || !isWithinTimeout) {
+                LOGGER.warn(
+                        "Phát hiện scan run bị quá hạn lease/timeout: runId={}, leaseUntil={}, startedAt={}",
+                        running.id(),
+                        running.leaseUntil(),
+                        running.startedAt());
                 running.fail(STALE_RUN_DETAIL);
                 staleRuns.add(running);
             } else {
@@ -94,6 +109,7 @@ public class ScanService {
         runs.saveAll(staleRuns);
         runs.flush();
         if (hasActiveRun) {
+            LOGGER.warn("Không thể mở scan mới do rootKey={} đang có run giữ lease active", rootKey);
             throw new ScanRunAlreadyRunningException(rootKey);
         }
     }
@@ -107,10 +123,17 @@ public class ScanService {
         });
     }
 
-    /** Persist run RUNNING trước khi giao executor, tránh worker chạy không có trạng thái theo dõi. */
-    private ScanRunEntity createRun(ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
+    /** Persist run RUNNING với workerId và leaseUntil trước khi giao executor. */
+    private ScanRunEntity createRun(ScanProperties.Root root, ScanRegistrySnapshot snapshot, String workerId) {
+        Instant leaseUntil = Instant.now().plusSeconds(properties.getLeaseDurationSeconds());
         var run = new ScanRunEntity(
-                UUID.randomUUID(), root.key(), root.profile(), Instant.now(), snapshot.registryVersion());
+                UUID.randomUUID(),
+                root.key(),
+                root.profile(),
+                Instant.now(),
+                snapshot.registryVersion(),
+                workerId,
+                leaseUntil);
         return runs.saveAndFlush(run);
     }
 

@@ -32,6 +32,7 @@ spring:
       observation-enabled: true
 
 scan:
+  lease-duration-seconds: ${SCAN_LEASE_DURATION_SECONDS:60}
   roots: []
 
 server:

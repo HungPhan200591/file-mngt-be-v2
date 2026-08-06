@@ -49,6 +49,9 @@ class ScanIntegrationTest {
     @Autowired
     ScanOutboxEventRepository outbox;
 
+    @Autowired
+    com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository runs;
+
     @MockitoBean
     CatalogRegistryClient catalogClient;
 
@@ -155,6 +158,17 @@ class ScanIntegrationTest {
                 .getResponse()
                 .getContentAsString();
         assertThat(body).contains("\"content\":[").contains("\"rootKey\":\"fixture\"");
+    }
+
+    @Test
+    void scanRunPersistsLeaseAndCheckpointInfo() throws Exception {
+        ScanProposalRef proposal = scanAndGetProposal();
+        UUID runId = UUID.fromString(proposal.scanId());
+        var runEntity = runs.findById(runId).orElseThrow();
+        assertThat(runEntity.workerId()).startsWith("worker-");
+        assertThat(runEntity.checkpointChunk()).isGreaterThan(0);
+        assertThat(runEntity.checkpointAt()).isNotNull();
+        assertThat(runEntity.leaseUntil()).isNotNull();
     }
 
     private ScanProposalRef scanAndGetProposal() throws Exception {

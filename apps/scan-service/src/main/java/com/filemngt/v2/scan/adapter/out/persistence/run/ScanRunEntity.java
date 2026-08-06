@@ -32,16 +32,33 @@ public class ScanRunEntity {
     private long issueCount;
     private String lastError;
     private Long registryVersion;
+    private String workerId;
+    private Instant leaseUntil;
+    private int checkpointChunk;
+    private Instant checkpointAt;
 
     protected ScanRunEntity() {}
 
-    public ScanRunEntity(UUID id, String rootKey, ScanProfile profile, Instant startedAt, Long registryVersion) {
+    public ScanRunEntity(
+            UUID id,
+            String rootKey,
+            ScanProfile profile,
+            Instant startedAt,
+            Long registryVersion,
+            String workerId,
+            Instant leaseUntil) {
         this.id = id;
         this.rootKey = rootKey;
         this.profile = profile;
         this.startedAt = startedAt;
         this.status = ScanRunStatus.RUNNING;
         this.registryVersion = registryVersion;
+        this.workerId = workerId;
+        this.leaseUntil = leaseUntil;
+    }
+
+    public ScanRunEntity(UUID id, String rootKey, ScanProfile profile, Instant startedAt, Long registryVersion) {
+        this(id, rootKey, profile, startedAt, registryVersion, null, null);
     }
 
     /** Đóng scan thành công bằng số liệu executor đã tích lũy. */
@@ -58,6 +75,22 @@ public class ScanRunEntity {
         finishedAt = Instant.now();
         lastError = error;
         status = ScanRunStatus.FAILED;
+    }
+
+    /** Kiểm tra lease của run này còn hiệu lực hay không. */
+    public boolean isLeaseActive(Instant now) {
+        return status == ScanRunStatus.RUNNING && leaseUntil != null && leaseUntil.isAfter(now);
+    }
+
+    /** Cập nhật checkpoint và gia hạn lease cho chunk hiện tại. */
+    public void updateCheckpoint(
+            int chunkIndex, long scannedFiles, long proposals, long issues, Instant nextLeaseUntil) {
+        this.checkpointChunk = chunkIndex;
+        this.scannedFileCount = scannedFiles;
+        this.proposalCount = proposals;
+        this.issueCount = issues;
+        this.checkpointAt = Instant.now();
+        this.leaseUntil = nextLeaseUntil;
     }
 
     public UUID id() {
@@ -102,5 +135,21 @@ public class ScanRunEntity {
 
     public Long registryVersion() {
         return registryVersion;
+    }
+
+    public String workerId() {
+        return workerId;
+    }
+
+    public Instant leaseUntil() {
+        return leaseUntil;
+    }
+
+    public int checkpointChunk() {
+        return checkpointChunk;
+    }
+
+    public Instant checkpointAt() {
+        return checkpointAt;
     }
 }

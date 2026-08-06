@@ -52,19 +52,22 @@ public class CleanOneMillionJokeVideoFixtures {
             List<CompletableFuture<Void>> futures = new ArrayList<>(totalDirs);
 
             for (File subDir : subDirs) {
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        deleteDirRecursivelyStrict(subDir);
-                        int done = completedDirs.incrementAndGet();
-                        if (done % 10 == 0 || done == totalDirs) {
-                            double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
-                            System.out.printf("... Tiến độ xóa: %,d / %,d dirs [%.2fs]%n", done, totalDirs, elapsedSec);
-                            System.out.flush();
-                        }
-                    } catch (IOException e) {
-                        throw new RuntimeException("Thất bại khi xóa thư mục: " + subDir.getAbsolutePath(), e);
-                    }
-                }, executor);
+                CompletableFuture<Void> future = CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                deleteDirRecursivelyStrict(subDir);
+                                int done = completedDirs.incrementAndGet();
+                                if (done % 10 == 0 || done == totalDirs) {
+                                    double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
+                                    System.out.printf(
+                                            "... Tiến độ xóa: %,d / %,d dirs [%.2fs]%n", done, totalDirs, elapsedSec);
+                                    System.out.flush();
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException("Thất bại khi xóa thư mục: " + subDir.getAbsolutePath(), e);
+                            }
+                        },
+                        executor);
                 futures.add(future);
             }
 

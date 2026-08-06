@@ -47,22 +47,25 @@ public class GenerateOneMillionJokeVideoFixtures {
 
             for (int d = 1; d <= subDirsCount; d++) {
                 final int dirIndex = d;
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    try {
-                        createSubDirFiles(rootPath, dirIndex, filesPerDir);
-                        int done = completedDirs.incrementAndGet();
-                        // In log realtime ngay từ đầu: Mỗi 10 thư mục (10,000 files / 1% tiến độ)
-                        if (done % 10 == 0 || done == subDirsCount) {
-                            double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
-                            long currentFiles = (long) done * filesPerDir;
-                            System.out.printf("... Tiến độ: %,d / %,d files (%,d/%,d dirs) [%.2fs]%n",
-                                    currentFiles, totalFiles, done, subDirsCount, elapsedSec);
-                            System.out.flush();
-                        }
-                    } catch (IOException e) {
-                        throw new RuntimeException("Thất bại tại sub-dir " + dirIndex, e);
-                    }
-                }, executor);
+                CompletableFuture<Void> future = CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                createSubDirFiles(rootPath, dirIndex, filesPerDir);
+                                int done = completedDirs.incrementAndGet();
+                                // In log realtime ngay từ đầu: Mỗi 10 thư mục (10,000 files / 1% tiến độ)
+                                if (done % 10 == 0 || done == subDirsCount) {
+                                    double elapsedSec = (System.nanoTime() - startNano) / 1_000_000_000.0;
+                                    long currentFiles = (long) done * filesPerDir;
+                                    System.out.printf(
+                                            "... Tiến độ: %,d / %,d files (%,d/%,d dirs) [%.2fs]%n",
+                                            currentFiles, totalFiles, done, subDirsCount, elapsedSec);
+                                    System.out.flush();
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException("Thất bại tại sub-dir " + dirIndex, e);
+                            }
+                        },
+                        executor);
                 futures.add(future);
             }
 
@@ -80,12 +83,12 @@ public class GenerateOneMillionJokeVideoFixtures {
 
         if (actualFiles != totalFiles) {
             throw new IllegalStateException(String.format(
-                    "❌ KẾT QUẢ KHÔNG CHÍNH XÁC! Kỳ vọng: %,d files, Thực tế: %,d files",
-                    totalFiles, actualFiles));
+                    "❌ KẾT QUẢ KHÔNG CHÍNH XÁC! Kỳ vọng: %,d files, Thực tế: %,d files", totalFiles, actualFiles));
         }
 
         System.out.println("====================================================");
-        System.out.printf("⚡ TẠO HOÀN HẢO %,d FILES TRONG %.3f GIÂY (Throughput: %,.0f files/s)%n",
+        System.out.printf(
+                "⚡ TẠO HOÀN HẢO %,d FILES TRONG %.3f GIÂY (Throughput: %,.0f files/s)%n",
                 actualFiles, totalSec, actualFiles / totalSec);
         System.out.println("====================================================");
     }
@@ -102,7 +105,8 @@ public class GenerateOneMillionJokeVideoFixtures {
             String fileName = "Joke_AT_" + fileIdStr + " [JOKE-" + fileIdStr + "].mp4";
             Path filePath = dirPath.resolve(fileName);
 
-            try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            try (FileChannel channel =
+                    FileChannel.open(filePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 // File rỗng
             }
         }
