@@ -21,6 +21,20 @@
     "test:gateway": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/gateway-service -am\"",
     "test:media": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/media-worker-service -am\"",
     "test:all": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test\"",
-    "reset:data": "node scripts/reset-dev-data.mjs"
+    "reset:data": "node scripts/reset-dev-data.mjs",
+    "docker:up": "docker compose --env-file .env -f infra/compose/compose.yaml up -d",
+    "docker:down": "docker compose --env-file .env -f infra/compose/compose.yaml down",
+    "docker:restart": "docker compose --env-file .env -f infra/compose/compose.yaml restart",
+    "docker:rerun": "docker compose --env-file .env -f infra/compose/compose.yaml up -d --force-recreate",
+    "docker:up:all": "docker compose --profile search --profile observability --env-file .env -f infra/compose/compose.yaml up -d",
+    "docker:down:all": "docker compose --profile search --profile observability --env-file .env -f infra/compose/compose.yaml down",
+    "docker:rerun:all": "docker compose --profile search --profile observability --env-file .env -f infra/compose/compose.yaml up -d --force-recreate",
+    "docker:ps": "docker compose --env-file .env -f infra/compose/compose.yaml ps",
+    "docker:logs": "docker compose --env-file .env -f infra/compose/compose.yaml logs -f",
+    "help": "node scripts/help.mjs",
+    "help:docker": "node scripts/help.mjs docker",
+    "help:test": "node scripts/help.mjs test",
+    "help:e2e": "node scripts/help.mjs e2e",
+    "help:data": "node scripts/help.mjs data"
   }
 }
