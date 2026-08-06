@@ -63,4 +63,5 @@ Bộ tài liệu deep-dive này được chia làm các phần chính:
 - **[01-filesystem-preview-engine.md](./01-filesystem-preview-engine.md)**: Chi tiết động cơ Scan Preview bất đồng bộ, Strategy Pattern parse filename, rootKey isolation và cơ chế HTTP Polling.
 - **[02-approval-and-outbox-flow.md](./02-approval-and-outbox-flow.md)**: Chi tiết luồng duyệt Proposal, Idempotency, Transactional Outbox và Event-driven integration với Catalog service.
 - **[03-improvements-and-ideas.md](./03-improvements-and-ideas.md)**: Nơi tổng hợp các góc nhìn kỹ thuật, đánh giá ưu/nhược điểm, điểm chưa tối ưu và các đề xuất cải tiến cho luồng Scan trong tương lai.
+- **[04-kafka-integration-deep-dive.md](./04-kafka-integration-deep-dive.md)**: Deep-dive cơ chế tích hợp Apache Kafka, Transactional Outbox Pattern, Event Stream bất đồng bộ giữa Scan Service và Catalog Service, runtime flow và xử lý sự cố.
 - **[05-large-scale-scan-foundation.md](./05-large-scale-scan-foundation.md)**: Deep-dive về scan/review một triệu file, checkpoint, keyset pagination và bulk decision job trước khi mở feature ADLC.
