@@ -1,168 +1,84 @@
 # SC-01 — Scan một triệu filesystem entry
 
-> Câu hỏi trọng tâm: **Làm sao duyệt cây thư mục với memory bị chặn, progress/checkpoint, batch persistence và backpressure mà không biến preview thành một HTTP response khổng lồ?**
->
-> Deep-dive của study pack SC-01, nghiên cứu cho feature candidate **Large-scale scan foundation**. Đây không phải Brief, Design hay Plan ADLC và không ấn định contract hay schema mới.
+> Overview của SC-01. Đọc file này để nắm bức tranh và thứ tự tư duy; đọc [02-architecture-touchpoints-and-flows.md](./02-architecture-touchpoints-and-flows.md) để đi vào từng điểm chạm trước khi lập plan/code.
 
-## Mục tiêu học và prerequisite
+## Mục tiêu
 
-Mục tiêu là hiểu vì sao một thư mục một triệu file không chỉ là bài toán “đọc nhanh hơn”, mà là một pipeline gồm discovery, persistence, review và phát event. Người đọc cần biết khái niệm transaction, pagination và at-least-once delivery ở mức cơ bản.
+Biến scan từ một vòng lặp chạy nền thành pipeline có trạng thái: tạo job, duyệt filesystem theo chunk, persist proposal/issue, review dữ liệu lớn, bulk approve và phát event qua outbox.
+
+Study project này ưu tiên một kiến trúc chạy được để học và phát triển nhanh. Data của môi trường dev có thể reset; batch `500`, queue `1.000` và lease `30s` là cấu hình khởi đầu để triển khai SC-01, không phải API/contract đã phát hành.
 
 ## Bản chất trong một câu
 
-**Một scan quy mô lớn là job có thể khôi phục, tạo dữ liệu theo chunk có giới hạn, và chỉ cho phép chuyển trạng thái downstream theo batch bền vững; không phải một HTTP request hay một vòng lặp lớn hơn.**
+**Một scan quy mô lớn là durable job với tài nguyên bị chặn: chỉ giữ một chunk trong memory, commit kết quả theo chunk, rồi mới đi tiếp.**
 
-Keyword spine: `job lease → checkpoint → bounded chunk → progress → keyset → bulk job → outbox → reconciliation`.
+Keyword spine: `job → lease → bounded discovery → parser → chunk commit + checkpoint → keyset review → bulk job → outbox`.
 
-## D0 — Vấn đề cần giải quyết
-
-Một triệu file có ba đặc tính làm khác scan fixture nhỏ:
-
-- Thời gian duyệt có thể dài hơn timeout, deploy hoặc restart process.
-- Kết quả có thể chiếm hàng triệu row ở `scan_db`; review và approve cũng trở thành workload lớn.
-- I/O filesystem, PostgreSQL và Kafka có năng lực độc lập. Nếu producer nhanh hơn consumer, dữ liệu phải chờ ở một nơi bền vững thay vì dồn vào heap hoặc connection pool.
-
-“Quét xong” chưa đủ. Hệ thống cần trả lời được: đã đi đến đâu, restart có quét lại/mất item nào không, chạy lại có tạo bản sao không, và admin có thể duyệt phạm vi nào mà không treo browser hay transaction.
-
-### Giai đoạn 1: Discovery, Bounded Chunking & Persist Tiến độ
+## Hai giai đoạn chính
 
 ```mermaid
-flowchart LR
-    START["<font color='white'>1 - Admin gửi scan<br/>Nhận Job 202</font>"] -->|"Cấp Lease"| JOB["<font color='white'>2 - Worker nhận Job<br/>Gia hạn Lease</font>"]
-    JOB -->|"Chunk I/O"| WRITE["<font color='white'>3 - Duyệt & Ghi batch<br/>Proposal / Issue</font>"]
-    WRITE -->|"Commit + Checkpoint"| DB[("<font color='white'>4 - scan_db<br/>Dữ liệu + Tiến độ</font>")]
+flowchart TD
+    START["<font color='white'>Admin tạo scan<br/>nhận 202 + scanId</font>"]
+    JOB["<font color='white'>Worker sở hữu job<br/>lease + progress</font>"]
+    WRITE["<font color='white'>Duyệt, parse và ghi<br/>theo chunk</font>"]
+    DB[("<font color='white'>scan_db<br/>proposal, issue, checkpoint</font>")]
 
-    style START fill:#4CAF50,stroke:#fff,stroke-width:2px
+    START -->|"Tạo run"| JOB
+    JOB -->|"Xử lý chunk"| WRITE
+    WRITE -->|"Commit atomically"| DB
+
+    style START fill:#2196F3,stroke:#fff,stroke-width:2px
     style JOB fill:#FF9800,stroke:#fff,stroke-width:2px
     style WRITE fill:#009688,stroke:#fff,stroke-width:2px
     style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
 ```
 
-### Giai đoạn 2: Review Keyset Pagination & Bulk Decision Outbox
-
 ```mermaid
-flowchart LR
-    DB[("<font color='white'>1 - scan_db<br/>Snapshot Filter</font>")] -->|"Keyset Cursor"| REVIEW["<font color='white'>2 - FE Review trang<br/>Không OFFSET sâu</font>"]
-    REVIEW -->|"Bulk Approve"| BULK["<font color='white'>3 - Worker Bulk Job<br/>Xử lý từng Chunk</font>"]
-    BULK -->|"Transactional Outbox"| OUTBOX[("<font color='white'>4 - DB Outbox<br/>Atomic Decision</font>")]
-    OUTBOX -->|"Publisher"| KAFKA["<font color='white'>5 - Kafka Event<br/>At-least-once</font>"]
+flowchart TD
+    REVIEW["<font color='white'>Review theo cursor<br/>không OFFSET sâu</font>"]
+    BULK["<font color='white'>Bulk approve/reject<br/>theo chunk</font>"]
+    OUTBOX[("<font color='white'>scan_outbox_event<br/>decision cùng transaction</font>")]
+    KAFKA[("<font color='white'>media.file.discovered.v2<br/>Catalog consumer</font>")]
 
-    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px
+    REVIEW -->|"Chốt phạm vi"| BULK
+    BULK -->|"Ghi decision + outbox"| OUTBOX
+    OUTBOX -->|"Publisher"| KAFKA
+
     style REVIEW fill:#2196F3,stroke:#fff,stroke-width:2px
     style BULK fill:#FF9800,stroke:#fff,stroke-width:2px
     style OUTBOX fill:#9C27B0,stroke:#fff,stroke-width:2px
     style KAFKA fill:#E91E63,stroke:#fff,stroke-width:2px
 ```
 
-## D1 — Từ vựng và boundary
+## Điều đã có và phần sẽ thay
 
-| Khái niệm | Sở hữu | Input → output | Không có nghĩa là |
-| --- | --- | --- | --- |
-| Scan job/run | Scan Service | `rootKey` → trạng thái, checkpoint, counters | một HTTP request còn mở |
-| Lease | Scan Service | worker identity + thời hạn → quyền tiếp tục job | lock vĩnh viễn; lease phải được gia hạn |
-| Checkpoint | Scan Service | vị trí partition/chunk đã commit → mốc khôi phục | filesystem snapshot bất biến |
-| Chunk | Scan Service | tập item giới hạn → một transaction ghi kết quả | toàn bộ kết quả run |
-| Keyset cursor | API Scan | khóa sắp xếp cuối trang → trang tiếp theo | số trang hay tổng số chính xác miễn phí |
-| Bulk decision job | Scan Service | filter snapshot + decision → tiến độ/terminal result | một transaction cho mọi proposal |
-| Outbox | Scan Service | decision đã commit → event cần publish | Kafka đã nhận event ngay lúc commit |
-
-Invariant đề xuất để thảo luận trong ADLC sau này:
-
-- Một logical root chỉ có một owner lease đang hoạt động; worker mất lease phải dừng trước chunk kế tiếp.
-- Checkpoint chỉ advance cùng lúc với kết quả chunk đã commit. Restart có thể lặp một chunk, nhưng không được mất item.
-- Bulk decision phải chốt phạm vi bằng snapshot/query version, không quét theo tập dữ liệu đang tiếp tục thay đổi.
-- Mỗi proposal chỉ có một decision; APPROVE tạo tối đa một outbox event, kể cả khi chunk retry.
-
-## D2 — Runtime model
-
-Ví dụ root có một triệu file và worker bị restart ở chunk thứ 24:
-
-1. API xác thực `rootKey`, tạo job `RUNNING` và cấp lease. API trả `202` cùng ID job; browser không giữ request scan.
-2. Worker lấy một partition hoặc cursor discovery. Nó chỉ giữ metadata của chunk hiện tại trong memory.
-3. Parser tạo proposal/issue. Worker ghi batch kết quả và checkpoint trong một local transaction. Khi commit xong, UI có thể đọc counter bền vững.
-4. Worker gia hạn lease rồi tiếp tục. Backpressure xuất hiện khi DB chậm: giảm số chunk đang bay hoặc tạm dừng discovery; không tạo thêm task vô hạn.
-5. Nếu process chết trước commit, checkpoint cũ được dùng lại. Unique key hoặc idempotency key làm cho chunk reprocess không tạo duplicate.
-6. Khi mọi partition hoàn tất, job chuyển `COMPLETED`. Nếu không thể tiếp tục sau retry hữu hạn, job là `FAILED` nhưng giữ checkpoint và error để vận hành quyết định resume hay abort.
-7. Review API trả một cửa sổ keyset ổn định, ví dụ `(source_relative_path, id) > cursor`, không dùng `OFFSET` càng lớn càng phải bỏ qua nhiều row.
-8. Admin gửi bulk decision theo filter đã chốt. Worker bulk quyết định theo chunk: mỗi chunk ghi decision và outbox cùng transaction, cập nhật progress, rồi mới lấy chunk kế tiếp.
-
-`bounded` quan trọng hơn “đa luồng”: số partition, số chunk in-flight, batch insert size và outbox publisher concurrency đều là các van điều tiết khác nhau. Chúng chỉ được tăng sau benchmark trên loại storage thật.
-
-## Mapping vào implementation hiện tại
-
-| Thành phần hiện tại | Điều đã có | Khoảng cách với mô hình lớn |
+| Thành phần | Baseline hiện tại | Hướng SC-01 |
 | --- | --- | --- |
-| `ScanExecutor` | `Files.walk` lazy, buffer proposal/issue 500 và Hibernate JDBC batch 500. | Một task duy nhất duyệt tuần tự; chỉ log mỗi 5.000 file; không persist heartbeat/counter/checkpoint giữa chừng. |
-| `ScanRunEntity` | `RUNNING`, `COMPLETED`, `FAILED`, counter tổng kết. | Counter chỉ được ghi trong `complete`; không có lease, worker identity, cancel, resume hay checkpoint. |
-| `ScanService` | Chặn root có run `RUNNING`; background qua `TaskExecutor`. | Timeout 15 phút có thể đánh dấu stale trong khi executor cũ vẫn chạy; restart chủ động fail mọi run đang chạy. |
-| Query API | Page tối đa 100 và index `(scan_run_id, source_relative_path)` cho list. | Spring `Page` dùng offset và count; chưa có cursor/keyset hoặc benchmark trang sâu. |
-| `decideAll` | Idempotency decision và outbox atomic cho từng proposal. | Tải toàn bộ proposal/decision, dựng toàn bộ decision/outbox trong một transaction; không phù hợp một triệu record. |
-| FE Scan | Render page 50, polling 3 giây và hủy request cũ. | Nút `Approve All` gửi một HTTP đồng bộ; không có progress, cancel, job detail hay warning về phạm vi lớn. |
+| Scan run | `POST /api/v2/scans/previews`, background `TaskExecutor`, chặn root đang `RUNNING`. | Job có lease, progress/checkpoint và resume. |
+| Discovery | `Files.walk`, buffer proposal/issue 500. | Bounded discovery, parser tách rõ và commit theo chunk. |
+| Review | `Pageable` offset. | Keyset cursor theo `(source_relative_path, id)`. |
+| Approve all | Materialize toàn bộ proposal trong một transaction. | Bulk job persisted, mỗi chunk ghi decision + outbox. |
+| Outbox | Poll tối đa 20 event, at-least-once. | Giữ mẫu outbox; bổ sung backlog/concurrency phù hợp bulk. |
 
-Các claim trên là **cấu hình/implementation dự án**, đối chiếu tại `apps/scan-service/.../ScanExecutor.java`, `ScanService.java`, `ScanDecisionService.java`, `ScanQueryService.java`, `ScanRunEntity.java` và `D:/Study/Project/file_mngt_fe_v2/scan/scan-app.js`.
+## Invariant thực dụng
 
-## D3 — Failure model và guarantee
+- Một `rootKey` chỉ có một worker owner được ghi tiếp.
+- Checkpoint chỉ advance cùng transaction với dữ liệu chunk.
+- Retry chunk không tạo proposal hoặc event business trùng.
+- Không đưa Kafka vào giữa file walker và `scan_db`; Kafka chỉ bắt đầu sau approval/outbox.
+- Checkpoint không biến filesystem thành snapshot. Khi file thay đổi trong scan, dev baseline chấp nhận rewalk/dedupe; reconciliation là bước sau.
 
-| Tình huống | Nếu xử lý như hiện tại | Guarantee mục tiêu | Cơ chế cần có |
-| --- | --- | --- | --- |
-| Restart giữa scan | Run bị `FAILED`; phải tạo scan mới. | Không mất chunk đã commit; retry chunk có thể xảy ra. | Checkpoint transactional, lease expiry và idempotency key. |
-| Scan kéo quá timeout | Có nguy cơ hai executor logic cùng root sau stale marking. | Một worker logical owner tại một thời điểm. | Lease compare-and-set/heartbeat, worker dừng khi mất lease. |
-| DB chậm hoặc đầy pool | Worker vẫn tiếp tục discovery đến lần flush kế tiếp. | Memory và số transaction in-flight bị chặn. | Bounded queue, concurrency limit, metric saturation và retry có backoff. |
-| Bulk approve 1M | Heap/transaction/HTTP timeout tăng rất mạnh. | Mỗi chunk commit độc lập, retry idempotent, UI thấy tiến độ. | Bulk job persisted, keyset claim, chunk transaction, cancel boundary. |
-| Kafka/outbox publish lặp | Consumer có thể nhận duplicate. | At-least-once, không phải exactly-once xuyên service. | Event ID deterministic/unique, consumer dedupe hiện có. |
-| File đổi trong khi scan | Không thể giả định filesystem snapshot nhất quán. | Phát hiện hoặc chấp nhận có chủ đích thay đổi. | Ghi fingerprint tối thiểu; reconciliation/incremental scan là quyết định sau benchmark. |
+## Thứ tự đọc rồi lập plan
 
-Không nên hứa “đúng một lần” cho việc đọc filesystem hoặc publish event. Điều có thể bảo vệ là **at-least-once ở biên chunk, không mất dữ liệu đã commit và không tạo duplicate business effect khi retry**.
+1. Touchpoint 1–2: tạo run, lease và vòng đời worker.
+2. Touchpoint 3–5: walker, parser, batch/checkpoint.
+3. Touchpoint 6: keyset review.
+4. Touchpoint 7: bulk decision job.
+5. Touchpoint 8: outbox publisher và Catalog handoff.
 
-## D4 — Quyết định kiến trúc và trade-off
+## Tham chiếu
 
-| Lựa chọn | Dùng khi | Lợi ích | Chi phí / không dùng khi |
-| --- | --- | --- | --- |
-| Chunk tuần tự + checkpoint | Một root, I/O đĩa là bottleneck, ưu tiên an toàn. | Dễ resume, ít áp lực storage. | Không tận dụng nhiều volume độc lập. |
-| Partition theo thư mục con | Root có subtree độc lập và filesystem cho phép. | Có thể tăng throughput có kiểm soát. | Cần canonical partition, xử lý file move và giới hạn I/O. |
-| Keyset pagination | Dataset lớn, review chủ yếu next/previous theo sort cố định. | Latency ít phụ thuộc vị trí sâu. | Không nhảy chính xác đến “trang 20.000”; cursor gắn sort/filter. |
-| Bulk job persisted | Hàng nghìn đến hàng triệu decision/event. | Không timeout HTTP, có resume/progress/cancel. | Nhiều state và API hơn single decision. |
-| PostgreSQL `COPY`/JDBC batch | Benchmark chứng minh JPA batch là bottleneck. | Throughput insert cao hơn trong một số workload. | Phức tạp mapping/error isolation; không thay thế checkpoint. |
-| OS watcher/incremental scan | Full rescan đã được đo là quá tốn kém và môi trường ổn định. | Giảm I/O ở thay đổi nhỏ. | Mất event watcher, rename và volume mạng làm reconciliation khó; không thay full scan ngay. |
-
-Đề xuất evolution: bắt đầu bằng job persistence, chunk/checkpoint, keyset và bulk decision; sau đó đo filesystem/DB/outbox để quyết định partition hoặc bulk insert. Không đưa Kafka vào discovery chỉ để có “queue”: filesystem scan vẫn cần state durable tại owner `scan_db`.
-
-## Red flags và hiểu nhầm thường gặp
-
-- Bật virtual threads không tự tạo parallelism: code vẫn cần partition/concurrency limit, và DB/disk vẫn có giới hạn.
-- Batch insert 500 không làm một transaction một triệu row trở nên an toàn.
-- Pagination không đồng nghĩa scale: `OFFSET` sâu và `COUNT(*)` vẫn là chi phí SQL.
-- “Approve all” không phải bulk API an toàn nếu server materialize toàn bộ tập chọn.
-- Checkpoint không biến filesystem thành snapshot; nó chỉ nói hệ thống đã commit đến đâu.
-- Counter hiển thị không phải observability đầy đủ: cần throughput, duration, chunk retry, lease loss, DB pool saturation, outbox backlog và failed job count.
-
-## Cầu nối phỏng vấn
-
-**30 giây:** Với một triệu file, tôi biến scan thành durable job. Kết quả và checkpoint được commit theo chunk để restart không mất dữ liệu; UI đọc keyset page; approve hàng loạt là job bất đồng bộ tạo decision/outbox từng chunk. Concurrency chỉ tăng sau khi bảo vệ disk và DB bằng giới hạn có đo đạc.
-
-**Câu hỏi tự kiểm:** Nếu worker chết sau khi insert proposal nhưng trước checkpoint, vì sao retry không được tạo proposal thứ hai? Nếu UI đổi filter khi bulk job đang chạy, phạm vi quyết định nào là source of truth? Nếu offset page 20.000 chậm, cursor cần chứa những cột sort nào?
-
-## Phương pháp Benchmark & Fixture Generation chuẩn xác cho SC-01
-
-Để dữ liệu thử nghiệm 1 triệu file rỗng đủ độ tin cậy làm evidence cho SC-01, mã nguồn sinh/dọn dẹp dữ liệu phải tuân thủ các nguyên tắc sau:
-
-1. **Ranh giới Test Scope & Boundary**:
-   - Nằm tại dự án chung `tests/fixtures/tools/` (`fixture-tools`), thuộc feature package `com.filemngt.tools.sc01_scan_one_million`. Không đóng gói vào service production và không tự chạy trong root `mvn test` để tránh làm chậm CI.
-2. **Yêu cầu Correctness & Fail-Fast**:
-   - **Bắt lỗi Worker**: Sử dụng `CompletableFuture` với `.join()`; ném `RuntimeException` ngay lập tức nếu bất kỳ worker nào lỗi I/O, không in "HOÀN TẤT" khi bị thiếu file.
-   - **Xác minh số lượng thực tế (Post-Verification)**: Đếm lại chính xác 1.000.000 file sau khi sinh bằng `Files.walk()`; ném `IllegalStateException` nếu số lượng không khớp.
-   - **Bảo vệ thao tác xóa (Cleaner)**: Kiểm tra kết quả xóa nghiêm ngặt (`Files.delete()` hoặc throw `IOException` khi `!file.delete()`), xác minh thư mục đã bị hủy hoàn toàn.
-   - **Độ chính xác đo đạc**: Dùng `System.nanoTime()` cho micro-benchmark thay cho `System.currentTimeMillis()`.
-3. **Quản lý Concurrency & Đĩa Cứng**:
-   - Không nổ Virtual Threads không giới hạn (1.000 tasks) gây tranh chấp I/O trên đĩa đơn. Sử dụng Bounded Thread Pool (ví dụ `concurrency = 16, 32`) được tham số hóa qua `-Dconcurrency`.
-   - Benchmark ma trận concurrency: `1, 2, 4, 8, 16, 32` để tìm điểm bão hòa I/O.
-   - Loại trừ thư mục benchmark (`D:/Study/Project/file_mngt_fixtures/`) khỏi Real-Time Protection của Antivirus / Windows Defender để phản ảnh đúng I/O đĩa đĩa không bị can thiệp.
-
-## Tài liệu tham khảo trong dự án
-
-- [fixture-tools](../../../../tests/fixtures/tools/pom.xml) — Dự án Java 25 Fixture Tools chung với package `com.filemngt.tools.sc01_scan_one_million` cho SC-01 (gồm generator và cleaner).
-- `apps/scan-service/CONTEXT.md` — ownership và invariant Scan.
-- `docs/features/004-scan-preview/02-design.md` — boundary preview hiện hành.
-- `docs/contracts/openapi/scan-v1.yaml` — API hiện hành; thay đổi sau này phải qua contract workflow.
-- `docs/architecture/02-PLAN.md` — Phase 7 importer/backfill và Phase 8 benchmark/profiling.
-- `docs/STATUS.md` — các gate hiện còn mở.
+- [UC-01](../../core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md)
+- [Chi tiết các luồng và điểm chạm](./02-architecture-touchpoints-and-flows.md)
+- `apps/scan-service/CONTEXT.md`
+- `docs/contracts/openapi/scan-v1.yaml`
