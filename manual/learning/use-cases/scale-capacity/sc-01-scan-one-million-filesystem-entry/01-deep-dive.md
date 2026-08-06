@@ -134,10 +134,25 @@ Không nên hứa “đúng một lần” cho việc đọc filesystem hoặc p
 
 **Câu hỏi tự kiểm:** Nếu worker chết sau khi insert proposal nhưng trước checkpoint, vì sao retry không được tạo proposal thứ hai? Nếu UI đổi filter khi bulk job đang chạy, phạm vi quyết định nào là source of truth? Nếu offset page 20.000 chậm, cursor cần chứa những cột sort nào?
 
+## Phương pháp Benchmark & Fixture Generation chuẩn xác cho SC-01
+
+Để dữ liệu thử nghiệm 1 triệu file rỗng đủ độ tin cậy làm evidence cho SC-01, mã nguồn sinh/dọn dẹp dữ liệu phải tuân thủ các nguyên tắc sau:
+
+1. **Ranh giới Test Scope & Boundary**:
+   - Nằm tại dự án chung `tests/fixtures/tools/` (`fixture-tools`), thuộc feature package `com.filemngt.tools.sc01_scan_one_million`. Không đóng gói vào service production và không tự chạy trong root `mvn test` để tránh làm chậm CI.
+2. **Yêu cầu Correctness & Fail-Fast**:
+   - **Bắt lỗi Worker**: Sử dụng `CompletableFuture` với `.join()`; ném `RuntimeException` ngay lập tức nếu bất kỳ worker nào lỗi I/O, không in "HOÀN TẤT" khi bị thiếu file.
+   - **Xác minh số lượng thực tế (Post-Verification)**: Đếm lại chính xác 1.000.000 file sau khi sinh bằng `Files.walk()`; ném `IllegalStateException` nếu số lượng không khớp.
+   - **Bảo vệ thao tác xóa (Cleaner)**: Kiểm tra kết quả xóa nghiêm ngặt (`Files.delete()` hoặc throw `IOException` khi `!file.delete()`), xác minh thư mục đã bị hủy hoàn toàn.
+   - **Độ chính xác đo đạc**: Dùng `System.nanoTime()` cho micro-benchmark thay cho `System.currentTimeMillis()`.
+3. **Quản lý Concurrency & Đĩa Cứng**:
+   - Không nổ Virtual Threads không giới hạn (1.000 tasks) gây tranh chấp I/O trên đĩa đơn. Sử dụng Bounded Thread Pool (ví dụ `concurrency = 16, 32`) được tham số hóa qua `-Dconcurrency`.
+   - Benchmark ma trận concurrency: `1, 2, 4, 8, 16, 32` để tìm điểm bão hòa I/O.
+   - Loại trừ thư mục benchmark (`D:/Study/Project/file_mngt_fixtures/`) khỏi Real-Time Protection của Antivirus / Windows Defender để phản ảnh đúng I/O đĩa đĩa không bị can thiệp.
+
 ## Tài liệu tham khảo trong dự án
 
-- `apps/scan-service/src/test/java/com/filemngt/v2/scan/helper/GenerateOneMillionJokeVideoFixtures.java` — Class Java 25 sinh 1 triệu file rỗng fixture để benchmark SC-01.
-- `apps/scan-service/src/test/java/com/filemngt/v2/scan/helper/CleanOneMillionJokeVideoFixtures.java` — Class Java 25 dọn dẹp/xóa 1 triệu file fixture.
+- [fixture-tools](../../../../tests/fixtures/tools/pom.xml) — Dự án Java 25 Fixture Tools chung với package `com.filemngt.tools.sc01_scan_one_million` cho SC-01 (gồm generator và cleaner).
 - `apps/scan-service/CONTEXT.md` — ownership và invariant Scan.
 - `docs/features/004-scan-preview/02-design.md` — boundary preview hiện hành.
 - `docs/contracts/openapi/scan-v1.yaml` — API hiện hành; thay đổi sau này phải qua contract workflow.

@@ -22,6 +22,8 @@
     "test:media": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test -pl apps/media-worker-service -am\"",
     "test:all": "powershell -Command \"$env:JAVA_HOME='C:\\Users\\Admin\\.jdks\\corretto-25.0.2'; ./mvnw test\"",
     "reset:data": "node scripts/reset-dev-data.mjs",
+    "fixture:sc01:gen": "java tests/fixtures/tools/src/main/java/com/filemngt/tools/sc01_scan_one_million/GenerateOneMillionJokeVideoFixtures.java",
+    "fixture:sc01:clean": "java tests/fixtures/tools/src/main/java/com/filemngt/tools/sc01_scan_one_million/CleanOneMillionJokeVideoFixtures.java",
     "docker:up": "docker compose --env-file .env -f infra/compose/compose.yaml up -d",
     "docker:down": "docker compose --env-file .env -f infra/compose/compose.yaml down",
     "docker:restart": "docker compose --env-file .env -f infra/compose/compose.yaml restart",

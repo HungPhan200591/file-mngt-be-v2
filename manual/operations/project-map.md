@@ -97,7 +97,7 @@ Không commit `.env`, `application-local.yml`, database volume hay path cá nhâ
 | --- | --- | --- |
 | `apps/<service>/src/test/` | Unit và integration test; persistence/API dùng Testcontainers | Mỗi behavior mới cần happy path và lỗi quan trọng |
 | `tests/e2e/<service>/*.http` | Kịch bản E2E gọi service thật | Khi public API/flow giữa các API đổi |
-| `tests/fixtures/` | File fixture nhỏ, deterministic cho E2E | Khi E2E cần dữ liệu filesystem có thể commit |
+| `tests/fixtures/` | File fixture nhỏ, deterministic cho E2E; tooling sinh fixture lớn ở `tools/` | Khi E2E cần dữ liệu commit hoặc SC cần generator chạy ngoài repo |
 
 Chạy E2E theo [tests/e2e/README.md](../../tests/e2e/README.md). `.http` là kịch bản dùng chung; một file có hậu tố `.e2e.http` có thể dành riêng cho CLI khi cần khả năng mà IntelliJ HTTP Client không có, như polling tự động.
 
