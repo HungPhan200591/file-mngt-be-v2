@@ -28,7 +28,7 @@ Chỉ số cụ thể phải được chốt trong brief của lab. Ví dụ `10
 
 **Evidence:** peak heap, entry/s, thời gian hoàn tất, số proposal/issue, số lần resume và proof không đọc/ghi ngoài root. So sánh ít nhất hai batch/concurrency setting; không đoán setting tối ưu trước benchmark.
 
-**Study artifact:** [SC-01 deep-dive](./sc-01-scan-one-million-filesystem-entry.md) — đang nghiên cứu; chưa phải bằng chứng V2 đã đạt quy mô này.
+**Study pack:** [SC-01](./sc-01-scan-one-million-filesystem-entry/README.md) — đang nghiên cứu; chưa phải bằng chứng V2 đã đạt quy mô này.
 
 ### SC-02 — Import/backfill 1 triệu record V1
 

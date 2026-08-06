@@ -13,8 +13,8 @@ description: Tạo hoặc sửa study card, deep-dive, summary, question bank ha
 
 ## Chọn owner artifact
 
-- UC card: `manual/learning/use-cases/<NN>-<scenario>/README.md`.
-- SC card và artifact đặc thù workload: `manual/learning/use-cases/scale-capacity/`; tên `sc-<nn>-<slug>.md`.
+- UC study pack: `manual/learning/use-cases/core-flows/uc-<nn>-<slug>/`, gồm `README.md`, rồi đến `summary/` và `question-bank/` khi người dùng yêu cầu; chỉ tạo `01-deep-dive.md` khi giải thích đó thuộc riêng UC.
+- SC study pack: `manual/learning/use-cases/scale-capacity/sc-<nn>-<slug>/`, gồm `README.md`, `01-deep-dive.md`, rồi mới đến `summary/` và `question-bank/` khi người dùng yêu cầu.
 - Kiến thức tái sử dụng qua nhiều UC/SC: `manual/learning/deep-dive/<topic>/`.
 - Card UC/SC chỉ giữ scenario, prerequisite, invariant, evidence, trạng thái và link; không sao chép deep-dive.
 - Không đặt một SC trong `deep-dive/scan-service` chỉ vì service đó là owner implementation. Thêm link hai chiều khi cần điều hướng.

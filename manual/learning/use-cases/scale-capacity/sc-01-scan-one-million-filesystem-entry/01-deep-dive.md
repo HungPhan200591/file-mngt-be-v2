@@ -2,7 +2,7 @@
 
 > Câu hỏi trọng tâm: **Làm sao duyệt cây thư mục với memory bị chặn, progress/checkpoint, batch persistence và backpressure mà không biến preview thành một HTTP response khổng lồ?**
 >
-> Artifact nghiên cứu cho feature candidate **Large-scale scan foundation**. Đây không phải Brief, Design hay Plan ADLC và không ấn định contract hay schema mới.
+> Deep-dive của study pack SC-01, nghiên cứu cho feature candidate **Large-scale scan foundation**. Đây không phải Brief, Design hay Plan ADLC và không ấn định contract hay schema mới.
 
 ## Mục tiêu học và prerequisite
 

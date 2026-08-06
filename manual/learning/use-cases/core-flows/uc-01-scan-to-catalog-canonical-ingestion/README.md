@@ -1,5 +1,7 @@
 # UC-01 — Scan → Catalog canonical ingestion
 
+> Study pack UC-01. Summary sẽ đặt tại `summary/`, question bank tại `question-bank/` khi được yêu cầu; deep-dive theo topic dùng lại được liên kết bên dưới, không sao chép vào pack.
+
 ## Mục tiêu phỏng vấn
 
 Giải thích và bảo vệ được vì sao một hệ thống quản lý media tách **discovery/review** khỏi **canonical write model**, nhưng vẫn không bỏ mất quyết định approve khi Kafka hoặc consumer gặp lỗi.

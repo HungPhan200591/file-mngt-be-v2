@@ -11,7 +11,10 @@ manual/learning/
 │   ├── summary/                   # Owner: ôn nhanh từ deep-dive
 │   └── question-bank/             # Owner: retrieval practice/interview
 └── use-cases/
-    └── <NN>-<scenario>/README.md  # Scenario card, evidence, tiến độ
+    ├── core-flows/
+    │   └── uc-<nn>-<scenario>/    # README, summary/, question-bank/
+    └── scale-capacity/
+        └── sc-<nn>-<scenario>/    # README, deep-dive, summary/, question-bank/
 ```
 
 Không tạo một bản deep-dive, summary hoặc question bank riêng trong thư mục use case nếu nó đã thuộc một topic dùng chung. Card chỉ liên kết về owner để tránh hai bản kiến thức lệch nhau.
@@ -20,7 +23,7 @@ Không tạo một bản deep-dive, summary hoặc question bank riêng trong th
 
 | ID | Scenario | Trạng thái | Artifact hiện có / cần chốt |
 | --- | --- | --- | --- |
-| [UC-01](./01-scan-to-catalog-canonical-ingestion/README.md) | Scan → review → Catalog canonical ingestion | Đang học | Scan + Outbox deep-dive; cần audit evidence, summary và question bank liên use case |
+| [UC-01](./core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) | Scan → review → Catalog canonical ingestion | Đang học | Scan + Outbox deep-dive; cần audit evidence, summary và question bank liên use case |
 | UC-02 | Catalog → Query projection correctness | Chờ UC-01 | CQRS deep-dive + event contract; tạo card khi bắt đầu |
 | UC-03 | Query search, cache và reconciliation | Chờ UC-02 | CQRS deep-dive; tách performance evidence khỏi UC-02 |
 | UC-04 | Worker processing → Catalog → Query convergence | Chờ FT013 | Tạo sau khi bắt đầu FT013 |

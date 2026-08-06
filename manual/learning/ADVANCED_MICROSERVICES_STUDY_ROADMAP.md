@@ -25,7 +25,7 @@ Xem quy ước thư mục, trạng thái và card use case tại [Use case study
 | Thứ tự | Use case | Dịch vụ trọng tâm | Năng lực Senior cần chứng minh | Trạng thái study |
 | --- | --- | --- | --- | --- |
 | 0 | Nắm domain, ownership và luồng dữ liệu | Toàn hệ thống | nói đúng Subject/Asset, database ownership, event boundary | Đọc primer trước |
-| 1 | [UC-01 — Scan → Catalog canonical ingestion](./use-cases/01-scan-to-catalog-canonical-ingestion/README.md) | Scan, Catalog | async job, parser boundary, review, local transaction, outbox, idempotent consumer | Bắt đầu tại đây |
+| 1 | [UC-01 — Scan → Catalog canonical ingestion](./use-cases/core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) | Scan, Catalog | async job, parser boundary, review, local transaction, outbox, idempotent consumer | Bắt đầu tại đây |
 | 2 | UC-02 — Catalog → Query read projection | Catalog, Query | snapshot event, version guard, eventual consistency, replay/rebuild | Làm sau UC-01 |
 | 3 | UC-03 — Query search, cache và reconciliation | Query | read-model design, Elasticsearch/PostgreSQL/Redis boundary, degraded read, đo đạc | Làm sau UC-02 |
 | 4 | UC-04 — Media processing pipeline | Media Worker, Catalog, Query | work queue, safe filesystem I/O, bounded concurrency, completion event | Gắn với FT013 `READY` |
