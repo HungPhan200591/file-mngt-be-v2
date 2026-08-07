@@ -4,7 +4,7 @@
 
 - Giao tiếp và tài liệu viết tiếng Việt có dấu; giữ identifier/API/event/package bằng tiếng Anh.
 - Một Agent chính tự thực hiện toàn bộ khảo sát, triển khai và review; không dùng sub-agent.
-- Không tự chạy migration/import thật, xóa dữ liệu, reset repository, khởi động service, Docker Compose, git commit/push hoặc sinh sidebar/deploy docs nếu chưa được yêu cầu rõ ràng.
+- Không tự chạy test/build, migration/import thật, xóa dữ liệu, reset repository, khởi động service, Docker Compose, git commit/push hoặc sinh sidebar/deploy docs nếu chưa được người dùng yêu cầu rõ ràng.
 - File source tối đa 500 dòng; tách theo trách nhiệm, không tách vụn.
 - Với Java mới/sửa, Agent bắt buộc khảo sát owner/package bị chạm trước khi code và tự audit/refactor ngay sau khi code theo `docs/architecture/03-CODING_RULES.md`; không bàn giao code vượt ngưỡng mà không tách hoặc ghi ngoại lệ.
 - Service chỉ truy cập database của chính nó. Redis không là source of truth; Kafka không thay thế mọi HTTP call.
