@@ -2,6 +2,7 @@ package com.filemngt.v2.scan.application.scan;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
 import com.filemngt.v2.scan.adapter.out.filesystem.ConfiguredScanRootAccess;
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
@@ -44,6 +45,7 @@ public class ScanService {
     private final TaskExecutor taskExecutor;
     private final CatalogRegistryClient catalogClient;
     private final ConfiguredScanRootAccess rootAccess;
+    private final ScanInventoryStageWriter stageWriter;
 
     public ScanService(
             ScanProperties properties,
@@ -51,13 +53,15 @@ public class ScanService {
             ScanExecutor executor,
             @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
             CatalogRegistryClient catalogClient,
-            ConfiguredScanRootAccess rootAccess) {
+            ConfiguredScanRootAccess rootAccess,
+            ScanInventoryStageWriter stageWriter) {
         this.properties = properties;
         this.runs = runs;
         this.executor = executor;
         this.taskExecutor = taskExecutor;
         this.catalogClient = catalogClient;
         this.rootAccess = rootAccess;
+        this.stageWriter = stageWriter;
     }
 
     /** Khởi tạo scan mới cho root hợp lệ và trả ngay trạng thái RUNNING cho HTTP caller. */
@@ -122,6 +126,7 @@ public class ScanService {
         }
         runs.saveAll(staleRuns);
         runs.flush();
+        stageWriter.deleteRuns(staleRuns.stream().map(ScanRunEntity::id).toList());
         if (hasActiveRun) {
             LOGGER.warn("Không thể mở scan mới do rootKey={} đang có run giữ lease active", rootKey);
             throw new ScanRunAlreadyRunningException(rootKey);
@@ -164,5 +169,6 @@ public class ScanService {
             runs.flush();
             LOGGER.info("Đã dọn dẹp {} scan run bị gián đoạn do service restart", orphanScans.size());
         }
+        stageWriter.deleteInactiveRuns();
     }
 }

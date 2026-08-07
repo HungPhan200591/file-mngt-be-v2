@@ -10,6 +10,7 @@ import java.util.List;
 final class ScanChunk {
     private final int batchSize;
     private final List<ScanInventoryItem> inventoryItems = new ArrayList<>();
+    private final List<ScanInventoryItem> changedInventoryItems = new ArrayList<>();
     private final List<ScanProposalEntity> proposals = new ArrayList<>();
     private final List<ScanIssueEntity> issues = new ArrayList<>();
 
@@ -23,6 +24,10 @@ final class ScanChunk {
 
     void addProposal(ScanProposalEntity proposal) {
         proposals.add(proposal);
+    }
+
+    void addChangedInventory(ScanInventoryItem item) {
+        changedInventoryItems.add(item);
     }
 
     void addIssue(ScanIssueEntity issue) {
@@ -41,6 +46,10 @@ final class ScanChunk {
         return inventoryItems;
     }
 
+    List<ScanInventoryItem> changedInventoryItems() {
+        return changedInventoryItems;
+    }
+
     List<ScanProposalEntity> proposals() {
         return proposals;
     }
@@ -51,6 +60,7 @@ final class ScanChunk {
 
     void clear() {
         inventoryItems.clear();
+        changedInventoryItems.clear();
         proposals.clear();
         issues.clear();
     }

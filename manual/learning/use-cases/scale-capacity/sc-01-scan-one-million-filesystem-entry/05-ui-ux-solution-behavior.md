@@ -103,6 +103,7 @@ Nhờ **BT-03 (Inventory Matcher)**:
   - Khi bấm **"Quét lại"**, hệ thống khởi tạo đợt scan mới (`POST /api/v2/scans/previews`).
   - BE thực hiện **Full Walk toàn bộ root**, nhưng tự động **bỏ qua (skip parse)** các file không thay đổi metadata `(fileSize, modifiedAt)` so với kho inventory đã seed từ đợt scan trước.
   - Cơ chế này có thể giảm chi phí parse ở warm scan; mức cải thiện phải đo bằng benchmark, chưa được mặc định là “nhanh hơn nhiều lần”.
+  - **Update FT-025**: BE dùng staging để tránh rewrite inventory cho file không đổi. Đây là tối ưu nội bộ; FE vẫn dùng cùng API/counter và vẫn phải coi rescan là full walk cho đến khi có incremental filesystem journal riêng.
 
 - **Hiển thị File bị Xóa khỏi Ổ đĩa (`MISSING`) — Read-Only Badge**:
   - Sau khi scan kết thúc thành công, BE chạy `markMissing` cập nhật `state = 'MISSING'` trong `scan_file_inventory` cho các file vật lý không còn xuất hiện trên đĩa.
@@ -215,6 +216,7 @@ flowchart TD
 | **BT-01** | Durable Scan Run, Worker Lease & Checkpoint | KHÔNG khóa UI. Khởi chạy 202 Accepted ngầm. Polling tiến độ ngầm. F5/Fail tự khôi phục hiển thị. |
 | **BT-02** | File Inventory Seed (`scan_file_inventory`) | Hiển thị Live Metrics Panel (`scannedFileCount`, `proposalCount`, `issueCount`, Tốc độ f/s). |
 | **BT-03** | Inventory Matcher (Skip unchanged + Mark Missing) | **Warm rescan**: Full walk lại nhưng skip parse file không đổi. Badge `MISSING` chỉ là future UI sau khi có inventory API/read model; không suy diễn từ Proposal hiện tại. |
+| **BT-03F / FT-025** | Staging reconciliation, changed-only inventory write | Không đổi contract/UI; giảm write amplification phía BE. Không hứa thời gian hoàn thành mới trước benchmark. |
 | **BT-06** *(Sắp làm)* | Keyset Review Cursor `(source_relative_path, id)` | Phân trang bảng Proposal siêu mượt bằng cursor, không bị đơ database khi xem từ trang 1 đến trang 20,000. |
 | **BT-07** *(Sắp làm)* | Bulk Decision Job Chunked | Duyệt hàng loạt (Approve 10,000 item) chạy job ngầm với thanh tiến độ Bulk Progress riêng. |
 

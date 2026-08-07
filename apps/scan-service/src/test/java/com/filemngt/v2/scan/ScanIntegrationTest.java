@@ -12,9 +12,12 @@ import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -22,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -63,6 +67,9 @@ class ScanIntegrationTest {
     @Autowired
     com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository issues;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
     @MockitoBean
     CatalogRegistryClient catalogClient;
 
@@ -76,6 +83,7 @@ class ScanIntegrationTest {
         proposals.deleteAllInBatch();
         issues.deleteAllInBatch();
         inventories.deleteAllInBatch();
+        jdbcTemplate.update("DELETE FROM scan_inventory_stage");
         runs.deleteAllInBatch();
     }
 
@@ -114,17 +122,20 @@ class ScanIntegrationTest {
 
     @Test
     void scanSeedsFileInventoryIdempotently() throws Exception {
-        ScanProposalRef firstScan = scanAndGetProposal();
-        UUID firstRunId = UUID.fromString(firstScan.scanId());
+        scanAndGetProposal();
         long firstInventoryCount = inventories.count();
         assertThat(firstInventoryCount).isEqualTo(regularFileCount());
 
         var firstInventoryItems = inventories.findAll();
         assertThat(firstInventoryItems)
-                .allMatch(item -> item.lastSeenRunId().equals(firstRunId)
-                        && item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT
+                .allMatch(item -> item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT
                         && item.fileSize() > 0
                         && item.fileModifiedAt() != null);
+        Map<String, Instant> initialUpdatedAt = firstInventoryItems.stream()
+                .collect(Collectors.toMap(
+                        com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryEntity
+                                ::sourceRelativePath,
+                        com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryEntity::updatedAt));
 
         var relativePaths = firstInventoryItems.stream()
                 .map(com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryEntity::sourceRelativePath)
@@ -132,15 +143,16 @@ class ScanIntegrationTest {
         assertThat(relativePaths).contains("Studio/Actress/A - [JOKE-001].mp4", "bad.mp4", "Cover - [JOKE-002].jpg");
 
         // Scan 2: file không thay đổi → BT-03 skip parse → proposalCount=0 là đúng
-        UUID secondRunId = triggerScanAndComplete();
+        triggerScanAndComplete();
         long secondInventoryCount = inventories.count();
 
         assertThat(secondInventoryCount).isEqualTo(regularFileCount());
 
         var secondInventoryItems = inventories.findAll();
         assertThat(secondInventoryItems)
-                .allMatch(item -> item.lastSeenRunId().equals(secondRunId)
-                        && item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+                .allMatch(item -> item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT)
+                .allMatch(item -> item.updatedAt().equals(initialUpdatedAt.get(item.sourceRelativePath())));
+        assertThat(stageRowCount()).isZero();
     }
 
     @Test
@@ -153,8 +165,8 @@ class ScanIntegrationTest {
         assertThat(inventories.count()).isEqualTo(regularFileCount());
         assertThat(runs.findById(runId).orElseThrow().checkpointChunk()).isGreaterThanOrEqualTo(2);
         assertThat(inventories.findAll())
-                .allMatch(item -> item.lastSeenRunId().equals(runId)
-                        && item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+                .allMatch(item -> item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+        assertThat(stageRowCount()).isZero();
     }
 
     @Test
@@ -453,6 +465,11 @@ class ScanIntegrationTest {
                     .filter(path -> !Files.isSymbolicLink(path))
                     .count();
         }
+    }
+
+    private long stageRowCount() {
+        Long count = jdbcTemplate.queryForObject("SELECT count(*) FROM scan_inventory_stage", Long.class);
+        return count == null ? 0L : count;
     }
 
     private record ScanProposalRef(String scanId, String proposalId) {}

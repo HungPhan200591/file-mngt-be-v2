@@ -30,6 +30,23 @@ npm run fixture:sc01:clean
 npm run help:fixture
 ```
 
+## Benchmark riêng chi phí đọc filesystem
+
+Lệnh sau chỉ duyệt cây và đọc metadata theo đúng access pattern hiện tại của
+`ScanExecutor`: `Files.walk` → regular file → non-symlink → `Files.size` →
+`Files.getLastModifiedTime`. Benchmark không đọc nội dung file, không ghi dữ liệu
+và không truy cập database.
+
+```bash
+npm run fixture:sc01:benchmark-read
+```
+
+Có thể chỉ định fixture root khác từ thư mục gốc repository:
+
+```powershell
+java '-Dfile.encoding=UTF-8' '-DtargetDir=D:/path/to/fixture' tests/fixtures/tools/src/main/java/com/filemngt/tools/sc01_scan_one_million/BenchmarkFilesystemRead.java
+```
+
 Hoặc chạy trực tiếp CLI / Maven compile:
 
 ```text

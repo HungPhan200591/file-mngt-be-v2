@@ -13,8 +13,7 @@ public record ScanInventoryItem(String rootKey, String sourceRelativePath, long 
 
     /** Chuẩn hóa fingerprint theo precision microsecond của kho inventory trước khi so sánh và lưu. */
     private static Instant normalizeTimestamp(Instant timestamp) {
-        long roundedMicros =
-                (timestamp.getNano() + HALF_MICROSECOND_IN_NANOS) / NANOS_PER_MICROSECOND;
+        long roundedMicros = (timestamp.getNano() + HALF_MICROSECOND_IN_NANOS) / NANOS_PER_MICROSECOND;
         return Instant.ofEpochSecond(timestamp.getEpochSecond(), roundedMicros * NANOS_PER_MICROSECOND);
     }
 }

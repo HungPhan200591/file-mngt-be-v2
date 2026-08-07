@@ -4,7 +4,7 @@ Updated: 2026-08-07
 
 ## Hiện tại
 
-- Active SC-01: BT-02 (File inventory seed) `DONE`, BT-03 (Inventory matcher) `DONE`.
+- Active SC-01: BT-02/BT-03 `DONE`; [FT-025 staging reconciliation](./features/025-inventory-staging-reconciliation/03-plan.md) và follow-up giảm transaction amplification đã implement, chờ verification/benchmark được người dùng cho phép.
 - Ready feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
 - Nợ kỹ thuật cần lưu ý: [`TD-004`–`TD-005`](./TECHNICAL_DEBT.md).
 
@@ -16,6 +16,6 @@ Updated: 2026-08-07
 
 ## Việc kế tiếp
 
-1. Triển khai **BT-04 — Catalog batch existence API** (SC-01): internal API nhận tối đa 500 candidate, trả classification.
-2. Quay lại **FT013 — Media Worker processing foundation** khi quay lại Phase 4.
-3. Lập feature Import/backfill V1.
+1. Khi được cho phép, chạy verification Scan Service và benchmark cold/warm sau FT-025.1.
+2. Triển khai **BT-04 — Catalog batch existence API** (SC-01): internal API nhận tối đa 500 candidate, trả classification.
+3. Quay lại **FT013 — Media Worker processing foundation** khi quay lại Phase 4.

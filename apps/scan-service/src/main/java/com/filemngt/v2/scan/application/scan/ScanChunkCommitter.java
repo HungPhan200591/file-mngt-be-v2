@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application.scan;
 
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryBatchWriter;
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
@@ -31,16 +32,19 @@ public class ScanChunkCommitter {
     private final ScanProposalRepository proposals;
     private final ScanIssueRepository issues;
     private final ScanFileInventoryBatchWriter inventoryBatchWriter;
+    private final ScanInventoryStageWriter stageWriter;
 
     public ScanChunkCommitter(
             ScanRunRepository runs,
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
-            ScanFileInventoryBatchWriter inventoryBatchWriter) {
+            ScanFileInventoryBatchWriter inventoryBatchWriter,
+            ScanInventoryStageWriter stageWriter) {
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
         this.inventoryBatchWriter = inventoryBatchWriter;
+        this.stageWriter = stageWriter;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -48,7 +52,8 @@ public class ScanChunkCommitter {
         var run = runs.findById(lease.runId()).orElseThrow();
         validateLease(run, lease);
 
-        inventoryBatchWriter.upsertPresent(batch.inventoryItems(), lease.runId());
+        stageWriter.copySeen(lease.runId(), batch.inventoryItems());
+        inventoryBatchWriter.upsertChanged(batch.changedInventoryItems());
         commitProposalsChunk(batch.proposals());
         commitIssuesChunk(batch.issues());
 
@@ -74,7 +79,8 @@ public class ScanChunkCommitter {
         var run = runs.findById(runId).orElseThrow();
         validateLease(run, new ChunkLease(runId, workerId, null));
 
-        inventoryBatchWriter.markMissing(rootKey, runId);
+        inventoryBatchWriter.markMissingFromStage(rootKey, runId);
+        stageWriter.deleteRun(runId);
         run.complete(finalProgress.files(), finalProgress.proposals(), finalProgress.issues());
         runs.saveAndFlush(run);
         LOGGER.info(
@@ -83,6 +89,11 @@ public class ScanChunkCommitter {
                 finalProgress.files(),
                 finalProgress.proposals(),
                 finalProgress.issues());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void cleanupStage(UUID runId) {
+        stageWriter.deleteRun(runId);
     }
 
     private void validateLease(ScanRunEntity run, ChunkLease lease) {
@@ -115,6 +126,7 @@ public class ScanChunkCommitter {
     public record ChunkBatch(
             int index,
             List<ScanInventoryItem> inventoryItems,
+            List<ScanInventoryItem> changedInventoryItems,
             List<ScanProposalEntity> proposals,
             List<ScanIssueEntity> issues) {}
 

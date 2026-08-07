@@ -6,7 +6,7 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 
 ## Owns
 
-- Database `scan_db`: job, item, proposal, issue, outbox. Thêm field `registry_version` ở `scan_run`.
+- Database `scan_db`: job, item, proposal, issue, inventory, staging reconciliation và outbox. Staging là scratch state `UNLOGGED`, không là source of truth.
 - Strategy/registry parser theo root và region.
 - Tích hợp `CatalogRegistryClient` gọi `catalog-service` lấy immutable `RegistrySnapshot` trước khi bắt đầu `scan_run`.
 - API preview, review, approve/reject scan item.
@@ -18,6 +18,7 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 - Preview không ghi Catalog, rename/move file hoặc xóa cache.
 - JOKE dùng code; USE video/assets dùng normalized basename; USE Album dùng relative folder làm identity và có thể tạo candidate link `FULL_ALBUM_OF` tới Syncdroid để review.
 - Parse mơ hồ tạo issue, không tự đoán.
+- Warm scan ghi mọi seen-item vào staging nhưng chỉ rewrite inventory khi file mới, fingerprint đổi, hoặc `MISSING` tái xuất hiện; finalization lease-fenced dùng anti-join để mark missing rồi dọn staging.
 - Approval ghi item và outbox cùng transaction.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không dùng root/path/file name làm metric label.

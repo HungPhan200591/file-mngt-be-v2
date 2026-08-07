@@ -124,10 +124,35 @@ Catalog lookup theo locator `storageKey + relativePath` và semantic subject ide
 3. Thêm internal Catalog batch existence contract và index locator.
 4. Gắn classification vào proposal/approval/outbox hiện có.
 
+## 7. Update FT-025 — Staging reconciliation sửa write amplification
+
+Các mục 1–6 ghi lại baseline BT-02/BT-03: `last_seen_run_id` giúp phát hiện file không xuất hiện nhưng buộc warm scan rewrite toàn bộ inventory. Evidence ngày 2026-08-07 cho root một triệu file: run không đổi tạo `0` proposal và `0` issue nhưng vẫn update đúng 1.000.000 row inventory, kéo dài khoảng 80 giây. Đây là giới hạn được sửa bổ sung, không viết lại lịch sử FT-024 như chưa từng tồn tại.
+
+[FT-025](../../../../../docs/features/025-inventory-staging-reconciliation/01-brief.md) tách hai trách nhiệm:
+
+- `scan_inventory_stage` là snapshot scratch của các path worker đã thấy trong run; pgJDBC `COPY FROM STDIN` ghi theo chunk bounded-memory.
+- `scan_file_inventory` chỉ giữ state durable và chỉ insert/update file mới, fingerprint đổi hoặc `MISSING` tái xuất hiện.
+- Finalization đã validate lease dùng anti-join staging để mark `MISSING`, sau đó xóa staging và complete run trong cùng transaction.
+- `last_seen_run_id` cùng index bị xóa vì staging đã sở hữu semantics “đã thấy trong run”; giữ cột sẽ tiếp tục ép một triệu update không cần thiết.
+
+### Update FT-025.1 — Batch reconciliation sau khi đo runtime
+
+Implementation FT-025 đầu tiên vẫn dùng chunk 500 của FT-024 nên warm scan một
+triệu file còn tạo 2.000 lookup/COPY/checkpoint transaction. Runtime quan sát là
+khoảng 69,7 giây, trong khi benchmark filesystem thuần chỉ mất 17,832 giây.
+
+Reconciliation batch nội bộ được tăng lên 10.000 file: vẫn bounded-memory nhưng
+chỉ còn tối đa 100 transaction cho một triệu file. Con số này không thay đổi
+Catalog batch tối đa 500 candidate của BT-04 vì đó là contract cross-service có
+failure/latency budget khác.
+
+Staging là `UNLOGGED`: giảm WAL cho dữ liệu có thể tái tạo, nhưng bị truncate sau database crash. Điều đó không làm inventory canonical sai; run gián đoạn phải fail và run mới walk lại filesystem. Tối ưu này loại bỏ inventory write amplification, không loại bỏ full filesystem walk nên throughput mới vẫn phải benchmark.
+
 ## Tham chiếu
 
 - [Overview SC-01](./01-deep-dive.md)
 - [Luồng scan chính](./02-architecture-touchpoints-and-flows.md)
+- [FT-025 — Inventory staging reconciliation](../../../../../docs/features/025-inventory-staging-reconciliation/03-plan.md)
 - `ScanInventoryItem`, `ScanInventoryMatcher`
 - `apps/scan-service/CONTEXT.md`
 - `apps/catalog-service/CONTEXT.md`

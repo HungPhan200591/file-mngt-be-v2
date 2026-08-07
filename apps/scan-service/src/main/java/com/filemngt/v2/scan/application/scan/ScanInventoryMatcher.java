@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.application.scan;
 
+import com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import com.filemngt.v2.scan.domain.inventory.ScanInventorySnapshot;
 import java.util.Map;
@@ -15,8 +16,8 @@ public class ScanInventoryMatcher {
 
     /**
      * Kết quả phân loại một file trên đĩa so với inventory hiện tại.
-     * UNCHANGED: fileSize và fileModifiedAt giống hệt → chỉ cần touch inventory.
-     * NEW_OR_CHANGED: chưa có trong inventory hoặc metadata thay đổi → cần parse.
+     * UNCHANGED: PRESENT với fingerprint giống hệt → không cần rewrite inventory.
+     * NEW_OR_CHANGED: row chưa có, metadata đổi hoặc MISSING tái xuất hiện → cần upsert.
      */
     public sealed interface MatchResult permits MatchResult.Unchanged, MatchResult.NewOrChanged {
         record Unchanged(ScanInventoryItem item) implements MatchResult {}
@@ -30,9 +31,10 @@ public class ScanInventoryMatcher {
         if (snapshot == null) {
             return new MatchResult.NewOrChanged(diskItem);
         }
+        boolean isPresent = snapshot.state() == ScanFileInventoryState.PRESENT;
         boolean sameSize = snapshot.fileSize() == diskItem.fileSize();
         boolean sameModifiedAt = snapshot.fileModifiedAt().equals(diskItem.fileModifiedAt());
-        if (sameSize && sameModifiedAt) {
+        if (isPresent && sameSize && sameModifiedAt) {
             return new MatchResult.Unchanged(diskItem);
         }
         return new MatchResult.NewOrChanged(diskItem);

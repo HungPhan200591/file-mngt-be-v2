@@ -7,6 +7,7 @@
 - Đi theo chuỗi `WHY → WHAT → HOW → FAILURE → TRADE-OFF → PROJECT → EVOLUTION`.
 - Mỗi câu trả lời nhanh chỉ giữ keyword chính; khi luyện nói, mở rộng bằng evidence được link.
 - Phạm vi hiện tại: overview SC-01, architecture touchpoints, cross-service deduplication, BT-01, BT-02 và BT-03. SSE, resume chính xác và các break task sau BT-03 chỉ là hướng tiến hóa, chưa phải capability hiện hành.
+- Update FT-025/BT-03F bổ sung staging reconciliation để sửa write amplification của BT-03; các câu CH-05 giữ nguyên bối cảnh lịch sử, CH-07 là behavior hiện hành sau migration V9.
 
 ## Coverage matrix
 
@@ -18,6 +19,7 @@
 | CH-04 Chunk transaction & recovery | Có | Có | Có | BT-01/BT-02 + code |
 | CH-05 Inventory seed & idempotency | Có | Có | Có | BT-02 + migration/integration test |
 | CH-06 Service boundary & evolution | Có | Có | Có | Context/architecture + SC-01 |
+| CH-07 Staging reconciliation | Có | Có | Có | FT-025 + runtime evidence 1M |
 
 ## Rapid question chains
 
@@ -115,6 +117,31 @@
 8. **Hỏi:** FE phải làm gì nếu poll run trả `404` sau khi dữ liệu dev bị truncate?
    **Đáp nhanh:** Dừng polling ID cũ, vô hiệu hóa response stale, xóa `scanId` khỏi URL và reload recent runs; nếu history rỗng thì về empty state cho phép tạo scan mới. Không map `404` thành `FAILED`.
 
+### CH-07 — Update FT-025: staging reconciliation
+
+1. **Hỏi:** Vì sao BT-03 skip toàn bộ parser mà warm scan một triệu file vẫn mất khoảng 80 giây?
+   **Đáp nhanh:** BT-03 vẫn full walk, lookup 2.000 chunk và upsert một triệu inventory row để đổi `last_seen_run_id`. Parser bằng 0 không đồng nghĩa filesystem I/O và database write bằng 0.
+2. **Hỏi:** Staging trong FT-025 là gì?
+   **Đáp nhanh:** Là bảng scratch `UNLOGGED` trong `scan_db`, chứa `(runId, rootKey, path, size, modifiedAt)` mà worker nhìn thấy trong run. Nó phục vụ reconciliation, không thay inventory durable.
+3. **Hỏi:** Vì sao `last_seen_run_id` không còn ý nghĩa sau FT-025?
+   **Đáp nhanh:** Tập staging theo `runId` đã trả lời chính xác file nào được thấy. Giữ `last_seen_run_id` chỉ lặp semantics và ép update/index churn trên mọi inventory row, nên V9 drop cột và index.
+4. **Hỏi:** File không đổi được xử lý thế nào?
+   **Đáp nhanh:** Vẫn COPY seen-item vào staging để bảo vệ MISSING, nhưng không parse và không update inventory. `updated_at` durable phải giữ nguyên.
+5. **Hỏi:** File `MISSING` xuất hiện lại với fingerprint cũ thì sao?
+   **Đáp nhanh:** Snapshot mang cả `state`; matcher coi `MISSING` tái xuất hiện là `NEW_OR_CHANGED` để changed-only upsert chuyển state về `PRESENT`.
+6. **Hỏi:** Vì sao dùng `UNLOGGED` thay vì bảng thường?
+   **Đáp nhanh:** Staging có thể tái tạo từ filesystem nên không cần trả WAL/replication cost. Sau crash PostgreSQL có thể truncate staging; run gián đoạn fail và run mới dựng lại, inventory canonical không mất.
+7. **Hỏi:** Vì sao không dùng `TEMP TABLE`?
+   **Đáp nhanh:** Temp table gắn với một database session, trong khi scan commit nhiều chunk/transaction qua connection pool. Shared `UNLOGGED` table keyed theo run tương thích lifecycle hiện tại hơn.
+8. **Hỏi:** Transaction boundary mới bảo vệ gì?
+   **Đáp nhanh:** Trong mỗi chunk, COPY staging, changed-only inventory upsert, proposal/issue và checkpoint cùng commit hoặc rollback. Finalization validate lease rồi mark MISSING, cleanup staging và complete run nguyên tử.
+9. **Hỏi:** Staging có làm warm scan thành O(số file thay đổi) không?
+   **Đáp nhanh:** Không. Nó giảm database mutation về O(file đổi) nhưng full filesystem discovery vẫn O(tổng file). Muốn gần tức thời cần journal/watcher với full-scan fallback.
+10. **Hỏi:** Vì sao FT-025 ban đầu vẫn commit 2.000 chunk khi không có file đổi?
+    **Đáp nhanh:** Seen path vẫn phải lookup, COPY vào staging, renew lease và advance checkpoint theo chunk 500. Changed-only inventory loại write amplification nhưng chưa loại transaction amplification.
+11. **Hỏi:** FT-025.1 giảm transaction amplification thế nào?
+    **Đáp nhanh:** Tăng reconciliation batch nội bộ lên 10.000 file, nên một triệu file còn tối đa 100 lookup/COPY/checkpoint transaction. Memory vẫn bounded; Catalog batch 500 là contract riêng và không bị thay đổi.
+
 ## Anchor interview questions
 
 ### A-01 — `FOUNDATION` · `COMMON_SCENARIO`
@@ -199,3 +226,5 @@
 | 2026-08-07 | BT-01/BT-02, inventory seed và chunk boundary | `ScanIntegrationTest`: 9 tests pass; fixture 504 file đi qua ít nhất 2 chunk. |
 | 2026-08-07 | BT-03, matcher, MISSING, lease finalization | Scan module: 28 tests pass; rescan unchanged/modified/unsupported và missing đã có evidence. |
 | 2026-08-07 | FE resilience sau truncate và polling lifecycle | FE regression test: stale `scanId`, deep-link ngoài recent page và polling dừng ở terminal state. |
+| 2026-08-07 | Runtime warm scan 1M phát hiện write amplification | Run `52e59625...`: 1.000.000 skipped, 0 proposal/issue, khoảng 80 giây nhưng 1.000.000 inventory row vẫn đổi `updated_at`; evidence mở FT-025. |
+| 2026-08-07 | FT-025 staging reconciliation | Code/migration/test source đã triển khai; verification và benchmark chưa chạy theo rule người dùng. |

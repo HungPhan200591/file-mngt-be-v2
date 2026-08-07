@@ -20,23 +20,33 @@ import org.springframework.stereotype.Component;
 @Component
 public class ScanFileInventoryBatchWriter {
 
-    private static final String UPSERT_SQL = """
-        INSERT INTO scan_file_inventory (id, root_key, source_relative_path, file_size, file_modified_at, state, last_seen_run_id, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    private static final String UPSERT_CHANGED_SQL = """
+        INSERT INTO scan_file_inventory
+            (id, root_key, source_relative_path, file_size, file_modified_at, state, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (root_key, source_relative_path)
         DO UPDATE SET
             file_size = EXCLUDED.file_size,
             file_modified_at = EXCLUDED.file_modified_at,
             state = EXCLUDED.state,
-            last_seen_run_id = EXCLUDED.last_seen_run_id,
             updated_at = EXCLUDED.updated_at
+        WHERE scan_file_inventory.file_size IS DISTINCT FROM EXCLUDED.file_size
+           OR scan_file_inventory.file_modified_at IS DISTINCT FROM EXCLUDED.file_modified_at
+           OR scan_file_inventory.state IS DISTINCT FROM EXCLUDED.state
         """;
 
-    private static final String MARK_MISSING_SQL = """
-            UPDATE scan_file_inventory
+    private static final String MARK_MISSING_FROM_STAGE_SQL = """
+            UPDATE scan_file_inventory inventory
             SET state = 'MISSING', updated_at = ?
-            WHERE root_key = ?
-              AND last_seen_run_id != ?
+            WHERE inventory.root_key = ?
+              AND inventory.state <> 'MISSING'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM scan_inventory_stage stage
+                  WHERE stage.scan_run_id = ?
+                    AND stage.root_key = inventory.root_key
+                    AND stage.source_relative_path = inventory.source_relative_path
+              )
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -45,22 +55,20 @@ public class ScanFileInventoryBatchWriter {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void upsertPresent(List<ScanInventoryItem> items, UUID runId) {
+    /** Chỉ ghi file mới, fingerprint đổi hoặc entry MISSING tái xuất hiện. */
+    public void upsertChanged(List<ScanInventoryItem> items) {
         if (items.isEmpty()) {
             return;
         }
 
         Instant now = Instant.now();
         List<ScanInventoryItem> deduplicatedItems = deduplicateByPath(items);
-        jdbcTemplate.batchUpdate(UPSERT_SQL, new InventoryBatch(deduplicatedItems, runId, now));
+        jdbcTemplate.batchUpdate(UPSERT_CHANGED_SQL, new InventoryBatch(deduplicatedItems, now));
     }
 
-    /**
-     * Đánh dấu MISSING cho tất cả entry cùng rootKey không được nhìn thấy trong run hiện tại.
-     * Gọi 1 lần sau khi Files.walk hoàn tất — không thuộc chunk transaction.
-     */
-    public void markMissing(String rootKey, UUID currentRunId) {
-        jdbcTemplate.update(MARK_MISSING_SQL, Timestamp.from(Instant.now()), rootKey, currentRunId);
+    /** Mark MISSING entry không xuất hiện trong staging của run đã walk xong. */
+    public void markMissingFromStage(String rootKey, UUID runId) {
+        jdbcTemplate.update(MARK_MISSING_FROM_STAGE_SQL, Timestamp.from(Instant.now()), rootKey, runId);
     }
 
     private List<ScanInventoryItem> deduplicateByPath(List<ScanInventoryItem> items) {
@@ -74,12 +82,10 @@ public class ScanFileInventoryBatchWriter {
 
     private static final class InventoryBatch implements BatchPreparedStatementSetter {
         private final List<ScanInventoryItem> items;
-        private final UUID runId;
         private final Instant timestamp;
 
-        private InventoryBatch(List<ScanInventoryItem> items, UUID runId, Instant timestamp) {
+        private InventoryBatch(List<ScanInventoryItem> items, Instant timestamp) {
             this.items = items;
-            this.runId = runId;
             this.timestamp = timestamp;
         }
 
@@ -92,9 +98,8 @@ public class ScanFileInventoryBatchWriter {
             statement.setLong(4, item.fileSize());
             statement.setTimestamp(5, Timestamp.from(item.fileModifiedAt()));
             statement.setString(6, ScanFileInventoryState.PRESENT.name());
-            statement.setObject(7, runId);
+            statement.setTimestamp(7, Timestamp.from(timestamp));
             statement.setTimestamp(8, Timestamp.from(timestamp));
-            statement.setTimestamp(9, Timestamp.from(timestamp));
         }
 
         @Override

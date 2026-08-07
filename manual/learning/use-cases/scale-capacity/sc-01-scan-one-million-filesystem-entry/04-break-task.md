@@ -14,6 +14,7 @@
 | BT-01 | Durable scan run + lease | Scan | Run có lease, progress/counter và checkpoint theo chunk; worker khác không claim cùng root. |
 | BT-02 | File inventory seed | Scan | Full scan tạo/cập nhật `scan_file_inventory`; chưa thay đổi parser/proposal hiện tại. |
 | BT-03 | Inventory matcher | Scan | Lần scan lại vẫn walk root nhưng bỏ parser/proposal cho path có `size + modifiedAt` không đổi; mark `MISSING` cuối run. |
+| BT-03F | Staging reconciliation fix | Scan | Seen-item vào `UNLOGGED` staging; inventory chỉ rewrite file mới/đổi/tái xuất hiện; anti-join mark `MISSING`. |
 | BT-04 | Catalog batch existence API | Catalog | Internal API nhận tối đa 500 candidate, trả classification locator/subject; chưa gọi từ Scan. |
 | BT-05 | Scan–Catalog filtering | Scan + Catalog | Scan gửi đúng candidate mới/đổi theo batch; `EXACT_ASSET_EXISTS` không tạo proposal. |
 | BT-06 | Keyset review | Scan | Proposal API dùng cursor `(source_relative_path, id)`; UI/HTTP test xem trang kế tiếp. |
@@ -41,6 +42,14 @@
 - Path không đổi: chỉ update `lastSeenRunId`; path mới/đổi mới parse.
 - Sau full walk, entry không được thấy trong run thành `MISSING`.
 - Test: thêm/sửa/xóa một file trong fixture; chỉ file thêm/sửa tạo proposal mới.
+
+### BT-03F — Update sửa write amplification của BT-03
+
+- Evidence warm scan 1 triệu file cho thấy skip parser nhưng cơ chế `lastSeenRunId` vẫn rewrite toàn bộ inventory.
+- Thêm staging theo run, bulk-load seen-item và dùng anti-join ở finalization để giữ exact `MISSING`.
+- Chỉ upsert inventory file mới, fingerprint đổi hoặc entry `MISSING` tái xuất hiện; xóa `lastSeenRunId` và index cũ.
+- FT owner: [FT-025 — Inventory staging reconciliation](../../../../../docs/features/025-inventory-staging-reconciliation/01-brief.md).
+- Verify: warm scan không đổi không thay `updated_at` inventory, không tạo proposal/issue và không để lại staging sau finalize. Benchmark là bước riêng.
 
 ### BT-04 — Catalog batch existence API
 

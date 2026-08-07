@@ -20,12 +20,13 @@ class ScanExecutorTest {
     void storesSafeFailureWhenRootDisappearsBeforeFilesystemWalk() {
         var runs = mock(ScanRunRepository.class);
         var run = mock(ScanRunEntity.class);
+        var committer = mock(ScanChunkCommitter.class);
         var runId = UUID.randomUUID();
         when(runs.findById(runId)).thenReturn(Optional.of(run));
 
         var executor = new ScanExecutor(
                 runs,
-                mock(ScanChunkCommitter.class),
+                committer,
                 mock(ScanFileAnalyzer.class),
                 mock(ScanInventoryMatcher.class),
                 mock(ScanFileInventoryRepository.class),
@@ -37,5 +38,6 @@ class ScanExecutorTest {
 
         verify(run).fail("Configured scan root became unavailable during execution: missing-root");
         verify(runs).saveAndFlush(run);
+        verify(committer).cleanupStage(runId);
     }
 }

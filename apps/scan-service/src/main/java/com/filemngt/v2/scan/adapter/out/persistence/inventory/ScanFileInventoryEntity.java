@@ -31,7 +31,6 @@ public class ScanFileInventoryEntity implements Persistable<UUID> {
     @Enumerated(EnumType.STRING)
     private ScanFileInventoryState state;
 
-    private UUID lastSeenRunId;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -43,26 +42,22 @@ public class ScanFileInventoryEntity implements Persistable<UUID> {
             String sourceRelativePath,
             long fileSize,
             Instant fileModifiedAt,
-            ScanFileInventoryState state,
-            UUID lastSeenRunId) {
+            ScanFileInventoryState state) {
         this.id = id;
         this.rootKey = rootKey;
         this.sourceRelativePath = sourceRelativePath;
         this.fileSize = fileSize;
         this.fileModifiedAt = fileModifiedAt;
         this.state = state;
-        this.lastSeenRunId = lastSeenRunId;
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
     }
 
-    public void updateMetadata(
-            long fileSize, Instant fileModifiedAt, ScanFileInventoryState state, UUID lastSeenRunId) {
+    public void updateMetadata(long fileSize, Instant fileModifiedAt, ScanFileInventoryState state) {
         this.fileSize = fileSize;
         this.fileModifiedAt = fileModifiedAt;
         this.state = state;
-        this.lastSeenRunId = lastSeenRunId;
         this.updatedAt = Instant.now();
     }
 
@@ -88,10 +83,6 @@ public class ScanFileInventoryEntity implements Persistable<UUID> {
 
     public ScanFileInventoryState state() {
         return state;
-    }
-
-    public UUID lastSeenRunId() {
-        return lastSeenRunId;
     }
 
     public Instant createdAt() {

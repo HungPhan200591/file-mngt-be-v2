@@ -25,6 +25,7 @@
     "scan-sc01:reset-data": "node scripts/reset-sc01-scan-data.mjs",
     "fixture:sc01:gen": "powershell -Command \"$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; java '-Dfile.encoding=UTF-8' tests/fixtures/tools/src/main/java/com/filemngt/tools/sc01_scan_one_million/GenerateOneMillionJokeVideoFixtures.java\"",
     "fixture:sc01:clean": "powershell -Command \"$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; java '-Dfile.encoding=UTF-8' tests/fixtures/tools/src/main/java/com/filemngt/tools/sc01_scan_one_million/CleanOneMillionJokeVideoFixtures.java\"",
+    "fixture:sc01:benchmark-read": "powershell -Command \"$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; java '-Dfile.encoding=UTF-8' tests/fixtures/tools/src/main/java/com/filemngt/tools/sc01_scan_one_million/BenchmarkFilesystemRead.java\"",
     "docker:up": "docker compose --env-file .env -f infra/compose/compose.yaml up -d",
     "docker:down": "docker compose --env-file .env -f infra/compose/compose.yaml down",
     "docker:restart": "docker compose --env-file .env -f infra/compose/compose.yaml restart",

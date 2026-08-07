@@ -32,8 +32,8 @@ import org.springframework.stereotype.Component;
  */
 public class ScanExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanExecutor.class);
-    private static final int BATCH_SIZE = 500;
-    private static final int PROGRESS_LOG_INTERVAL = 5_000;
+    private static final int RECONCILIATION_BATCH_SIZE = 10_000;
+    private static final int PROGRESS_LOG_INTERVAL = 100_000;
 
     private final ScanRunRepository runs;
     private final ScanChunkCommitter chunkCommitter;
@@ -64,15 +64,15 @@ public class ScanExecutor {
             var run = runs.findById(runId).orElseThrow();
             var progress = scanFiles(run, root, snapshot);
             var finalProgress =
-                    new ScanChunkCommitter.ChunkProgress(progress.files, progress.proposals, progress.issues);
+                    new ScanChunkCommitter.ChunkProgress(progress.files(), progress.proposals(), progress.issues());
             chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), finalProgress);
             LOGGER.info(
                     "Hoàn tất scan runId={}: files={}, proposals={}, issues={}, skipped={}",
                     runId,
-                    progress.files,
-                    progress.proposals,
-                    progress.issues,
-                    progress.skipped);
+                    progress.files(),
+                    progress.proposals(),
+                    progress.issues(),
+                    progress.skipped());
         } catch (Exception exception) {
             String failureDetail = failureDetail(exception, root.key());
             logFailure(runId, exception, failureDetail);
@@ -80,6 +80,7 @@ public class ScanExecutor {
                 failedRun.fail(failureDetail);
                 runs.saveAndFlush(failedRun);
             });
+            cleanupStageAfterFailure(runId);
         }
     }
 
@@ -109,7 +110,7 @@ public class ScanExecutor {
     private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot)
             throws IOException {
         var progress = new ScanProgress();
-        var chunk = new ScanChunk(BATCH_SIZE);
+        var chunk = new ScanChunk(RECONCILIATION_BATCH_SIZE);
         var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
         Path rootPath = Path.of(root.path());
         int chunkIndex = run.checkpointChunk();
@@ -147,7 +148,7 @@ public class ScanExecutor {
     }
 
     /**
-     * Lookup batch snapshot từ DB cho toàn bộ inventory hiện tại (tối đa 500 path).
+     * Lookup batch snapshot từ DB cho inventory hiện tại theo buffer bounded-memory.
      * Trả Map<relativePath, snapshot> để classify nhanh O(1).
      */
     private Map<String, ScanInventorySnapshot> lookupExisting(String rootKey, List<ScanInventoryItem> buffer) {
@@ -170,7 +171,10 @@ public class ScanExecutor {
             MatchResult result = inventoryMatcher.classify(diskItem, existingMap);
             switch (result) {
                 case MatchResult.Unchanged ignored -> progress.recordSkipped();
-                case MatchResult.NewOrChanged(var item) -> analyzeCandidate(context, item, chunk, progress);
+                case MatchResult.NewOrChanged(var item) -> {
+                    chunk.addChangedInventory(item);
+                    analyzeCandidate(context, item, chunk, progress);
+                }
             }
         }
     }
@@ -202,9 +206,11 @@ public class ScanExecutor {
         var batch = new ScanChunkCommitter.ChunkBatch(
                 chunkIndex,
                 new ArrayList<>(chunk.inventoryItems()),
+                new ArrayList<>(chunk.changedInventoryItems()),
                 new ArrayList<>(chunk.proposals()),
                 new ArrayList<>(chunk.issues()));
-        var chunkProgress = new ScanChunkCommitter.ChunkProgress(progress.files, progress.proposals, progress.issues);
+        var chunkProgress =
+                new ScanChunkCommitter.ChunkProgress(progress.files(), progress.proposals(), progress.issues());
         chunkCommitter.commitChunk(lease, batch, chunkProgress);
     }
 
@@ -213,39 +219,28 @@ public class ScanExecutor {
     }
 
     private void logProgress(UUID runId, ScanProgress progress) {
-        if (progress.files % PROGRESS_LOG_INTERVAL == 0) {
+        if (progress.files() % PROGRESS_LOG_INTERVAL == 0) {
             LOGGER.info(
                     "Tiến độ scan runId={}: files={}, proposals={}, issues={}, skipped={}",
                     runId,
-                    progress.files,
-                    progress.proposals,
-                    progress.issues,
-                    progress.skipped);
+                    progress.files(),
+                    progress.proposals(),
+                    progress.issues(),
+                    progress.skipped());
+        }
+    }
+
+    private void cleanupStageAfterFailure(UUID runId) {
+        try {
+            chunkCommitter.cleanupStage(runId);
+        } catch (RuntimeException cleanupFailure) {
+            LOGGER.warn(
+                    "Không thể dọn staging của scan run thất bại: runId={}, failureType={}",
+                    runId,
+                    cleanupFailure.getClass().getSimpleName());
         }
     }
 
     private record ScanExecutionContext(
             UUID runId, String workerId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {}
-
-    private static final class ScanProgress {
-        private long files;
-        private long proposals;
-        private long issues;
-        private long skipped;
-
-        private void recordFile() {
-            files++;
-        }
-
-        private void recordSkipped() {
-            skipped++;
-        }
-
-        private void recordResult(ScanFileAnalyzer.Result result) {
-            switch (result) {
-                case ScanFileAnalyzer.Proposal ignored -> proposals++;
-                case ScanFileAnalyzer.Issue ignored -> issues++;
-            }
-        }
-    }
 }
