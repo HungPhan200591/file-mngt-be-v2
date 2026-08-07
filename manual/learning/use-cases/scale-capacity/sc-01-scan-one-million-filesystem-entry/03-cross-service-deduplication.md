@@ -63,6 +63,12 @@ Fingerprint baseline là `(file_size, modified_at)`:
 
 Không hash file ở Scan. Nếu locator giống nhưng nội dung thực sự cần kiểm chứng, Media Worker xử lý hash trong flow riêng.
 
+### Precision của `modified_at` là một phần của fingerprint contract
+
+Filesystem trên Windows có thể trả timestamp chi tiết đến 100 ns, trong khi PostgreSQL lưu `timestamptz` ở precision microsecond. Nếu matcher lấy `toEpochMilli()` trên hai giá trị chưa cùng precision, một timestamp filesystem như `...54.2029999Z` có thể được PostgreSQL làm tròn thành `...54.203000Z`: hai giá trị chỉ lệch 100 ns nhưng floor millisecond lần lượt thành `202` và `203`. Warm rescan khi đó nhận nhầm file không đổi là `NEW_OR_CHANGED` và tạo proposal/issue rác.
+
+`ScanInventoryItem` vì vậy chuẩn hóa timestamp filesystem theo precision microsecond trước cả lookup và upsert. Matcher so sánh `Instant` đã chuẩn hóa; không dùng tolerance tùy ý vì tolerance có thể che mất một thay đổi thật. Precision phải là policy deterministic và dùng cùng một cách ở hai phía của persistence round-trip.
+
 ## 3. Chunk database không nổ memory
 
 Không load cả inventory 1M row vào `HashMap`. File walker gom tối đa 500 path; repository lấy inventory cho đúng 500 `(rootKey, relativePath)` đó, so fingerprint rồi flush cập nhật/proposal theo cùng batch.
@@ -122,5 +128,6 @@ Catalog lookup theo locator `storageKey + relativePath` và semantic subject ide
 
 - [Overview SC-01](./01-deep-dive.md)
 - [Luồng scan chính](./02-architecture-touchpoints-and-flows.md)
+- `ScanInventoryItem`, `ScanInventoryMatcher`
 - `apps/scan-service/CONTEXT.md`
 - `apps/catalog-service/CONTEXT.md`

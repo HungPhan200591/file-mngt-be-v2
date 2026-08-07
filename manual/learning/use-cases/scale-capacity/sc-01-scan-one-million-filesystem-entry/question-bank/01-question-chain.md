@@ -93,6 +93,8 @@
    **Đáp nhanh:** Không mặc định. PostgreSQL là source of truth; BT-03 nên batch lookup 500 key từ DB, chỉ thêm Redis sau khi benchmark chứng minh DB là bottleneck.
 7. **Hỏi:** Test BT-02 cần chứng minh gì?
    **Đáp nhanh:** Hai scan giữ nguyên count, không duplicate key, cập nhật `lastSeenRunId`, lưu metadata và xử lý được boundary hai chunk.
+8. **Hỏi:** Vì sao warm rescan có thể sinh proposal dù fixture không đổi?
+   **Đáp nhanh:** Filesystem và PostgreSQL có thể khác precision timestamp. Ví dụ `...2029999Z` được DB làm tròn thành `...2030000Z`; nếu matcher floor riêng về millisecond thì hai phía thành `202` và `203`, gây false `NEW_OR_CHANGED`. Phải chuẩn hóa fingerprint theo cùng precision trước khi lưu và so sánh, không dùng tolerance tùy ý.
 
 ### CH-06 — Boundary, ownership và evolution
 

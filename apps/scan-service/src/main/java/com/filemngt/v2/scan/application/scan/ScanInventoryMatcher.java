@@ -24,18 +24,14 @@ public class ScanInventoryMatcher {
         record NewOrChanged(ScanInventoryItem item) implements MatchResult {}
     }
 
-    /**
-     * So sánh file vật lý với snapshot inventory theo fileSize và fileModifiedAt.
-     * fileModifiedAt so sánh theo millisecond để tránh precision mismatch giữa filesystem và DB.
-     */
+    /** So sánh file vật lý với snapshot inventory theo fileSize và timestamp đã chuẩn hóa. */
     public MatchResult classify(ScanInventoryItem diskItem, Map<String, ScanInventorySnapshot> existing) {
         ScanInventorySnapshot snapshot = existing.get(diskItem.sourceRelativePath());
         if (snapshot == null) {
             return new MatchResult.NewOrChanged(diskItem);
         }
         boolean sameSize = snapshot.fileSize() == diskItem.fileSize();
-        boolean sameModifiedAt = snapshot.fileModifiedAt().toEpochMilli()
-                == diskItem.fileModifiedAt().toEpochMilli();
+        boolean sameModifiedAt = snapshot.fileModifiedAt().equals(diskItem.fileModifiedAt());
         if (sameSize && sameModifiedAt) {
             return new MatchResult.Unchanged(diskItem);
         }
