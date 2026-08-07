@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application.scan.deadline;
 
 import com.filemngt.v2.scan.application.scan.ScanChunkCommitter;
+import com.filemngt.v2.scan.application.stream.ScanRunStreamService;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,15 +20,18 @@ public class ScanLeaseDeadlineGuard {
     private final TaskScheduler scheduler;
     private final ScanLeaseExpiryHandler expiryHandler;
     private final ScanChunkCommitter chunkCommitter;
+    private final ScanRunStreamService streamService;
     private final ConcurrentHashMap<UUID, ScheduledFuture<?>> deadlines = new ConcurrentHashMap<>();
 
     public ScanLeaseDeadlineGuard(
             @Qualifier("scanLeaseDeadlineScheduler") TaskScheduler scheduler,
             ScanLeaseExpiryHandler expiryHandler,
-            ScanChunkCommitter chunkCommitter) {
+            ScanChunkCommitter chunkCommitter,
+            ScanRunStreamService streamService) {
         this.scheduler = scheduler;
         this.expiryHandler = expiryHandler;
         this.chunkCommitter = chunkCommitter;
+        this.streamService = streamService;
     }
 
     public void arm(UUID runId, String workerId, Instant leaseUntil) {
@@ -54,6 +58,7 @@ public class ScanLeaseDeadlineGuard {
             if (expiryHandler.expire(runId, workerId)) {
                 cancel(runId);
                 chunkCommitter.cleanupStage(runId);
+                streamService.publishTerminal(runId);
                 LOGGER.warn("Đã đóng scan run do lease hết hạn: runId={}, workerId={}", runId, workerId);
             }
         } catch (RuntimeException exception) {

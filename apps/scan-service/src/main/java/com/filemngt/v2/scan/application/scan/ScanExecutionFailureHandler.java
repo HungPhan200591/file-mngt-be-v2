@@ -23,11 +23,12 @@ public class ScanExecutionFailureHandler {
     }
 
     @Transactional
-    public void handle(UUID runId, String rootKey, Exception exception) {
+    public boolean handle(UUID runId, String rootKey, Exception exception) {
         String failureDetail = failureDetail(exception, rootKey);
         logFailure(runId, exception, failureDetail);
-        runs.failIfRunning(runId, failureDetail);
+        boolean failed = runs.failIfRunning(runId, failureDetail) == 1;
         cleanupStage(runId);
+        return failed;
     }
 
     private String failureDetail(Exception exception, String rootKey) {

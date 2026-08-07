@@ -33,3 +33,15 @@ Gateway chỉ cho phép origin Nginx V2 `http://localhost:18119`/`http://127.0.0
 - Connect failure trả `502`; response timeout trước khi response commit trả `504`. Nếu downstream treo sau khi Gateway đã forward một phần body thì Gateway đóng response vì HTTP không còn cho phép đổi status. Gateway không retry trong contract v1.
 - Contract này additive; direct service URLs và business OpenAPI v1 vẫn hợp lệ trong giai đoạn chuyển tiếp.
 - Correlation ID Kafka header, trace/span và authentication không thuộc contract v1 này.
+
+## SSE streaming route
+
+- `/api/v2/scans/{scanId}/events` được forward nguyên path/status/content type và
+  từng frame `text/event-stream`; Gateway không buffer toàn bộ response chờ terminal.
+- Scan gửi heartbeat comment tối đa mỗi 15 giây, nhỏ hơn read timeout 30 giây. Nếu
+  downstream im lặng quá timeout trước frame đầu, Gateway trả `504`; sau khi response
+  đã commit, lỗi/timeout đóng connection và client phục hồi qua REST/reconnect.
+- Response mở đầu vẫn có một `X-Correlation-Id` canonical. Correlation ID là của
+  connection, không được dùng làm SSE event ID hoặc metric label.
+- Contract không cam kết replay `Last-Event-ID`, multi-instance fan-out hoặc custom
+  authorization header cho native browser `EventSource`.

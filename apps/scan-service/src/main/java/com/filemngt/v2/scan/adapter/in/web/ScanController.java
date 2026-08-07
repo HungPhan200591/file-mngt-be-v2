@@ -4,6 +4,7 @@ import com.filemngt.v2.scan.adapter.in.web.dto.BatchDecisionResponse;
 import com.filemngt.v2.scan.adapter.in.web.dto.DecisionRequest;
 import com.filemngt.v2.scan.adapter.in.web.dto.StartScanRequest;
 import com.filemngt.v2.scan.adapter.in.web.error.InvalidRequestException;
+import com.filemngt.v2.scan.adapter.in.web.sse.ScanRunSseStreamAdapter;
 import com.filemngt.v2.scan.application.decision.ScanDecisionService;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
@@ -19,6 +20,8 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Controller tiếp nhận các HTTP API request quản lý luồng Filesystem Scan Review.
@@ -39,11 +43,17 @@ public class ScanController {
     private final ScanService service;
     private final ScanQueryService queries;
     private final ScanDecisionService decisions;
+    private final ScanRunSseStreamAdapter streams;
 
-    public ScanController(ScanService service, ScanQueryService queries, ScanDecisionService decisions) {
+    public ScanController(
+            ScanService service,
+            ScanQueryService queries,
+            ScanDecisionService decisions,
+            ScanRunSseStreamAdapter streams) {
         this.service = service;
         this.queries = queries;
         this.decisions = decisions;
+        this.streams = streams;
     }
 
     /**
@@ -86,6 +96,14 @@ public class ScanController {
     public ScanRunView get(@PathVariable UUID scanId) {
         LOGGER.info("HTTP GET /api/v2/scans/{} -> Lấy thông tin đợt scan", scanId);
         return queries.get(scanId);
+    }
+
+    /** Stream snapshot/progress/terminal của run; proposal và issue vẫn dùng REST phân trang. */
+    @GetMapping(value = "/{scanId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public ResponseEntity<SseEmitter> events(@PathVariable UUID scanId) {
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-cache")
+                .body(streams.open(scanId));
     }
 
     /**

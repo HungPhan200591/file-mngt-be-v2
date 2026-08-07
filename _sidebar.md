@@ -32,6 +32,9 @@
           * [❓ Dashboards, Alerting & Incidents — Interview Question Bank](/manual/learning/deep-dive/observability/question-bank/04-dashboards-alerting-questions.md)
         * **summary**
           * [Structured Logging — Core Recall Sheet](/manual/learning/deep-dive/observability/summary/02-structured-logging.md)
+      * **production-readiness**
+        * [Production Readiness: Khung chuẩn và control áp dụng cho toàn Backend V2](/manual/learning/deep-dive/production-readiness/production-readiness-well-architected-and-workload-controls.md)
+        * [🛡️ Production Readiness Deep-Dive & Architecture Hub](/manual/learning/deep-dive/production-readiness/README.md)
       * **scan-service**
         * [🔍 Scan Service Deep-Dive: Overview & Fundamentals](/manual/learning/deep-dive/scan-service/00-overview.md)
         * [📁 Filesystem Preview Engine & Strategy Pattern](/manual/learning/deep-dive/scan-service/01-filesystem-preview-engine.md)
@@ -75,7 +78,10 @@
           * [SC-01 — Chi tiết các luồng và điểm chạm kiến trúc](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/02-architecture-touchpoints-and-flows.md)
           * [SC-01 — Full scan có inventory và khử trùng xuyên service](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/03-cross-service-deduplication.md)
           * [SC-01 — Break task triển khai](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md)
+          * [SC-01 — UI/UX Solution Behavior (Trải nghiệm người dùng cho Quét 1 Triệu File)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/05-ui-ux-solution-behavior.md)
           * [SC-01 — Scan một triệu filesystem entry](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md)
+          * **question-bank**
+            * [SC-01 — Question chain phỏng vấn](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/question-bank/01-question-chain.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
@@ -203,6 +209,22 @@
       * [022 Durable scan run lease (BT-01) — Design](/docs/features/022-durable-scan-run-lease/02-design.md)
       * [022 Durable scan run lease (BT-01) — Plan](/docs/features/022-durable-scan-run-lease/03-plan.md)
       * [022 Durable scan run lease (BT-01) — Kế hoạch & Hướng dẫn Test Thủ công](/docs/features/022-durable-scan-run-lease/04-manual-testing-guide.md)
+    * **023-file-inventory-seed**
+      * [023 File inventory seed (BT-02)](/docs/features/023-file-inventory-seed/01-brief.md)
+      * [023 File inventory seed (BT-02) — Design](/docs/features/023-file-inventory-seed/02-design.md)
+      * [03-plan: 023 File inventory seed (BT-02)](/docs/features/023-file-inventory-seed/03-plan.md)
+    * **024-inventory-matcher**
+      * [FT-024 — Inventory Matcher (BT-03)](/docs/features/024-inventory-matcher/01-brief.md)
+      * [FT-024 — Inventory Matcher: Design](/docs/features/024-inventory-matcher/02-design.md)
+      * [FT-024 — Inventory Matcher: Plan](/docs/features/024-inventory-matcher/03-plan.md)
+    * **025-inventory-staging-reconciliation**
+      * [FT-025 — Inventory staging reconciliation](/docs/features/025-inventory-staging-reconciliation/01-brief.md)
+      * [FT-025 — Inventory staging reconciliation — Design](/docs/features/025-inventory-staging-reconciliation/02-design.md)
+      * [FT-025 — Inventory staging reconciliation — Plan](/docs/features/025-inventory-staging-reconciliation/03-plan.md)
+    * **026-scan-run-liveness-guard**
+      * [026 Scan run liveness guard](/docs/features/026-scan-run-liveness-guard/01-brief.md)
+      * [026 Scan run liveness guard — Design](/docs/features/026-scan-run-liveness-guard/02-design.md)
+      * [026 Scan run liveness guard — Plan](/docs/features/026-scan-run-liveness-guard/03-plan.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)

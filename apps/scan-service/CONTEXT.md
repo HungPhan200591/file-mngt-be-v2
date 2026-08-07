@@ -25,6 +25,9 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 - Mỗi `scan_run` active có delayed deadline re-arm sau durable checkpoint; PostgreSQL
   timeout cục bộ chặn SQL/COPY giữ worker quá lease. Database vẫn là authority để
   conditional fail và lease fence chặn worker stale commit muộn.
+- SSE `GET /api/v2/scans/{scanId}/events` chỉ là kênh best-effort process-local cho
+  snapshot/progress/terminal aggregate. REST vẫn là source đọc trạng thái, proposal và
+  issue; stream mất kết nối không được ảnh hưởng scan, browser tự REST-verify/fallback.
 - Approval ghi item và outbox cùng transaction.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không dùng root/path/file name làm metric label.

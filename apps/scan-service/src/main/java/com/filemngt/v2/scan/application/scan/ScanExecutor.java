@@ -4,8 +4,8 @@ import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileInventoryCursor;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
-import com.filemngt.v2.scan.application.scan.deadline.ScanLeaseDeadlineGuard;
 import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
+import com.filemngt.v2.scan.application.stream.ScanRunStreamPhase;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
@@ -36,7 +36,7 @@ public class ScanExecutor {
     private final ScanReconciliationPageReader reconciliationPageReader;
     private final ScanProperties properties;
     private final ScanExecutionFailureHandler failureHandler;
-    private final ScanLeaseDeadlineGuard deadlineGuard;
+    private final ScanExecutionLiveness liveness;
 
     public ScanExecutor(
             ScanRunRepository runs,
@@ -44,15 +44,14 @@ public class ScanExecutor {
             ScanFileAnalyzer analyzer,
             ScanReconciliationPageReader reconciliationPageReader,
             ScanProperties properties,
-            ScanExecutionFailureHandler failureHandler,
-            ScanLeaseDeadlineGuard deadlineGuard) {
+            ScanExecutionFailureHandler failureHandler, ScanExecutionLiveness liveness) {
         this.runs = runs;
         this.chunkCommitter = chunkCommitter;
         this.analyzer = analyzer;
         this.reconciliationPageReader = reconciliationPageReader;
         this.properties = properties;
         this.failureHandler = failureHandler;
-        this.deadlineGuard = deadlineGuard;
+        this.liveness = liveness;
     }
 
     /** Quét root theo snapshot đã chốt, rồi hoàn tất hoặc đánh dấu thất bại cho scan run. */
@@ -62,12 +61,16 @@ public class ScanExecutor {
             var run = runs.findById(runId).orElseThrow();
             var progress = scanFiles(run, root, snapshot);
             var finalProgress = progressSnapshot(progress);
+            liveness.publishDurable(runId, ScanRunStreamPhase.FINALIZING, finalProgress);
             chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), finalProgress);
+            liveness.publishTerminal(runId);
             logCompletion(runId, progress);
         } catch (Exception exception) {
-            failureHandler.handle(runId, root.key(), exception);
+            if (failureHandler.handle(runId, root.key(), exception)) {
+                liveness.publishTerminal(runId);
+            }
         } finally {
-            deadlineGuard.cancel(runId);
+            liveness.cancel(runId);
         }
     }
 
@@ -89,6 +92,7 @@ public class ScanExecutor {
                 var request = new DiscoveryRequest(context, cursor, firstItem, progress.files(), chunkIndex);
                 var commit = commitDiscoverySegment(request);
                 progress.recordFiles(commit.copied());
+                liveness.publishDurable(context.runId(), ScanRunStreamPhase.DISCOVERY, progressSnapshot(progress));
                 logDiscoveryProgress(context.runId(), progress.files(), chunkIndex);
                 firstItem = cursor.next();
             }
@@ -99,7 +103,7 @@ public class ScanExecutor {
     private ScanChunkCommitter.DiscoveryCommit commitDiscoverySegment(DiscoveryRequest request) {
         var context = request.context();
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
-        var source = discoverySource(request.cursor(), request.firstItem());
+        var source = discoverySource(request);
         var segment = new ScanChunkCommitter.DiscoverySegment(
                 lease,
                 request.chunkIndex(),
@@ -107,19 +111,26 @@ public class ScanExecutor {
                 properties.getLeaseDurationSeconds(),
                 source);
         var commit = chunkCommitter.commitDiscoverySegment(segment);
-        deadlineGuard.arm(context.runId(), context.workerId(), commit.leaseUntil());
+        liveness.arm(context.runId(), context.workerId(), commit.leaseUntil());
         return commit;
     }
 
-    private StageRowSource discoverySource(ScanFileInventoryCursor cursor, ScanInventoryItem firstItem) {
+    private StageRowSource discoverySource(DiscoveryRequest request) {
+        var reporter = new ScanDiscoveryProgressReporter(
+                liveness,
+                liveness.progressIntervalMillis(),
+                request.context().runId(),
+                request.previouslyScanned());
         return sink -> {
-            sink.write(firstItem);
+            sink.write(request.firstItem());
+            reporter.recordFile();
             for (int count = 1; count < DISCOVERY_SEGMENT_SIZE; count++) {
-                ScanInventoryItem item = cursor.next();
+                ScanInventoryItem item = request.cursor().next();
                 if (item == null) {
                     break;
                 }
                 sink.write(item);
+                reporter.recordFile();
             }
         };
     }
@@ -191,7 +202,8 @@ public class ScanExecutor {
                 new ArrayList<>(chunk.proposals()),
                 new ArrayList<>(chunk.issues()));
         Instant leaseUntil = chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress));
-        deadlineGuard.arm(context.runId(), context.workerId(), leaseUntil);
+        liveness.arm(context.runId(), context.workerId(), leaseUntil);
+        liveness.publishDurable(context.runId(), ScanRunStreamPhase.RECONCILIATION, progressSnapshot(progress));
     }
 
     private void heartbeatReconciliation(
@@ -200,7 +212,8 @@ public class ScanExecutor {
         var heartbeat = new ScanChunkCommitter.ReconciliationHeartbeat(
                 lease, chunkIndex, progressSnapshot(progress));
         Instant leaseUntil = chunkCommitter.heartbeatReconciliation(heartbeat);
-        deadlineGuard.arm(context.runId(), context.workerId(), leaseUntil);
+        liveness.arm(context.runId(), context.workerId(), leaseUntil);
+        liveness.publishDurable(context.runId(), ScanRunStreamPhase.RECONCILIATION, progressSnapshot(progress));
     }
 
     private ScanChunkCommitter.ChunkProgress progressSnapshot(ScanProgress progress) {

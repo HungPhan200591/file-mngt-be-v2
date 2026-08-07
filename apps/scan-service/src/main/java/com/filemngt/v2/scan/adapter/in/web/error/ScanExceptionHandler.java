@@ -7,6 +7,7 @@ import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
 import com.filemngt.v2.scan.application.exception.ScanRootUnavailableException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
+import com.filemngt.v2.scan.application.exception.ScanRunStreamCapacityExceededException;
 import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -32,6 +33,11 @@ public class ScanExceptionHandler {
     @ExceptionHandler(DecisionConflictException.class)
     ProblemDetail decisionConflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e);
+    }
+
+    @ExceptionHandler(ScanRunStreamCapacityExceededException.class)
+    ProblemDetail streamCapacity(RuntimeException e) {
+        return problem(HttpStatus.TOO_MANY_REQUESTS, e);
     }
 
     @ExceptionHandler(CatalogRegistryUnavailableException.class)

@@ -98,6 +98,34 @@ paths:
                 $ref: '#/components/schemas/ScanRun'
         '404':
           $ref: '#/components/responses/NotFoundProblem'
+  /api/v2/scans/{scanId}/events:
+    get:
+      operationId: streamScanRunEvents
+      summary: Stream scan run snapshot, progress and terminal state
+      description: |
+        Additive SSE stream. The first data frame is `scan.snapshot.v1`, progress
+        frames are best-effort and may be coalesced, and `scan.terminal.v1` closes
+        the stream. Heartbeats are SSE comments. The server does not provide
+        Last-Event-ID replay; reconnect receives a new authoritative snapshot.
+      parameters:
+        - $ref: '#/components/parameters/ScanId'
+      responses:
+        '200':
+          description: |
+            Server-Sent Events named `scan.snapshot.v1`, `scan.progress.v1` and
+            `scan.terminal.v1`, each carrying `ScanRunStreamEvent` JSON data.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+              description: `no-cache` for the open event stream.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ScanRunStreamEvent'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '429':
+          $ref: '#/components/responses/StreamCapacityProblem'
   /api/v2/scans/{scanId}/proposals:
     get:
       operationId: listScanProposals
@@ -211,6 +239,11 @@ components:
                 status: 503
                 detail: 'Configured scan root is unavailable: one-million-joke-video'
                 instance: /api/v2/scans/previews
+    StreamCapacityProblem:
+      description: Scan event stream connection capacity has been reached
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
   schemas:
     StartScanRequest:
       type: object
@@ -236,6 +269,41 @@ components:
         scannedFileCount: { type: integer, format: int64 }
         proposalCount: { type: integer, format: int64 }
         issueCount: { type: integer, format: int64 }
+        lastError: { type: [string, 'null'] }
+    ScanRunStreamEvent:
+      type: object
+      required:
+        - schemaVersion
+        - eventType
+        - scanId
+        - emittedAt
+        - phase
+        - status
+        - observedFileCount
+        - scannedFileCount
+        - proposalCount
+        - issueCount
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        eventType: { type: string, enum: [SNAPSHOT, PROGRESS, TERMINAL] }
+        scanId: { type: string, format: uuid }
+        emittedAt: { type: string, format: date-time }
+        phase:
+          type: string
+          description: UNKNOWN is used when an authoritative snapshot cannot recover the volatile execution phase.
+          enum: [UNKNOWN, DISCOVERY, RECONCILIATION, FINALIZING, TERMINAL]
+        status: { $ref: '#/components/schemas/ScanRunStatus' }
+        observedFileCount:
+          type: integer
+          format: int64
+          description: Best-effort in-process progress; may reset to durable count after reconnect or restart.
+        scannedFileCount:
+          type: integer
+          format: int64
+          description: Durable count from scan_run.
+        proposalCount: { type: integer, format: int64 }
+        issueCount: { type: integer, format: int64 }
+        finishedAt: { type: [string, 'null'], format: date-time }
         lastError: { type: [string, 'null'] }
     ScanProposal:
       type: object
