@@ -31,6 +31,9 @@ Design: [02-design.md](./02-design.md)
 11. FT-025.3 sửa runtime hang ở reconciliation: refresh statistics staging sau
     discovery và dùng correlated composite-key lookup để inventory index sử dụng
     cả `root_key` lẫn `source_relative_path`.
+12. FT-025.4 materialize tập changed đúng một lần vào `scan_inventory_diff_stage`;
+    progress lấy row count từ chính `INSERT ... SELECT`, còn keyset reader chỉ duyệt
+    tập diff nhỏ thay vì quét lại toàn bộ staging theo từng page.
 
 ## Kết quả triển khai
 
@@ -42,7 +45,7 @@ Design: [02-design.md](./02-design.md)
 - Đã implement FT-025.2: `walkFileTree` producer queue 1.024 item, streaming COPY
   segment 500.000, set-based changed keyset reader và conditional lease fence
   trước commit discovery. Production path không còn lookup `IN` theo seen chunk.
-- Changed inventory/proposal/issue tiếp tục commit theo business chunk 10.000;
+- Changed inventory/proposal/issue commit theo business chunk cấu hình được, mặc định 15.000;
   warm scan zero-change không materialize inventory snapshot hoặc changed item.
 - Đã sửa FT-025.3 từ runtime evidence run `cb6ed18e...`: discovery hoàn tất
   27.122 file nhưng LEFT JOIN diff chạy hơn 2 phút vì planner chỉ dùng
@@ -52,6 +55,10 @@ Design: [02-design.md](./02-design.md)
 - Filesystem-only benchmark trước follow-up đã đo 17,832 giây; chưa chạy
   test/build/migration hoặc post-FT-025.3 scan benchmark theo rule người dùng, vì vậy
   feature chưa chuyển `DONE`.
+- Runtime 1.000.000 file lúc 23:51 ngày 07/08/2026 hoàn tất 1m55s; evidence từ UI cho
+  thấy discovery/COPY nhanh nhưng reconciliation lâu. FT-025.4 loại bỏ `countChanged`
+  full pass và các full staging page lặp lại; business chunk mặc định tăng lên 15.000.
+  Chưa chạy migration/build/test hay benchmark sau thay đổi.
 
 ## Kiểm tra
 

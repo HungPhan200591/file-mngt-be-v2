@@ -21,9 +21,40 @@ public class ScanInventoryStageWriter {
             FROM STDIN WITH (FORMAT CSV)
             """;
     private static final String DELETE_RUN_SQL = "DELETE FROM scan_inventory_stage WHERE scan_run_id = ?";
+    private static final String DELETE_DIFF_RUN_SQL =
+            "DELETE FROM scan_inventory_diff_stage WHERE scan_run_id = ?";
     private static final String ANALYZE_SQL = "ANALYZE scan_inventory_stage";
+    private static final String ANALYZE_DIFF_SQL = "ANALYZE scan_inventory_diff_stage";
+    private static final String MATERIALIZE_DIFF_SQL = """
+            INSERT INTO scan_inventory_diff_stage
+                (scan_run_id, root_key, source_relative_path, file_size, file_modified_at)
+            SELECT stage.scan_run_id,
+                   stage.root_key,
+                   stage.source_relative_path,
+                   stage.file_size,
+                   stage.file_modified_at
+            FROM scan_inventory_stage stage
+            WHERE stage.scan_run_id = ?
+              AND NOT COALESCE((
+                  SELECT inventory.state = 'PRESENT'
+                     AND inventory.file_size IS NOT DISTINCT FROM stage.file_size
+                     AND inventory.file_modified_at IS NOT DISTINCT FROM stage.file_modified_at
+                  FROM scan_file_inventory inventory
+                  WHERE inventory.root_key = stage.root_key
+                    AND inventory.source_relative_path = stage.source_relative_path
+              ), FALSE)
+            """;
     private static final String DELETE_INACTIVE_RUNS_SQL = """
             DELETE FROM scan_inventory_stage stage
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM scan_run run
+                WHERE run.id = stage.scan_run_id
+                  AND run.status = 'RUNNING'
+            )
+            """;
+    private static final String DELETE_INACTIVE_DIFF_RUNS_SQL = """
+            DELETE FROM scan_inventory_diff_stage stage
             WHERE NOT EXISTS (
                 SELECT 1
                 FROM scan_run run
@@ -57,6 +88,7 @@ public class ScanInventoryStageWriter {
     }
 
     public void deleteRun(UUID runId) {
+        jdbcTemplate.update(DELETE_DIFF_RUN_SQL, runId);
         jdbcTemplate.update(DELETE_RUN_SQL, runId);
     }
 
@@ -65,12 +97,21 @@ public class ScanInventoryStageWriter {
     }
 
     public void deleteInactiveRuns() {
+        jdbcTemplate.update(DELETE_INACTIVE_DIFF_RUNS_SQL);
         jdbcTemplate.update(DELETE_INACTIVE_RUNS_SQL);
     }
 
     /** Refresh planner statistics sau bulk COPY để reconciliation không dùng cardinality stale. */
     public void analyze() {
         jdbcTemplate.execute(ANALYZE_SQL);
+    }
+
+    /** Materialize tập changed một lần để các page sau không quét lại toàn bộ staging. */
+    public long materializeDiff(UUID runId) {
+        jdbcTemplate.update(DELETE_DIFF_RUN_SQL, runId);
+        int changed = jdbcTemplate.update(MATERIALIZE_DIFF_SQL, runId);
+        jdbcTemplate.execute(ANALYZE_DIFF_SQL);
+        return changed;
     }
 
     private long copy(Connection connection, UUID runId, StageRowSource source) throws SQLException {

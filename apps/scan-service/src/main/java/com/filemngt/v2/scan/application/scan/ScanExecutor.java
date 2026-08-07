@@ -77,7 +77,9 @@ public class ScanExecutor {
         var progress = new ScanProgress();
         var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
         int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
-        chunkCommitter.prepareReconciliation(context.runId(), context.workerId());
+        progress.setChangedFiles(chunkCommitter.prepareReconciliation(context.runId(), context.workerId()));
+        nextChunkIndex++;
+        heartbeatReconciliation(context, nextChunkIndex, progress);
         reconcileChanged(context, nextChunkIndex, progress);
         return progress;
     }
@@ -136,23 +138,14 @@ public class ScanExecutor {
 
     private int reconcileChanged(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
         String afterPath = "";
-        long changedFiles = 0L;
-        progress.setChangedFiles(reconciliationPageReader.countChanged(context.runId(), context.root().key()));
-        publishProgress(context.runId(), ScanRunStreamPhase.RECONCILIATION, progressSnapshot(progress), progress);
         while (true) {
-            var page = reconciliationPageReader.findChangedPage(
-                    context.runId(), context.root().key(), afterPath, DIFF_PAGE_SIZE);
-            if (page.isLast()) {
-                progress.recordSkipped(progress.files() - changedFiles);
+            var page = reconciliationPageReader.findChangedPage(context.runId(), afterPath, DIFF_PAGE_SIZE);
+            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, progress);
+            if (!page.hasMore()) {
+                progress.recordSkipped(progress.files() - progress.changedFiles());
                 return chunkIndex;
             }
-            changedFiles += page.items().size();
-            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, progress);
             afterPath = page.nextCursor();
-            if (page.items().isEmpty()) {
-                chunkIndex++;
-                heartbeatReconciliation(context, chunkIndex, progress);
-            }
         }
     }
 

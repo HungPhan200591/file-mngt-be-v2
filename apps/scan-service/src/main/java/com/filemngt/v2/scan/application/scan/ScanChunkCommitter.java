@@ -77,11 +77,20 @@ public class ScanChunkCommitter {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void prepareReconciliation(UUID runId, String workerId) {
+    public long prepareReconciliation(UUID runId, String workerId) {
+        long startedNanos = System.nanoTime();
         timeouts.applyMutationTimeout();
         var lease = new ChunkLease(runId, workerId, null);
         validateLease(loadRun(lease), lease);
         stageWriter.analyze();
+        long changed = stageWriter.materializeDiff(runId);
+        long durationMillis = (System.nanoTime() - startedNanos) / 1_000_000L;
+        LOGGER.info(
+                "Đã materialize reconciliation diff: runId={}, changedFiles={}, durationMs={}",
+                runId,
+                changed,
+                durationMillis);
+        return changed;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

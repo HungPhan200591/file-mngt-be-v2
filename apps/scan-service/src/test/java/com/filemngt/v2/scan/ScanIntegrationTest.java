@@ -83,6 +83,7 @@ class ScanIntegrationTest {
         proposals.deleteAllInBatch();
         issues.deleteAllInBatch();
         inventories.deleteAllInBatch();
+        jdbcTemplate.update("DELETE FROM scan_inventory_diff_stage");
         jdbcTemplate.update("DELETE FROM scan_inventory_stage");
         runs.deleteAllInBatch();
     }
@@ -152,7 +153,7 @@ class ScanIntegrationTest {
         assertThat(secondInventoryItems)
                 .allMatch(item -> item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT)
                 .allMatch(item -> item.updatedAt().equals(initialUpdatedAt.get(item.sourceRelativePath())));
-        assertThat(stageRowCount()).isZero();
+        assertThat(scratchStageRowCount()).isZero();
     }
 
     @Test
@@ -166,7 +167,7 @@ class ScanIntegrationTest {
         assertThat(runs.findById(runId).orElseThrow().checkpointChunk()).isGreaterThanOrEqualTo(2);
         assertThat(inventories.findAll())
                 .allMatch(item -> item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
-        assertThat(stageRowCount()).isZero();
+        assertThat(scratchStageRowCount()).isZero();
     }
 
     @Test
@@ -467,9 +468,10 @@ class ScanIntegrationTest {
         }
     }
 
-    private long stageRowCount() {
-        Long count = jdbcTemplate.queryForObject("SELECT count(*) FROM scan_inventory_stage", Long.class);
-        return count == null ? 0L : count;
+    private long scratchStageRowCount() {
+        Long fullStage = jdbcTemplate.queryForObject("SELECT count(*) FROM scan_inventory_stage", Long.class);
+        Long diffStage = jdbcTemplate.queryForObject("SELECT count(*) FROM scan_inventory_diff_stage", Long.class);
+        return (fullStage == null ? 0L : fullStage) + (diffStage == null ? 0L : diffStage);
     }
 
     private record ScanProposalRef(String scanId, String proposalId) {}

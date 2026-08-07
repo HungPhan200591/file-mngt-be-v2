@@ -145,6 +145,10 @@ thời staging statistics vẫn báo 0 row sau lifecycle COPY/delete, khiến pl
 Fix:
 
 - Chạy `ANALYZE scan_inventory_stage` sau discovery và trước changed diff.
+- FT-025.4 tạo thêm `scan_inventory_diff_stage` dạng `UNLOGGED`. Một câu
+  `INSERT ... SELECT` dùng correlated composite-key lookup materialize file new/changed/revived
+  và trả exact row count; Java keyset page chỉ đọc bảng diff này. Cleanup run luôn xóa cả
+  full staging lẫn diff staging, còn full staging vẫn được giữ đến finalization để mark `MISSING`.
 - Keyset staging theo page tối đa 100.000 row để một warm scan 10 triệu file
   không biến thành một JDBC query dài vượt lease.
 - Trong từng page, correlated scalar lookup buộc subplan index condition dùng đủ

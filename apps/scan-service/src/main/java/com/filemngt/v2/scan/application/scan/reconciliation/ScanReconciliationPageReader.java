@@ -20,14 +20,9 @@ public class ScanReconciliationPageReader {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    public ChangedPage findChangedPage(UUID runId, String rootKey, String afterPath, int limit) {
+    public ChangedPage findChangedPage(UUID runId, String afterPath, int limit) {
         timeouts.applyReconciliationTimeout();
-        return diffReader.findChangedPage(runId, rootKey, afterPath, limit);
+        return diffReader.findChangedPage(runId, afterPath, limit);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    public long countChanged(UUID runId, String rootKey) {
-        timeouts.applyReconciliationTimeout();
-        return diffReader.countChanged(runId, rootKey);
-    }
 }

@@ -22,6 +22,8 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   mỗi COPY segment; segment commit progress/checkpoint bằng lease fence đầu-cuối.
   Sau discovery, set-based staging diff chỉ đưa file mới, fingerprint đổi hoặc
   `MISSING` tái xuất hiện vào Java; finalization anti-join mark missing rồi dọn staging.
+  Tập changed được materialize đúng một lần vào `scan_inventory_diff_stage` `UNLOGGED`;
+  Java và SSE progress chỉ duyệt tập nhỏ này, không quét lại full staging theo page.
 - Mỗi `scan_run` active có delayed deadline re-arm sau durable checkpoint; PostgreSQL
   timeout cục bộ chặn SQL/COPY giữ worker quá lease. Database vẫn là authority để
   conditional fail và lease fence chặn worker stale commit muộn.
