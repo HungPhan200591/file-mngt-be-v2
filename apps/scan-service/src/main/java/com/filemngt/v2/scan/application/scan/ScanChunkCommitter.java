@@ -1,11 +1,14 @@
 package com.filemngt.v2.scan.application.scan;
 
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryBatchWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
+import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import com.filemngt.v2.scan.domain.scan.ScanRunStatus;
 import java.time.Instant;
 import java.util.List;
@@ -18,45 +21,37 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 /**
- * Thực hiện commit chunk proposals/issues và gia hạn lease trong một transaction riêng biệt.
+ * Thực hiện commit chunk inventory/proposals/issues và gia hạn lease trong một transaction riêng biệt.
  * Đảm bảo tính bền vững (durability) theo chunk độc lập với các chunk khác.
  */
 public class ScanChunkCommitter {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanChunkCommitter.class);
 
     private final ScanRunRepository runs;
     private final ScanProposalRepository proposals;
     private final ScanIssueRepository issues;
+    private final ScanFileInventoryBatchWriter inventoryBatchWriter;
 
-    public ScanChunkCommitter(ScanRunRepository runs, ScanProposalRepository proposals, ScanIssueRepository issues) {
+    public ScanChunkCommitter(
+            ScanRunRepository runs,
+            ScanProposalRepository proposals,
+            ScanIssueRepository issues,
+            ScanFileInventoryBatchWriter inventoryBatchWriter) {
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
+        this.inventoryBatchWriter = inventoryBatchWriter;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void commitChunk(ChunkLease lease, ChunkBatch batch, ChunkProgress progress) {
         var run = runs.findById(lease.runId()).orElseThrow();
-        if (run.status() != ScanRunStatus.RUNNING
-                || (lease.workerId() != null && !lease.workerId().equals(run.workerId()))) {
-            LOGGER.error(
-                    "Lease của worker không hợp lệ hoặc đã bị hủy: runId={}, workerId={}",
-                    lease.runId(),
-                    lease.workerId());
-            throw new ScanLeaseExpiredException(lease.runId(), lease.workerId());
-        }
+        validateLease(run, lease);
 
-        if (!batch.proposals().isEmpty()) {
-            proposals.saveAll(batch.proposals());
-            proposals.flush();
-            batch.proposals().clear();
-        }
-
-        if (!batch.issues().isEmpty()) {
-            issues.saveAll(batch.issues());
-            issues.flush();
-            batch.issues().clear();
-        }
+        inventoryBatchWriter.upsertPresent(batch.inventoryItems(), lease.runId());
+        commitProposalsChunk(batch.proposals());
+        commitIssuesChunk(batch.issues());
 
         run.updateCheckpoint(
                 batch.index(), progress.files(), progress.proposals(), progress.issues(), lease.nextLeaseUntil());
@@ -71,9 +66,38 @@ public class ScanChunkCommitter {
                 lease.nextLeaseUntil());
     }
 
+    private void validateLease(ScanRunEntity run, ChunkLease lease) {
+        if (run.status() != ScanRunStatus.RUNNING
+                || (lease.workerId() != null && !lease.workerId().equals(run.workerId()))) {
+            LOGGER.error(
+                    "Lease của worker không hợp lệ hoặc đã bị hủy: runId={}, workerId={}",
+                    lease.runId(),
+                    lease.workerId());
+            throw new ScanLeaseExpiredException(lease.runId(), lease.workerId());
+        }
+    }
+
+    private void commitProposalsChunk(List<ScanProposalEntity> proposalList) {
+        if (!proposalList.isEmpty()) {
+            proposals.saveAll(proposalList);
+            proposals.flush();
+        }
+    }
+
+    private void commitIssuesChunk(List<ScanIssueEntity> issueList) {
+        if (!issueList.isEmpty()) {
+            issues.saveAll(issueList);
+            issues.flush();
+        }
+    }
+
     public record ChunkLease(UUID runId, String workerId, Instant nextLeaseUntil) {}
 
-    public record ChunkBatch(int index, List<ScanProposalEntity> proposals, List<ScanIssueEntity> issues) {}
+    public record ChunkBatch(
+            int index,
+            List<ScanInventoryItem> inventoryItems,
+            List<ScanProposalEntity> proposals,
+            List<ScanIssueEntity> issues) {}
 
     public record ChunkProgress(long files, long proposals, long issues) {}
 }

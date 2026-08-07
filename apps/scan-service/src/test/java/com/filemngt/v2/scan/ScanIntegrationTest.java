@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -50,6 +51,9 @@ class ScanIntegrationTest {
     ScanOutboxEventRepository outbox;
 
     @Autowired
+    com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryRepository inventories;
+
+    @Autowired
     com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository runs;
 
     @MockitoBean
@@ -89,6 +93,51 @@ class ScanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rootKey\":\"missing\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void scanSeedsFileInventoryIdempotently() throws Exception {
+        ScanProposalRef firstScan = scanAndGetProposal();
+        UUID firstRunId = UUID.fromString(firstScan.scanId());
+        long firstInventoryCount = inventories.count();
+        assertThat(firstInventoryCount).isEqualTo(regularFileCount());
+
+        var firstInventoryItems = inventories.findAll();
+        assertThat(firstInventoryItems)
+                .allMatch(item -> item.lastSeenRunId().equals(firstRunId)
+                        && item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT
+                        && item.fileSize() > 0
+                        && item.fileModifiedAt() != null);
+
+        var relativePaths = firstInventoryItems.stream()
+                .map(com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryEntity::sourceRelativePath)
+                .toList();
+        assertThat(relativePaths).contains("Studio/Actress/A - [JOKE-001].mp4", "bad.mp4", "Cover - [JOKE-002].jpg");
+
+        ScanProposalRef secondScan = scanAndGetProposal();
+        UUID secondRunId = UUID.fromString(secondScan.scanId());
+        long secondInventoryCount = inventories.count();
+
+        assertThat(secondInventoryCount).isEqualTo(regularFileCount());
+
+        var secondInventoryItems = inventories.findAll();
+        assertThat(secondInventoryItems)
+                .allMatch(item -> item.lastSeenRunId().equals(secondRunId)
+                        && item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+    }
+
+    @Test
+    void scanSeedsInventoryAcrossChunkBoundary() throws Exception {
+        createUnsupportedInventoryFiles(501);
+
+        ScanProposalRef scan = scanAndGetProposal();
+        UUID runId = UUID.fromString(scan.scanId());
+
+        assertThat(inventories.count()).isEqualTo(regularFileCount());
+        assertThat(runs.findById(runId).orElseThrow().checkpointChunk()).isGreaterThanOrEqualTo(2);
+        assertThat(inventories.findAll())
+                .allMatch(item -> item.lastSeenRunId().equals(runId)
+                        && item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
     }
 
     @Test
@@ -233,6 +282,22 @@ class ScanIntegrationTest {
             return root;
         } catch (Exception e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    private static void createUnsupportedInventoryFiles(int count) throws IOException {
+        Path bulkDirectory = ROOT.resolve("inventory-bulk");
+        Files.createDirectories(bulkDirectory);
+        for (int index = 0; index < count; index++) {
+            Files.writeString(bulkDirectory.resolve("bulk-%03d.jpg".formatted(index)), "x");
+        }
+    }
+
+    private static long regularFileCount() throws IOException {
+        try (var paths = Files.walk(ROOT)) {
+            return paths.filter(Files::isRegularFile)
+                    .filter(path -> !Files.isSymbolicLink(path))
+                    .count();
         }
     }
 

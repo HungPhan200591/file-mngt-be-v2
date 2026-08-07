@@ -7,7 +7,7 @@ spring:
   profiles:
     default: local
   datasource:
-    url: ${SCAN_DATASOURCE_URL:jdbc:postgresql://localhost:18110/scan_db}
+    url: ${SCAN_DATASOURCE_URL:jdbc:postgresql://localhost:18110/scan_db?reWriteBatchedInserts=true}
     username: ${SCAN_DATASOURCE_USERNAME:scan_user}
     password: ${SCAN_DATASOURCE_PASSWORD:change-me-scan}
   jpa:

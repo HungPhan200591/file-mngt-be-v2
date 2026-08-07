@@ -7,8 +7,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * Custom P6Spy MessageFormattingStrategy để định dạng Native SQL sắc nét dưới dạng Block,
- * tô màu ANSI sắc nét cho INSERT (Xanh lá), UPDATE (Vàng), DELETE (Đỏ), SELECT (Xanh dương)
- * và tự động lọc bỏ các câu lệnh Flyway, Outbox & Scheduled background threads.
+ * tô màu ANSI sắc nét cho INSERT (Xanh lá), UPDATE (Vàng), DELETE (Đỏ), SELECT (Xanh dương),
+ * loại bỏ log trùng lặp addBatch() và tự động lọc bỏ các câu lệnh Flyway, Outbox & Scheduled background threads.
  */
 public class P6SpySqlFormatter implements MessageFormattingStrategy {
 
@@ -56,6 +56,12 @@ public class P6SpySqlFormatter implements MessageFormattingStrategy {
     @Override
     public String formatMessage(
             int connectionId, String now, long elapsed, String category, String prepared, String sql, String url) {
+
+        // Lọc bỏ event addBatch() trùng lặp (khi category = batch và sql/prepared giống câu executeBatch)
+        // P6Spy log 2 lần: 1 lần lúc addBatch (elapsed=0) và 1 lần lúc executeBatch.
+        if ("batch".equalsIgnoreCase(category) && elapsed == 0 && StringUtils.hasText(sql) && sql.equals(prepared)) {
+            return "";
+        }
 
         String effectiveSql = StringUtils.hasText(sql) ? sql : prepared;
 

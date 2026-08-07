@@ -6,6 +6,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
+import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 /**
- * Thực thi scan bất đồng bộ trên filesystem và lưu proposal/issue theo batch chunk độc lập.
+ * Thực thi scan bất đồng bộ trên filesystem và lưu inventory/proposal/issue theo batch chunk độc lập.
  * Class này sở hữu tiến độ và điều phối chunk persistence qua {@link ScanChunkCommitter}.
  */
 public class ScanExecutor {
@@ -52,7 +53,7 @@ public class ScanExecutor {
             var progress = scanFiles(run, root, snapshot);
             var completedRun = runs.findById(runId).orElseThrow();
             completedRun.complete(progress.files, progress.proposals, progress.issues);
-            runs.save(completedRun);
+            runs.saveAndFlush(completedRun);
             LOGGER.info(
                     "Hoàn tất scan runId={}: files={}, proposals={}, issues={}",
                     runId,
@@ -63,7 +64,7 @@ public class ScanExecutor {
             LOGGER.error("Scan thất bại runId={}: error={}", runId, exception.getMessage(), exception);
             runs.findById(runId).ifPresent(failedRun -> {
                 failedRun.fail(exception.getMessage());
-                runs.save(failedRun);
+                runs.saveAndFlush(failedRun);
             });
         }
     }
@@ -72,6 +73,7 @@ public class ScanExecutor {
     private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot)
             throws IOException {
         var progress = new ScanProgress();
+        List<ScanInventoryItem> inventoryBuffer = new ArrayList<>(BATCH_SIZE);
         List<ScanProposalEntity> proposalBuffer = new ArrayList<>(BATCH_SIZE);
         List<ScanIssueEntity> issueBuffer = new ArrayList<>(BATCH_SIZE);
         Path rootPath = Path.of(root.path());
@@ -82,42 +84,76 @@ public class ScanExecutor {
         try (var paths = Files.walk(rootPath)) {
             var files = paths.filter(Files::isRegularFile)
                     .filter(path -> !Files.isSymbolicLink(path))
-                    .filter(path -> ScanCandidateParser.supports(root.profile(), path))
                     .iterator();
             while (files.hasNext()) {
-                String relativePath = relativePath(rootPath, files.next());
-                var result = analyzer.analyze(runId, root.profile(), relativePath, snapshot);
-                progress.record(result);
-                switch (result) {
-                    case ScanFileAnalyzer.Proposal(var proposal) -> proposalBuffer.add(proposal);
-                    case ScanFileAnalyzer.Issue(var issue) -> issueBuffer.add(issue);
+                Path filePath = files.next();
+                String relativePath = relativePath(rootPath, filePath);
+                inventoryBuffer.add(readInventoryItem(rootPath, filePath, root.key()));
+                progress.recordFile();
+
+                if (ScanCandidateParser.supports(root.profile(), filePath)) {
+                    var result = analyzer.analyze(runId, root.profile(), relativePath, snapshot);
+                    progress.recordResult(result);
+                    switch (result) {
+                        case ScanFileAnalyzer.Proposal(var proposal) -> proposalBuffer.add(proposal);
+                        case ScanFileAnalyzer.Issue(var issue) -> issueBuffer.add(issue);
+                    }
                 }
-                if (proposalBuffer.size() + issueBuffer.size() >= BATCH_SIZE) {
+                if (shouldFlushChunk(inventoryBuffer, proposalBuffer, issueBuffer)) {
                     chunkIndex++;
-                    commitChunk(runId, workerId, chunkIndex, proposalBuffer, issueBuffer, progress);
+                    commitChunk(runId, workerId, chunkIndex, inventoryBuffer, proposalBuffer, issueBuffer, progress);
                 }
                 logProgress(runId, progress);
             }
         }
-        if (!proposalBuffer.isEmpty() || !issueBuffer.isEmpty()) {
+        if (hasRemainingChunk(inventoryBuffer, proposalBuffer, issueBuffer)) {
             chunkIndex++;
-            commitChunk(runId, workerId, chunkIndex, proposalBuffer, issueBuffer, progress);
+            commitChunk(runId, workerId, chunkIndex, inventoryBuffer, proposalBuffer, issueBuffer, progress);
         }
         return progress;
+    }
+
+    private ScanInventoryItem readInventoryItem(Path rootPath, Path filePath, String rootKey) throws IOException {
+        String relativePath = relativePath(rootPath, filePath);
+        long fileSize = Files.size(filePath);
+        Instant fileModifiedAt = Files.getLastModifiedTime(filePath).toInstant();
+        return new ScanInventoryItem(rootKey, relativePath, fileSize, fileModifiedAt);
+    }
+
+    private boolean shouldFlushChunk(
+            List<ScanInventoryItem> inventoryBuffer,
+            List<ScanProposalEntity> proposalBuffer,
+            List<ScanIssueEntity> issueBuffer) {
+        return inventoryBuffer.size() >= BATCH_SIZE || proposalBuffer.size() + issueBuffer.size() >= BATCH_SIZE;
+    }
+
+    private boolean hasRemainingChunk(
+            List<ScanInventoryItem> inventoryBuffer,
+            List<ScanProposalEntity> proposalBuffer,
+            List<ScanIssueEntity> issueBuffer) {
+        return !inventoryBuffer.isEmpty() || !proposalBuffer.isEmpty() || !issueBuffer.isEmpty();
     }
 
     private void commitChunk(
             UUID runId,
             String workerId,
             int chunkIndex,
+            List<ScanInventoryItem> inventoryBuffer,
             List<ScanProposalEntity> proposalBuffer,
             List<ScanIssueEntity> issueBuffer,
             ScanProgress progress) {
         Instant nextLeaseUntil = Instant.now().plusSeconds(properties.getLeaseDurationSeconds());
         var lease = new ScanChunkCommitter.ChunkLease(runId, workerId, nextLeaseUntil);
-        var batch = new ScanChunkCommitter.ChunkBatch(chunkIndex, proposalBuffer, issueBuffer);
+        var batch = new ScanChunkCommitter.ChunkBatch(
+                chunkIndex,
+                new ArrayList<>(inventoryBuffer),
+                new ArrayList<>(proposalBuffer),
+                new ArrayList<>(issueBuffer));
         var chunkProgress = new ScanChunkCommitter.ChunkProgress(progress.files, progress.proposals, progress.issues);
         chunkCommitter.commitChunk(lease, batch, chunkProgress);
+        inventoryBuffer.clear();
+        proposalBuffer.clear();
+        issueBuffer.clear();
     }
 
     private String relativePath(Path rootPath, Path path) {
@@ -140,8 +176,11 @@ public class ScanExecutor {
         private long proposals;
         private long issues;
 
-        private void record(ScanFileAnalyzer.Result result) {
+        private void recordFile() {
             files++;
+        }
+
+        private void recordResult(ScanFileAnalyzer.Result result) {
             switch (result) {
                 case ScanFileAnalyzer.Proposal ignored -> proposals++;
                 case ScanFileAnalyzer.Issue ignored -> issues++;

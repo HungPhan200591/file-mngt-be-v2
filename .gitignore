@@ -5,6 +5,8 @@ target/
 *.war
 *.ear
 *.log
+*.gz
+*.log.gz
 hs_err_pid*
 replay_pid*
 .mvn/timing.properties
@@ -38,6 +40,8 @@ tests/e2e/http-client.env.json
 docker-compose.override.yml
 
 # Runtime data, generated media and reports
+logs/
+**/logs/
 logs/*
 !logs/.gitkeep
 tmp/
