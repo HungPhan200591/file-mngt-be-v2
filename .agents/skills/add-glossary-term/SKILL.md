@@ -38,16 +38,17 @@ Thêm 1 dòng vào bảng tương ứng trong `it-glossary.md`. Định dạng d
 - `<slug>`: Tên slug viết chữ thường, nối bằng dấu gạch ngang `-` (ví dụ: `#16-telemetry`).
 
 ### Bước 3: Cập Nhật Nội Dung Chi Tiết Trong `details/<detail-file>.md`
-Thêm mục chi tiết vào cuối file chi tiết tương ứng với cấu trúc chuẩn:
+Thêm mục chi tiết vào cuối file chi tiết tương ứng với cấu trúc chuẩn (bắt buộc dùng Heading level 2 `##` để `index.html` và markdown anchor nhận diện đúng):
 
 ```markdown
 ---
 
-### <index>. <Term_Name>
-- **Phiên âm**: `/<pronunciation>/`
-- **Định nghĩa**: [Giải thích bản chất kỹ thuật trong 2-3 câu tiếng Việt dễ hiểu]
-- **Tóm tắt 1 dòng**: *[Cụm từ chốt hạ bản chất]*
-- **Ví dụ thực tế**: [Ví dụ gắn liền với Spring Boot, PostgreSQL, Kafka, Prometheus, ELK, hoặc Docker trong dự án]
+## <index>. <Term_Name>
+- **Phiên âm:** /<pronunciation>/ — đọc: **"<cách_đọc>"**
+- **Nghĩa tiếng Việt:** <Nghĩa_Tiếng_Việt>
+- **Trong lập trình:** [Giải thích bản chất kỹ thuật trong 2-3 câu tiếng Việt dễ hiểu]
+- **Tóm tắt 1 dòng:** *[Cụm từ chốt hạ bản chất]*
+- **Ví dụ:** [Ví dụ gắn liền với Spring Boot, PostgreSQL, Kafka, Prometheus, ELK, hoặc Docker trong dự án]
 ```
 
 ### Bước 4: Commit Và Push Thay Đổi Lên Repository (NoteRepo)
@@ -64,16 +65,17 @@ git -C "d:\Study\Project\NoteRepo" push origin main
 
 1. **Thêm vào `it-glossary.md`**:
 ```markdown
-| [**Telemetry**](./details/it-glossary-infrastructure-performance.md#16-telemetry) | Dữ liệu đo đạc từ xa | Thu thập tự động Metrics, Logs và Traces để giám sát hệ thống | Metric |
+| [**Telemetry**](./details/it-glossary-infrastructure-performance.md#16-telemetry) | Dữ liệu giám sát từ xa | Thu thập tự động Metrics, Logs và Traces để giám sát hệ thống | Metric |
 ```
 
 2. **Thêm vào `details/it-glossary-infrastructure-performance.md`**:
 ```markdown
 ---
 
-### 16. Telemetry
-- **Phiên âm**: `/təˈlemətri/`
-- **Định nghĩa**: Telemetry là quá trình tự động thu thập, đo đạc và truyền tải các dữ liệu giám sát (Metrics, Logs, Traces) từ các microservice về hệ thống quản lý trung tâm (Prometheus, ELK, Grafana).
-- **Tóm tắt 1 dòng**: *Dữ liệu đo đạc sức khỏe từ xa của hệ thống.*
-- **Ví dụ thực tế**: Spring Boot app xuất metric qua `/actuator/prometheus` và xuất JSON log chuẩn ECS chính là phát phát tín hiệu telemetry.
+## 16. Telemetry
+- **Phiên âm:** /təˈlemətri/ — đọc: **"Tơ-lê-mơ-tri"**
+- **Nghĩa tiếng Việt:** Dữ liệu giám sát từ xa
+- **Trong lập trình:** Quá trình tự động thu thập, đo đạc và truyền tải các dữ liệu giám sát (Metrics, Logs, Traces) từ các microservice về hệ thống quản lý trung tâm (Prometheus, ELK, Grafana).
+- **Tóm tắt 1 dòng:** *Dữ liệu đo đạc sức khỏe từ xa của hệ thống.*
+- **Ví dụ:** Spring Boot app xuất metric qua `/actuator/prometheus` và xuất JSON log chuẩn ECS chính là phát phát tín hiệu telemetry.
 ```
