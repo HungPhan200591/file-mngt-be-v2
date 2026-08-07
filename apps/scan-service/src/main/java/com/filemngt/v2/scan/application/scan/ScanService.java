@@ -1,11 +1,13 @@
 package com.filemngt.v2.scan.application.scan;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
+import com.filemngt.v2.scan.adapter.out.filesystem.ConfiguredScanRootAccess;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
+import com.filemngt.v2.scan.application.exception.ScanRootUnavailableException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
 import com.filemngt.v2.scan.application.query.ScanViewMapper;
 import com.filemngt.v2.scan.config.ScanProperties;
@@ -41,23 +43,27 @@ public class ScanService {
     private final ScanExecutor executor;
     private final TaskExecutor taskExecutor;
     private final CatalogRegistryClient catalogClient;
+    private final ConfiguredScanRootAccess rootAccess;
 
     public ScanService(
             ScanProperties properties,
             ScanRunRepository runs,
             ScanExecutor executor,
             @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
-            CatalogRegistryClient catalogClient) {
+            CatalogRegistryClient catalogClient,
+            ConfiguredScanRootAccess rootAccess) {
         this.properties = properties;
         this.runs = runs;
         this.executor = executor;
         this.taskExecutor = taskExecutor;
         this.catalogClient = catalogClient;
+        this.rootAccess = rootAccess;
     }
 
     /** Khởi tạo scan mới cho root hợp lệ và trả ngay trạng thái RUNNING cho HTTP caller. */
     public ScanRunView start(String rootKey) {
         var root = findRoot(rootKey);
+        requireRootAvailable(root);
         expireStaleRuns(rootKey);
         var snapshot = fetchSnapshot(root);
         String workerId = "worker-" + UUID.randomUUID();
@@ -70,6 +76,14 @@ public class ScanService {
                 run.leaseUntil());
         taskExecutor.execute(() -> executor.execute(run.id(), root, snapshot));
         return ScanViewMapper.run(run);
+    }
+
+    /** Không tạo durable run nếu configured filesystem root chưa sẵn sàng. */
+    private void requireRootAvailable(ScanProperties.Root root) {
+        if (!rootAccess.isAvailable(root.path())) {
+            LOGGER.warn("Không thể bắt đầu scan vì configured root không khả dụng: rootKey={}", root.key());
+            throw new ScanRootUnavailableException(root.key());
+        }
     }
 
     /** Chỉ cho phép scan các root được khai báo trong cấu hình service. */

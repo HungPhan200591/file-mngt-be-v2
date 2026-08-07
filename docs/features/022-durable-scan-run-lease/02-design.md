@@ -9,14 +9,15 @@ Brief: [01-brief.md](./01-brief.md)
 
 ```mermaid
 flowchart TB
-    Client["<font color='white'>HTTP Client / Admin</font>"] -->|"1: POST /api/v2/scans/previews"| Service["<font color='white'>ScanService</font>"]
-    Service -->|"2: Check active lease on rootKey"| LeaseCheck{"<font color='white'>Lease valid?</font>"}
+    Client["<font color='white'>HTTP Client / Admin</font>"] -->|"1: POST /api/v2/scans/previews"| Service["<font color='white'>ScanService<br/>validate root access</font>"]
+    Service -->|"Root missing / unreadable"| RootUnavailable["<font color='white'>503 ProblemDetail<br/>không tạo scan run</font>"]
+    Service -->|"Root available"| LeaseCheck{"<font color='white'>Active lease?</font>"}
     LeaseCheck -->|"Yes (active lease)"| Conflict["<font color='white'>Throw ScanRunAlreadyRunningException</font>"]
     LeaseCheck -->|"No (free or expired)"| CreateRun["<font color='white'>Create ScanRun (status=RUNNING, workerId, leaseUntil)</font>"]
     CreateRun -->|"3: Dispatch async task"| Executor["<font color='white'>ScanExecutor</font>"]
     
     subgraph Execution["<font color='white'>Async Chunk Execution</font>"]
-        Executor -->|"4: Files.walk & analyze"| ChunkCommitter["<font color='white'>ScanChunkCommitter (REQUIRES_NEW)</font>"]
+        Executor -->|"4: Files.walk & analyze"| ChunkCommitter["<font color='white'>ScanChunkCommitter<br/>REQUIRES_NEW</font>"]
         ChunkCommitter -->|"5: Verify workerId & lease"| LeaseValid{"<font color='white'>Worker holds lease?</font>"}
         LeaseValid -->|"No"| Abort["<font color='white'>Throw ScanLeaseExpiredException & Abort</font>"]
         LeaseValid -->|"Yes"| SaveChunk["<font color='white'>Save Proposals + Issues & Extend leaseUntil & Update checkpoint</font>"]
@@ -26,13 +27,14 @@ flowchart TB
 
     style Client fill:#2196F3,stroke:#fff,stroke-width:2px
     style Service fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style RootUnavailable fill:#E91E63,stroke:#fff,stroke-width:2px
     style LeaseCheck fill:#FF9800,stroke:#fff,stroke-width:2px
-    style Conflict fill:#F44336,stroke:#fff,stroke-width:2px
+    style Conflict fill:#E91E63,stroke:#fff,stroke-width:2px
     style CreateRun fill:#4CAF50,stroke:#fff,stroke-width:2px
     style Executor fill:#9C27B0,stroke:#fff,stroke-width:2px
-    style ChunkCommitter fill:#00CCD6,stroke:#fff,stroke-width:2px
+    style ChunkCommitter fill:#009688,stroke:#fff,stroke-width:2px
     style LeaseValid fill:#FF9800,stroke:#fff,stroke-width:2px
-    style Abort fill:#F44336,stroke:#fff,stroke-width:2px
+    style Abort fill:#E91E63,stroke:#fff,stroke-width:2px
     style SaveChunk fill:#4CAF50,stroke:#fff,stroke-width:2px
     style Complete fill:#4CAF50,stroke:#fff,stroke-width:2px
 ```
@@ -68,7 +70,8 @@ flowchart TB
 
 ## REST/event contract
 
-- Không thay đổi contract REST hay Kafka event.
+- Bugfix follow-up: `POST /api/v2/scans/previews` trả `503` với type `urn:filemngt:problem:scan-root-unavailable` nếu root đã cấu hình nhưng path không tồn tại/không đọc được. Request này không tạo `scan_run` và không dispatch worker.
+- Response `202 ScanRun` và Kafka event không thay đổi.
 - Bổ sung cấu hình `scan.lease-duration-seconds` (mặc định: 60) trong `ScanProperties`.
 
 ## Luồng lỗi, idempotency và consistency

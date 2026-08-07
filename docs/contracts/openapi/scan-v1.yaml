@@ -81,6 +81,8 @@ paths:
           $ref: '#/components/responses/ValidationProblem'
         '409':
           $ref: '#/components/responses/ConflictProblem'
+        '503':
+          $ref: '#/components/responses/ScanStartUnavailableProblem'
   /api/v2/scans/{scanId}:
     get:
       operationId: getScanRun
@@ -196,6 +198,19 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
+    ScanStartUnavailableProblem:
+      description: Configured scan root or required Catalog registry is unavailable
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+          examples:
+            scanRootUnavailable:
+              value:
+                type: urn:filemngt:problem:scan-root-unavailable
+                title: Scan root unavailable
+                status: 503
+                detail: 'Configured scan root is unavailable: one-million-joke-video'
+                instance: /api/v2/scans/previews
   schemas:
     StartScanRequest:
       type: object

@@ -4,8 +4,10 @@ import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableExce
 import com.filemngt.v2.scan.application.exception.DecisionConflictException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
+import com.filemngt.v2.scan.application.exception.ScanRootUnavailableException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
+import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 /** Chuẩn hóa lỗi nghiệp vụ Scan thành HTTP Problem Detail cho API caller. */
 public class ScanExceptionHandler {
+    private static final URI SCAN_ROOT_UNAVAILABLE_TYPE = URI.create("urn:filemngt:problem:scan-root-unavailable");
+
     @ExceptionHandler({ScanRunNotFoundException.class, ProposalNotFoundException.class})
     ProblemDetail notFound(RuntimeException e) {
         return problem(HttpStatus.NOT_FOUND, e);
@@ -33,6 +37,14 @@ public class ScanExceptionHandler {
     @ExceptionHandler(CatalogRegistryUnavailableException.class)
     ProblemDetail catalogUnavailable(RuntimeException e) {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, e);
+    }
+
+    @ExceptionHandler(ScanRootUnavailableException.class)
+    ProblemDetail scanRootUnavailable(RuntimeException e) {
+        ProblemDetail problem = problem(HttpStatus.SERVICE_UNAVAILABLE, e);
+        problem.setType(SCAN_ROOT_UNAVAILABLE_TYPE);
+        problem.setTitle("Scan root unavailable");
+        return problem;
     }
 
     @ExceptionHandler({

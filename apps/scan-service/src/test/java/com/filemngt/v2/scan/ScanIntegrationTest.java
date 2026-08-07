@@ -3,6 +3,7 @@ package com.filemngt.v2.scan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
@@ -86,6 +87,9 @@ class ScanIntegrationTest {
         registry.add("scan.roots[0].key", () -> "fixture");
         registry.add("scan.roots[0].path", ROOT::toString);
         registry.add("scan.roots[0].profile", () -> "JOKE_VIDEO");
+        registry.add("scan.roots[1].key", () -> "unavailable-fixture");
+        registry.add("scan.roots[1].path", () -> ROOT.resolve("missing-root").toString());
+        registry.add("scan.roots[1].profile", () -> "JOKE_VIDEO");
     }
 
     @Test
@@ -258,6 +262,20 @@ class ScanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rootKey\":\"fixture\"}"))
                 .andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    void scanReturns503WithoutCreatingRunWhenConfiguredRootIsUnavailable() throws Exception {
+        mockMvc.perform(post("/api/v2/scans/previews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rootKey\":\"unavailable-fixture\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.type").value("urn:filemngt:problem:scan-root-unavailable"))
+                .andExpect(jsonPath("$.title").value("Scan root unavailable"))
+                .andExpect(jsonPath("$.detail").value("Configured scan root is unavailable: unavailable-fixture"));
+
+        assertThat(runs.count()).isZero();
+        Mockito.verifyNoInteractions(catalogClient);
     }
 
     @Test

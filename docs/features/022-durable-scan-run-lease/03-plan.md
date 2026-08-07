@@ -45,3 +45,9 @@ Manual Test Guide: [04-manual-testing-guide.md](./04-manual-testing-guide.md)
 ## Tài liệu cần cập nhật
 
 - Cập nhật `docs/STATUS.md` ghi nhận feature 022 đã hoàn thành.
+
+## Bugfix follow-up — unavailable configured root
+
+- Validate root tồn tại/readable trước expire lease, fetch Catalog và create run.
+- Trả `503 ProblemDetail` type `urn:filemngt:problem:scan-root-unavailable`; không lộ absolute path.
+- Integration test phải chứng minh không có `scan_run` và Catalog client không bị gọi.

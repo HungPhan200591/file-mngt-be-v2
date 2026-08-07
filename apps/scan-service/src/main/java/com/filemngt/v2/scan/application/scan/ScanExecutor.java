@@ -10,6 +10,7 @@ import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import com.filemngt.v2.scan.domain.inventory.ScanInventorySnapshot;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -73,12 +74,35 @@ public class ScanExecutor {
                     progress.issues,
                     progress.skipped);
         } catch (Exception exception) {
-            LOGGER.error("Scan thất bại runId={}: error={}", runId, exception.getMessage(), exception);
+            String failureDetail = failureDetail(exception, root.key());
+            logFailure(runId, exception, failureDetail);
             runs.findById(runId).ifPresent(failedRun -> {
-                failedRun.fail(exception.getMessage());
+                failedRun.fail(failureDetail);
                 runs.saveAndFlush(failedRun);
             });
         }
+    }
+
+    private String failureDetail(Exception exception, String rootKey) {
+        if (isFilesystemFailure(exception)) {
+            return "Configured scan root became unavailable during execution: " + rootKey;
+        }
+        return exception.getMessage() == null ? "Unexpected scan execution failure" : exception.getMessage();
+    }
+
+    private void logFailure(UUID runId, Exception exception, String failureDetail) {
+        if (isFilesystemFailure(exception)) {
+            LOGGER.error(
+                    "Scan thất bại do filesystem không khả dụng: runId={}, failureType={}",
+                    runId,
+                    exception.getClass().getSimpleName());
+            return;
+        }
+        LOGGER.error("Scan thất bại runId={}: error={}", runId, failureDetail, exception);
+    }
+
+    private boolean isFilesystemFailure(Exception exception) {
+        return exception instanceof IOException || exception instanceof UncheckedIOException;
     }
 
     /** Duyệt filesystem một lần, phân loại từng file và flush chunk độc lập với gia hạn lease. */

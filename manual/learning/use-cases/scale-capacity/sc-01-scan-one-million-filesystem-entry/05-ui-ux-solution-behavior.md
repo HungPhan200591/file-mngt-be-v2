@@ -38,9 +38,10 @@ flowchart TD
 - **Thao tác**: Người dùng chọn Root folder (ví dụ: `JOKE_VIDEO` - Path: `/media/store/joke`) và bấm nút **"Bắt đầu Quét"**.
 - **Tương tác UI**:
   1. FE gửi `POST /api/v2/scans/previews` kèm `{ "rootKey": "joke_root" }`.
-  2. BE thực hiện lấy snapshot registry từ Catalog (nếu cần), tạo `ScanRun` record trong `scan_db`, gán worker ngầm, và trả về **`HTTP 202 Accepted`** kèm `scanRunId` ngay sau khi tạo run.
-  3. Màn hình FE **lập tức chuyển sang View Chi tiết đợt scan (`/scans/{scanRunId}`)** hoặc thu nhỏ thành **Floating Status Card** ở góc phải dưới màn hình.
-  4. Người dùng hoàn toàn tự do chuyển tab, duyệt Gallery, hoặc làm việc khác.
+  2. BE kiểm tra configured root tồn tại/readable. Nếu không khả dụng, trả `503 ProblemDetail` type `urn:filemngt:problem:scan-root-unavailable`; không tạo `ScanRun`.
+  3. Khi root khả dụng, BE lấy snapshot registry từ Catalog, tạo `ScanRun` trong `scan_db`, gán worker ngầm, và trả về **`HTTP 202 Accepted`** kèm `scanRunId`.
+  4. Màn hình FE **lập tức chuyển sang View Chi tiết đợt scan (`/scans/{scanRunId}`)** hoặc thu nhỏ thành **Floating Status Card** ở góc phải dưới màn hình.
+  5. Người dùng hoàn toàn tự do chuyển tab, duyệt Gallery, hoặc làm việc khác.
 
 ---
 
