@@ -44,7 +44,7 @@ const categories = {
     title: 'DATA MANAGEMENT COMMANDS',
     commands: [
       { cmd: 'npm run reset:data', desc: 'Reset lại dữ liệu dev/local database' },
-      { cmd: 'npm run scan-sc01:reset-data', desc: 'Truncate các bảng scan_issue, scan_proposal, scan_run trong scan_db cho SC-01' },
+      { cmd: 'npm run scan-sc01:reset-data', desc: 'Truncate các bảng scan_issue, scan_proposal, scan_run, scan_file_inventory trong scan_db cho SC-01' },
     ]
   },
   fixture: {

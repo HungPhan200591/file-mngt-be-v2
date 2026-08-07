@@ -1,10 +1,10 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-06
+Updated: 2026-08-07
 
 ## Hiện tại
 
-- Active feature: [`023-file-inventory-seed`](./features/023-file-inventory-seed/03-plan.md) `DONE` (BT-02 File inventory seed).
+- Active SC-01: BT-02 (File inventory seed) `DONE`, BT-03 (Inventory matcher) `DONE`.
 - Ready feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
 - Nợ kỹ thuật cần lưu ý: [`TD-004`–`TD-005`](./TECHNICAL_DEBT.md).
 
@@ -16,6 +16,6 @@ Updated: 2026-08-06
 
 ## Việc kế tiếp
 
-1. Triển khai **BT-03 — Inventory matcher** (SC-01) bỏ qua parse/proposal cho các path không đổi `(fileSize, modifiedAt)` và đánh dấu `MISSING`.
+1. Triển khai **BT-04 — Catalog batch existence API** (SC-01): internal API nhận tối đa 500 candidate, trả classification.
 2. Quay lại **FT013 — Media Worker processing foundation** khi quay lại Phase 4.
 3. Lập feature Import/backfill V1.

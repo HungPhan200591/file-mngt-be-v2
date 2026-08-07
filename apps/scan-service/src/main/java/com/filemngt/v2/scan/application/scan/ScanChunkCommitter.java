@@ -9,7 +9,6 @@ import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
-import com.filemngt.v2.scan.domain.scan.ScanRunStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -66,8 +65,28 @@ public class ScanChunkCommitter {
                 lease.nextLeaseUntil());
     }
 
+    /**
+     * Hoàn tất scan run trong một transaction độc lập được bảo vệ bởi lease validation.
+     * Đảm bảo markMissing và complete chạy nguyên tử, chỉ khi worker vẫn làm chủ run.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void finalizeRun(UUID runId, String workerId, String rootKey, ChunkProgress finalProgress) {
+        var run = runs.findById(runId).orElseThrow();
+        validateLease(run, new ChunkLease(runId, workerId, null));
+
+        inventoryBatchWriter.markMissing(rootKey, runId);
+        run.complete(finalProgress.files(), finalProgress.proposals(), finalProgress.issues());
+        runs.saveAndFlush(run);
+        LOGGER.info(
+                "Đã finalize scan runId={}: files={}, proposals={}, issues={}",
+                runId,
+                finalProgress.files(),
+                finalProgress.proposals(),
+                finalProgress.issues());
+    }
+
     private void validateLease(ScanRunEntity run, ChunkLease lease) {
-        if (run.status() != ScanRunStatus.RUNNING
+        if (!run.isLeaseActive(Instant.now())
                 || (lease.workerId() != null && !lease.workerId().equals(run.workerId()))) {
             LOGGER.error(
                     "Lease của worker không hợp lệ hoặc đã bị hủy: runId={}, workerId={}",

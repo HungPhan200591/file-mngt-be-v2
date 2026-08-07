@@ -1,12 +1,13 @@
 package com.filemngt.v2.scan.application.scan;
 
-import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.application.scan.ScanInventoryMatcher.MatchResult;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
+import com.filemngt.v2.scan.domain.inventory.ScanInventorySnapshot;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,7 +15,10 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -22,7 +26,8 @@ import org.springframework.stereotype.Component;
 @Component
 /**
  * Thực thi scan bất đồng bộ trên filesystem và lưu inventory/proposal/issue theo batch chunk độc lập.
- * Class này sở hữu tiến độ và điều phối chunk persistence qua {@link ScanChunkCommitter}.
+ * Từ BT-03: dùng ScanInventoryMatcher để bỏ qua parse file không đổi (UNCHANGED),
+ * và đánh dấu MISSING cho file bị xóa khỏi đĩa sau khi walk xong.
  */
 public class ScanExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanExecutor.class);
@@ -32,16 +37,22 @@ public class ScanExecutor {
     private final ScanRunRepository runs;
     private final ScanChunkCommitter chunkCommitter;
     private final ScanFileAnalyzer analyzer;
+    private final ScanInventoryMatcher inventoryMatcher;
+    private final ScanFileInventoryRepository inventoryRepository;
     private final ScanProperties properties;
 
     public ScanExecutor(
             ScanRunRepository runs,
             ScanChunkCommitter chunkCommitter,
             ScanFileAnalyzer analyzer,
+            ScanInventoryMatcher inventoryMatcher,
+            ScanFileInventoryRepository inventoryRepository,
             ScanProperties properties) {
         this.runs = runs;
         this.chunkCommitter = chunkCommitter;
         this.analyzer = analyzer;
+        this.inventoryMatcher = inventoryMatcher;
+        this.inventoryRepository = inventoryRepository;
         this.properties = properties;
     }
 
@@ -51,15 +62,16 @@ public class ScanExecutor {
         try {
             var run = runs.findById(runId).orElseThrow();
             var progress = scanFiles(run, root, snapshot);
-            var completedRun = runs.findById(runId).orElseThrow();
-            completedRun.complete(progress.files, progress.proposals, progress.issues);
-            runs.saveAndFlush(completedRun);
+            var finalProgress =
+                    new ScanChunkCommitter.ChunkProgress(progress.files, progress.proposals, progress.issues);
+            chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), finalProgress);
             LOGGER.info(
-                    "Hoàn tất scan runId={}: files={}, proposals={}, issues={}",
+                    "Hoàn tất scan runId={}: files={}, proposals={}, issues={}, skipped={}",
                     runId,
                     progress.files,
                     progress.proposals,
-                    progress.issues);
+                    progress.issues,
+                    progress.skipped);
         } catch (Exception exception) {
             LOGGER.error("Scan thất bại runId={}: error={}", runId, exception.getMessage(), exception);
             runs.findById(runId).ifPresent(failedRun -> {
@@ -73,12 +85,9 @@ public class ScanExecutor {
     private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot)
             throws IOException {
         var progress = new ScanProgress();
-        List<ScanInventoryItem> inventoryBuffer = new ArrayList<>(BATCH_SIZE);
-        List<ScanProposalEntity> proposalBuffer = new ArrayList<>(BATCH_SIZE);
-        List<ScanIssueEntity> issueBuffer = new ArrayList<>(BATCH_SIZE);
+        var chunk = new ScanChunk(BATCH_SIZE);
+        var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
         Path rootPath = Path.of(root.path());
-        UUID runId = run.id();
-        String workerId = run.workerId();
         int chunkIndex = run.checkpointChunk();
 
         try (var paths = Files.walk(rootPath)) {
@@ -87,30 +96,73 @@ public class ScanExecutor {
                     .iterator();
             while (files.hasNext()) {
                 Path filePath = files.next();
-                String relativePath = relativePath(rootPath, filePath);
-                inventoryBuffer.add(readInventoryItem(rootPath, filePath, root.key()));
+                ScanInventoryItem diskItem = readInventoryItem(rootPath, filePath, root.key());
+                chunk.addInventory(diskItem);
                 progress.recordFile();
 
-                if (ScanCandidateParser.supports(root.profile(), filePath)) {
-                    var result = analyzer.analyze(runId, root.profile(), relativePath, snapshot);
-                    progress.recordResult(result);
-                    switch (result) {
-                        case ScanFileAnalyzer.Proposal(var proposal) -> proposalBuffer.add(proposal);
-                        case ScanFileAnalyzer.Issue(var issue) -> issueBuffer.add(issue);
-                    }
-                }
-                if (shouldFlushChunk(inventoryBuffer, proposalBuffer, issueBuffer)) {
+                if (chunk.shouldFlush()) {
                     chunkIndex++;
-                    commitChunk(runId, workerId, chunkIndex, inventoryBuffer, proposalBuffer, issueBuffer, progress);
+                    flushChunk(context, chunk, progress, chunkIndex);
                 }
-                logProgress(runId, progress);
+                logProgress(context.runId(), progress);
             }
         }
-        if (hasRemainingChunk(inventoryBuffer, proposalBuffer, issueBuffer)) {
+        if (chunk.hasItems()) {
             chunkIndex++;
-            commitChunk(runId, workerId, chunkIndex, inventoryBuffer, proposalBuffer, issueBuffer, progress);
+            flushChunk(context, chunk, progress, chunkIndex);
         }
         return progress;
+    }
+
+    private void flushChunk(ScanExecutionContext context, ScanChunk chunk, ScanProgress progress, int chunkIndex) {
+        Map<String, ScanInventorySnapshot> existingMap =
+                lookupExisting(context.root().key(), chunk.inventoryItems());
+        analyzeNewOrChanged(context, chunk, progress, existingMap);
+        commitChunk(context, chunkIndex, chunk, progress);
+        chunk.clear();
+    }
+
+    /**
+     * Lookup batch snapshot từ DB cho toàn bộ inventory hiện tại (tối đa 500 path).
+     * Trả Map<relativePath, snapshot> để classify nhanh O(1).
+     */
+    private Map<String, ScanInventorySnapshot> lookupExisting(String rootKey, List<ScanInventoryItem> buffer) {
+        List<String> paths =
+                buffer.stream().map(ScanInventoryItem::sourceRelativePath).toList();
+        return inventoryRepository.findSnapshotsByRootKeyAndPaths(rootKey, paths).stream()
+                .collect(Collectors.toMap(ScanInventorySnapshot::sourceRelativePath, Function.identity()));
+    }
+
+    /**
+     * Phân loại file trong buffer: UNCHANGED → skip analyze; NEW_OR_CHANGED → analyze bình thường.
+     * Kết quả proposal/issue được thêm trực tiếp vào chunk tương ứng.
+     */
+    private void analyzeNewOrChanged(
+            ScanExecutionContext context,
+            ScanChunk chunk,
+            ScanProgress progress,
+            Map<String, ScanInventorySnapshot> existingMap) {
+        for (ScanInventoryItem diskItem : chunk.inventoryItems()) {
+            MatchResult result = inventoryMatcher.classify(diskItem, existingMap);
+            switch (result) {
+                case MatchResult.Unchanged ignored -> progress.recordSkipped();
+                case MatchResult.NewOrChanged(var item) -> analyzeCandidate(context, item, chunk, progress);
+            }
+        }
+    }
+
+    private void analyzeCandidate(
+            ScanExecutionContext context, ScanInventoryItem item, ScanChunk chunk, ScanProgress progress) {
+        if (!ScanCandidateParser.supports(context.root().profile(), Path.of(item.sourceRelativePath()))) {
+            return;
+        }
+        var analyzeResult = analyzer.analyze(
+                context.runId(), context.root().profile(), item.sourceRelativePath(), context.snapshot());
+        progress.recordResult(analyzeResult);
+        switch (analyzeResult) {
+            case ScanFileAnalyzer.Proposal(var proposal) -> chunk.addProposal(proposal);
+            case ScanFileAnalyzer.Issue(var issue) -> chunk.addIssue(issue);
+        }
     }
 
     private ScanInventoryItem readInventoryItem(Path rootPath, Path filePath, String rootKey) throws IOException {
@@ -120,40 +172,16 @@ public class ScanExecutor {
         return new ScanInventoryItem(rootKey, relativePath, fileSize, fileModifiedAt);
     }
 
-    private boolean shouldFlushChunk(
-            List<ScanInventoryItem> inventoryBuffer,
-            List<ScanProposalEntity> proposalBuffer,
-            List<ScanIssueEntity> issueBuffer) {
-        return inventoryBuffer.size() >= BATCH_SIZE || proposalBuffer.size() + issueBuffer.size() >= BATCH_SIZE;
-    }
-
-    private boolean hasRemainingChunk(
-            List<ScanInventoryItem> inventoryBuffer,
-            List<ScanProposalEntity> proposalBuffer,
-            List<ScanIssueEntity> issueBuffer) {
-        return !inventoryBuffer.isEmpty() || !proposalBuffer.isEmpty() || !issueBuffer.isEmpty();
-    }
-
-    private void commitChunk(
-            UUID runId,
-            String workerId,
-            int chunkIndex,
-            List<ScanInventoryItem> inventoryBuffer,
-            List<ScanProposalEntity> proposalBuffer,
-            List<ScanIssueEntity> issueBuffer,
-            ScanProgress progress) {
+    private void commitChunk(ScanExecutionContext context, int chunkIndex, ScanChunk chunk, ScanProgress progress) {
         Instant nextLeaseUntil = Instant.now().plusSeconds(properties.getLeaseDurationSeconds());
-        var lease = new ScanChunkCommitter.ChunkLease(runId, workerId, nextLeaseUntil);
+        var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil);
         var batch = new ScanChunkCommitter.ChunkBatch(
                 chunkIndex,
-                new ArrayList<>(inventoryBuffer),
-                new ArrayList<>(proposalBuffer),
-                new ArrayList<>(issueBuffer));
+                new ArrayList<>(chunk.inventoryItems()),
+                new ArrayList<>(chunk.proposals()),
+                new ArrayList<>(chunk.issues()));
         var chunkProgress = new ScanChunkCommitter.ChunkProgress(progress.files, progress.proposals, progress.issues);
         chunkCommitter.commitChunk(lease, batch, chunkProgress);
-        inventoryBuffer.clear();
-        proposalBuffer.clear();
-        issueBuffer.clear();
     }
 
     private String relativePath(Path rootPath, Path path) {
@@ -163,21 +191,30 @@ public class ScanExecutor {
     private void logProgress(UUID runId, ScanProgress progress) {
         if (progress.files % PROGRESS_LOG_INTERVAL == 0) {
             LOGGER.info(
-                    "Tiến độ scan runId={}: files={}, proposals={}, issues={}",
+                    "Tiến độ scan runId={}: files={}, proposals={}, issues={}, skipped={}",
                     runId,
                     progress.files,
                     progress.proposals,
-                    progress.issues);
+                    progress.issues,
+                    progress.skipped);
         }
     }
+
+    private record ScanExecutionContext(
+            UUID runId, String workerId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {}
 
     private static final class ScanProgress {
         private long files;
         private long proposals;
         private long issues;
+        private long skipped;
 
         private void recordFile() {
             files++;
+        }
+
+        private void recordSkipped() {
+            skipped++;
         }
 
         private void recordResult(ScanFileAnalyzer.Result result) {

@@ -112,12 +112,12 @@ async function main() {
 
   const postgres = requireContainer('postgres');
 
-  log('[1/2] Truncate các bảng scan_issue, scan_proposal, scan_run trong scan_db...', COLORS.yellow);
+  log('[1/2] Truncate các bảng scan_issue, scan_proposal, scan_run, scan_file_inventory trong scan_db...', COLORS.yellow);
   runPsql(
     postgres,
     'scan_user',
     'scan_db',
-    'TRUNCATE TABLE scan_issue, scan_proposal, scan_run RESTART IDENTITY CASCADE;',
+    'TRUNCATE TABLE scan_issue, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
   );
 
   log('[2/2] Xác minh các bảng đã trống...', COLORS.yellow);
@@ -125,9 +125,10 @@ async function main() {
     'scan_issue',
     'scan_proposal',
     'scan_run',
+    'scan_file_inventory',
   ]);
 
-  log('\n ✓ Reset thành công: scan_issue, scan_proposal, scan_run trong scan_db đã được xóa sạch!', COLORS.green);
+  log('\n ✓ Reset thành công: scan_issue, scan_proposal, scan_run, scan_file_inventory trong scan_db đã được xóa sạch!', COLORS.green);
   console.log('==========================================================');
 }
 

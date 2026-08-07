@@ -253,7 +253,7 @@ async function main() {
     postgres,
     'scan_user',
     'scan_db',
-    'TRUNCATE TABLE scan_issue, scan_outbox_event, scan_decision, scan_proposal, scan_run RESTART IDENTITY CASCADE;',
+    'TRUNCATE TABLE scan_issue, scan_outbox_event, scan_decision, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
   );
   runPsql(
     postgres,
@@ -273,6 +273,7 @@ async function main() {
     'scan_decision',
     'scan_proposal',
     'scan_run',
+    'scan_file_inventory',
   ]);
   verifyDatabaseEmpty(postgres, 'catalog_user', 'catalog_db', [
     'catalog_dead_letter_event',

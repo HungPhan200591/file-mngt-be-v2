@@ -54,7 +54,13 @@ class ScanIntegrationTest {
     com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryRepository inventories;
 
     @Autowired
+    com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository proposals;
+
+    @Autowired
     com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository runs;
+
+    @Autowired
+    com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository issues;
 
     @MockitoBean
     CatalogRegistryClient catalogClient;
@@ -63,6 +69,13 @@ class ScanIntegrationTest {
     void setUp() {
         Mockito.when(catalogClient.fetch("JOKE"))
                 .thenReturn(Optional.of(new ScanRegistrySnapshot(100L, "JOKE", List.of("JOKE-001"), List.of())));
+        // Xóa toàn bộ state DB trước mỗi test để đảm bảo isolation.
+        // Cần thiết từ BT-03: inventory persisted cross-test khiến file bị classify UNCHANGED sai.
+        outbox.deleteAllInBatch();
+        proposals.deleteAllInBatch();
+        issues.deleteAllInBatch();
+        inventories.deleteAllInBatch();
+        runs.deleteAllInBatch();
     }
 
     @DynamicPropertySource
@@ -114,8 +127,8 @@ class ScanIntegrationTest {
                 .toList();
         assertThat(relativePaths).contains("Studio/Actress/A - [JOKE-001].mp4", "bad.mp4", "Cover - [JOKE-002].jpg");
 
-        ScanProposalRef secondScan = scanAndGetProposal();
-        UUID secondRunId = UUID.fromString(secondScan.scanId());
+        // Scan 2: file không thay đổi → BT-03 skip parse → proposalCount=0 là đúng
+        UUID secondRunId = triggerScanAndComplete();
         long secondInventoryCount = inventories.count();
 
         assertThat(secondInventoryCount).isEqualTo(regularFileCount());
@@ -138,6 +151,103 @@ class ScanIntegrationTest {
         assertThat(inventories.findAll())
                 .allMatch(item -> item.lastSeenRunId().equals(runId)
                         && item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+    }
+
+    @Test
+    void inventoryMatcherSkipsUnchangedFileOnRescan() throws Exception {
+        // Lần scan 1 (cold): tạo inventory ban đầu, tạo proposal
+        scanAndGetProposal();
+        long proposalsAfterFirst = proposals.count();
+        assertThat(inventories.findAll())
+                .allMatch(item -> item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+
+        // Lần scan 2 (warm): file không thay đổi → BT-03 skip parse → proposalCount=0 là CORRECT
+        triggerScanAndComplete();
+        long proposalsAfterSecond = proposals.count();
+        assertThat(proposalsAfterSecond)
+                .as("Scan lại fixture không đổi không được tạo thêm proposal mới")
+                .isEqualTo(proposalsAfterFirst);
+        assertThat(inventories.findAll())
+                .allMatch(item -> item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+    }
+
+    @Test
+    void inventoryMatcherMarksMissingFile() throws Exception {
+        // Lần scan 1: inventory có đủ file PRESENT
+        scanAndGetProposal();
+        long inventoryCount = inventories.count();
+        assertThat(inventoryCount).isGreaterThan(0);
+
+        // Xóa 1 file khỏi fixture
+        Path deletedFile = ROOT.resolve("bad.mp4");
+        Files.deleteIfExists(deletedFile);
+        try {
+            // Lần scan 2 (warm): file bị xóa phải là MISSING; 2 file còn lại UNCHANGED → 0 proposal là CORRECT
+            triggerScanAndComplete();
+            var missingItems = inventories.findAll().stream()
+                    .filter(item ->
+                            item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.MISSING)
+                    .toList();
+            assertThat(missingItems)
+                    .as("File bị xóa phải được đánh dấu MISSING")
+                    .hasSize(1);
+            assertThat(missingItems.get(0).sourceRelativePath()).isEqualTo("bad.mp4");
+            assertThat(inventories.findAll().stream()
+                            .filter(item -> item.state()
+                                    == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT)
+                            .count())
+                    .isEqualTo(inventoryCount - 1);
+        } finally {
+            // Khôi phục fixture để không ảnh hưởng test khác
+            Files.writeString(deletedFile, "x");
+        }
+    }
+
+    @Test
+    void inventoryMatcherParsesModifiedFile() throws Exception {
+        // Lần scan 1: cold scan tạo proposal ban đầu
+        scanAndGetProposal();
+        long initialProposalsCount = proposals.count();
+
+        // Sửa nội dung file (đổi fileSize + fileModifiedAt)
+        Path targetFile = ROOT.resolve("Studio/Actress/A - [JOKE-001].mp4");
+        Files.writeString(targetFile, "updated content for modified test");
+        try {
+            // Lần scan 2: file bị sửa phải được classify NEW_OR_CHANGED và parse lại -> tạo proposal mới
+            triggerScanAndComplete();
+            assertThat(proposals.count())
+                    .as("File thay đổi fileSize/modifiedAt phải được parse lại để tạo proposal mới")
+                    .isEqualTo(initialProposalsCount + 1);
+        } finally {
+            Files.writeString(targetFile, "x");
+        }
+    }
+
+    @Test
+    void inventoryMatcherUpsertsUnsupportedFileWithoutProposal() throws Exception {
+        // Lần scan 1: cold scan
+        scanAndGetProposal();
+        long initialProposalsCount = proposals.count();
+        long initialInventoryCount = inventories.count();
+
+        // Thêm một file ảnh .jpg mới (JOKE_VIDEO profile không hỗ trợ parse .jpg làm video candidate)
+        Path unsupportedFile = ROOT.resolve("new-unsupported-cover.jpg");
+        Files.writeString(unsupportedFile, "image-binary-data");
+        try {
+            // Lần scan 2: file .jpg mới được seed vào inventory nhưng không tạo proposal/issue mới
+            triggerScanAndComplete();
+            assertThat(inventories.count()).isEqualTo(initialInventoryCount + 1);
+            assertThat(proposals.count()).isEqualTo(initialProposalsCount);
+
+            var addedItem = inventories.findAll().stream()
+                    .filter(item -> item.sourceRelativePath().equals("new-unsupported-cover.jpg"))
+                    .findFirst();
+            assertThat(addedItem).isPresent();
+            assertThat(addedItem.get().state())
+                    .isEqualTo(com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+        } finally {
+            Files.deleteIfExists(unsupportedFile);
+        }
     }
 
     @Test
@@ -256,6 +366,32 @@ class ScanIntegrationTest {
         assertThat(proposal.get("evidence").toString()).doesNotContain(ROOT.toString());
         String proposalId = proposal.get("id").asText();
         return new ScanProposalRef(id, proposalId);
+    }
+
+    /**
+     * Trigger scan và chờ cho đến khi COMPLETED, trả UUID của run.
+     * Dùng cho warm scan (lần 2+) trong BT-03 tests: không assert proposalCount
+     * vì file unchanged đúng đắn trả về 0 proposals.
+     */
+    private UUID triggerScanAndComplete() throws Exception {
+        var response = mockMvc.perform(post("/api/v2/scans/previews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rootKey\":\"fixture\"}"))
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String id = response.replaceFirst(".*\"id\":\"([^\"]+)\".*", "$1");
+        for (int i = 0; i < 50; i++) {
+            String body = mockMvc.perform(get("/api/v2/scans/" + id))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            if (body.contains("COMPLETED")) break;
+            Thread.sleep(50);
+        }
+        return UUID.fromString(id);
     }
 
     private String decisionPath(ScanProposalRef proposal) {

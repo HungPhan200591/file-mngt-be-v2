@@ -32,6 +32,13 @@ public class ScanFileInventoryBatchWriter {
             updated_at = EXCLUDED.updated_at
         """;
 
+    private static final String MARK_MISSING_SQL = """
+            UPDATE scan_file_inventory
+            SET state = 'MISSING', updated_at = ?
+            WHERE root_key = ?
+              AND last_seen_run_id != ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
 
     public ScanFileInventoryBatchWriter(JdbcTemplate jdbcTemplate) {
@@ -46,6 +53,14 @@ public class ScanFileInventoryBatchWriter {
         Instant now = Instant.now();
         List<ScanInventoryItem> deduplicatedItems = deduplicateByPath(items);
         jdbcTemplate.batchUpdate(UPSERT_SQL, new InventoryBatch(deduplicatedItems, runId, now));
+    }
+
+    /**
+     * Đánh dấu MISSING cho tất cả entry cùng rootKey không được nhìn thấy trong run hiện tại.
+     * Gọi 1 lần sau khi Files.walk hoàn tất — không thuộc chunk transaction.
+     */
+    public void markMissing(String rootKey, UUID currentRunId) {
+        jdbcTemplate.update(MARK_MISSING_SQL, Timestamp.from(Instant.now()), rootKey, currentRunId);
     }
 
     private List<ScanInventoryItem> deduplicateByPath(List<ScanInventoryItem> items) {
