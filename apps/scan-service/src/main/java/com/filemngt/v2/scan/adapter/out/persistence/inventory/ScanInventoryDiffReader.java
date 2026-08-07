@@ -39,6 +39,20 @@ public class ScanInventoryDiffReader {
             FROM stage_page
             HAVING count(*) > 0
             """;
+    private static final String COUNT_CHANGED_SQL = """
+            SELECT count(*)
+            FROM scan_inventory_stage stage
+            LEFT JOIN scan_file_inventory inventory
+              ON inventory.root_key = stage.root_key
+             AND inventory.source_relative_path = stage.source_relative_path
+            WHERE stage.scan_run_id = ?
+              AND stage.root_key = ?
+              AND NOT COALESCE(
+                  inventory.state = 'PRESENT'
+                  AND inventory.file_size IS NOT DISTINCT FROM stage.file_size
+                  AND inventory.file_modified_at IS NOT DISTINCT FROM stage.file_modified_at,
+                  FALSE)
+            """;
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -66,6 +80,11 @@ public class ScanInventoryDiffReader {
                 afterPath,
                 limit);
         return toPage(rows);
+    }
+
+    public long countChanged(UUID runId, String rootKey) {
+        Long count = jdbcTemplate.queryForObject(COUNT_CHANGED_SQL, Long.class, runId, rootKey);
+        return count == null ? 0L : count;
     }
 
     private ChangedPage toPage(List<DiffRow> rows) {

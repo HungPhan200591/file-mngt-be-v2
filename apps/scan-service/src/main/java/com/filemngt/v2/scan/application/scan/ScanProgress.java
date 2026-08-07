@@ -6,6 +6,8 @@ final class ScanProgress {
     private long proposals;
     private long issues;
     private long skipped;
+    private long changedFiles;
+    private long reconciledFiles;
 
     void recordFiles(long count) {
         files += count;
@@ -13,6 +15,14 @@ final class ScanProgress {
 
     void recordSkipped(long count) {
         skipped += count;
+    }
+
+    void setChangedFiles(long count) {
+        changedFiles = count;
+    }
+
+    void recordReconciledFiles(long count) {
+        reconciledFiles += count;
     }
 
     void recordResult(ScanFileAnalyzer.Result result) {
@@ -36,5 +46,13 @@ final class ScanProgress {
 
     long skipped() {
         return skipped;
+    }
+
+    long changedFiles() {
+        return changedFiles;
+    }
+
+    long reconciledFiles() {
+        return reconciledFiles;
     }
 }

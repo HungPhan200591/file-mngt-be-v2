@@ -20,6 +20,8 @@ public class ScanProperties {
     private long mutationStatementTimeoutSeconds = 45;
     @Min(1)
     private long lockTimeoutSeconds = 5;
+    @Min(1)
+    private int businessChunkSize = 15_000;
 
     public List<Root> getRoots() {
         return roots;
@@ -59,6 +61,14 @@ public class ScanProperties {
 
     public void setLockTimeoutSeconds(long lockTimeoutSeconds) {
         this.lockTimeoutSeconds = lockTimeoutSeconds;
+    }
+
+    public int getBusinessChunkSize() {
+        return businessChunkSize;
+    }
+
+    public void setBusinessChunkSize(int businessChunkSize) {
+        this.businessChunkSize = businessChunkSize;
     }
 
     public record Root(String key, String path, ScanProfile profile) {}

@@ -32,7 +32,8 @@ final class ScanDiscoveryProgressReporter {
         if (observedFiles % REPORT_EVERY_FILES != 0 || System.nanoTime() < nextSignalNanos) {
             return;
         }
-        var counters = new ScanRunStreamCounters(durableFiles + observedFiles, durableFiles, 0, 0);
+        var counters = new ScanRunStreamCounters(
+                durableFiles + observedFiles, durableFiles, null, 0L, 0L, 0L);
         liveness.publishTransient(new ScanRunStreamProgress(runId, ScanRunStreamPhase.DISCOVERY, counters));
         nextSignalNanos = System.nanoTime() + intervalNanos;
     }

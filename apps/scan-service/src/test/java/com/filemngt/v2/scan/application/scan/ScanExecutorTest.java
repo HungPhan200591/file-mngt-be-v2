@@ -4,9 +4,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryDiffReader;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import com.filemngt.v2.scan.domain.scan.ScanProfile;
@@ -24,14 +24,16 @@ class ScanExecutorTest {
         var runId = UUID.randomUUID();
         when(runs.findById(runId)).thenReturn(Optional.of(run));
         var failureHandler = new ScanExecutionFailureHandler(runs, committer);
+        var liveness = mock(ScanExecutionLiveness.class);
 
         var executor = new ScanExecutor(
                 runs,
                 committer,
                 mock(ScanFileAnalyzer.class),
-                mock(ScanInventoryDiffReader.class),
+                mock(ScanReconciliationPageReader.class),
                 mock(ScanProperties.class),
-                failureHandler);
+                failureHandler,
+                liveness);
         var root = new ScanProperties.Root("missing-root", "Z:/path-that-does-not-exist", ScanProfile.JOKE_VIDEO);
         var snapshot = new ScanRegistrySnapshot(1L, "JOKE", List.of(), List.of());
 

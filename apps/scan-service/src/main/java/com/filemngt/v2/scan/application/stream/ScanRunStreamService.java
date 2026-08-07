@@ -53,6 +53,8 @@ public class ScanRunStreamService {
                 run.status(),
                 run.scannedFileCount(),
                 run.scannedFileCount(),
+                null,
+                null,
                 run.proposalCount(),
                 run.issueCount(),
                 run.finishedAt(),

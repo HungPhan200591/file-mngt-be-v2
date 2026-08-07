@@ -35,6 +35,12 @@ Design: [02-design.md](./02-design.md)
 ## Kiểm tra
 
 - Chưa chạy test/build/service theo yêu cầu người dùng.
+- Update sau implementation: hiển thị phase/số file quan sát thực tế thay vì giả định tổng
+  workload. Tăng default `scan.business-chunk-size` từ 10.000 lên 15.000; chưa benchmark
+  theo yêu cầu người dùng.
+- Update progress UX: SSE thêm `changedFileCount`/`reconciledFileCount` nullable. FE có hai
+  progress bar: discovery/COPY chỉ hoàn tất khi staging có tổng chính xác; reconciliation
+  dùng set-based changed workload làm mẫu số và committed business chunks làm tử số.
 - Khi được phép triển khai/verify: unit test coalescing/capacity/cleanup/race; MVC test
   event name/payload/404/429/terminal; Gateway integration test nhận frame trước khi
   stream complete và sống qua >30 giây với heartbeat.

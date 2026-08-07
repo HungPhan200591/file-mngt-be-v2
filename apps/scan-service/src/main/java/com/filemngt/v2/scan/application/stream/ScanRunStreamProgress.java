@@ -8,11 +8,19 @@ public record ScanRunStreamProgress(UUID runId, ScanRunStreamPhase phase, ScanRu
             UUID runId,
             ScanRunStreamPhase phase,
             long scannedFileCount,
+            Long changedFileCount,
+            long reconciledFileCount,
             long proposalCount,
             long issueCount) {
         return new ScanRunStreamProgress(
                 runId,
                 phase,
-                new ScanRunStreamCounters(scannedFileCount, scannedFileCount, proposalCount, issueCount));
+                new ScanRunStreamCounters(
+                        scannedFileCount,
+                        scannedFileCount,
+                        changedFileCount,
+                        reconciledFileCount,
+                        proposalCount,
+                        issueCount));
     }
 }

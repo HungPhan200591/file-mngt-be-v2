@@ -301,6 +301,14 @@ components:
           type: integer
           format: int64
           description: Durable count from scan_run.
+        changedFileCount:
+          type: [integer, 'null']
+          format: int64
+          description: Exact changed-file workload after staging diff; null before reconciliation begins.
+        reconciledFileCount:
+          type: [integer, 'null']
+          format: int64
+          description: Changed files whose business persistence checkpoint has committed.
         proposalCount: { type: integer, format: int64 }
         issueCount: { type: integer, format: int64 }
         finishedAt: { type: [string, 'null'], format: date-time }

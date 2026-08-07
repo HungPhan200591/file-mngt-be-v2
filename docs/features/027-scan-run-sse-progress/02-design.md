@@ -82,6 +82,11 @@ data: ScanRunStreamEvent JSON
 `issueCount`, `finishedAt`, `lastError`. `scannedFileCount` và các count DB là
 durable; `observedFileCount` chỉ best-effort trong lúc `RUNNING`.
 
+Khi discovery/COPY hoàn tất, `scannedFileCount` là tổng staging chính xác và FE đánh dấu
+phase 1 hoàn tất. Trước reconciliation, Scan Service chạy một set-based `countChanged`;
+`changedFileCount` là mẫu số, còn `reconciledFileCount` chỉ tăng sau business chunk commit.
+Hai field nullable trước phase 2, chỉ phục vụ UI, không được dùng cho quyết định nghiệp vụ.
+
 `phase = UNKNOWN` là giá trị hợp lệ cho snapshot sau reconnect/restart khi DB không
 lưu execution phase; server không được đoán phase từ counter hoặc checkpoint.
 

@@ -28,6 +28,8 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 - SSE `GET /api/v2/scans/{scanId}/events` chỉ là kênh best-effort process-local cho
   snapshot/progress/terminal aggregate. REST vẫn là source đọc trạng thái, proposal và
   issue; stream mất kết nối không được ảnh hưởng scan, browser tự REST-verify/fallback.
+- Reconciliation đếm set-based tập changed một lần sau discovery. Chỉ SSE progress mang
+  workload/count xử lý phase 2; dữ liệu này transient, không phải state nghiệp vụ durable.
 - Approval ghi item và outbox cùng transaction.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không dùng root/path/file name làm metric label.

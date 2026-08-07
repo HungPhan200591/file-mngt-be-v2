@@ -33,9 +33,20 @@ final class ScanExecutionLiveness {
         deadlineGuard.cancel(runId);
     }
 
-    void publishDurable(UUID runId, ScanRunStreamPhase phase, ScanChunkCommitter.ChunkProgress progress) {
+    void publishDurable(
+            UUID runId,
+            ScanRunStreamPhase phase,
+            ScanChunkCommitter.ChunkProgress progress,
+            Long changedFileCount,
+            long reconciledFileCount) {
         streamService.publishProgress(ScanRunStreamProgress.durable(
-                runId, phase, progress.files(), progress.proposals(), progress.issues()));
+                runId,
+                phase,
+                progress.files(),
+                changedFileCount,
+                reconciledFileCount,
+                progress.proposals(),
+                progress.issues()));
     }
 
     void publishTransient(ScanRunStreamProgress progress) {
