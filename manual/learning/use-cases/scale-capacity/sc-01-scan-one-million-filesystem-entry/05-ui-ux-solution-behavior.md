@@ -46,7 +46,7 @@ flowchart TD
 
 ### 2.2 Luồng Thanh Tiến Độ & REST Contract Alignment
 
-FE thực hiện **Short Polling** `GET /api/v2/scans/{scanRunId}` mỗi **1.5 giây** trong baseline hiện tại.
+FE V2 thực hiện **Short Polling** `GET /api/v2/scans/{scanRunId}` mỗi **3 giây** trong baseline hiện tại. Mỗi nhịp là one-shot timer: chỉ lên lịch nhịp kế tiếp sau khi request hiện tại kết thúc để không có hai poll cùng run chạy chồng nhau.
 
 > **Future evolution:** SSE có thể thay polling sau khi có event schema, reconnect/heartbeat và connection policy riêng. SSE chưa thuộc BT-03 và không phải contract hiện hành.
 
@@ -101,7 +101,7 @@ Nhờ **BT-03 (Inventory Matcher)**:
 - **Quét lại (Rescan / Start New Scan)**:
   - Khi bấm **"Quét lại"**, hệ thống khởi tạo đợt scan mới (`POST /api/v2/scans/previews`).
   - BE thực hiện **Full Walk toàn bộ root**, nhưng tự động **bỏ qua (skip parse)** các file không thay đổi metadata `(fileSize, modifiedAt)` so với kho inventory đã seed từ đợt scan trước.
-  - Đợt scan hoàn tất nhanh hơn nhiều lần do chỉ parse file mới hoặc file bị sửa đổi nội dung.
+  - Cơ chế này có thể giảm chi phí parse ở warm scan; mức cải thiện phải đo bằng benchmark, chưa được mặc định là “nhanh hơn nhiều lần”.
 
 - **Hiển thị File bị Xóa khỏi Ổ đĩa (`MISSING`) — Read-Only Badge**:
   - Sau khi scan kết thúc thành công, BE chạy `markMissing` cập nhật `state = 'MISSING'` trong `scan_file_inventory` cho các file vật lý không còn xuất hiện trên đĩa.
@@ -131,13 +131,20 @@ Nhờ **BT-03 (Inventory Matcher)**:
     > ⚠️ **Đợt quét thất bại hoặc bị gián đoạn**  
     > Nguyên nhân: `lastError` (ví dụ: Worker timeout / Hết hạn lease).  
     > `[ 🔄 Bấm để Quét lại (Rescan) ]`
-  - **Lưu ý về Resume**: Hệ thống không có endpoint resume từ checkpoint path lẻ. Nút **"Quét lại"** sẽ tạo đợt scan mới và thực hiện full walk lại root; nhờ BT-03, các file đã có inventory không đổi sẽ tự động được skip parse cực kỳ nhanh.
+  - **Lưu ý về Resume**: Hệ thống không có endpoint resume từ checkpoint path lẻ. Nút **"Quét lại"** sẽ tạo đợt scan mới và thực hiện full walk lại root; nhờ BT-03, các file có inventory không đổi được skip parser. Hiệu quả warm scan phải được đo riêng.
+
+### 3.3 Trường hợp 3: Run không còn tồn tại (`404` sau truncate/reset dữ liệu dev)
+
+- `404` từ `GET /api/v2/scans/{scanId}` có nghĩa navigation state phía browser đã stale; đây không phải `FAILED` và FE không được tiếp tục poll ID đó.
+- FE dừng timer, vô hiệu hóa response đang bay của selection cũ, xóa `scanId` khỏi URL rồi reload `GET /api/v2/scans?page=0&size=10`.
+- Nếu còn run gần đây, FE chọn run mới nhất. Nếu lịch sử rỗng, FE về empty state và vẫn giữ root picker/nút **Bắt đầu Quét** hoạt động.
+- Deep-link hợp lệ phải được xác minh bằng `GET /api/v2/scans/{scanId}`; không được kết luận “không tồn tại” chỉ vì ID không nằm trong trang 10 run gần nhất.
 
 ---
 
 ## 4. Sơ đồ Trạng thái UI chuẩn hóa theo Domain State
 
-Chỉ sử dụng đúng 4 trạng thái chuẩn của Domain (`IDLE`, `RUNNING`, `COMPLETED`, `FAILED`):
+Domain chỉ có `RUNNING`, `COMPLETED`, `FAILED`; `IDLE`, `INITIATING` và `STALE_RUN` là trạng thái UI tạm thời, không được gửi ngược thành domain state.
 
 ```mermaid
 flowchart TD
@@ -146,18 +153,22 @@ flowchart TD
     RUNNING["<font color='white'>RUNNING<br/>Wave Bar + Live Speed + Metrics</font>"]
     FAILED["<font color='white'>FAILED<br/>Alert + Thông báo lastError + Nút Quét lại</font>"]
     COMPLETED["<font color='white'>COMPLETED<br/>Summary Card + Complete Toast</font>"]
+    STALE["<font color='white'>STALE_RUN<br/>GET trả 404</font>"]
 
     IDLE -->|"User click Quét"| INIT
     INIT -->|"BE trả 202"| RUNNING
     RUNNING -->|"Worker fail / Lease expired / Error"| FAILED
     FAILED -->|"User click Quét lại"| INIT
     RUNNING -->|"Files.walk xong + finalizeRun"| COMPLETED
+    RUNNING -->|"Run bị xóa / truncate"| STALE
+    STALE -->|"Xóa scanId + reload history"| IDLE
 
-    style IDLE fill:#607D8B,stroke:#fff,stroke-width:2px
+    style IDLE fill:#4CAF50,stroke:#fff,stroke-width:2px
     style INIT fill:#2196F3,stroke:#fff,stroke-width:2px
     style RUNNING fill:#009688,stroke:#fff,stroke-width:2px
-    style FAILED fill:#F44336,stroke:#fff,stroke-width:2px
+    style FAILED fill:#E91E63,stroke:#fff,stroke-width:2px
     style COMPLETED fill:#4CAF50,stroke:#fff,stroke-width:2px
+    style STALE fill:#FF9800,stroke:#fff,stroke-width:2px
 ```
 
 ---
@@ -166,7 +177,7 @@ flowchart TD
 
 ```text
 +-----------------------------------------------------------------------------------------+
-|  📂 SCAN DASHBOARD — Root: JOKE_VIDEO (/media/store/joke)                               |
+|  📂 SCAN DASHBOARD — Root key: joke_root · Profile: JOKE_VIDEO                          |
 +-----------------------------------------------------------------------------------------+
 |                                                                                         |
 |  [Trạng thái: 🟢 DANG QUET NGAM]  ──  Đợt scan #e45d8fd4                               |
@@ -188,7 +199,7 @@ flowchart TD
 |  ----+--------------------------------------------+-----------+------------+-----------|
 |  [ ] | Studio/Actress/A - [JOKE-001].mp4          | JOKE-001  | 🟡 PENDING | [Approve] |
 |  [ ] | Studio/Actress/B - [JOKE-002].mp4          | JOKE-002  | 🟡 PENDING | [Approve] |
-|  [ ] | Cover - [JOKE-003].jpg                     | JOKE-003  | 🔴 MISSING | (Read-only)|
+|  [ ] | Cover - [JOKE-003].jpg                     | JOKE-003  | 🟡 PENDING | [Approve] |
 |                                                                                         |
 |  < Trang 1 / 285 >   [◄ Trước] [Sau ►]    (Polling chỉ cập nhật trạng thái scan...)       |
 +-----------------------------------------------------------------------------------------+
@@ -202,7 +213,7 @@ flowchart TD
 | :--- | :--- | :--- |
 | **BT-01** | Durable Scan Run, Worker Lease & Checkpoint | KHÔNG khóa UI. Khởi chạy 202 Accepted ngầm. Polling tiến độ ngầm. F5/Fail tự khôi phục hiển thị. |
 | **BT-02** | File Inventory Seed (`scan_file_inventory`) | Hiển thị Live Metrics Panel (`scannedFileCount`, `proposalCount`, `issueCount`, Tốc độ f/s). |
-| **BT-03** | Inventory Matcher (Skip unchanged + Mark Missing) | **Quét lại siêu tốc**: Full walk lại nhưng skip parse file không đổi. Hiển thị Badge `MISSING` read-only cho file bị xóa. |
+| **BT-03** | Inventory Matcher (Skip unchanged + Mark Missing) | **Warm rescan**: Full walk lại nhưng skip parse file không đổi. Badge `MISSING` chỉ là future UI sau khi có inventory API/read model; không suy diễn từ Proposal hiện tại. |
 | **BT-06** *(Sắp làm)* | Keyset Review Cursor `(source_relative_path, id)` | Phân trang bảng Proposal siêu mượt bằng cursor, không bị đơ database khi xem từ trang 1 đến trang 20,000. |
 | **BT-07** *(Sắp làm)* | Bulk Decision Job Chunked | Duyệt hàng loạt (Approve 10,000 item) chạy job ngầm với thanh tiến độ Bulk Progress riêng. |
 

@@ -110,6 +110,8 @@
    **Đáp nhanh:** Rewalk dễ hiểu và ít state nhưng đọc filesystem lặp lại; resume chính xác giảm I/O nhưng tăng độ phức tạp partition/checkpoint. Chọn sau khi có baseline.
 7. **Hỏi:** Polling và SSE nên tiến hóa như thế nào?
    **Đáp nhanh:** Baseline hiện tại dùng polling qua `GET /api/v2/scans/{scanId}` vì đã có contract và tự khôi phục sau refresh. SSE là tối ưu tương lai, cần event schema, reconnect/heartbeat và không thuộc BT-03.
+8. **Hỏi:** FE phải làm gì nếu poll run trả `404` sau khi dữ liệu dev bị truncate?
+   **Đáp nhanh:** Dừng polling ID cũ, vô hiệu hóa response stale, xóa `scanId` khỏi URL và reload recent runs; nếu history rỗng thì về empty state cho phép tạo scan mới. Không map `404` thành `FAILED`.
 
 ## Anchor interview questions
 
@@ -194,3 +196,4 @@
 | --- | --- | --- |
 | 2026-08-07 | BT-01/BT-02, inventory seed và chunk boundary | `ScanIntegrationTest`: 9 tests pass; fixture 504 file đi qua ít nhất 2 chunk. |
 | 2026-08-07 | BT-03, matcher, MISSING, lease finalization | Scan module: 28 tests pass; rescan unchanged/modified/unsupported và missing đã có evidence. |
+| 2026-08-07 | FE resilience sau truncate và polling lifecycle | FE regression test: stale `scanId`, deep-link ngoài recent page và polling dừng ở terminal state. |
