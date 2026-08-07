@@ -131,3 +131,28 @@ COPY cho một triệu fixture row hoàn tất trong 2,890 giây. Theo quyết �
 Kích thước 500.000 là quyết định tuning hiện tại, không phải public contract.
 Nếu segment thực tế tiến gần lease duration hoặc tạo memory/DB pressure, feature
 sau có thể đổi sang time/byte-bounded adaptive segment mà không đổi REST/Kafka.
+
+## Update FT-025.3 — Sửa reconciliation query không kết thúc
+
+Runtime run `cb6ed18e-f262-4c01-b7d2-a1478246bde7` đã discovery đủ 27.122 file
+nhưng giữ trạng thái `RUNNING` hơn hai phút. `pg_stat_activity` xác nhận worker
+kẹt ở changed diff. Execution plan của LEFT JOIN chỉ dùng phần `root_key` trong
+inventory composite index; `source_relative_path` trở thành join filter. Đồng
+thời staging statistics vẫn báo 0 row sau lifecycle COPY/delete, khiến planner
+ước lượng current run chỉ có một row. Run cuối cùng chuyển `FAILED` sau 5 phút
+45 giây vì query hoàn tất sau khi lease đã hết hạn.
+
+Fix:
+
+- Chạy `ANALYZE scan_inventory_stage` sau discovery và trước changed diff.
+- Keyset staging theo page tối đa 100.000 row để một warm scan 10 triệu file
+  không biến thành một JDBC query dài vượt lease.
+- Trong từng page, correlated scalar lookup buộc subplan index condition dùng đủ
+  `(root_key, source_relative_path)`.
+- Page zero-change renew lease/checkpoint; page có changed item được business
+  chunk commit gia hạn lease như trước.
+- `COALESCE(..., FALSE)` giữ đúng classification: inventory absent, state khác
+  `PRESENT`, size đổi hoặc modified time đổi đều là changed.
+
+Không thêm index/migration vì composite index inventory và staging index hiện có
+đã đúng; lỗi nằm ở query shape và stale statistics.

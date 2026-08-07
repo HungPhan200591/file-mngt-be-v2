@@ -163,6 +163,25 @@ Một triệu file cần khoảng hai discovery COPY hữu ích; mười triệu
 mươi segment. Đây là cấu hình implementation hiện tại, không phải public contract
 hay SLO đã xác nhận.
 
+### Update FT-025.3 — Khi index tồn tại nhưng query vẫn gần O(N²)
+
+Run `cb6ed18e...` đã discovery đủ 27.122 file nhưng reconciliation chạy hơn hai
+phút. PostgreSQL plan của LEFT JOIN chỉ dùng `root_key='album'` trên index
+`(root_key, source_relative_path)`; path là join filter. Với mỗi staging row, DB
+gần như scan toàn inventory của root. Statistics staging còn báo 0 row nên planner
+tin nested loop này rẻ. Run cuối cùng `FAILED` sau 5 phút 45 giây do lease hết hạn.
+
+Fix gồm hai phần:
+
+- `ANALYZE scan_inventory_stage` sau bulk discovery để cardinality phản ánh run.
+- Keyset staging tối đa 100.000 row mỗi query; correlated lookup dùng đúng
+  composite key để subplan có index condition trên cả root và path.
+- Page không có file changed vẫn heartbeat lease, nên warm scan lớn không hết
+  lease chỉ vì Java không có business chunk để commit.
+
+Bài học: “có index” không đủ; phải đọc execution plan xem toàn bộ key có nằm trong
+`Index Cond` hay bị rơi xuống `Join Filter`/`Filter`.
+
 Staging là `UNLOGGED`: giảm WAL cho dữ liệu có thể tái tạo, nhưng bị truncate sau database crash. Điều đó không làm inventory canonical sai; run gián đoạn phải fail và run mới walk lại filesystem. Tối ưu này loại bỏ inventory write amplification, không loại bỏ full filesystem walk nên throughput mới vẫn phải benchmark.
 
 ## Tham chiếu

@@ -111,6 +111,28 @@ public class ScanChunkCommitter {
                 lease.nextLeaseUntil());
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void prepareReconciliation(UUID runId, String workerId) {
+        var run = runs.findById(runId).orElseThrow();
+        validateLease(run, new ChunkLease(runId, workerId, null));
+        stageWriter.analyze();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void heartbeatReconciliation(ReconciliationHeartbeat heartbeat) {
+        var lease = heartbeat.lease();
+        var run = runs.findById(lease.runId()).orElseThrow();
+        validateLease(run, lease);
+        var progress = heartbeat.progress();
+        run.updateCheckpoint(
+                heartbeat.index(),
+                progress.files(),
+                progress.proposals(),
+                progress.issues(),
+                lease.nextLeaseUntil());
+        runs.saveAndFlush(run);
+    }
+
     /**
      * Hoàn tất scan run trong một transaction độc lập được bảo vệ bởi lease validation.
      * Đảm bảo markMissing và complete chạy nguyên tử, chỉ khi worker vẫn làm chủ run.
@@ -170,6 +192,8 @@ public class ScanChunkCommitter {
             long previouslyScannedFiles,
             long leaseDurationSeconds,
             StageRowSource source) {}
+
+    public record ReconciliationHeartbeat(ChunkLease lease, int index, ChunkProgress progress) {}
 
     public record ChunkBatch(
             int index,

@@ -21,6 +21,7 @@ public class ScanInventoryStageWriter {
             FROM STDIN WITH (FORMAT CSV)
             """;
     private static final String DELETE_RUN_SQL = "DELETE FROM scan_inventory_stage WHERE scan_run_id = ?";
+    private static final String ANALYZE_SQL = "ANALYZE scan_inventory_stage";
     private static final String DELETE_INACTIVE_RUNS_SQL = """
             DELETE FROM scan_inventory_stage stage
             WHERE NOT EXISTS (
@@ -65,6 +66,11 @@ public class ScanInventoryStageWriter {
 
     public void deleteInactiveRuns() {
         jdbcTemplate.update(DELETE_INACTIVE_RUNS_SQL);
+    }
+
+    /** Refresh planner statistics sau bulk COPY để reconciliation không dùng cardinality stale. */
+    public void analyze() {
+        jdbcTemplate.execute(ANALYZE_SQL);
     }
 
     private long copy(Connection connection, UUID runId, StageRowSource source) throws SQLException {

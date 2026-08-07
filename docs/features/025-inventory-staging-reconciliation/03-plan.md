@@ -28,6 +28,9 @@ Design: [02-design.md](./02-design.md)
 10. Mỗi discovery segment commit staging, progress/checkpoint và lease cùng
     transaction; không materialize 500.000 item trong heap và không dùng câu
     `IN` 500.000 parameter.
+11. FT-025.3 sửa runtime hang ở reconciliation: refresh statistics staging sau
+    discovery và dùng correlated composite-key lookup để inventory index sử dụng
+    cả `root_key` lẫn `source_relative_path`.
 
 ## Kết quả triển khai
 
@@ -41,16 +44,21 @@ Design: [02-design.md](./02-design.md)
   trước commit discovery. Production path không còn lookup `IN` theo seen chunk.
 - Changed inventory/proposal/issue tiếp tục commit theo business chunk 10.000;
   warm scan zero-change không materialize inventory snapshot hoặc changed item.
+- Đã sửa FT-025.3 từ runtime evidence run `cb6ed18e...`: discovery hoàn tất
+  27.122 file nhưng LEFT JOIN diff chạy hơn 2 phút vì planner chỉ dùng
+  `root_key` của inventory index rồi join-filter từng path. Reconciliation hiện
+  refresh staging statistics, keyset staging theo page 100.000, dùng correlated
+  composite-key lookup và heartbeat lease cho page zero-change.
 - Filesystem-only benchmark trước follow-up đã đo 17,832 giây; chưa chạy
-  test/build/migration hoặc post-FT-025.2 scan benchmark theo rule người dùng, vì vậy
+  test/build/migration hoặc post-FT-025.3 scan benchmark theo rule người dùng, vì vậy
   feature chưa chuyển `DONE`.
 
 ## Kiểm tra
 
-- Không chạy test/build/post-FT-025.2 benchmark theo rule người dùng hiện tại.
+- Không chạy test/build/post-FT-025.3 benchmark theo rule người dùng hiện tại.
 - Đã chạy formatting-only `spotless:apply` bằng JDK `corretto-25`; không compile/test.
 - Đã kiểm tra tĩnh: `git diff HEAD --check`, không còn Java usage `last_seen_run_id`, source đúng line cap, migration/entity alignment và contract/ownership audit.
-- Khi người dùng cho phép: chạy test module Scan bằng JDK `corretto-25`, sau đó benchmark cold/warm scan sau FT-025.2.
+- Khi người dùng cho phép: chạy test module Scan bằng JDK `corretto-25`, sau đó benchmark cold/warm scan sau FT-025.3.
 
 ## Rollout và rollback
 

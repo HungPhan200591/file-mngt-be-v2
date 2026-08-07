@@ -26,6 +26,7 @@ import org.springframework.stereotype.Component;
 public class ScanExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanExecutor.class);
     private static final int DISCOVERY_SEGMENT_SIZE = 500_000;
+    private static final int DIFF_PAGE_SIZE = 100_000;
     private static final int BUSINESS_CHUNK_SIZE = 10_000;
 
     private final ScanRunRepository runs;
@@ -68,6 +69,7 @@ public class ScanExecutor {
         var progress = new ScanProgress();
         var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
         int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
+        chunkCommitter.prepareReconciliation(context.runId(), context.workerId());
         reconcileChanged(context, nextChunkIndex, progress);
         return progress;
     }
@@ -118,18 +120,34 @@ public class ScanExecutor {
         String afterPath = "";
         long changedFiles = 0L;
         while (true) {
-            List<ScanInventoryItem> changed = diffReader.findChangedAfter(
-                    context.runId(), context.root().key(), afterPath, BUSINESS_CHUNK_SIZE);
-            if (changed.isEmpty()) {
+            var page = diffReader.findChangedPage(
+                    context.runId(), context.root().key(), afterPath, DIFF_PAGE_SIZE);
+            if (page.isLast()) {
                 progress.recordSkipped(progress.files() - changedFiles);
                 return chunkIndex;
             }
-            changedFiles += changed.size();
-            afterPath = changed.getLast().sourceRelativePath();
-            ScanChunk chunk = analyzeChanged(context, changed, progress);
+            changedFiles += page.items().size();
+            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, progress);
+            afterPath = page.nextCursor();
+            if (page.items().isEmpty()) {
+                chunkIndex++;
+                heartbeatReconciliation(context, chunkIndex, progress);
+            }
+        }
+    }
+
+    private int commitChangedPage(
+            ScanExecutionContext context,
+            List<ScanInventoryItem> changed,
+            int chunkIndex,
+            ScanProgress progress) {
+        for (int start = 0; start < changed.size(); start += BUSINESS_CHUNK_SIZE) {
+            int end = Math.min(start + BUSINESS_CHUNK_SIZE, changed.size());
+            ScanChunk chunk = analyzeChanged(context, changed.subList(start, end), progress);
             chunkIndex++;
             commitChangedChunk(context, chunkIndex, chunk, progress);
         }
+        return chunkIndex;
     }
 
     private ScanChunk analyzeChanged(
@@ -165,6 +183,14 @@ public class ScanExecutor {
                 new ArrayList<>(chunk.proposals()),
                 new ArrayList<>(chunk.issues()));
         chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress));
+    }
+
+    private void heartbeatReconciliation(
+            ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
+        var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
+        var heartbeat = new ScanChunkCommitter.ReconciliationHeartbeat(
+                lease, chunkIndex, progressSnapshot(progress));
+        chunkCommitter.heartbeatReconciliation(heartbeat);
     }
 
     private ScanChunkCommitter.ChunkProgress progressSnapshot(ScanProgress progress) {

@@ -147,6 +147,10 @@
     **Đáp nhanh:** Không. `walkFileTree` producer dùng queue bounded 1.024 item; COPY consumer kéo và encode từng row, chỉ transaction row count đạt tối đa 500.000.
 14. **Hỏi:** Worker mất lease giữa COPY segment thì sao?
     **Đáp nhanh:** Committer validate lease trước COPY và conditional-update checkpoint sau COPY. Nếu status/worker/lease không còn khớp, update bằng zero row, ném `ScanLeaseExpiredException` và rollback toàn segment.
+15. **Hỏi:** Vì sao FT-025.2 có đủ composite index mà diff 27.122 file vẫn chạy hơn hai phút?
+    **Đáp nhanh:** LEFT JOIN plan chỉ dùng `root_key`; path rơi xuống join filter, trong khi staging statistics stale báo 0 row. Nested loop thực tế gần O(stage × inventory-root), trái hẳn cost estimate.
+16. **Hỏi:** FT-025.3 sửa query plan bằng cách nào?
+    **Đáp nhanh:** ANALYZE staging, keyset page 100.000 row và correlated lookup để `(root_key, source_relative_path)` xuất hiện đầy đủ trong inventory `Index Cond`; page zero-change heartbeat lease.
 
 ## Anchor interview questions
 
