@@ -34,10 +34,11 @@ public class GenerateOneMillionJokeVideoFixtures {
         System.out.println("🚀 SC-01 SCAN ONE MILLION FIXTURE GENERATOR (1,000 DIRS x 1,000 FILES)");
         System.out.println("📍 Target Path: " + targetDirStr);
         System.out.println("📁 Subdirectories: " + subDirsCount + " | Files/Dir: " + filesPerDir);
-        System.out.println("📊 Phân bổ Fixture:");
-        System.out.println("   - Valid Proposals (.mp4): ~899,000 files (format: Joke_AT_... [JOKE-...].mp4)");
+        System.out.println("📊 Phân bổ Fixture (Rải rác lẫn lộn - Deterministic Hash):");
+        System.out.println("   - Valid Proposals (.mp4): ~890,000 files (format: Joke_AT_... [JOKE-...].mp4)");
         System.out.println("   - Parse Issues (.mp4 lỗi format): ~100,000 files (format: Invalid_Joke_AT_....mp4)");
-        System.out.println("   - Non-scan files (.jpg): ~1,000 files (format: Joke_Cover_....jpg)");
+        System.out.println("   - Non-scan files (.jpg): ~10,000 files (format: Joke_Cover_....jpg)");
+        System.out.println("🔄 Chế độ: Overwrite / Re-use (Ghi đè & dọn dẹp file thừa nếu có sẵn)");
         System.out.println("====================================================");
 
         Path rootPath = Path.of(targetDirStr);
@@ -99,28 +100,51 @@ public class GenerateOneMillionJokeVideoFixtures {
         Path dirPath = rootPath.resolve(dirName);
         Files.createDirectories(dirPath);
 
+        java.util.Set<String> expectedNames = new java.util.HashSet<>(filesPerDir);
         int startFileId = (dirIndex - 1) * filesPerDir;
+
         for (int f = 1; f <= filesPerDir; f++) {
             int fileId = startFileId + f;
             String fileIdStr = padZero(fileId, 7);
             String fileName;
 
-            if (f == 1) {
-                // 1 file .jpg per sub-directory (tổng cộng 1,000 files .jpg cho 1,000 subdirs -> không phải type scan JOKE_VIDEO)
+            // Permutation hash rải rác lẫn lộn đồng đều trong từng subdirectory:
+            // hash == 0 -> 1% (10,000 files .jpg cho 1M files -> không phải type scan JOKE_VIDEO)
+            // hash 1..10 -> 10% (100,000 files .mp4 lỗi cho 1M files -> vào scan_issue UNPARSEABLE)
+            // hash 11..99 -> 89% (890,000 files .mp4 hợp lệ cho 1M files -> vào scan_proposal)
+            long hash = Math.abs((fileId * 2654435769L) % 100);
+            if (hash == 0) {
                 fileName = "Joke_Cover_" + fileIdStr + ".jpg";
-            } else if (f <= 101) {
-                // 100 files .mp4 lỗi format per sub-directory (tổng cộng 100,000 files lỗi cho 1,000 subdirs -> vào scan_issue UNPARSEABLE)
+            } else if (hash <= 10) {
                 fileName = "Invalid_Joke_AT_" + fileIdStr + ".mp4";
             } else {
-                // 899 files .mp4 hợp lệ per sub-directory (tổng cộng 899,000 files hợp lệ cho 1,000 subdirs -> vào scan_proposal)
                 fileName = "Joke_AT_" + fileIdStr + " [JOKE-" + fileIdStr + "].mp4";
             }
 
+            expectedNames.add(fileName);
             Path filePath = dirPath.resolve(fileName);
 
-            try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            // Re-use / Overwrite: Ghi đè hoặc tạo mới nếu chưa có mà không throw lỗi
+            try (FileChannel channel = FileChannel.open(
+                    filePath,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
                 // File rỗng
             }
+        }
+
+        // Dọn dẹp các file thừa từ lần sinh cũ nếu tên không còn thuộc tập expectedNames
+        try (var stream = Files.list(dirPath)) {
+            stream.filter(Files::isRegularFile).forEach(path -> {
+                String existingName = path.getFileName().toString();
+                if (!expectedNames.contains(existingName)) {
+                    try {
+                        Files.delete(path);
+                    } catch (IOException ignored) {
+                    }
+                }
+            });
         }
     }
 

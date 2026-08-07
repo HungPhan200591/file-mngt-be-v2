@@ -6,7 +6,7 @@
 
 - Đi theo chuỗi `WHY → WHAT → HOW → FAILURE → TRADE-OFF → PROJECT → EVOLUTION`.
 - Mỗi câu trả lời nhanh chỉ giữ keyword chính; khi luyện nói, mở rộng bằng evidence được link.
-- Phạm vi hiện tại: overview SC-01, architecture touchpoints, cross-service deduplication, BT-01 và BT-02. BT-03 trở đi chỉ bổ sung sau khi deep-dive/evidence tương ứng được kiểm chứng.
+- Phạm vi hiện tại: overview SC-01, architecture touchpoints, cross-service deduplication, BT-01, BT-02 và BT-03. SSE, resume chính xác và các break task sau BT-03 chỉ là hướng tiến hóa, chưa phải capability hiện hành.
 
 ## Coverage matrix
 
@@ -52,13 +52,13 @@
 ### CH-03 — Durable run, lease và ownership
 
 1. **Hỏi:** Lease bảo vệ điều gì?
-   **Đáp nhanh:** Lease xác định worker nào có quyền ghi tiếp run và cho phép worker mới takeover khi worker cũ mất. Nó là ownership/fencing, không phải lock toàn bộ filesystem.
+   **Đáp nhanh:** Lease xác định worker nào có quyền ghi tiếp run và chặn worker cũ ghi sau khi mất lease. Run cũ bị đóng `FAILED`, còn lần chạy mới tạo `scan_run` mới; không takeover cùng `runId`.
 2. **Hỏi:** Vì sao cần `workerId` khi đã có `leaseUntil`?
-   **Đáp nhanh:** `leaseUntil` cho biết thời hạn; `workerId` giúp chặn worker cũ ghi sau takeover. Cả hai tạo fencing đơn giản.
+   **Đáp nhanh:** `leaseUntil` cho biết thời hạn, còn `workerId` xác định owner của run để chặn worker cũ. Cả hai cùng với `status` tạo fencing đơn giản.
 3. **Hỏi:** Hai request start cùng `rootKey` được chặn ở đâu?
    **Đáp nhanh:** Application check giúp trả lỗi sớm; partial unique index `ux_scan_run_running_root` ở PostgreSQL là lớp bảo vệ cuối.
 4. **Hỏi:** Worker cũ commit sau khi lease mất thì sao?
-   **Đáp nhanh:** `ScanChunkCommitter` kiểm tra status/workerId và ném `ScanLeaseExpiredException`; chunk không được ghi tiếp.
+   **Đáp nhanh:** `ScanChunkCommitter` kiểm tra `status`, `leaseUntil` và `workerId`, rồi ném `ScanLeaseExpiredException`; chunk/finalization không được ghi tiếp.
 5. **Hỏi:** Checkpoint có phải snapshot chính xác của filesystem không?
    **Đáp nhanh:** Không. Nó chỉ là mốc dữ liệu đã commit; filesystem có thể đổi trong lúc scan, nên reconciliation/inventory matcher xử lý ở bước sau.
 6. **Hỏi:** Vì sao dev baseline có thể rewalk sau crash?
@@ -105,9 +105,11 @@
 4. **Hỏi:** BT-03 sẽ thay đổi flow nào?
    **Đáp nhanh:** Vẫn full walk nhưng batch lookup fingerprint; path không đổi chỉ update last-seen, path mới/đổi mới đi qua parser. Không kéo Catalog batch API của BT-04/05 vào sớm.
 5. **Hỏi:** Khi nào cần đổi contract xuyên service?
-   **Đáp nhanh:** BT-02 chỉ chạm Scan DB nên chưa cần REST/Kafka contract mới. BT-04/BT-05 mới cần contract owner, versioning và compatibility decision.
+   **Đáp nhanh:** BT-02/BT-03 chỉ chạm Scan DB nên chưa cần REST/Kafka contract mới. BT-04/BT-05 mới cần contract owner, versioning và compatibility decision.
 6. **Hỏi:** Trade-off của rewalk + dedupe so với resume chính xác?
    **Đáp nhanh:** Rewalk dễ hiểu và ít state nhưng đọc filesystem lặp lại; resume chính xác giảm I/O nhưng tăng độ phức tạp partition/checkpoint. Chọn sau khi có baseline.
+7. **Hỏi:** Polling và SSE nên tiến hóa như thế nào?
+   **Đáp nhanh:** Baseline hiện tại dùng polling qua `GET /api/v2/scans/{scanId}` vì đã có contract và tự khôi phục sau refresh. SSE là tối ưu tương lai, cần event schema, reconnect/heartbeat và không thuộc BT-03.
 
 ## Anchor interview questions
 
@@ -158,8 +160,18 @@
 **Answer spine:** race → fast path → unique index → error mapping → lease.
 **Project evidence:** `V1__create_scan_preview.sql`, `ScanService`, `ScanExceptionHandler`.
 **Trade-offs:** Database constraint đơn giản và chắc hơn advisory lock; request thua race có thể đã fetch snapshot trước khi INSERT fail.
-**Follow-up ladder:** Lock row chưa tồn tại thế nào? Worker takeover? Inventory key khác gì run key?
+**Follow-up ladder:** Lock row chưa tồn tại thế nào? Stale run và run mới khác nhau ra sao? Inventory key khác gì run key?
 **Red flags:** Chỉ dựa vào `SELECT` rồi `INSERT`, hoặc cho rằng inventory upsert không cần vì scan run unique.
+
+### A-06 — `ARCHITECT` · `ARCHITECTURE_EVOLUTION`
+**Question:** Khi nào nên đổi polling trạng thái scan sang SSE?
+**Interviewer evaluates:** Biết phân biệt baseline contract đang chạy với tối ưu realtime cần thêm boundary và failure semantics.
+**Trả lời 30 giây:** Hiện tại dùng polling qua `GET /api/v2/scans/{scanId}` vì đơn giản, tự khôi phục sau refresh và đã có contract. SSE chỉ nên thêm khi polling trở thành bottleneck; khi đó cần event schema, reconnect/heartbeat, `Last-Event-ID` và chính sách connection riêng, không gộp vào BT-03.
+**Answer spine:** current contract → polling baseline → measured bottleneck → SSE event contract → reconnect/failure.
+**Project evidence:** [05-ui-ux-solution-behavior.md](../05-ui-ux-solution-behavior.md), `ScanController`.
+**Trade-offs:** Polling tạo request định kỳ nhưng dễ vận hành; SSE giảm request thừa nhưng giữ connection dài và phải xử lý reconnect, duplicate event và backpressure.
+**Follow-up ladder:** Event nào được publish? Client reconnect từ đâu? SSE có thay đổi scan transaction không?
+**Red flags:** Xem SSE là cơ chế resume scan, hoặc thêm SSE trước khi có event/reconnect contract.
 
 ## Self-test
 
@@ -181,3 +193,4 @@
 | Ngày | Phạm vi | Evidence |
 | --- | --- | --- |
 | 2026-08-07 | BT-01/BT-02, inventory seed và chunk boundary | `ScanIntegrationTest`: 9 tests pass; fixture 504 file đi qua ít nhất 2 chunk. |
+| 2026-08-07 | BT-03, matcher, MISSING, lease finalization | Scan module: 28 tests pass; rescan unchanged/modified/unsupported và missing đã có evidence. |
