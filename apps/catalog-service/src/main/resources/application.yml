@@ -37,6 +37,9 @@ catalog:
     dlt-observer:
       enabled: ${CATALOG_KAFKA_DLT_OBSERVER_ENABLED:true}
 
+p6spy:
+  enabled: ${P6SPY_ENABLED:true}
+
 server:
   port: ${CATALOG_SERVER_PORT:18101}
 

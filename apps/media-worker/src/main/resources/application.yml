@@ -14,6 +14,9 @@ media:
     read-timeout: ${MEDIA_CATALOG_READ_TIMEOUT:5s}
   roots: []
 
+p6spy:
+  enabled: ${P6SPY_ENABLED:true}
+
 management:
   endpoints:
     web:

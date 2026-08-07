@@ -48,6 +48,9 @@ query:
     consumer:
       enabled: ${QUERY_KAFKA_CONSUMER_ENABLED:true}
 
+p6spy:
+  enabled: ${P6SPY_ENABLED:true}
+
 server:
   port: ${QUERY_SERVER_PORT:18103}
 

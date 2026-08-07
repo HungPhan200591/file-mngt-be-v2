@@ -12,7 +12,7 @@ Scenario, prerequisite, workload contract và evidence cần thu thập do [road
 | Break task triển khai | [04-break-task.md](./04-break-task.md) | Đã tạo |
 | Java 25 Fixture Tool | [fixture-tools](../../../../tests/fixtures/tools/pom.xml) (package `com.filemngt.tools.sc01_scan_one_million`) | Đã tạo |
 | Summary | `summary/` | Chưa yêu cầu |
-| Question bank | `question-bank/` | Chưa yêu cầu |
+| Question chain | [question-bank/01-question-chain.md](./question-bank/01-question-chain.md) | Đã tạo, bổ sung dần theo BT/deep-dive |
 | Evidence benchmark/failure drill | Link từ đây khi có | Chưa tạo |
 
 Summary chỉ cô đọng từ deep-dive; question bank chỉ sinh từ nội dung đã kiểm chứng. Không tạo folder rỗng hoặc placeholder cho hai artifact này.

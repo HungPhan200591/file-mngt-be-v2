@@ -35,6 +35,9 @@ scan:
   lease-duration-seconds: ${SCAN_LEASE_DURATION_SECONDS:60}
   roots: []
 
+p6spy:
+  enabled: ${P6SPY_ENABLED:false}
+
 server:
   port: ${SCAN_SERVER_PORT:18102}
 
@@ -68,6 +71,8 @@ management:
         enabled: false
 
 logging:
+  level:
+    com.filemngt.v2: ${LOGGING_LEVEL_COM_FILEMNGT:DEBUG}
   file:
     name: ${OBSERVABILITY_LOG_FILE:logs/scan-service.json.log}
   pattern:
