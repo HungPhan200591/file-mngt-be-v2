@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Đóng run thất bại bằng thông tin an toàn và best-effort cleanup staging scratch. */
 @Component
@@ -21,13 +22,11 @@ public class ScanExecutionFailureHandler {
         this.chunkCommitter = chunkCommitter;
     }
 
+    @Transactional
     public void handle(UUID runId, String rootKey, Exception exception) {
         String failureDetail = failureDetail(exception, rootKey);
         logFailure(runId, exception, failureDetail);
-        runs.findById(runId).ifPresent(failedRun -> {
-            failedRun.fail(failureDetail);
-            runs.saveAndFlush(failedRun);
-        });
+        runs.failIfRunning(runId, failureDetail);
         cleanupStage(runId);
     }
 

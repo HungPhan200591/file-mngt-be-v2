@@ -9,8 +9,10 @@ import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter;
-import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter.DiscoveryCheckpoint;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter.Checkpoint;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter.Completion;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.timeout.ScanTransactionTimeouts;
 import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import java.time.Instant;
@@ -23,12 +25,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
-/**
- * Thực hiện commit chunk inventory/proposals/issues và gia hạn lease trong một transaction riêng biệt.
- * Đảm bảo tính bền vững (durability) theo chunk độc lập với các chunk khác.
- */
+/** Commit chunk độc lập với timeout DB và conditional fence tại checkpoint/finalize. */
 public class ScanChunkCommitter {
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanChunkCommitter.class);
 
     private final ScanRunRepository runs;
@@ -37,6 +35,7 @@ public class ScanChunkCommitter {
     private final ScanFileInventoryBatchWriter inventoryBatchWriter;
     private final ScanInventoryStageWriter stageWriter;
     private final ScanRunProgressWriter runProgressWriter;
+    private final ScanTransactionTimeouts timeouts;
 
     public ScanChunkCommitter(
             ScanRunRepository runs,
@@ -44,119 +43,124 @@ public class ScanChunkCommitter {
             ScanIssueRepository issues,
             ScanFileInventoryBatchWriter inventoryBatchWriter,
             ScanInventoryStageWriter stageWriter,
-            ScanRunProgressWriter runProgressWriter) {
+            ScanRunProgressWriter runProgressWriter,
+            ScanTransactionTimeouts timeouts) {
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
         this.inventoryBatchWriter = inventoryBatchWriter;
         this.stageWriter = stageWriter;
         this.runProgressWriter = runProgressWriter;
+        this.timeouts = timeouts;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public long commitDiscoverySegment(DiscoverySegment segment) {
-        var lease = segment.lease();
-        var run = runs.findById(lease.runId()).orElseThrow();
-        validateLease(run, lease);
-
-        long copied = stageWriter.copySeen(lease.runId(), segment.source());
-        long scannedFiles = segment.previouslyScannedFiles() + copied;
-        Instant nextLeaseUntil = fenceAndAdvanceDiscovery(segment, scannedFiles);
-        LOGGER.debug(
-                "Đã commit discovery segment #{} cho runId={}: workerId={}, copied={}, nextLeaseUntil={}",
-                segment.index(),
-                lease.runId(),
-                lease.workerId(),
-                copied,
-                nextLeaseUntil);
-        return copied;
-    }
-
-    private Instant fenceAndAdvanceDiscovery(DiscoverySegment segment, long scannedFiles) {
-        var lease = segment.lease();
-        Instant checkpointAt = Instant.now();
-        Instant nextLeaseUntil = checkpointAt.plusSeconds(segment.leaseDurationSeconds());
-        var checkpoint = new DiscoveryCheckpoint(
-                lease.runId(),
-                lease.workerId(),
-                segment.index(),
-                scannedFiles,
-                checkpointAt,
-                nextLeaseUntil);
-        if (!runProgressWriter.advanceDiscovery(checkpoint)) {
-            throw new ScanLeaseExpiredException(lease.runId(), lease.workerId());
-        }
-        return nextLeaseUntil;
+    public DiscoveryCommit commitDiscoverySegment(DiscoverySegment segment) {
+        timeouts.applyMutationTimeout();
+        validateLease(loadRun(segment.lease()), segment.lease());
+        long copied = stageWriter.copySeen(segment.lease().runId(), segment.source());
+        Instant leaseUntil = advanceDiscovery(segment, copied);
+        logDiscoveryCommit(segment, copied, leaseUntil);
+        return new DiscoveryCommit(copied, leaseUntil);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void commitChangedChunk(ChunkLease lease, ChunkBatch batch, ChunkProgress progress) {
-        var run = runs.findById(lease.runId()).orElseThrow();
-        validateLease(run, lease);
-
+    public Instant commitChangedChunk(ChunkLease lease, ChunkBatch batch, ChunkProgress progress) {
+        timeouts.applyMutationTimeout();
+        validateLease(loadRun(lease), lease);
         inventoryBatchWriter.upsertChanged(batch.changedInventoryItems());
         commitProposalsChunk(batch.proposals());
         commitIssuesChunk(batch.issues());
-
-        run.updateCheckpoint(
-                batch.index(), progress.files(), progress.proposals(), progress.issues(), lease.nextLeaseUntil());
-        runs.saveAndFlush(run);
-        LOGGER.debug(
-                "Đã commit changed chunk #{} cho runId={}: workerId={}, proposals={}, issues={}, nextLeaseUntil={}",
-                batch.index(),
-                lease.runId(),
-                lease.workerId(),
-                progress.proposals(),
-                progress.issues(),
-                lease.nextLeaseUntil());
+        advanceCheckpoint(lease, batch.index(), progress);
+        logChangedCommit(lease, batch.index(), progress);
+        return lease.nextLeaseUntil();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void prepareReconciliation(UUID runId, String workerId) {
-        var run = runs.findById(runId).orElseThrow();
-        validateLease(run, new ChunkLease(runId, workerId, null));
+        timeouts.applyMutationTimeout();
+        var lease = new ChunkLease(runId, workerId, null);
+        validateLease(loadRun(lease), lease);
         stageWriter.analyze();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void heartbeatReconciliation(ReconciliationHeartbeat heartbeat) {
-        var lease = heartbeat.lease();
-        var run = runs.findById(lease.runId()).orElseThrow();
-        validateLease(run, lease);
-        var progress = heartbeat.progress();
-        run.updateCheckpoint(
-                heartbeat.index(),
-                progress.files(),
-                progress.proposals(),
-                progress.issues(),
-                lease.nextLeaseUntil());
-        runs.saveAndFlush(run);
+    public Instant heartbeatReconciliation(ReconciliationHeartbeat heartbeat) {
+        timeouts.applyMutationTimeout();
+        validateLease(loadRun(heartbeat.lease()), heartbeat.lease());
+        advanceCheckpoint(heartbeat.lease(), heartbeat.index(), heartbeat.progress());
+        return heartbeat.lease().nextLeaseUntil();
     }
 
-    /**
-     * Hoàn tất scan run trong một transaction độc lập được bảo vệ bởi lease validation.
-     * Đảm bảo markMissing và complete chạy nguyên tử, chỉ khi worker vẫn làm chủ run.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void finalizeRun(UUID runId, String workerId, String rootKey, ChunkProgress finalProgress) {
-        var run = runs.findById(runId).orElseThrow();
-        validateLease(run, new ChunkLease(runId, workerId, null));
-
+    public void finalizeRun(UUID runId, String workerId, String rootKey, ChunkProgress progress) {
+        timeouts.applyMutationTimeout();
+        var lease = new ChunkLease(runId, workerId, null);
+        validateLease(loadRun(lease), lease);
         inventoryBatchWriter.markMissingFromStage(rootKey, runId);
         stageWriter.deleteRun(runId);
-        run.complete(finalProgress.files(), finalProgress.proposals(), finalProgress.issues());
-        runs.saveAndFlush(run);
+        completeRun(runId, workerId, progress);
         LOGGER.info(
                 "Đã finalize scan runId={}: files={}, proposals={}, issues={}",
                 runId,
-                finalProgress.files(),
-                finalProgress.proposals(),
-                finalProgress.issues());
+                progress.files(),
+                progress.proposals(),
+                progress.issues());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void cleanupStage(UUID runId) {
+        timeouts.applyMutationTimeout();
         stageWriter.deleteRun(runId);
+    }
+
+    private ScanRunEntity loadRun(ChunkLease lease) {
+        return runs.findById(lease.runId()).orElseThrow();
+    }
+
+    private Instant advanceDiscovery(DiscoverySegment segment, long copied) {
+        Instant checkpointAt = Instant.now();
+        Instant leaseUntil = checkpointAt.plusSeconds(segment.leaseDurationSeconds());
+        var checkpoint = new Checkpoint(
+                segment.lease().runId(),
+                segment.lease().workerId(),
+                segment.index(),
+                segment.previouslyScannedFiles() + copied,
+                0,
+                0,
+                checkpointAt,
+                leaseUntil);
+        advanceCheckpoint(checkpoint, segment.lease());
+        return leaseUntil;
+    }
+
+    private void advanceCheckpoint(ChunkLease lease, int chunkIndex, ChunkProgress progress) {
+        Instant checkpointAt = Instant.now();
+        var checkpoint = new Checkpoint(
+                lease.runId(),
+                lease.workerId(),
+                chunkIndex,
+                progress.files(),
+                progress.proposals(),
+                progress.issues(),
+                checkpointAt,
+                lease.nextLeaseUntil());
+        advanceCheckpoint(checkpoint, lease);
+    }
+
+    private void advanceCheckpoint(Checkpoint checkpoint, ChunkLease lease) {
+        if (!runProgressWriter.advanceCheckpoint(checkpoint)) {
+            throw new ScanLeaseExpiredException(lease.runId(), lease.workerId());
+        }
+    }
+
+    private void completeRun(UUID runId, String workerId, ChunkProgress progress) {
+        Instant finishedAt = Instant.now();
+        var completion = new Completion(
+                runId, workerId, progress.files(), progress.proposals(), progress.issues(), finishedAt);
+        if (!runProgressWriter.complete(completion)) {
+            throw new ScanLeaseExpiredException(runId, workerId);
+        }
     }
 
     private void validateLease(ScanRunEntity run, ChunkLease lease) {
@@ -184,6 +188,27 @@ public class ScanChunkCommitter {
         }
     }
 
+    private void logDiscoveryCommit(DiscoverySegment segment, long copied, Instant leaseUntil) {
+        LOGGER.debug(
+                "Đã commit discovery segment #{} cho runId={}: workerId={}, copied={}, nextLeaseUntil={}",
+                segment.index(),
+                segment.lease().runId(),
+                segment.lease().workerId(),
+                copied,
+                leaseUntil);
+    }
+
+    private void logChangedCommit(ChunkLease lease, int chunkIndex, ChunkProgress progress) {
+        LOGGER.debug(
+                "Đã commit changed chunk #{} cho runId={}: workerId={}, proposals={}, issues={}, nextLeaseUntil={}",
+                chunkIndex,
+                lease.runId(),
+                lease.workerId(),
+                progress.proposals(),
+                progress.issues(),
+                lease.nextLeaseUntil());
+    }
+
     public record ChunkLease(UUID runId, String workerId, Instant nextLeaseUntil) {}
 
     public record DiscoverySegment(
@@ -192,6 +217,8 @@ public class ScanChunkCommitter {
             long previouslyScannedFiles,
             long leaseDurationSeconds,
             StageRowSource source) {}
+
+    public record DiscoveryCommit(long copied, Instant leaseUntil) {}
 
     public record ReconciliationHeartbeat(ChunkLease lease, int index, ChunkProgress progress) {}
 

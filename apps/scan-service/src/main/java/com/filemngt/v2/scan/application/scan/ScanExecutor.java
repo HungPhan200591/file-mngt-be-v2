@@ -1,10 +1,11 @@
 package com.filemngt.v2.scan.application.scan;
 
 import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileInventoryCursor;
-import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryDiffReader;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.application.scan.deadline.ScanLeaseDeadlineGuard;
+import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
@@ -32,23 +33,26 @@ public class ScanExecutor {
     private final ScanRunRepository runs;
     private final ScanChunkCommitter chunkCommitter;
     private final ScanFileAnalyzer analyzer;
-    private final ScanInventoryDiffReader diffReader;
+    private final ScanReconciliationPageReader reconciliationPageReader;
     private final ScanProperties properties;
     private final ScanExecutionFailureHandler failureHandler;
+    private final ScanLeaseDeadlineGuard deadlineGuard;
 
     public ScanExecutor(
             ScanRunRepository runs,
             ScanChunkCommitter chunkCommitter,
             ScanFileAnalyzer analyzer,
-            ScanInventoryDiffReader diffReader,
+            ScanReconciliationPageReader reconciliationPageReader,
             ScanProperties properties,
-            ScanExecutionFailureHandler failureHandler) {
+            ScanExecutionFailureHandler failureHandler,
+            ScanLeaseDeadlineGuard deadlineGuard) {
         this.runs = runs;
         this.chunkCommitter = chunkCommitter;
         this.analyzer = analyzer;
-        this.diffReader = diffReader;
+        this.reconciliationPageReader = reconciliationPageReader;
         this.properties = properties;
         this.failureHandler = failureHandler;
+        this.deadlineGuard = deadlineGuard;
     }
 
     /** Quét root theo snapshot đã chốt, rồi hoàn tất hoặc đánh dấu thất bại cho scan run. */
@@ -62,6 +66,8 @@ public class ScanExecutor {
             logCompletion(runId, progress);
         } catch (Exception exception) {
             failureHandler.handle(runId, root.key(), exception);
+        } finally {
+            deadlineGuard.cancel(runId);
         }
     }
 
@@ -81,8 +87,8 @@ public class ScanExecutor {
             while (firstItem != null) {
                 chunkIndex++;
                 var request = new DiscoveryRequest(context, cursor, firstItem, progress.files(), chunkIndex);
-                long copied = commitDiscoverySegment(request);
-                progress.recordFiles(copied);
+                var commit = commitDiscoverySegment(request);
+                progress.recordFiles(commit.copied());
                 logDiscoveryProgress(context.runId(), progress.files(), chunkIndex);
                 firstItem = cursor.next();
             }
@@ -90,7 +96,7 @@ public class ScanExecutor {
         return chunkIndex;
     }
 
-    private long commitDiscoverySegment(DiscoveryRequest request) {
+    private ScanChunkCommitter.DiscoveryCommit commitDiscoverySegment(DiscoveryRequest request) {
         var context = request.context();
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
         var source = discoverySource(request.cursor(), request.firstItem());
@@ -100,7 +106,9 @@ public class ScanExecutor {
                 request.previouslyScanned(),
                 properties.getLeaseDurationSeconds(),
                 source);
-        return chunkCommitter.commitDiscoverySegment(segment);
+        var commit = chunkCommitter.commitDiscoverySegment(segment);
+        deadlineGuard.arm(context.runId(), context.workerId(), commit.leaseUntil());
+        return commit;
     }
 
     private StageRowSource discoverySource(ScanFileInventoryCursor cursor, ScanInventoryItem firstItem) {
@@ -120,7 +128,7 @@ public class ScanExecutor {
         String afterPath = "";
         long changedFiles = 0L;
         while (true) {
-            var page = diffReader.findChangedPage(
+            var page = reconciliationPageReader.findChangedPage(
                     context.runId(), context.root().key(), afterPath, DIFF_PAGE_SIZE);
             if (page.isLast()) {
                 progress.recordSkipped(progress.files() - changedFiles);
@@ -182,7 +190,8 @@ public class ScanExecutor {
                 new ArrayList<>(chunk.changedInventoryItems()),
                 new ArrayList<>(chunk.proposals()),
                 new ArrayList<>(chunk.issues()));
-        chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress));
+        Instant leaseUntil = chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress));
+        deadlineGuard.arm(context.runId(), context.workerId(), leaseUntil);
     }
 
     private void heartbeatReconciliation(
@@ -190,7 +199,8 @@ public class ScanExecutor {
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
         var heartbeat = new ScanChunkCommitter.ReconciliationHeartbeat(
                 lease, chunkIndex, progressSnapshot(progress));
-        chunkCommitter.heartbeatReconciliation(heartbeat);
+        Instant leaseUntil = chunkCommitter.heartbeatReconciliation(heartbeat);
+        deadlineGuard.arm(context.runId(), context.workerId(), leaseUntil);
     }
 
     private ScanChunkCommitter.ChunkProgress progressSnapshot(ScanProgress progress) {

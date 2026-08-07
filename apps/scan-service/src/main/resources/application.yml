@@ -36,6 +36,9 @@ spring:
 
 scan:
   lease-duration-seconds: ${SCAN_LEASE_DURATION_SECONDS:60}
+  reconciliation-statement-timeout-seconds: ${SCAN_RECONCILIATION_STATEMENT_TIMEOUT_SECONDS:30}
+  mutation-statement-timeout-seconds: ${SCAN_MUTATION_STATEMENT_TIMEOUT_SECONDS:45}
+  lock-timeout-seconds: ${SCAN_LOCK_TIMEOUT_SECONDS:5}
   roots: []
 
 p6spy:

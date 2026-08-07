@@ -6,17 +6,29 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-/** Ghi checkpoint discovery bằng conditional update để fence worker đã mất lease trước commit. */
+/** Ghi checkpoint/finalize conditional để worker mất lease không thể ghi đè terminal state. */
 @Component
 public class ScanRunProgressWriter {
-    private static final String ADVANCE_DISCOVERY_SQL = """
+    private static final String ADVANCE_CHECKPOINT_SQL = """
             UPDATE scan_run
             SET checkpoint_chunk = ?,
                 scanned_file_count = ?,
-                proposal_count = 0,
-                issue_count = 0,
+                proposal_count = ?,
+                issue_count = ?,
                 checkpoint_at = ?,
                 lease_until = ?
+            WHERE id = ?
+              AND status = 'RUNNING'
+              AND worker_id = ?
+              AND lease_until > ?
+            """;
+    private static final String COMPLETE_SQL = """
+            UPDATE scan_run
+            SET scanned_file_count = ?,
+                proposal_count = ?,
+                issue_count = ?,
+                finished_at = ?,
+                status = 'COMPLETED'
             WHERE id = ?
               AND status = 'RUNNING'
               AND worker_id = ?
@@ -29,11 +41,13 @@ public class ScanRunProgressWriter {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public boolean advanceDiscovery(DiscoveryCheckpoint checkpoint) {
+    public boolean advanceCheckpoint(Checkpoint checkpoint) {
         int updated = jdbcTemplate.update(
-                ADVANCE_DISCOVERY_SQL,
+                ADVANCE_CHECKPOINT_SQL,
                 checkpoint.chunkIndex(),
                 checkpoint.scannedFiles(),
+                checkpoint.proposals(),
+                checkpoint.issues(),
                 Timestamp.from(checkpoint.checkpointAt()),
                 Timestamp.from(checkpoint.nextLeaseUntil()),
                 checkpoint.runId(),
@@ -42,11 +56,34 @@ public class ScanRunProgressWriter {
         return updated == 1;
     }
 
-    public record DiscoveryCheckpoint(
+    public boolean complete(Completion completion) {
+        int updated = jdbcTemplate.update(
+                COMPLETE_SQL,
+                completion.scannedFiles(),
+                completion.proposals(),
+                completion.issues(),
+                Timestamp.from(completion.finishedAt()),
+                completion.runId(),
+                completion.workerId(),
+                Timestamp.from(completion.finishedAt()));
+        return updated == 1;
+    }
+
+    public record Checkpoint(
             UUID runId,
             String workerId,
             int chunkIndex,
             long scannedFiles,
+            long proposals,
+            long issues,
             Instant checkpointAt,
             Instant nextLeaseUntil) {}
+
+    public record Completion(
+            UUID runId,
+            String workerId,
+            long scannedFiles,
+            long proposals,
+            long issues,
+            Instant finishedAt) {}
 }

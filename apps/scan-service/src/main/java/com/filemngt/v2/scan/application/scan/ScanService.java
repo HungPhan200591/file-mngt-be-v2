@@ -6,6 +6,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStage
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.scan.deadline.ScanLeaseDeadlineGuard;
 import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ScanRootUnavailableException;
@@ -46,6 +47,7 @@ public class ScanService {
     private final CatalogRegistryClient catalogClient;
     private final ConfiguredScanRootAccess rootAccess;
     private final ScanInventoryStageWriter stageWriter;
+    private final ScanLeaseDeadlineGuard deadlineGuard;
 
     public ScanService(
             ScanProperties properties,
@@ -54,7 +56,8 @@ public class ScanService {
             @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
             CatalogRegistryClient catalogClient,
             ConfiguredScanRootAccess rootAccess,
-            ScanInventoryStageWriter stageWriter) {
+            ScanInventoryStageWriter stageWriter,
+            ScanLeaseDeadlineGuard deadlineGuard) {
         this.properties = properties;
         this.runs = runs;
         this.executor = executor;
@@ -62,6 +65,7 @@ public class ScanService {
         this.catalogClient = catalogClient;
         this.rootAccess = rootAccess;
         this.stageWriter = stageWriter;
+        this.deadlineGuard = deadlineGuard;
     }
 
     /** Khởi tạo scan mới cho root hợp lệ và trả ngay trạng thái RUNNING cho HTTP caller. */
@@ -72,6 +76,7 @@ public class ScanService {
         var snapshot = fetchSnapshot(root);
         String workerId = "worker-" + UUID.randomUUID();
         var run = createRun(root, snapshot, workerId);
+        deadlineGuard.arm(run.id(), run.workerId(), run.leaseUntil());
         LOGGER.info(
                 "Khởi tạo đợt scan thành công: runId={}, rootKey={}, workerId={}, leaseUntil={}",
                 run.id(),
@@ -120,6 +125,7 @@ public class ScanService {
                         running.startedAt());
                 running.fail(STALE_RUN_DETAIL);
                 staleRuns.add(running);
+                deadlineGuard.cancel(running.id());
             } else {
                 hasActiveRun = true;
             }
