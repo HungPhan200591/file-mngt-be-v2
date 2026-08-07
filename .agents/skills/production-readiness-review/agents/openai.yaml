@@ -1,0 +1,4 @@
+interface:
+  display_name: "Production Readiness Review"
+  short_description: "Review six operational readiness pillars"
+  default_prompt: "Use $production-readiness-review to assess this release or feature against the six Production Readiness pillars."

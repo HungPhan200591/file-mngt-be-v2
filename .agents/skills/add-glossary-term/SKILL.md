@@ -18,7 +18,8 @@ Skill này quy định quy trình chuẩn để thêm mới thuật ngữ chuyê
   3. `it-glossary-database-caching.md` — Cơ Sở Dữ Liệu & Caching (Index, Normalization, Cache-Aside, Eviction...)
   4. `it-glossary-messaging-stream.md` — Hàng Đợi & Dòng Dữ Liệu (Kafka, Consumer, Partition, DLT, At-Least-Once...)
   5. `it-glossary-infrastructure-performance.md` — Hạ Tầng & Hiệu Năng (Telemetry, Prometheus, ECS, Log Rotation, Page Cache...)
-  6. `it-glossary-design-architecture.md` — Thiết Kế & Kiến Trúc (SOLID, Hexagonal, Clean Code, Microservices...)
+  6. `it-glossary-migration.md` — Chiến Lược Di Chuyển (Dual-Write, Backfill, Feature Flag, Idempotent Script...)
+  7. `it-glossary-prd-readiness.md` — Độ Sẵn Sàng Vận Hành (State Machine, Liveness, Fencing, Graceful Shutdown, Transaction Boundary...)
 
 ---
 
