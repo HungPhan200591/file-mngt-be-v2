@@ -42,7 +42,16 @@ public class ScanInventoryStageWriter {
         if (items.isEmpty()) {
             return 0L;
         }
-        Long copied = jdbcTemplate.execute((ConnectionCallback<Long>) connection -> copy(connection, runId, items));
+        return copySeen(runId, sink -> {
+            for (ScanInventoryItem item : items) {
+                sink.write(item);
+            }
+        });
+    }
+
+    /** Stream source vào đúng một COPY session trên connection thuộc transaction hiện tại. */
+    public long copySeen(UUID runId, StageRowSource source) {
+        Long copied = jdbcTemplate.execute((ConnectionCallback<Long>) connection -> copy(connection, runId, source));
         return copied == null ? 0L : copied;
     }
 
@@ -58,13 +67,13 @@ public class ScanInventoryStageWriter {
         jdbcTemplate.update(DELETE_INACTIVE_RUNS_SQL);
     }
 
-    private long copy(Connection connection, UUID runId, List<ScanInventoryItem> items) throws SQLException {
+    private long copy(Connection connection, UUID runId, StageRowSource source) throws SQLException {
         CopyIn copy = connection.unwrap(PGConnection.class).getCopyAPI().copyIn(COPY_SQL);
         try {
-            for (ScanInventoryItem item : items) {
+            source.transferTo(item -> {
                 byte[] row = encodeRow(runId, item);
                 copy.writeToCopy(row, 0, row.length);
-            }
+            });
             return copy.endCopy();
         } catch (SQLException | RuntimeException failure) {
             cancel(copy, failure);
@@ -94,5 +103,15 @@ public class ScanInventoryStageWriter {
         } catch (SQLException cancellationFailure) {
             failure.addSuppressed(cancellationFailure);
         }
+    }
+
+    @FunctionalInterface
+    public interface StageRowSource {
+        void transferTo(StageRowSink sink) throws SQLException;
+    }
+
+    @FunctionalInterface
+    public interface StageRowSink {
+        void write(ScanInventoryItem item) throws SQLException;
     }
 }

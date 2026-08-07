@@ -1,60 +1,53 @@
 package com.filemngt.v2.scan.application.scan;
 
-import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryRepository;
+import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileInventoryCursor;
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryDiffReader;
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
-import com.filemngt.v2.scan.application.scan.ScanInventoryMatcher.MatchResult;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
-import com.filemngt.v2.scan.domain.inventory.ScanInventorySnapshot;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 /**
- * Thực thi scan bất đồng bộ trên filesystem và lưu inventory/proposal/issue theo batch chunk độc lập.
- * Từ BT-03: dùng ScanInventoryMatcher để bỏ qua parse file không đổi (UNCHANGED),
- * và đánh dấu MISSING cho file bị xóa khỏi đĩa sau khi walk xong.
+ * Thực thi scan hai phase: stream filesystem vào staging theo segment lớn, sau đó
+ * chỉ parse và persist các item được set-based diff xác định là changed.
  */
 public class ScanExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanExecutor.class);
-    private static final int RECONCILIATION_BATCH_SIZE = 10_000;
-    private static final int PROGRESS_LOG_INTERVAL = 100_000;
+    private static final int DISCOVERY_SEGMENT_SIZE = 500_000;
+    private static final int BUSINESS_CHUNK_SIZE = 10_000;
 
     private final ScanRunRepository runs;
     private final ScanChunkCommitter chunkCommitter;
     private final ScanFileAnalyzer analyzer;
-    private final ScanInventoryMatcher inventoryMatcher;
-    private final ScanFileInventoryRepository inventoryRepository;
+    private final ScanInventoryDiffReader diffReader;
     private final ScanProperties properties;
+    private final ScanExecutionFailureHandler failureHandler;
 
     public ScanExecutor(
             ScanRunRepository runs,
             ScanChunkCommitter chunkCommitter,
             ScanFileAnalyzer analyzer,
-            ScanInventoryMatcher inventoryMatcher,
-            ScanFileInventoryRepository inventoryRepository,
-            ScanProperties properties) {
+            ScanInventoryDiffReader diffReader,
+            ScanProperties properties,
+            ScanExecutionFailureHandler failureHandler) {
         this.runs = runs;
         this.chunkCommitter = chunkCommitter;
         this.analyzer = analyzer;
-        this.inventoryMatcher = inventoryMatcher;
-        this.inventoryRepository = inventoryRepository;
+        this.diffReader = diffReader;
         this.properties = properties;
+        this.failureHandler = failureHandler;
     }
 
     /** Quét root theo snapshot đã chốt, rồi hoàn tất hoặc đánh dấu thất bại cho scan run. */
@@ -63,120 +56,90 @@ public class ScanExecutor {
         try {
             var run = runs.findById(runId).orElseThrow();
             var progress = scanFiles(run, root, snapshot);
-            var finalProgress =
-                    new ScanChunkCommitter.ChunkProgress(progress.files(), progress.proposals(), progress.issues());
+            var finalProgress = progressSnapshot(progress);
             chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), finalProgress);
-            LOGGER.info(
-                    "Hoàn tất scan runId={}: files={}, proposals={}, issues={}, skipped={}",
-                    runId,
-                    progress.files(),
-                    progress.proposals(),
-                    progress.issues(),
-                    progress.skipped());
+            logCompletion(runId, progress);
         } catch (Exception exception) {
-            String failureDetail = failureDetail(exception, root.key());
-            logFailure(runId, exception, failureDetail);
-            runs.findById(runId).ifPresent(failedRun -> {
-                failedRun.fail(failureDetail);
-                runs.saveAndFlush(failedRun);
-            });
-            cleanupStageAfterFailure(runId);
+            failureHandler.handle(runId, root.key(), exception);
         }
     }
 
-    private String failureDetail(Exception exception, String rootKey) {
-        if (isFilesystemFailure(exception)) {
-            return "Configured scan root became unavailable during execution: " + rootKey;
-        }
-        return exception.getMessage() == null ? "Unexpected scan execution failure" : exception.getMessage();
-    }
-
-    private void logFailure(UUID runId, Exception exception, String failureDetail) {
-        if (isFilesystemFailure(exception)) {
-            LOGGER.error(
-                    "Scan thất bại do filesystem không khả dụng: runId={}, failureType={}",
-                    runId,
-                    exception.getClass().getSimpleName());
-            return;
-        }
-        LOGGER.error("Scan thất bại runId={}: error={}", runId, failureDetail, exception);
-    }
-
-    private boolean isFilesystemFailure(Exception exception) {
-        return exception instanceof IOException || exception instanceof UncheckedIOException;
-    }
-
-    /** Duyệt filesystem một lần, phân loại từng file và flush chunk độc lập với gia hạn lease. */
-    private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot)
-            throws IOException {
+    private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
         var progress = new ScanProgress();
-        var chunk = new ScanChunk(RECONCILIATION_BATCH_SIZE);
         var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
-        Path rootPath = Path.of(root.path());
-        int chunkIndex = run.checkpointChunk();
-
-        try (var paths = Files.walk(rootPath)) {
-            var files = paths.filter(Files::isRegularFile)
-                    .filter(path -> !Files.isSymbolicLink(path))
-                    .iterator();
-            while (files.hasNext()) {
-                Path filePath = files.next();
-                ScanInventoryItem diskItem = readInventoryItem(rootPath, filePath, root.key());
-                chunk.addInventory(diskItem);
-                progress.recordFile();
-
-                if (chunk.shouldFlush()) {
-                    chunkIndex++;
-                    flushChunk(context, chunk, progress, chunkIndex);
-                }
-                logProgress(context.runId(), progress);
-            }
-        }
-        if (chunk.hasItems()) {
-            chunkIndex++;
-            flushChunk(context, chunk, progress, chunkIndex);
-        }
+        int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
+        reconcileChanged(context, nextChunkIndex, progress);
         return progress;
     }
 
-    private void flushChunk(ScanExecutionContext context, ScanChunk chunk, ScanProgress progress, int chunkIndex) {
-        Map<String, ScanInventorySnapshot> existingMap =
-                lookupExisting(context.root().key(), chunk.inventoryItems());
-        analyzeNewOrChanged(context, chunk, progress, existingMap);
-        commitChunk(context, chunkIndex, chunk, progress);
-        chunk.clear();
-    }
-
-    /**
-     * Lookup batch snapshot từ DB cho inventory hiện tại theo buffer bounded-memory.
-     * Trả Map<relativePath, snapshot> để classify nhanh O(1).
-     */
-    private Map<String, ScanInventorySnapshot> lookupExisting(String rootKey, List<ScanInventoryItem> buffer) {
-        List<String> paths =
-                buffer.stream().map(ScanInventoryItem::sourceRelativePath).toList();
-        return inventoryRepository.findSnapshotsByRootKeyAndPaths(rootKey, paths).stream()
-                .collect(Collectors.toMap(ScanInventorySnapshot::sourceRelativePath, Function.identity()));
-    }
-
-    /**
-     * Phân loại file trong buffer: UNCHANGED → skip analyze; NEW_OR_CHANGED → analyze bình thường.
-     * Kết quả proposal/issue được thêm trực tiếp vào chunk tương ứng.
-     */
-    private void analyzeNewOrChanged(
-            ScanExecutionContext context,
-            ScanChunk chunk,
-            ScanProgress progress,
-            Map<String, ScanInventorySnapshot> existingMap) {
-        for (ScanInventoryItem diskItem : chunk.inventoryItems()) {
-            MatchResult result = inventoryMatcher.classify(diskItem, existingMap);
-            switch (result) {
-                case MatchResult.Unchanged ignored -> progress.recordSkipped();
-                case MatchResult.NewOrChanged(var item) -> {
-                    chunk.addChangedInventory(item);
-                    analyzeCandidate(context, item, chunk, progress);
-                }
+    private int discover(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
+        Path rootPath = Path.of(context.root().path());
+        try (var cursor = new ScanFileInventoryCursor(rootPath, context.root().key())) {
+            ScanInventoryItem firstItem = cursor.next();
+            while (firstItem != null) {
+                chunkIndex++;
+                var request = new DiscoveryRequest(context, cursor, firstItem, progress.files(), chunkIndex);
+                long copied = commitDiscoverySegment(request);
+                progress.recordFiles(copied);
+                logDiscoveryProgress(context.runId(), progress.files(), chunkIndex);
+                firstItem = cursor.next();
             }
         }
+        return chunkIndex;
+    }
+
+    private long commitDiscoverySegment(DiscoveryRequest request) {
+        var context = request.context();
+        var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
+        var source = discoverySource(request.cursor(), request.firstItem());
+        var segment = new ScanChunkCommitter.DiscoverySegment(
+                lease,
+                request.chunkIndex(),
+                request.previouslyScanned(),
+                properties.getLeaseDurationSeconds(),
+                source);
+        return chunkCommitter.commitDiscoverySegment(segment);
+    }
+
+    private StageRowSource discoverySource(ScanFileInventoryCursor cursor, ScanInventoryItem firstItem) {
+        return sink -> {
+            sink.write(firstItem);
+            for (int count = 1; count < DISCOVERY_SEGMENT_SIZE; count++) {
+                ScanInventoryItem item = cursor.next();
+                if (item == null) {
+                    break;
+                }
+                sink.write(item);
+            }
+        };
+    }
+
+    private int reconcileChanged(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
+        String afterPath = "";
+        long changedFiles = 0L;
+        while (true) {
+            List<ScanInventoryItem> changed = diffReader.findChangedAfter(
+                    context.runId(), context.root().key(), afterPath, BUSINESS_CHUNK_SIZE);
+            if (changed.isEmpty()) {
+                progress.recordSkipped(progress.files() - changedFiles);
+                return chunkIndex;
+            }
+            changedFiles += changed.size();
+            afterPath = changed.getLast().sourceRelativePath();
+            ScanChunk chunk = analyzeChanged(context, changed, progress);
+            chunkIndex++;
+            commitChangedChunk(context, chunkIndex, chunk, progress);
+        }
+    }
+
+    private ScanChunk analyzeChanged(
+            ScanExecutionContext context, List<ScanInventoryItem> changed, ScanProgress progress) {
+        var chunk = new ScanChunk();
+        for (ScanInventoryItem item : changed) {
+            chunk.addChangedInventory(item);
+            analyzeCandidate(context, item, chunk, progress);
+        }
+        return chunk;
     }
 
     private void analyzeCandidate(
@@ -184,63 +147,55 @@ public class ScanExecutor {
         if (!ScanCandidateParser.supports(context.root().profile(), Path.of(item.sourceRelativePath()))) {
             return;
         }
-        var analyzeResult = analyzer.analyze(
+        var result = analyzer.analyze(
                 context.runId(), context.root().profile(), item.sourceRelativePath(), context.snapshot());
-        progress.recordResult(analyzeResult);
-        switch (analyzeResult) {
+        progress.recordResult(result);
+        switch (result) {
             case ScanFileAnalyzer.Proposal(var proposal) -> chunk.addProposal(proposal);
             case ScanFileAnalyzer.Issue(var issue) -> chunk.addIssue(issue);
         }
     }
 
-    private ScanInventoryItem readInventoryItem(Path rootPath, Path filePath, String rootKey) throws IOException {
-        String relativePath = relativePath(rootPath, filePath);
-        long fileSize = Files.size(filePath);
-        Instant fileModifiedAt = Files.getLastModifiedTime(filePath).toInstant();
-        return new ScanInventoryItem(rootKey, relativePath, fileSize, fileModifiedAt);
-    }
-
-    private void commitChunk(ScanExecutionContext context, int chunkIndex, ScanChunk chunk, ScanProgress progress) {
-        Instant nextLeaseUntil = Instant.now().plusSeconds(properties.getLeaseDurationSeconds());
-        var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil);
+    private void commitChangedChunk(
+            ScanExecutionContext context, int chunkIndex, ScanChunk chunk, ScanProgress progress) {
+        var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
         var batch = new ScanChunkCommitter.ChunkBatch(
                 chunkIndex,
-                new ArrayList<>(chunk.inventoryItems()),
                 new ArrayList<>(chunk.changedInventoryItems()),
                 new ArrayList<>(chunk.proposals()),
                 new ArrayList<>(chunk.issues()));
-        var chunkProgress =
-                new ScanChunkCommitter.ChunkProgress(progress.files(), progress.proposals(), progress.issues());
-        chunkCommitter.commitChunk(lease, batch, chunkProgress);
+        chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress));
     }
 
-    private String relativePath(Path rootPath, Path path) {
-        return rootPath.relativize(path).toString().replace('\\', '/');
+    private ScanChunkCommitter.ChunkProgress progressSnapshot(ScanProgress progress) {
+        return new ScanChunkCommitter.ChunkProgress(progress.files(), progress.proposals(), progress.issues());
     }
 
-    private void logProgress(UUID runId, ScanProgress progress) {
-        if (progress.files() % PROGRESS_LOG_INTERVAL == 0) {
-            LOGGER.info(
-                    "Tiến độ scan runId={}: files={}, proposals={}, issues={}, skipped={}",
-                    runId,
-                    progress.files(),
-                    progress.proposals(),
-                    progress.issues(),
-                    progress.skipped());
-        }
+    private Instant nextLeaseUntil() {
+        return Instant.now().plusSeconds(properties.getLeaseDurationSeconds());
     }
 
-    private void cleanupStageAfterFailure(UUID runId) {
-        try {
-            chunkCommitter.cleanupStage(runId);
-        } catch (RuntimeException cleanupFailure) {
-            LOGGER.warn(
-                    "Không thể dọn staging của scan run thất bại: runId={}, failureType={}",
-                    runId,
-                    cleanupFailure.getClass().getSimpleName());
-        }
+    private void logDiscoveryProgress(UUID runId, long files, int segmentIndex) {
+        LOGGER.info("Tiến độ discovery runId={}: files={}, segment={}", runId, files, segmentIndex);
+    }
+
+    private void logCompletion(UUID runId, ScanProgress progress) {
+        LOGGER.info(
+                "Hoàn tất scan runId={}: files={}, proposals={}, issues={}, skipped={}",
+                runId,
+                progress.files(),
+                progress.proposals(),
+                progress.issues(),
+                progress.skipped());
     }
 
     private record ScanExecutionContext(
             UUID runId, String workerId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {}
+
+    private record DiscoveryRequest(
+            ScanExecutionContext context,
+            ScanFileInventoryCursor cursor,
+            ScanInventoryItem firstItem,
+            long previouslyScanned,
+            int chunkIndex) {}
 }

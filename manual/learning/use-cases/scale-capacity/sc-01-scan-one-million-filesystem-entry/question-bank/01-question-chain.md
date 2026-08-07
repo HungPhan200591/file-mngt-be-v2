@@ -141,6 +141,12 @@
     **Đáp nhanh:** Seen path vẫn phải lookup, COPY vào staging, renew lease và advance checkpoint theo chunk 500. Changed-only inventory loại write amplification nhưng chưa loại transaction amplification.
 11. **Hỏi:** FT-025.1 giảm transaction amplification thế nào?
     **Đáp nhanh:** Tăng reconciliation batch nội bộ lên 10.000 file, nên một triệu file còn tối đa 100 lookup/COPY/checkpoint transaction. Memory vẫn bounded; Catalog batch 500 là contract riêng và không bị thay đổi.
+12. **Hỏi:** Vì sao FT-025.2 không đơn giản tăng lookup chunk lên 500.000?
+    **Đáp nhanh:** Vì sẽ materialize hàng trăm nghìn object và câu `IN` vượt giới hạn parameter/thành query rất xấu. Discovery phải stream COPY, rồi PostgreSQL set-based diff sau khi walk xong.
+13. **Hỏi:** Segment 500.000 có giữ 500.000 item trong heap không?
+    **Đáp nhanh:** Không. `walkFileTree` producer dùng queue bounded 1.024 item; COPY consumer kéo và encode từng row, chỉ transaction row count đạt tối đa 500.000.
+14. **Hỏi:** Worker mất lease giữa COPY segment thì sao?
+    **Đáp nhanh:** Committer validate lease trước COPY và conditional-update checkpoint sau COPY. Nếu status/worker/lease không còn khớp, update bằng zero row, ném `ScanLeaseExpiredException` và rollback toàn segment.
 
 ## Anchor interview questions
 
@@ -227,4 +233,5 @@
 | 2026-08-07 | BT-03, matcher, MISSING, lease finalization | Scan module: 28 tests pass; rescan unchanged/modified/unsupported và missing đã có evidence. |
 | 2026-08-07 | FE resilience sau truncate và polling lifecycle | FE regression test: stale `scanId`, deep-link ngoài recent page và polling dừng ở terminal state. |
 | 2026-08-07 | Runtime warm scan 1M phát hiện write amplification | Run `52e59625...`: 1.000.000 skipped, 0 proposal/issue, khoảng 80 giây nhưng 1.000.000 inventory row vẫn đổi `updated_at`; evidence mở FT-025. |
+| 2026-08-07 | Microbenchmark one streaming COPY có staging index | `BenchmarkFullCopy`: walkFileTree + encode + IPC + COPY một triệu row vào TEMP table trong 2,890 giây; transaction rollback, chưa gồm inventory diff/finalization. |
 | 2026-08-07 | FT-025 staging reconciliation | Code/migration/test source đã triển khai; verification và benchmark chưa chạy theo rule người dùng. |

@@ -2,11 +2,14 @@ package com.filemngt.v2.scan.application.scan;
 
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryBatchWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter.DiscoveryCheckpoint;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
@@ -33,26 +36,64 @@ public class ScanChunkCommitter {
     private final ScanIssueRepository issues;
     private final ScanFileInventoryBatchWriter inventoryBatchWriter;
     private final ScanInventoryStageWriter stageWriter;
+    private final ScanRunProgressWriter runProgressWriter;
 
     public ScanChunkCommitter(
             ScanRunRepository runs,
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
             ScanFileInventoryBatchWriter inventoryBatchWriter,
-            ScanInventoryStageWriter stageWriter) {
+            ScanInventoryStageWriter stageWriter,
+            ScanRunProgressWriter runProgressWriter) {
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
         this.inventoryBatchWriter = inventoryBatchWriter;
         this.stageWriter = stageWriter;
+        this.runProgressWriter = runProgressWriter;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void commitChunk(ChunkLease lease, ChunkBatch batch, ChunkProgress progress) {
+    public long commitDiscoverySegment(DiscoverySegment segment) {
+        var lease = segment.lease();
         var run = runs.findById(lease.runId()).orElseThrow();
         validateLease(run, lease);
 
-        stageWriter.copySeen(lease.runId(), batch.inventoryItems());
+        long copied = stageWriter.copySeen(lease.runId(), segment.source());
+        long scannedFiles = segment.previouslyScannedFiles() + copied;
+        Instant nextLeaseUntil = fenceAndAdvanceDiscovery(segment, scannedFiles);
+        LOGGER.debug(
+                "Đã commit discovery segment #{} cho runId={}: workerId={}, copied={}, nextLeaseUntil={}",
+                segment.index(),
+                lease.runId(),
+                lease.workerId(),
+                copied,
+                nextLeaseUntil);
+        return copied;
+    }
+
+    private Instant fenceAndAdvanceDiscovery(DiscoverySegment segment, long scannedFiles) {
+        var lease = segment.lease();
+        Instant checkpointAt = Instant.now();
+        Instant nextLeaseUntil = checkpointAt.plusSeconds(segment.leaseDurationSeconds());
+        var checkpoint = new DiscoveryCheckpoint(
+                lease.runId(),
+                lease.workerId(),
+                segment.index(),
+                scannedFiles,
+                checkpointAt,
+                nextLeaseUntil);
+        if (!runProgressWriter.advanceDiscovery(checkpoint)) {
+            throw new ScanLeaseExpiredException(lease.runId(), lease.workerId());
+        }
+        return nextLeaseUntil;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void commitChangedChunk(ChunkLease lease, ChunkBatch batch, ChunkProgress progress) {
+        var run = runs.findById(lease.runId()).orElseThrow();
+        validateLease(run, lease);
+
         inventoryBatchWriter.upsertChanged(batch.changedInventoryItems());
         commitProposalsChunk(batch.proposals());
         commitIssuesChunk(batch.issues());
@@ -61,7 +102,7 @@ public class ScanChunkCommitter {
                 batch.index(), progress.files(), progress.proposals(), progress.issues(), lease.nextLeaseUntil());
         runs.saveAndFlush(run);
         LOGGER.debug(
-                "Đã commit chunk #{} cho runId={}: workerId={}, proposals={}, issues={}, nextLeaseUntil={}",
+                "Đã commit changed chunk #{} cho runId={}: workerId={}, proposals={}, issues={}, nextLeaseUntil={}",
                 batch.index(),
                 lease.runId(),
                 lease.workerId(),
@@ -123,9 +164,15 @@ public class ScanChunkCommitter {
 
     public record ChunkLease(UUID runId, String workerId, Instant nextLeaseUntil) {}
 
+    public record DiscoverySegment(
+            ChunkLease lease,
+            int index,
+            long previouslyScannedFiles,
+            long leaseDurationSeconds,
+            StageRowSource source) {}
+
     public record ChunkBatch(
             int index,
-            List<ScanInventoryItem> inventoryItems,
             List<ScanInventoryItem> changedInventoryItems,
             List<ScanProposalEntity> proposals,
             List<ScanIssueEntity> issues) {}

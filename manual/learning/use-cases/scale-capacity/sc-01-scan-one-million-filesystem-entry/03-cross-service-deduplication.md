@@ -146,6 +146,23 @@ chỉ còn tối đa 100 transaction cho một triệu file. Con số này khôn
 Catalog batch tối đa 500 candidate của BT-04 vì đó là contract cross-service có
 failure/latency budget khác.
 
+### Update FT-025.2 — Streaming segment 500.000 và set-based diff
+
+Benchmark `walkFileTree + BasicFileAttributes + indexed COPY` đạt 2,890 giây cho
+một triệu fixture row. Implementation tiếp tục loại transaction amplification:
+
+- Producer `walkFileTree` đưa item qua queue bounded 1.024 phần tử.
+- Consumer stream tối đa 500.000 row vào mỗi COPY; không tạo list 500.000 item.
+- Mỗi segment commit staging, progress/checkpoint và lease với conditional fence
+  ở cuối transaction.
+- Sau discovery, PostgreSQL join staging–inventory và keyset riêng file changed;
+  Java không lookup mọi seen path bằng câu `IN`.
+- Changed data vẫn commit theo chunk 10.000; Catalog batch 500 không đổi.
+
+Một triệu file cần khoảng hai discovery COPY hữu ích; mười triệu file khoảng hai
+mươi segment. Đây là cấu hình implementation hiện tại, không phải public contract
+hay SLO đã xác nhận.
+
 Staging là `UNLOGGED`: giảm WAL cho dữ liệu có thể tái tạo, nhưng bị truncate sau database crash. Điều đó không làm inventory canonical sai; run gián đoạn phải fail và run mới walk lại filesystem. Tối ưu này loại bỏ inventory write amplification, không loại bỏ full filesystem walk nên throughput mới vẫn phải benchmark.
 
 ## Tham chiếu

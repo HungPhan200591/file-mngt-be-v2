@@ -18,7 +18,10 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 - Preview không ghi Catalog, rename/move file hoặc xóa cache.
 - JOKE dùng code; USE video/assets dùng normalized basename; USE Album dùng relative folder làm identity và có thể tạo candidate link `FULL_ALBUM_OF` tới Syncdroid để review.
 - Parse mơ hồ tạo issue, không tự đoán.
-- Warm scan ghi mọi seen-item vào staging nhưng chỉ rewrite inventory khi file mới, fingerprint đổi, hoặc `MISSING` tái xuất hiện; finalization lease-fenced dùng anti-join để mark missing rồi dọn staging.
+- Discovery dùng `walkFileTree` và queue bounded để stream tối đa 500.000 seen-item
+  mỗi COPY segment; segment commit progress/checkpoint bằng lease fence đầu-cuối.
+  Sau discovery, set-based staging diff chỉ đưa file mới, fingerprint đổi hoặc
+  `MISSING` tái xuất hiện vào Java; finalization anti-join mark missing rồi dọn staging.
 - Approval ghi item và outbox cùng transaction.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không dùng root/path/file name làm metric label.

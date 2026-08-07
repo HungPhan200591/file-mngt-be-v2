@@ -7,12 +7,12 @@ final class ScanProgress {
     private long issues;
     private long skipped;
 
-    void recordFile() {
-        files++;
+    void recordFiles(long count) {
+        files += count;
     }
 
-    void recordSkipped() {
-        skipped++;
+    void recordSkipped(long count) {
+        skipped += count;
     }
 
     void recordResult(ScanFileAnalyzer.Result result) {

@@ -110,3 +110,24 @@ lease/checkpoint transaction và log progress; không còn nằm ở inventory r
 Mức 10.000 là tuning dựa trên bottleneck đã quan sát, chưa phải throughput/SLO
 được xác nhận. Cần benchmark lại khi người dùng cho phép; nếu heap hoặc latency
 transaction không đạt, điều chỉnh kích thước nhưng không quay lại per-file/N+1.
+
+## Update FT-025.2 — Streaming COPY segment 500.000
+
+Microbenchmark `walkFileTree` tái sử dụng `BasicFileAttributes` và một indexed
+COPY cho một triệu fixture row hoàn tất trong 2,890 giây. Theo quyết định ngày
+2026-08-07, discovery chuyển sang segment cố định tối đa 500.000 row:
+
+- Filesystem producer dùng queue bounded và `walkFileTree`; PostgreSQL consumer
+  stream thẳng từng item vào COPY, không giữ toàn segment trong heap.
+- Mỗi segment commit staging cùng progress/checkpoint và lease. Một triệu file
+  cần khoảng hai COPY hữu ích; mười triệu file cần khoảng hai mươi COPY.
+- Sau khi discovery hoàn tất, SQL join staging với inventory trả theo keyset chỉ
+  file new, fingerprint đổi hoặc `MISSING` tái xuất hiện. Java không còn gửi
+  lookup `IN` cho mọi seen path.
+- Changed inventory cùng proposal/issue vẫn commit theo business chunk nhỏ để
+  giữ rollback bounded và không materialize toàn bộ cold scan.
+- Finalization `MISSING`, cleanup staging và lease fencing giữ nguyên.
+
+Kích thước 500.000 là quyết định tuning hiện tại, không phải public contract.
+Nếu segment thực tế tiến gần lease duration hoặc tạo memory/DB pressure, feature
+sau có thể đổi sang time/byte-bounded adaptive segment mà không đổi REST/Kafka.

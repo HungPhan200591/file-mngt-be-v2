@@ -47,6 +47,29 @@ Có thể chỉ định fixture root khác từ thư mục gốc repository:
 java '-Dfile.encoding=UTF-8' '-DtargetDir=D:/path/to/fixture' tests/fixtures/tools/src/main/java/com/filemngt/tools/sc01_scan_one_million/BenchmarkFilesystemRead.java
 ```
 
+Đo phương án `walkFileTree` tái sử dụng `BasicFileAttributes` và stream toàn bộ
+fixture qua một phiên PostgreSQL `COPY FROM STDIN`:
+
+```bash
+npm run fixture:sc01:benchmark-copy
+```
+
+Benchmark tạo `TEMP TABLE` có index tương đương staging trong một transaction,
+đếm số row rồi `ROLLBACK`; không ghi vào `scan_inventory_stage` hoặc bảng dữ
+liệu thật. Kết quả mặc định bao gồm filesystem walk, encode text, IPC và indexed
+COPY. Dùng `-DwithIndex=false` khi cần đo raw COPY không có index.
+
+Evidence local ngày 2026-08-07 với một triệu fixture file rỗng, NTFS cache warm,
+PostgreSQL local và staging index bật:
+
+- Phát đủ dữ liệu từ `walkFileTree` dùng `BasicFileAttributes`: 2,390 giây.
+- `walk + encode + IPC + indexed COPY`: 2,890 giây, khoảng 346.014 file/giây.
+- Tổng gồm connect, tạo TEMP table/index, đếm row và rollback: 3,086 giây.
+
+Đây là microbenchmark discovery/COPY, chưa gồm set-based inventory diff,
+proposal/issue, lease heartbeat hay finalization nên không phải latency cam kết
+của toàn scan run.
+
 Hoặc chạy trực tiếp CLI / Maven compile:
 
 ```text

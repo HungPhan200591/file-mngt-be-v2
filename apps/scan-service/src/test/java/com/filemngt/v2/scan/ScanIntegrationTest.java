@@ -156,7 +156,7 @@ class ScanIntegrationTest {
     }
 
     @Test
-    void scanSeedsInventoryAcrossChunkBoundary() throws Exception {
+    void scanSeedsInventoryAcrossDiscoveryAndReconciliationPhases() throws Exception {
         createUnsupportedInventoryFiles(501);
 
         ScanProposalRef scan = scanAndGetProposal();

@@ -1,6 +1,9 @@
 spring:
   application:
     name: query-service
+  output:
+    ansi:
+      enabled: ALWAYS
   profiles:
     default: local
   datasource:
@@ -87,7 +90,7 @@ logging:
   file:
     name: ${OBSERVABILITY_LOG_FILE:logs/query-service.json.log}
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{correlationId:-NO_CORR}] %-5level %logger{36} - %msg%n"
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%thread]){faint} %clr([%X{correlationId:-NO_CORR}]){magenta} %clr(%-5level) %clr(%logger{36}){cyan} - %msg%n"
   structured:
     format:
       file: ecs

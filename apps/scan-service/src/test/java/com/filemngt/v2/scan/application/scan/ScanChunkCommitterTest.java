@@ -14,6 +14,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStage
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
 import com.filemngt.v2.scan.domain.scan.ScanProfile;
@@ -37,7 +38,8 @@ class ScanChunkCommitterTest {
                 mock(ScanProposalRepository.class),
                 mock(ScanIssueRepository.class),
                 inventoryWriter,
-                stageWriter);
+                stageWriter,
+                mock(ScanRunProgressWriter.class));
         when(runs.findById(runId)).thenReturn(Optional.of(run));
         when(run.isLeaseActive(any(Instant.class))).thenReturn(true);
         when(run.workerId()).thenReturn("worker-a");
@@ -70,7 +72,8 @@ class ScanChunkCommitterTest {
                 mock(ScanProposalRepository.class),
                 mock(ScanIssueRepository.class),
                 inventoryWriter,
-                stageWriter);
+                stageWriter,
+                mock(ScanRunProgressWriter.class));
         when(runs.findById(runId)).thenReturn(Optional.of(run));
 
         assertThatThrownBy(() -> committer.finalizeRun(

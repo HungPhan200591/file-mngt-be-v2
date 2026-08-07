@@ -52,6 +52,8 @@ const categories = {
     commands: [
       { cmd: 'npm run fixture:sc01:gen', desc: 'Sinh 1 triệu file rỗng fixture cho SC-01 bằng Java 25' },
       { cmd: 'npm run fixture:sc01:clean', desc: 'Dọn dẹp / xóa sạch 1 triệu file rỗng fixture của SC-01' },
+      { cmd: 'npm run fixture:sc01:benchmark-read', desc: 'Đo riêng filesystem metadata read của SC-01' },
+      { cmd: 'npm run fixture:sc01:benchmark-copy', desc: 'Đo walkFileTree + một streaming COPY vào TEMP TABLE rồi rollback' },
     ]
   }
 };
