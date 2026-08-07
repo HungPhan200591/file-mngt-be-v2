@@ -1,121 +1,99 @@
 ---
 name: architecture-quality-review
-description: Review code changes and feature work for PRD readiness, architectural boundary integrity, ownership, contract correctness, maintainability, and implementation quality in the Backend V2 study project. Use when reviewing a diff, commit, pull request, feature folder, or newly implemented use case; especially when changes touch service boundaries, database ownership, REST/Kafka contracts, transactions, filesystem scanning, or application/domain/adapter layering.
+description: Review code changes and feature work for PRD readiness, architectural boundaries, ownership, contracts, maintainability, resilience, and liveness in Backend V2. Use for diffs, commits, pull requests, feature folders, or implemented use cases; especially service/database boundaries, REST/Kafka, transactions, async workers, leases, schedulers, blocking I/O, filesystem scanning, or application/domain/adapter layering.
 ---
 
 # Architecture Quality Review
 
-Đánh giá một thay đổi từ góc nhìn có thể bàn giao theo PRD và đúng kiến trúc Backend V2. Skill này kết hợp blocking review (sai boundary, sai ownership, sai contract, mất invariant) với quality review (độ rõ ràng, cohesion, maintainability, hiệu năng hợp lý), nhưng không biến một dự án study thành production gate.
+Đánh giá thay đổi có thể bàn giao theo PRD, đúng kiến trúc và không che giấu failure mode khiến flow chính sai dữ liệu hoặc không thể kết thúc.
 
 ## Nguyên tắc
 
-- Review bằng bằng chứng trong diff và source-of-truth; không suy đoán thay cho code hoặc tài liệu.
-- Một finding phải chỉ rõ file/dòng hoặc symbol, impact, điều kiện xảy ra và hướng sửa.
-- Ưu tiên boundary và invariant hơn style. Không tạo finding chỉ vì khác sở thích cá nhân.
-- `Critical`/`High` chỉ dùng khi thay đổi không đạt PRD, phá ownership/contract, làm sai dữ liệu nghiệp vụ hoặc tạo lỗi không thể tự phục hồi trong flow chính.
-- Testing, migration rollback, load test và observability là evidence/follow-up theo rủi ro. Với study project, có thể ghi nhận gap mà không block nếu data có thể xóa/tạo lại và boundary vẫn an toàn.
-- **Cho phép intentional behavior change**: nếu Brief/PRD nói hành vi mới thay thế hành vi cũ, review không yêu cầu backward compatibility, giữ hai behavior, compatibility adapter, deprecation period hoặc migration cho behavior cũ. Chỉ flag khi code vô tình chạy song song hai semantics, còn stale branch/caller gây mâu thuẫn, hoặc behavior mới tự mâu thuẫn với acceptance criteria. Chỉ review compatibility khi người dùng yêu cầu rõ hoặc feature brief đặt nó làm acceptance criteria.
-- Không tự sửa code trong lúc review trừ khi người dùng yêu cầu; không chạy migration thật, import dữ liệu, reset repo, khởi động service hoặc commit/push.
+- Review bằng bằng chứng trong diff, dependency trực tiếp và source of truth; tài liệu im lặng không phải bằng chứng một rủi ro đã được chấp nhận.
+- Mỗi finding phải nêu file/dòng hoặc symbol, điều kiện xảy ra, impact và hướng sửa nhỏ nhất hữu ích.
+- Ưu tiên boundary, correctness, safety và liveness hơn style; không tạo finding theo sở thích cá nhân.
+- Testing/load test/observability là evidence theo rủi ro, không thay thế việc trace code path và state transition.
+- Intentional behavior change không cần giữ behavior cũ, nhưng phải nhất quán với acceptance criteria và không để stale branch/caller chạy semantics cũ.
+- Không tự sửa code khi chỉ được yêu cầu review; không tự chạy test/build, migration/import thật, reset, service, Docker, commit hay push.
+- Chỉ coi rủi ro là được bỏ qua khi người dùng chủ động chấp nhận rõ trong yêu cầu/review hiện tại; ghi lại waiver và residual risk. `Out of scope`, code cũ hoặc Brief im lặng không phải waiver.
 
 ## Workflow
 
-### 1. Xác định input và phạm vi
+### 1. Xác định phạm vi
 
-Nhận một trong các input: commit/diff, danh sách file, feature folder hoặc path code. Xác định:
-
-- mục tiêu PRD/acceptance criteria và phần out of scope;
-- service owner, database owner, API/event contract và các invariant liên quan;
-- file mới/sửa/xóa, dependency trực tiếp và thay đổi runtime;
-- loại review: full review mặc định; quality-only chỉ khi người dùng yêu cầu.
-
-Đọc tối thiểu `docs/architecture/01-SUMMARY.md`, `docs/architecture/03-CODING_RULES.md`, `docs/STATUS.md` và `apps/<service>/CONTEXT.md` của service bị chạm. Khi feature có brief/design/plan, đọc các file đó trước khi kết luận PRD readiness. Chỉ đọc ADR/contract/migration docs khi diff chạm boundary tương ứng.
-
-Nếu review commit lớn, đọc `git show --stat --name-status` và patch từ file export để tránh terminal truncation. Không cần bắt chước quy trình export report của workflow livestream cũ nếu người dùng không yêu cầu; vẫn phải ghi lại commit/hash hoặc phạm vi đã review.
+- Ghi review scope: commit/diff/file/feature, mục tiêu, acceptance criteria, out of scope và loại full/quality-only.
+- Xác định service/database owner, API/event contract, invariant, file thay đổi, dependency trực tiếp và runtime path.
+- Đọc tối thiểu `docs/architecture/01-SUMMARY.md`, `docs/architecture/03-CODING_RULES.md`, `docs/STATUS.md`, đúng `apps/<service>/CONTEXT.md`; đọc Brief/Design/Plan nếu có.
+- Chỉ đọc ADR/contract/migration khi chạm boundary tương ứng. Với commit lớn, kiểm tra stat/name-status và patch đầy đủ, tránh kết luận từ diff bị truncate.
 
 ### 2. Kiểm tra PRD readiness
 
-Đối chiếu từng acceptance criterion với implementation và đánh dấu `PASS`, `PARTIAL` hoặc `MISSING`:
+Đánh dấu từng criterion `PASS`, `PARTIAL` hoặc `MISSING` theo bằng chứng:
 
 - data model, constraint, index và persistence behavior;
-- happy path, failure path, retry/idempotency và transaction boundary;
-- contract và invariant của feature mới (không mặc định giữ contract/behavior cũ nếu feature chủ động thay thế chúng);
-- out-of-scope không bị kéo vào feature;
-- tài liệu owner (brief/design/plan/contract/ADR) có khớp implementation.
+- happy path, failure path, retry/idempotency, transaction và compensation;
+- contract/invariant của behavior mới và caller/branch liên quan;
+- tài liệu owner khớp implementation, out-of-scope không bị kéo vào.
 
-Không coi “có test” là bằng chứng duy nhất. Có thể dùng code path, constraint, query, transaction annotation, log/metric và tài liệu làm evidence; ghi rõ evidence còn thiếu.
+Nếu code tạo failure mode quan trọng mà PRD không nói tới, tạo finding và yêu cầu bổ sung quyết định; không tự suy ra rằng PRD đã cho phép.
 
-### 3. Kiểm tra ranh giới kiến trúc
+### 3. Gate bắt buộc về liveness và resilience
 
-Kiểm tra theo thứ tự:
+Áp dụng khi flow có async/background worker, lease/heartbeat/lock, scheduler, retry, blocking filesystem/network/database I/O hoặc trạng thái trung gian dài hạn:
 
-1. Service chỉ truy cập database của chính nó; không import entity/repository/schema của service khác.
-2. Luồng mặc định là `adapter.in -> application -> domain`; adapter làm I/O/map, không quyết định nghiệp vụ.
-3. `domain` không phụ thuộc Spring, HTTP, JPA, Kafka hoặc filesystem.
-4. Transaction nằm ở application use case; side effect cần invariant được commit cùng nhau.
-5. REST/Kafka boundary dùng DTO/event version phù hợp; không trả persistence entity; consumer có idempotency khi cần.
-6. PostgreSQL là source of truth; Redis chỉ cache/read optimization; Kafka không thay thế HTTP call bắt buộc.
-7. Không tạo service/package/port/utility chỉ để đủ pattern; mỗi abstraction phải che giấu dependency hoặc policy thực sự.
-8. Với scan-service, giữ các invariant: lấy `RegistrySnapshot` trước `scan_run`, preview không side effect, parse mơ hồ tạo issue, approval ghi item và outbox cùng transaction, log không lộ absolute root.
+1. Tách rõ **safety** (worker stale không được commit sai) và **liveness** (flow không kẹt mãi, eventually về terminal); phải có evidence cho cả hai.
+2. Trace state machine từ mọi trạng thái non-terminal tới `COMPLETED`, `FAILED`, `CANCELLED` hoặc trạng thái terminal tương đương, kể cả worker chết, dependency treo và service restart.
+3. Với từng blocking operation, xác định deadline/timeout, khả năng cancel, exception propagation và hành động recovery. Timeout chỉ ghi trong tài liệu nhưng không được enforce là `MISSING`.
+4. Xác định cơ chế thu hồi chủ động khi mất progress: watchdog/reaper hoặc cơ chế tương đương. Cleanup chỉ chạy khi request mới đến, polling chỉ đọc trạng thái, hay kiểm tra ở commit kế tiếp không đủ nếu operation có thể không trả control.
+5. Kiểm tra fencing sau timeout/cancel để worker cũ không thể commit muộn; kiểm tra cleanup idempotent và race giữa reaper với worker.
+6. Lập time budget khi có lease: `operation timeout < no-progress/lease deadline < total run deadline`; nêu rõ cadence heartbeat/reaper và sai số cho phép.
+7. Thiếu cơ chế khiến flow chính có thể `RUNNING`/block vô hạn là `High` và `NOT READY`. Chỉ thiếu evidence định lượng nhưng đã có đường thoát enforce được là ít nhất `Medium` và `CONDITIONAL`.
 
-### 4. Kiểm tra code quality
+Không hạ severity hoặc bỏ finding nếu chưa có waiver chủ động của người dùng. Nếu có waiver, vẫn ghi `Accepted risks / waivers`, phạm vi và hậu quả; không biến waiver thành invariant dùng cho review sau.
 
-Tập trung vào lỗi làm tăng chi phí thay đổi hoặc che giấu hành vi:
+### 4. Kiểm tra ranh giới kiến trúc
 
-- method/class quá dài hoặc trộn orchestration, validation, mapping và I/O;
-- tên, type và state transition không diễn đạt nghiệp vụ;
-- magic string/number, raw map/string trong core logic, null collection;
-- duplicate query/I/O, N+1, batch sai kích thước, transaction quá rộng hoặc thiếu;
-- catch/nuốt exception, log thiếu context hoặc lộ path/secret;
-- dead code, config/version không theo convention;
-- file vượt 500 dòng hoặc vi phạm ngưỡng coding rules mà không có lý do trong Plan.
+1. Service chỉ truy cập database của mình; không import entity/repository/schema service khác.
+2. Luồng mặc định `adapter.in -> application -> domain`; adapter làm I/O/map, domain không phụ thuộc Spring/HTTP/JPA/Kafka/filesystem.
+3. Transaction ở application use case; side effect cùng invariant commit nguyên tử hoặc có consistency strategy rõ.
+4. REST/Kafka dùng DTO/event version phù hợp; không trả persistence entity; consumer idempotent khi cần.
+5. PostgreSQL là source of truth; Redis chỉ tối ưu read/cache; Kafka không thay HTTP call bắt buộc.
+6. Abstraction/service/package/port phải che giấu dependency hoặc policy thực sự, không chỉ tồn tại để đủ pattern.
+7. Với scan-service: lấy `RegistrySnapshot` trước `scan_run`, preview không side effect, parse mơ hồ tạo issue, approval ghi item/outbox cùng transaction, log không lộ absolute root.
 
-Không block chỉ vì format, thiếu test cho nhánh không quan trọng, hoặc migration chưa có rollback trong môi trường study nếu feature plan đã chấp nhận reset data. Tuy nhiên vẫn ghi thành `Low`/follow-up khi nó làm giảm khả năng học, debug hoặc mở rộng.
+### 5. Kiểm tra code quality
 
-### 5. Kết luận và báo cáo
+- method/class trộn orchestration, validation, mapping và I/O hoặc vượt ngưỡng coding rules;
+- tên/type/state transition không diễn đạt semantics; magic string/number, raw map/string, null collection;
+- duplicate query/I/O, N+1, batch không bounded, transaction quá rộng/thiếu;
+- catch/nuốt exception, mất interrupt/cancellation, log thiếu context hoặc lộ path/secret;
+- dead code, config/version sai convention; file source vượt 500 dòng mà không có ngoại lệ trong Plan.
 
-Phân loại severity:
+Format, test nhánh không quan trọng hoặc rollback migration của dữ liệu study có thể là Low/follow-up, nhưng không được dùng lý do “study project” để bỏ qua correctness, liveness hoặc khả năng tự phục hồi của flow chính.
 
-- `Critical`: không đạt PRD hoặc phá boundary/invariant nghiêm trọng, cần dừng bàn giao.
-- `High`: lỗi correctness, ownership, contract, transaction hoặc security có khả năng xảy ra trong flow chính.
-- `Medium`: thiếu khả năng bảo trì, failure handling, hiệu năng hoặc tài liệu làm feature khó vận hành/mở rộng.
-- `Low`: style, clarity hoặc debt nhỏ, không ảnh hưởng hành vi hiện tại.
+### 6. Kết luận
 
-Verdict:
-
-- `READY`: không còn Critical/High; acceptance criteria đã đủ evidence.
-- `CONDITIONAL`: còn Medium/Low hoặc evidence chưa đầy đủ nhưng không phá boundary/invariant.
-- `NOT READY`: có Critical/High, acceptance criterion bị thiếu, hoặc cần quyết định kiến trúc/contract trước khi merge.
-
-Dùng format sau, viết ngắn nhưng đủ bằng chứng:
+- `Critical`: không đạt PRD hoặc phá boundary/invariant nghiêm trọng.
+- `High`: lỗi correctness, ownership, contract, transaction, security hoặc flow chính có thể không kết thúc/tự phục hồi.
+- `Medium`: gap maintainability, failure handling, performance, evidence hoặc tài liệu làm feature khó vận hành.
+- `Low`: clarity/style/debt nhỏ không ảnh hưởng hành vi hiện tại.
+- `READY`: không còn Critical/High và đủ evidence; `CONDITIONAL`: còn Medium/Low/evidence gap; `NOT READY`: có Critical/High hoặc criterion thiếu.
 
 ```text
 Review scope: <commit/diff/feature>
 Verdict: READY | CONDITIONAL | NOT READY
-
-PRD readiness:
-- [PASS|PARTIAL|MISSING] <criterion> — Evidence: <file/symbol>
-
-Findings:
-- [Critical|High|Medium|Low] <title>
-  Location: <file:line or symbol>
-  Impact: <what can go wrong>
-  Recommendation: <smallest useful fix>
-
-Architecture boundary summary:
-- Service/database ownership: <result>
-- Layer/dependency direction: <result>
-- REST/Kafka/transaction contract: <result or N/A>
-
-Gaps / follow-ups:
-- <tests, docs, observability, migration or debt; state why non-blocking when applicable>
+PRD readiness: - [PASS|PARTIAL|MISSING] <criterion> — Evidence: <file/symbol>
+Findings: - [severity] <title>; Location; Condition/Impact; Recommendation
+Safety & liveness: <terminal-state trace, blocking deadlines, recovery/fencing, time budget hoặc N/A>
+Architecture: <ownership; layer direction; REST/Kafka/transaction>
+Accepted risks / waivers: <user-approved risk hoặc None>
+Gaps / follow-ups: <evidence/tests/docs/observability và lý do non-blocking>
 ```
 
-Nếu không có finding, nói rõ `Không phát hiện lỗi trong phạm vi đã review` và nêu residual risk/evidence gap. Không tự mở rộng sang refactor hoặc feature tiếp theo.
+Nếu không có finding, nói rõ và vẫn nêu residual risk/evidence gap. Không tự mở rộng sang implementation.
 
-## Tài liệu cần nạp theo điều kiện
+## Tài liệu theo điều kiện
 
-- Đổi REST, Kafka, outbox, database ownership hoặc chạm từ hai service: đọc `$cross-service-contract` và contract/ADR owner trước khi review.
-- Feature mới hoặc đổi nghiệp vụ: đọc `$adlc-feature-delivery` để hiểu Brief/Design/Plan và gate bàn giao.
-- Chỉ cleanup giữ nguyên behavior: đọc `$refactor-spring-service` và đánh giá theo debt đã đăng ký.
-- Đổi Mermaid: đọc `$mermaid-styling`.
-- Chạm API/config/library version: dùng `$find-docs` trước khi đánh giá tính đúng của API.
+- Đổi REST/Kafka/outbox/database ownership hoặc chạm hai service: dùng `$cross-service-contract` và đọc owner contract/ADR.
+- Feature mới/đổi nghiệp vụ: dùng `$adlc-feature-delivery`; cleanup giữ behavior: dùng `$refactor-spring-service`.
+- Đổi Mermaid: dùng `$mermaid-styling`; chạm API/config/library version: dùng `$find-docs`.
