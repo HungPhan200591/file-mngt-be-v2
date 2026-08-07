@@ -34,6 +34,10 @@ public class GenerateOneMillionJokeVideoFixtures {
         System.out.println("🚀 SC-01 SCAN ONE MILLION FIXTURE GENERATOR (1,000 DIRS x 1,000 FILES)");
         System.out.println("📍 Target Path: " + targetDirStr);
         System.out.println("📁 Subdirectories: " + subDirsCount + " | Files/Dir: " + filesPerDir);
+        System.out.println("📊 Phân bổ Fixture:");
+        System.out.println("   - Valid Proposals (.mp4): ~899,000 files (format: Joke_AT_... [JOKE-...].mp4)");
+        System.out.println("   - Parse Issues (.mp4 lỗi format): ~100,000 files (format: Invalid_Joke_AT_....mp4)");
+        System.out.println("   - Non-scan files (.jpg): ~1,000 files (format: Joke_Cover_....jpg)");
         System.out.println("====================================================");
 
         Path rootPath = Path.of(targetDirStr);
@@ -99,7 +103,19 @@ public class GenerateOneMillionJokeVideoFixtures {
         for (int f = 1; f <= filesPerDir; f++) {
             int fileId = startFileId + f;
             String fileIdStr = padZero(fileId, 7);
-            String fileName = "Joke_AT_" + fileIdStr + " [JOKE-" + fileIdStr + "].mp4";
+            String fileName;
+
+            if (f == 1) {
+                // 1 file .jpg per sub-directory (tổng cộng 1,000 files .jpg cho 1,000 subdirs -> không phải type scan JOKE_VIDEO)
+                fileName = "Joke_Cover_" + fileIdStr + ".jpg";
+            } else if (f <= 101) {
+                // 100 files .mp4 lỗi format per sub-directory (tổng cộng 100,000 files lỗi cho 1,000 subdirs -> vào scan_issue UNPARSEABLE)
+                fileName = "Invalid_Joke_AT_" + fileIdStr + ".mp4";
+            } else {
+                // 899 files .mp4 hợp lệ per sub-directory (tổng cộng 899,000 files hợp lệ cho 1,000 subdirs -> vào scan_proposal)
+                fileName = "Joke_AT_" + fileIdStr + " [JOKE-" + fileIdStr + "].mp4";
+            }
+
             Path filePath = dirPath.resolve(fileName);
 
             try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
