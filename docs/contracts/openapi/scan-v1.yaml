@@ -86,10 +86,13 @@ paths:
   /api/v2/scans/review-queue:
     get:
       operationId: listScanReviewQueue
-      summary: List pending or rejected proposals across completed scan runs
+      summary: List pending, rejected or approved current proposals across completed scan runs
       parameters:
         - $ref: '#/components/parameters/ReviewQueueState'
         - $ref: '#/components/parameters/RootKey'
+        - name: search
+          in: query
+          schema: { type: string }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:
@@ -101,6 +104,70 @@ paths:
                 $ref: '#/components/schemas/ReviewQueueProposalPage'
         '400':
           $ref: '#/components/responses/ValidationProblem'
+  /api/v2/scans/review-queue/issues:
+    get:
+      operationId: listCompletedScanIssueHistory
+      summary: List issue history across completed scan runs
+      parameters:
+        - $ref: '#/components/parameters/RootKey'
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of issues found in completed scan runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewQueueIssuePage'
+  /api/v2/scans/review-queue/decisions:
+    post:
+      operationId: decideScanReviewQueue
+      summary: Apply one decision to all pending review queue proposals matching filters
+      parameters:
+        - $ref: '#/components/parameters/RootKey'
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string, enum: [PENDING], default: PENDING }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanProposalDecisionRequest'
+      responses:
+        '200':
+          description: Number of proposals decided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchDecisionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+  /api/v2/scans/review-queue/reopen:
+    post:
+      operationId: reopenAllRejectedScanProposals
+      summary: Reopen all rejected review queue proposals matching filters
+      parameters:
+        - $ref: '#/components/parameters/RootKey'
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Number of rejected proposals reopened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchDecisionResponse'
   /api/v2/scans/{scanId}:
     get:
       operationId: getScanRun
@@ -255,7 +322,7 @@ components:
       name: state
       in: query
       required: false
-      schema: { type: string, enum: [PENDING, REJECTED], default: PENDING }
+      schema: { type: string, enum: [PENDING, REJECTED, APPROVED], default: PENDING }
   responses:
     ValidationProblem:
       description: Invalid root key or request
@@ -316,6 +383,19 @@ components:
         proposalCount: { type: integer, format: int64 }
         issueCount: { type: integer, format: int64 }
         lastError: { type: [string, 'null'] }
+        reviewSummary:
+          oneOf:
+            - $ref: '#/components/schemas/ReviewQueueSummary'
+            - type: 'null'
+          description: Current worklist counters for this run's root; available on detail reads.
+    ReviewQueueSummary:
+      type: object
+      required: [pendingCount, rejectedCount, approvedCount, issueCount]
+      properties:
+        pendingCount: { type: integer, format: int64 }
+        rejectedCount: { type: integer, format: int64 }
+        approvedCount: { type: integer, format: int64 }
+        issueCount: { type: integer, format: int64 }
     ScanRunStreamEvent:
       type: object
       required:
@@ -385,8 +465,19 @@ components:
         displayTitle: { type: [string, 'null'] }
         assetRole: { type: [string, 'null'], enum: [PRIMARY_VIDEO, VIDEO, IMAGE, GIF, null] }
         evidence: { type: object, additionalProperties: true }
-        state: { type: string, enum: [PENDING, REJECTED] }
+        state: { type: string, enum: [PENDING, REJECTED, APPROVED] }
         decidedAt: { type: [string, 'null'], format: date-time }
+    ReviewQueueIssue:
+      type: object
+      required: [issueId, scanId, rootKey, sourceRelativePath, code, detail, detectedAt]
+      properties:
+        issueId: { type: string, format: uuid }
+        scanId: { type: string, format: uuid }
+        rootKey: { type: string }
+        sourceRelativePath: { type: string }
+        code: { type: string }
+        detail: { type: string }
+        detectedAt: { type: string, format: date-time }
     ScanIssue:
       type: object
       required: [id, sourceRelativePath, code, detail]
@@ -410,10 +501,19 @@ components:
         decision: { type: string, enum: [APPROVE, REJECT] }
         decidedAt: { type: string, format: date-time }
         eventId: { type: [string, 'null'], format: uuid }
+    BatchDecisionResponse:
+      type: object
+      required: [decision, processedCount]
+      properties:
+        scanId: { type: [string, 'null'], format: uuid }
+        decision: { type: string, enum: [APPROVE, REJECT] }
+        processedCount: { type: integer }
     ScanProposalPage:
       $ref: '#/components/schemas/PageScanProposal'
     ReviewQueueProposalPage:
       $ref: '#/components/schemas/PageReviewQueueProposal'
+    ReviewQueueIssuePage:
+      $ref: '#/components/schemas/PageReviewQueueIssue'
     ScanIssuePage:
       $ref: '#/components/schemas/PageScanIssue'
     PageScanProposal:
@@ -430,6 +530,15 @@ components:
       required: [content, page, size, totalElements, totalPages]
       properties:
         content: { type: array, items: { $ref: '#/components/schemas/ReviewQueueProposal' } }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    PageReviewQueueIssue:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/ReviewQueueIssue' } }
         page: { type: integer }
         size: { type: integer }
         totalElements: { type: integer, format: int64 }

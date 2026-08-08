@@ -17,4 +17,5 @@ public record ScanRunView(
         long proposalCount,
         long issueCount,
         String lastError,
-        Long registryVersion) {}
+        Long registryVersion,
+        ReviewQueueSummaryView reviewSummary) {}

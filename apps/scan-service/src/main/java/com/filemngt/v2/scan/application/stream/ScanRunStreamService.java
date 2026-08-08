@@ -22,12 +22,12 @@ public class ScanRunStreamService {
 
     @Transactional(readOnly = true)
     public ScanRunStreamEvent snapshot(UUID runId) {
-        return event(ScanRunStreamEventType.SNAPSHOT, ScanRunStreamPhase.UNKNOWN, queries.get(runId));
+        return event(ScanRunStreamEventType.SNAPSHOT, ScanRunStreamPhase.UNKNOWN, queries.getForStream(runId));
     }
 
     @Transactional(readOnly = true)
     public void publishTerminal(UUID runId) {
-        hub.publish(event(ScanRunStreamEventType.TERMINAL, ScanRunStreamPhase.TERMINAL, queries.get(runId)));
+        hub.publish(event(ScanRunStreamEventType.TERMINAL, ScanRunStreamPhase.TERMINAL, queries.getForStream(runId)));
     }
 
     public void publishProgress(ScanRunStreamProgress progress) {

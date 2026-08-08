@@ -11,6 +11,7 @@ import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.query.ScanQueryService;
@@ -82,9 +83,35 @@ public class ScanController {
     public ScanPageView<ReviewQueueProposalView> reviewQueue(
             @RequestParam(defaultValue = "PENDING") String state,
             @RequestParam(required = false) String rootKey,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return queries.reviewQueue(state, rootKey, valid(page, size), size);
+        return queries.reviewQueue(state, rootKey, search, valid(page, size), size);
+    }
+
+    @GetMapping("/review-queue/issues")
+    public ScanPageView<ReviewQueueIssueView> reviewQueueIssues(
+            @RequestParam(required = false) String rootKey,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+        return queries.reviewQueueIssues(rootKey, code, search, valid(page, size), size);
+    }
+
+    @PostMapping("/review-queue/decisions")
+    public BatchDecisionResponse decideReviewQueue(
+            @RequestParam(defaultValue = "PENDING") String state,
+            @RequestParam(required = false) String rootKey,
+            @RequestParam(required = false) String search,
+            @Valid @RequestBody DecisionRequest request) {
+        return new BatchDecisionResponse(null, request.decision(), decisions.decideReviewQueue(
+                state, rootKey, search, request.decision()));
+    }
+
+    @PostMapping("/review-queue/reopen")
+    public BatchDecisionResponse reopenReviewQueue(
+            @RequestParam(required = false) String rootKey, @RequestParam(required = false) String search) {
+        return new BatchDecisionResponse(null, "REOPEN", decisions.reopenReviewQueue(rootKey, search));
     }
 
     /**

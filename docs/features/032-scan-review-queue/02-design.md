@@ -65,6 +65,12 @@ Scan OpenAPI là source of truth.
 `sourceRelativePath`, semantic/evidence hiện có và `state`. Endpoint proposal theo
 run hiện hữu không đổi. Không có Kafka/event contract mới.
 
+`GET /api/v2/scans/review-queue/issues` là worklist issue hiện hành phân trang.
+Nó chỉ trả file inventory còn `PRESENT` và chưa có proposal/issue mới hơn cùng
+`rootKey + sourceRelativePath`; vì vậy lỗi tự rời list sau một scan xác nhận file đã
+được sửa hoặc đã mất. Audit issue cũ vẫn nằm theo run history. API không ghi trạng
+thái, không tạo outbox/Kafka event và không đổi hot write path.
+
 ## Idempotency, consistency và failure
 
 1. `POST .../reopen` kiểm tra proposal thuộc `scanId`.
@@ -86,9 +92,9 @@ run hiện hữu không đổi. Không có Kafka/event contract mới.
   chọn. Đây không phải màn hình History.
 - Tab/filter phụ: `Đã bỏ qua`; gọi `state=REJECTED`, mỗi item có hành động `Đưa lại
   chờ duyệt` gọi endpoint reopen.
-- Sau SSE terminal hoặc REST verify terminal của scan, nếu `proposalCount = 0`,
-  hiển thị banner có link tới `Chờ duyệt`; không tự điều hướng và không fetch
-  proposal/issues của run khi nó còn `RUNNING`.
+- Sidebar là entry point mặc định. Khi run `COMPLETED` có `changedFileCount = 0`,
+  workspace hiển thị một CTA duy nhất tới `Chờ duyệt`; không lặp link sau action.
+  Không fetch proposal/issues của run khi nó còn `RUNNING`.
 - `APPROVE`/`REJECT` dùng endpoint hiện có. Sau action thành công, xóa item khỏi
   view hiện tại và refetch trang khi cần; `409` reopen approved được hiển thị là
   “Đã duyệt; không thể đưa lại hàng chờ”.
@@ -98,7 +104,8 @@ run hiện hữu không đổi. Không có Kafka/event contract mới.
 - API bắt buộc phân trang `size` 1–100, mặc định 50. Thứ tự ổn định: run mới nhất
   trước, sau đó `sourceRelativePath`, rồi `proposalId` để tránh duplicate/missing
   khi chuyển trang.
-- Không tự thêm index vào hot-write `scan_proposal`. Implementation phải chạy
-  `EXPLAIN (ANALYZE, BUFFERS)` bằng fixture representative trước khi quyết định một
-  migration index chỉ phục vụ read queue; index chỉ được thêm khi có bằng chứng.
+- Không tự thêm index vào hot-write `scan_proposal`/`scan_issue`. Read queue dùng
+  migration `V14__add_review_queue_read_indexes.sql` cho `scan_run` completed và
+  `scan_decision`; sau khi có dữ liệu representative vẫn cần `EXPLAIN (ANALYZE,
+  BUFFERS)` để tinh chỉnh query nếu cần.
 - Log action reopen bằng `scanId`, `proposalId`, outcome; không log absolute path.

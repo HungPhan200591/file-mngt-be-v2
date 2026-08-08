@@ -39,8 +39,8 @@ Design: [02-design.md](./02-design.md)
    dùng yêu cầu rõ.
 2. Tạo tab `Chờ duyệt`, paging và filter `rootKey`; dùng `state=PENDING` mặc định.
 3. Tạo filter `Đã bỏ qua` với action reopen; sau response `204`, refetch queue.
-4. Giữ SSE/REST terminal behavior FT-028: banner link queue khi run thành công có
-   `proposalCount = 0`; không poll proposal/issues khi `RUNNING`.
+4. Giữ SSE/REST terminal behavior FT-028: sidebar là entry point duy nhất vào
+   queue; không poll proposal/issues khi `RUNNING`.
 5. Map lỗi `409` reopen approved thành thông báo rõ ràng; không tự gọi API decision
    trái ngược để “undo” approval.
 
@@ -76,6 +76,8 @@ Design: [02-design.md](./02-design.md)
 
 - Đã thêm queue `PENDING`/`REJECTED` xuyên các run `COMPLETED` và API reopen
   `REJECT → PENDING`; `APPROVE` trả conflict và không phát outbox/event mới.
+- Đã thêm history issue phân trang xuyên các run `COMPLETED`; history không gán
+  trạng thái đã xử lý và không tạo write/event mới.
 - Đã cập nhật Scan OpenAPI. Không thêm migration/index vì chưa có evidence `EXPLAIN`.
 - Không chạy build, test, migration hay service theo yêu cầu của người dùng. Các mục
   verification phía trên được giữ để thực hiện sau review architecture.

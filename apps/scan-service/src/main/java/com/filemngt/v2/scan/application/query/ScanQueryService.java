@@ -10,6 +10,8 @@ import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalReposit
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueSummaryView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
@@ -39,6 +41,7 @@ public class ScanQueryService {
     private static final String SOURCE_RELATIVE_PATH = "sourceRelativePath";
     private static final String PENDING = "PENDING";
     private static final String REJECTED = "REJECTED";
+    private static final String APPROVED = "APPROVED";
 
     private final ScanProperties properties;
     private final ScanRunRepository runs;
@@ -80,6 +83,12 @@ public class ScanQueryService {
     @Transactional(readOnly = true)
     /** Lấy chi tiết một scan run hoặc báo không tồn tại. */
     public ScanRunView get(UUID runId) {
+        var run = runs.findById(runId).orElseThrow(() -> new ScanRunNotFoundException(runId));
+        return ScanViewMapper.run(run, reviewSummary(run.rootKey()));
+    }
+
+    /** SSE chỉ cần số liệu durable của run; không được chạy aggregate worklist trên worker path. */
+    public ScanRunView getForStream(UUID runId) {
         return ScanViewMapper.run(runs.findById(runId).orElseThrow(() -> new ScanRunNotFoundException(runId)));
     }
 
@@ -101,10 +110,11 @@ public class ScanQueryService {
     }
 
     @Transactional(readOnly = true)
-    public ScanPageView<ReviewQueueProposalView> reviewQueue(String state, String rootKey, int page, int size) {
+    public ScanPageView<ReviewQueueProposalView> reviewQueue(
+            String state, String rootKey, String search, int page, int size) {
         String normalizedState = normalizeQueueState(state);
         String normalizedRootKey = normalizeRootKey(rootKey);
-        var result = proposals.findReviewQueue(normalizedState, normalizedRootKey, PageRequest.of(page, size));
+        var result = proposals.findReviewQueue(normalizedState, normalizedRootKey, normalizeSearch(search), PageRequest.of(page, size));
         var runsById = runs.findAllById(result.getContent().stream()
                         .map(ScanProposalEntity::scanRunId)
                         .toList())
@@ -120,6 +130,21 @@ public class ScanQueryService {
                 runsById.get(proposal.scanRunId()),
                 decisionsByProposal.get(proposal.id()),
                 normalizedState)));
+    }
+
+    /** Trả lịch sử issue của các run đã hoàn tất để lỗi cũ không bị che bởi lần scan sau. */
+    @Transactional(readOnly = true)
+    public ScanPageView<ReviewQueueIssueView> reviewQueueIssues(
+            String rootKey, String code, String search, int page, int size) {
+        var result = issues.findCompletedRunIssueHistory(
+                normalizeRootKey(rootKey), normalizeOptional(code), normalizeSearch(search), PageRequest.of(page, size));
+        var runsById = runs.findAllById(result.getContent().stream()
+                        .map(ScanIssueEntity::scanRunId)
+                        .toList())
+                .stream()
+                .collect(Collectors.toMap(run -> run.id(), Function.identity()));
+        return ScanViewMapper.page(result.map(issue -> reviewQueueIssueView(
+                issue, runsById.get(issue.scanRunId()))));
     }
 
     @Transactional(readOnly = true)
@@ -181,9 +206,20 @@ public class ScanQueryService {
                 decision == null ? null : decision.decidedAt());
     }
 
+    private ReviewQueueIssueView reviewQueueIssueView(ScanIssueEntity issue, ScanRunEntity run) {
+        return new ReviewQueueIssueView(
+                issue.id(),
+                issue.scanRunId(),
+                run.rootKey(),
+                issue.sourceRelativePath(),
+                issue.code(),
+                issue.detail(),
+                run.finishedAt());
+    }
+
     private String normalizeQueueState(String state) {
-        if (PENDING.equals(state) || REJECTED.equals(state)) return state;
-        throw new InvalidRequestException("state must be PENDING or REJECTED");
+        if (PENDING.equals(state) || REJECTED.equals(state) || APPROVED.equals(state)) return state;
+        throw new InvalidRequestException("state must be PENDING, REJECTED or APPROVED");
     }
 
     private String normalizeRootKey(String rootKey) {
@@ -191,6 +227,23 @@ public class ScanQueryService {
         boolean knownRoot = properties.getRoots().stream().anyMatch(root -> root.key().equals(rootKey));
         if (!knownRoot) throw new InvalidRequestException("Unknown root key: " + rootKey);
         return rootKey;
+    }
+
+    private String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizeSearch(String search) {
+        return normalizeOptional(search);
+    }
+
+    private ReviewQueueSummaryView reviewSummary(String rootKey) {
+        Object[] proposalCounts = proposals.countCurrentByState(rootKey).getFirst();
+        return new ReviewQueueSummaryView(
+                ((Number) proposalCounts[0]).longValue(),
+                ((Number) proposalCounts[1]).longValue(),
+                ((Number) proposalCounts[2]).longValue(),
+                issues.countCurrentByRoot(rootKey));
     }
 
     private ScanIssueView issueView(ScanIssueEntity issue) {

@@ -9,6 +9,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalReposit
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.exception.DecisionConflictException;
+import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
@@ -98,6 +99,44 @@ public class ScanDecisionService {
         decisions.saveAll(newDecisions);
         outbox.saveAll(newOutboxEvents);
         return newDecisions.size();
+    }
+
+    @Transactional
+    /** Duyệt/từ chối toàn bộ proposal PENDING theo filter queue trong một transaction. */
+    public int decideReviewQueue(String state, String rootKey, String search, String decision) {
+        if (!"PENDING".equals(state)) {
+            throw new InvalidRequestException("Bulk decision chỉ áp dụng cho state PENDING");
+        }
+        var candidates = proposals.findReviewQueueForDecision(state, rootKey, search);
+        var decided = decisions.findAllById(candidates.stream().map(ScanProposalEntity::id).toList()).stream()
+                .map(ScanDecisionEntity::proposalId)
+                .collect(Collectors.toSet());
+        var runsById = runs.findAllById(candidates.stream().map(ScanProposalEntity::scanRunId).toList()).stream()
+                .collect(Collectors.toMap(run -> run.id(), run -> run));
+        var newDecisions = new ArrayList<ScanDecisionEntity>();
+        var newEvents = new ArrayList<ScanOutboxEventEntity>();
+        var now = Instant.now();
+        for (var proposal : candidates) {
+            if (decided.contains(proposal.id())) continue;
+            var eventId = APPROVE.equals(decision) ? UuidV7.next() : null;
+            newDecisions.add(new ScanDecisionEntity(proposal.id(), decision, eventId, now));
+            if (eventId != null) newEvents.add(eventFactory.create(
+                    eventId, proposal.scanRunId(), proposal, runsById.get(proposal.scanRunId())));
+        }
+        decisions.saveAll(newDecisions);
+        outbox.saveAll(newEvents);
+        return newDecisions.size();
+    }
+
+    @Transactional
+    /** Xóa toàn bộ quyết định REJECT đang khớp filter queue để đưa proposal về PENDING. */
+    public int reopenReviewQueue(String rootKey, String search) {
+        var candidates = proposals.findReviewQueueForDecision("REJECTED", rootKey, search);
+        var rejectedDecisions = decisions.findAllById(candidates.stream().map(ScanProposalEntity::id).toList()).stream()
+                .filter(decision -> "REJECT".equals(decision.decision()))
+                .toList();
+        decisions.deleteAll(rejectedDecisions);
+        return rejectedDecisions.size();
     }
 
     /** Đưa proposal REJECT trở lại hàng chờ; APPROVE giữ bất biến vì có thể đã tới Catalog. */

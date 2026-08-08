@@ -2,6 +2,7 @@ package com.filemngt.v2.scan.application.query;
 
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueSummaryView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import org.springframework.data.domain.Page;
 
@@ -11,6 +12,11 @@ public final class ScanViewMapper {
 
     /** Ánh xạ trạng thái aggregate scan thành dữ liệu trả cho API. */
     public static ScanRunView run(ScanRunEntity value) {
+        return run(value, null);
+    }
+
+    /** Gắn thêm worklist summary khi API đọc chi tiết một run. */
+    public static ScanRunView run(ScanRunEntity value, ReviewQueueSummaryView reviewSummary) {
         return new ScanRunView(
                 value.id(),
                 value.rootKey(),
@@ -22,7 +28,8 @@ public final class ScanViewMapper {
                 value.proposalCount(),
                 value.issueCount(),
                 value.lastError(),
-                value.registryVersion());
+                value.registryVersion(),
+                reviewSummary);
     }
 
     /** Giữ metadata phân trang của Spring Data trong DTO không phụ thuộc framework. */
