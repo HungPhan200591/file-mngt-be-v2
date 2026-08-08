@@ -261,6 +261,10 @@
       * [FT-033 — Kế hoạch Scan review read model](/docs/features/033-scan-review-read-model/03-plan.md)
       * [Nền tảng tư duy tách Write Path và Read Path](/docs/features/033-scan-review-read-model/04-read-write-separation-mindset.md)
       * [FT-033 — Architecture Review Notes](/docs/features/033-scan-review-read-model/05-architecture-review.md)
+    * **034-catalog-batch-existence-api**
+      * [FT-034 — Catalog batch existence API](/docs/features/034-catalog-batch-existence-api/01-brief.md)
+      * [FT-034 — Catalog batch existence API — Design](/docs/features/034-catalog-batch-existence-api/02-design.md)
+      * [FT-034 — Catalog batch existence API — Plan](/docs/features/034-catalog-batch-existence-api/03-plan.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)
