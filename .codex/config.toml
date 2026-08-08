@@ -1,6 +1,12 @@
 # MCP PostgreSQL local cho Backend V2.
 # Credential được đọc từ .env bởi script launcher; không lưu secret trong file này.
 
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+env_http_headers = { "CONTEXT7_API_KEY" = "CONTEXT7_API_KEY" }
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+
 [mcp_servers.catalog_postgres]
 command = "powershell"
 args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "D:\\Study\\Project\\file_mngt_microservice\\tools\\mcp\\postgres-mcp.ps1", "catalog"]
