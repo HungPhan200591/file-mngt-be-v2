@@ -35,6 +35,7 @@ public class ScanChunkCommitter {
     private final ScanInventoryStageWriter stageWriter;
     private final ScanRunProgressWriter runProgressWriter;
     private final ScanTransactionTimeouts timeouts;
+    private final ScanChunkCommitTelemetry commitTelemetry = new ScanChunkCommitTelemetry();
 
     public ScanChunkCommitter(
             ScanRunRepository runs,
@@ -64,14 +65,17 @@ public class ScanChunkCommitter {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Instant commitChangedChunk(ChunkLease lease, ChunkBatch batch, ChunkProgress progress) {
+    public Instant commitChangedChunk(
+            ChunkLease lease, ChunkBatch batch, ChunkProgress progress, ScanExecutionTimeline timeline) {
+        var telemetry = commitTelemetry.begin(timeline, lease, batch.index());
         timeouts.applyMutationTimeout();
         validateLease(loadRun(lease), lease);
-        inventorySetWriter.upsertChanged(lease.runId(), batch.firstPath(), batch.lastPath());
-        commitProposalsChunk(batch.proposals());
-        commitIssuesChunk(batch.issues());
+        telemetry.inventoryWritten(writeInventory(lease, batch));
+        telemetry.proposalsCopied(copyProposals(batch.proposals()));
+        telemetry.issuesCopied(copyIssues(batch.issues()));
+        long checkpointStartedNanos = System.nanoTime();
         advanceCheckpoint(lease, batch.index(), progress);
-        logChangedCommit(lease, batch.index(), progress);
+        telemetry.checkpointWritten(elapsedMillis(checkpointStartedNanos));
         return lease.nextLeaseUntil();
     }
 
@@ -182,16 +186,30 @@ public class ScanChunkCommitter {
         }
     }
 
-    private void commitProposalsChunk(List<ScanProposalEntity> proposalList) {
-        if (!proposalList.isEmpty()) {
-            proposalCopyWriter.copy(proposalList);
-        }
+    private long writeInventory(ChunkLease lease, ChunkBatch batch) {
+        long startedNanos = System.nanoTime();
+        inventorySetWriter.upsertChanged(lease.runId(), batch.firstPath(), batch.lastPath());
+        return elapsedMillis(startedNanos);
     }
 
-    private void commitIssuesChunk(List<ScanIssueEntity> issueList) {
-        if (!issueList.isEmpty()) {
-            issueCopyWriter.copy(issueList);
+    private long copyProposals(List<ScanProposalEntity> proposals) {
+        long startedNanos = System.nanoTime();
+        if (!proposals.isEmpty()) {
+            proposalCopyWriter.copy(proposals);
         }
+        return elapsedMillis(startedNanos);
+    }
+
+    private long copyIssues(List<ScanIssueEntity> issues) {
+        long startedNanos = System.nanoTime();
+        if (!issues.isEmpty()) {
+            issueCopyWriter.copy(issues);
+        }
+        return elapsedMillis(startedNanos);
+    }
+
+    private long elapsedMillis(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 
     private void logDiscoveryCommit(DiscoverySegment segment, long copied, Instant leaseUntil) {
@@ -202,17 +220,6 @@ public class ScanChunkCommitter {
                 segment.lease().workerId(),
                 copied,
                 leaseUntil);
-    }
-
-    private void logChangedCommit(ChunkLease lease, int chunkIndex, ChunkProgress progress) {
-        LOGGER.debug(
-                "Đã commit changed chunk #{} cho runId={}: workerId={}, proposals={}, issues={}, nextLeaseUntil={}",
-                chunkIndex,
-                lease.runId(),
-                lease.workerId(),
-                progress.proposals(),
-                progress.issues(),
-                lease.nextLeaseUntil());
     }
 
     public record ChunkLease(UUID runId, String workerId, Instant nextLeaseUntil) {}

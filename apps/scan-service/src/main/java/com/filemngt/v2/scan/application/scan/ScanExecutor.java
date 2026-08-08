@@ -23,6 +23,8 @@ import org.springframework.stereotype.Component;
 /**
  * Thực thi scan hai phase: stream filesystem vào staging theo segment lớn, sau đó
  * chỉ parse và persist các item được set-based diff xác định là changed.
+ * Giữ toàn bộ lifecycle run trong một type vì progress, lease re-arm, SSE và
+ * terminal timeline phải có cùng thứ tự; các persistence concern ở committer/writer riêng.
  */
 public class ScanExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanExecutor.class);
@@ -104,7 +106,7 @@ public class ScanExecutor {
         nextChunkIndex++;
         heartbeatReconciliation(context, nextChunkIndex, progress);
         timeline.reconciliationStarted();
-        reconcileChanged(context, nextChunkIndex, progress);
+        reconcileChanged(context, nextChunkIndex, progress, timeline);
         timeline.reconciliationCompleted();
     }
 
@@ -160,11 +162,15 @@ public class ScanExecutor {
         };
     }
 
-    private int reconcileChanged(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
+    private int reconcileChanged(
+            ScanExecutionContext context,
+            int chunkIndex,
+            ScanProgress progress,
+            ScanExecutionTimeline timeline) {
         String afterPath = "";
         while (true) {
             var page = reconciliationPageReader.findChangedPage(context.runId(), afterPath, DIFF_PAGE_SIZE);
-            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, progress);
+            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, progress, timeline);
             if (!page.hasMore()) {
                 progress.recordSkipped(progress.files() - progress.changedFiles());
                 return chunkIndex;
@@ -177,14 +183,15 @@ public class ScanExecutor {
             ScanExecutionContext context,
             List<ScanInventoryItem> changed,
             int chunkIndex,
-            ScanProgress progress) {
+            ScanProgress progress,
+            ScanExecutionTimeline timeline) {
         for (int start = 0; start < changed.size(); start += properties.getBusinessChunkSize()) {
             int end = Math.min(start + properties.getBusinessChunkSize(), changed.size());
             ScanChunk chunk = parallelAnalyzer.analyzeParallel(
                     context, changed.subList(start, end), properties.getReconciliationParallelism());
             recordChunkProgress(chunk, progress);
             chunkIndex++;
-            commitChangedChunk(context, chunkIndex, chunk, progress);
+            commitChangedChunk(context, chunkIndex, chunk, progress, timeline);
             progress.recordReconciledFiles(chunk.changedInventoryItems().size());
             publishProgress(context.runId(), ScanRunStreamPhase.RECONCILIATION, progressSnapshot(progress), progress);
         }
@@ -197,7 +204,11 @@ public class ScanExecutor {
     }
 
     private void commitChangedChunk(
-            ScanExecutionContext context, int chunkIndex, ScanChunk chunk, ScanProgress progress) {
+            ScanExecutionContext context,
+            int chunkIndex,
+            ScanChunk chunk,
+            ScanProgress progress,
+            ScanExecutionTimeline timeline) {
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
         var changedItems = chunk.changedInventoryItems();
         var batch = new ScanChunkCommitter.ChunkBatch(
@@ -206,7 +217,7 @@ public class ScanExecutor {
                 changedItems.getLast().sourceRelativePath(),
                 List.copyOf(chunk.proposals()),
                 List.copyOf(chunk.issues()));
-        Instant leaseUntil = chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress));
+        Instant leaseUntil = chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress), timeline);
         liveness.arm(context.runId(), context.workerId(), leaseUntil);
     }
 

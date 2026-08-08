@@ -27,6 +27,15 @@ final class ScanExecutionTimeline {
     private long reconciliationStartedNanos = -1;
     private long reconciliationCompletedNanos = -1;
     private long finalizingStartedNanos = -1;
+    private long committedChunkCount;
+    private long rolledBackChunkCount;
+    private long unknownChunkCount;
+    private long inventoryWriteMillis;
+    private long proposalCopyMillis;
+    private long issueCopyMillis;
+    private long checkpointMillis;
+    private long commitMillis;
+    private long chunkTransactionMillis;
 
     ScanExecutionTimeline(String correlationId, long receivedNanos, LongSupplier nanoTime) {
         this.correlationId = correlationId;
@@ -81,6 +90,20 @@ final class ScanExecutionTimeline {
         finalizingStartedNanos = now();
     }
 
+    void recordChunkCommit(ChunkCommitTiming timing) {
+        switch (timing.outcome()) {
+            case COMMITTED -> committedChunkCount++;
+            case ROLLED_BACK -> rolledBackChunkCount++;
+            case UNKNOWN -> unknownChunkCount++;
+        }
+        inventoryWriteMillis += timing.inventoryWriteMillis();
+        proposalCopyMillis += timing.proposalCopyMillis();
+        issueCopyMillis += timing.issueCopyMillis();
+        checkpointMillis += timing.checkpointMillis();
+        commitMillis += timing.commitMillis();
+        chunkTransactionMillis += timing.totalMillis();
+    }
+
     void completed(ScanProgress progress) {
         log("completed", progress, null);
     }
@@ -108,7 +131,16 @@ final class ScanExecutionTimeline {
                 progress.proposals(),
                 progress.issues(),
                 progress.skipped(),
-                errorType);
+                errorType,
+                committedChunkCount,
+                rolledBackChunkCount,
+                unknownChunkCount,
+                inventoryWriteMillis,
+                proposalCopyMillis,
+                issueCopyMillis,
+                checkpointMillis,
+                commitMillis,
+                chunkTransactionMillis);
     }
 
     private void log(String terminalPhase, ScanProgress progress, String errorType) {
@@ -116,8 +148,6 @@ final class ScanExecutionTimeline {
         LOGGER.atInfo()
                 .addKeyValue("event", "scan.execution.terminal")
                 .addKeyValue("phase", snapshot.terminalPhase())
-                .addKeyValue("runId", snapshot.runId())
-                .addKeyValue("correlationId", snapshot.correlationId())
                 .addKeyValue("durationMs", snapshot.totalDurationMs())
                 .addKeyValue("httpAcceptedMs", snapshot.httpAcceptedMs())
                 .addKeyValue("queueWaitMs", snapshot.queueWaitMs())
@@ -132,7 +162,33 @@ final class ScanExecutionTimeline {
                 .addKeyValue("issues", snapshot.issues())
                 .addKeyValue("skippedFiles", snapshot.skippedFiles())
                 .addKeyValue("errorType", snapshot.errorType())
-                .log("scan execution terminal timeline");
+                .addKeyValue("committedChunks", snapshot.committedChunkCount())
+                .addKeyValue("rolledBackChunks", snapshot.rolledBackChunkCount())
+                .addKeyValue("unknownChunks", snapshot.unknownChunkCount())
+                .addKeyValue("inventoryWriteMs", snapshot.inventoryWriteMillis())
+                .addKeyValue("proposalCopyMs", snapshot.proposalCopyMillis())
+                .addKeyValue("issueCopyMs", snapshot.issueCopyMillis())
+                .addKeyValue("checkpointMs", snapshot.checkpointMillis())
+                .addKeyValue("commitMs", snapshot.commitMillis())
+                .addKeyValue("chunkTransactionMs", snapshot.chunkTransactionMillis())
+                .log(
+                        "scan.execution.terminal: phase={}, durationMs={}, files={}, proposals={}, issues={}, "
+                                + "committedChunks={}, rolledBackChunks={}, inventoryWriteMs={}, "
+                                + "proposalCopyMs={}, issueCopyMs={}, checkpointMs={}, commitMs={}, "
+                                + "chunkTransactionMs={}",
+                        snapshot.terminalPhase(),
+                        snapshot.totalDurationMs(),
+                        snapshot.files(),
+                        snapshot.proposals(),
+                        snapshot.issues(),
+                        snapshot.committedChunkCount(),
+                        snapshot.rolledBackChunkCount(),
+                        snapshot.inventoryWriteMillis(),
+                        snapshot.proposalCopyMillis(),
+                        snapshot.issueCopyMillis(),
+                        snapshot.checkpointMillis(),
+                        snapshot.commitMillis(),
+                        snapshot.chunkTransactionMillis());
     }
 
     private long now() {
@@ -163,5 +219,30 @@ final class ScanExecutionTimeline {
             long proposals,
             long issues,
             long skippedFiles,
-            String errorType) {}
+            String errorType,
+            long committedChunkCount,
+            long rolledBackChunkCount,
+            long unknownChunkCount,
+            long inventoryWriteMillis,
+            long proposalCopyMillis,
+            long issueCopyMillis,
+            long checkpointMillis,
+            long commitMillis,
+            long chunkTransactionMillis) {}
+
+    record ChunkCommitTiming(
+            int chunkIndex,
+            ChunkCommitOutcome outcome,
+            long inventoryWriteMillis,
+            long proposalCopyMillis,
+            long issueCopyMillis,
+            long checkpointMillis,
+            long commitMillis,
+            long totalMillis) {}
+
+    enum ChunkCommitOutcome {
+        COMMITTED,
+        ROLLED_BACK,
+        UNKNOWN
+    }
 }

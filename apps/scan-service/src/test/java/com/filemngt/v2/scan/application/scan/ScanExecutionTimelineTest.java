@@ -58,6 +58,8 @@ class ScanExecutionTimelineTest {
         assertThat(snapshot.proposals()).isEqualTo(1);
         assertThat(snapshot.issues()).isEqualTo(1);
         assertThat(snapshot.skippedFiles()).isEqualTo(80);
+        assertThat(snapshot.committedChunkCount()).isZero();
+        assertThat(snapshot.rolledBackChunkCount()).isZero();
     }
 
     @Test
@@ -73,6 +75,26 @@ class ScanExecutionTimelineTest {
         assertThat(snapshot.reconciliationMs()).isNull();
         assertThat(snapshot.finalizeMs()).isNull();
         assertThat(snapshot.errorType()).isEqualTo("IllegalStateException");
+    }
+
+    @Test
+    void keepsRolledBackChunkOutOfDurableCommitCount() {
+        var timeline = new ScanExecutionTimeline("corr-003", 0, () -> 0);
+        timeline.recordChunkCommit(new ScanExecutionTimeline.ChunkCommitTiming(
+                4, ScanExecutionTimeline.ChunkCommitOutcome.COMMITTED, 10, 20, 30, 4, 2, 66));
+        timeline.recordChunkCommit(new ScanExecutionTimeline.ChunkCommitTiming(
+                5, ScanExecutionTimeline.ChunkCommitOutcome.ROLLED_BACK, 7, 8, 9, 0, 3, 27));
+
+        var snapshot = timeline.snapshot("failed", new ScanProgress(), "RuntimeException");
+
+        assertThat(snapshot.committedChunkCount()).isEqualTo(1);
+        assertThat(snapshot.rolledBackChunkCount()).isEqualTo(1);
+        assertThat(snapshot.inventoryWriteMillis()).isEqualTo(17);
+        assertThat(snapshot.proposalCopyMillis()).isEqualTo(28);
+        assertThat(snapshot.issueCopyMillis()).isEqualTo(39);
+        assertThat(snapshot.checkpointMillis()).isEqualTo(4);
+        assertThat(snapshot.commitMillis()).isEqualTo(5);
+        assertThat(snapshot.chunkTransactionMillis()).isEqualTo(93);
     }
 
     private void advance(AtomicLong clock, long millis) {
