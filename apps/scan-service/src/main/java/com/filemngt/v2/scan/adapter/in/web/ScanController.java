@@ -3,13 +3,14 @@ package com.filemngt.v2.scan.adapter.in.web;
 import com.filemngt.v2.scan.adapter.in.web.dto.BatchDecisionResponse;
 import com.filemngt.v2.scan.adapter.in.web.dto.DecisionRequest;
 import com.filemngt.v2.scan.adapter.in.web.dto.StartScanRequest;
-import com.filemngt.v2.scan.adapter.in.web.error.InvalidRequestException;
+import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.adapter.in.web.sse.ScanRunSseStreamAdapter;
 import com.filemngt.v2.scan.application.decision.ScanDecisionService;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.query.ScanQueryService;
@@ -75,6 +76,15 @@ public class ScanController {
     public List<ScanRootView> roots() {
         LOGGER.info("HTTP GET /api/v2/scans/roots -> Truy vấn danh sách scan roots");
         return queries.roots();
+    }
+
+    @GetMapping("/review-queue")
+    public ScanPageView<ReviewQueueProposalView> reviewQueue(
+            @RequestParam(defaultValue = "PENDING") String state,
+            @RequestParam(required = false) String rootKey,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return queries.reviewQueue(state, rootKey, valid(page, size), size);
     }
 
     /**
@@ -154,6 +164,12 @@ public class ScanController {
                 proposalId,
                 request.decision());
         return decisions.decide(scanId, proposalId, request.decision());
+    }
+
+    @PostMapping("/{scanId}/proposals/{proposalId}/reopen")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reopen(@PathVariable UUID scanId, @PathVariable UUID proposalId) {
+        decisions.reopen(scanId, proposalId);
     }
 
     /**

@@ -7,12 +7,15 @@ import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanEvidenceCodec;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.config.ScanProperties;
 import java.util.List;
@@ -34,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ScanQueryService {
     private static final String STARTED_AT = "startedAt";
     private static final String SOURCE_RELATIVE_PATH = "sourceRelativePath";
+    private static final String PENDING = "PENDING";
+    private static final String REJECTED = "REJECTED";
 
     private final ScanProperties properties;
     private final ScanRunRepository runs;
@@ -96,6 +101,28 @@ public class ScanQueryService {
     }
 
     @Transactional(readOnly = true)
+    public ScanPageView<ReviewQueueProposalView> reviewQueue(String state, String rootKey, int page, int size) {
+        String normalizedState = normalizeQueueState(state);
+        String normalizedRootKey = normalizeRootKey(rootKey);
+        var result = proposals.findReviewQueue(normalizedState, normalizedRootKey, PageRequest.of(page, size));
+        var runsById = runs.findAllById(result.getContent().stream()
+                        .map(ScanProposalEntity::scanRunId)
+                        .toList())
+                .stream()
+                .collect(Collectors.toMap(run -> run.id(), Function.identity()));
+        var decisionsByProposal = decisions.findAllById(result.getContent().stream()
+                        .map(ScanProposalEntity::id)
+                        .toList())
+                .stream()
+                .collect(Collectors.toMap(ScanDecisionEntity::proposalId, Function.identity()));
+        return ScanViewMapper.page(result.map(proposal -> reviewQueueView(
+                proposal,
+                runsById.get(proposal.scanRunId()),
+                decisionsByProposal.get(proposal.id()),
+                normalizedState)));
+    }
+
+    @Transactional(readOnly = true)
     /** Trả issue phân trang, hỗ trợ lọc theo mã lỗi và tìm kiếm đường dẫn/nội dung. */
     public ScanPageView<ScanIssueView> issues(UUID runId, String code, String search, int page, int size) {
         ensureRunExists(runId);
@@ -135,6 +162,35 @@ public class ScanQueryService {
                 evidenceCodec.read(proposal.evidence()),
                 decision == null ? null : decision.decision(),
                 decision == null ? null : decision.decidedAt());
+    }
+
+    private ReviewQueueProposalView reviewQueueView(
+            ScanProposalEntity proposal, ScanRunEntity run, ScanDecisionEntity decision, String state) {
+        return new ReviewQueueProposalView(
+                proposal.id(),
+                proposal.scanRunId(),
+                run.rootKey(),
+                proposal.sourceRelativePath(),
+                proposal.profile(),
+                proposal.candidateType(),
+                proposal.identityKey(),
+                proposal.displayTitle(),
+                proposal.assetRole(),
+                evidenceCodec.read(proposal.evidence()),
+                state,
+                decision == null ? null : decision.decidedAt());
+    }
+
+    private String normalizeQueueState(String state) {
+        if (PENDING.equals(state) || REJECTED.equals(state)) return state;
+        throw new InvalidRequestException("state must be PENDING or REJECTED");
+    }
+
+    private String normalizeRootKey(String rootKey) {
+        if (rootKey == null || rootKey.isBlank()) return null;
+        boolean knownRoot = properties.getRoots().stream().anyMatch(root -> root.key().equals(rootKey));
+        if (!knownRoot) throw new InvalidRequestException("Unknown root key: " + rootKey);
+        return rootKey;
     }
 
     private ScanIssueView issueView(ScanIssueEntity issue) {

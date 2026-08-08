@@ -1,6 +1,6 @@
-package com.filemngt.v2.scan.adapter.in.web.error;
+package com.filemngt.v2.scan.application.exception;
 
-/** Báo request có tham số không hợp lệ trước khi gọi application use case. */
+/** Báo request có tham số không hợp lệ trước hoặc trong khi xử lý use case. */
 public class InvalidRequestException extends RuntimeException {
     public InvalidRequestException(String message) {
         super(message);

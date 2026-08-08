@@ -2,6 +2,7 @@ package com.filemngt.v2.scan.adapter.in.web.error;
 
 import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.DecisionConflictException;
+import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
 import com.filemngt.v2.scan.application.exception.ScanRootUnavailableException;

@@ -83,6 +83,24 @@ paths:
           $ref: '#/components/responses/ConflictProblem'
         '503':
           $ref: '#/components/responses/ScanStartUnavailableProblem'
+  /api/v2/scans/review-queue:
+    get:
+      operationId: listScanReviewQueue
+      summary: List pending or rejected proposals across completed scan runs
+      parameters:
+        - $ref: '#/components/parameters/ReviewQueueState'
+        - $ref: '#/components/parameters/RootKey'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of review queue proposals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewQueueProposalPage'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
   /api/v2/scans/{scanId}:
     get:
       operationId: getScanRun
@@ -186,6 +204,24 @@ paths:
           $ref: '#/components/responses/NotFoundProblem'
         '409':
           $ref: '#/components/responses/ConflictProblem'
+  /api/v2/scans/{scanId}/proposals/{proposalId}/reopen:
+    post:
+      operationId: reopenRejectedScanProposal
+      summary: Reopen a rejected scan proposal
+      description: |
+        Sets the desired state to PENDING. A rejected decision is deleted; an
+        already pending proposal is a successful no-op. An approved proposal
+        cannot be reopened because approval may already have reached Catalog.
+      parameters:
+        - $ref: '#/components/parameters/ScanId'
+        - $ref: '#/components/parameters/ProposalId'
+      responses:
+        '204':
+          description: Proposal is pending for review
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
 components:
   parameters:
     ScanId:
@@ -210,6 +246,16 @@ components:
       name: size
       in: query
       schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    RootKey:
+      name: rootKey
+      in: query
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 100 }
+    ReviewQueueState:
+      name: state
+      in: query
+      required: false
+      schema: { type: string, enum: [PENDING, REJECTED], default: PENDING }
   responses:
     ValidationProblem:
       description: Invalid root key or request
@@ -325,6 +371,22 @@ components:
         displayTitle: { type: [string, 'null'] }
         assetRole: { type: [string, 'null'], enum: [PRIMARY_VIDEO, VIDEO, IMAGE, GIF, null] }
         evidence: { type: object, additionalProperties: true }
+    ReviewQueueProposal:
+      type: object
+      required: [proposalId, scanId, rootKey, sourceRelativePath, profile, candidateType, identityKey, state]
+      properties:
+        proposalId: { type: string, format: uuid }
+        scanId: { type: string, format: uuid }
+        rootKey: { type: string }
+        sourceRelativePath: { type: string }
+        profile: { $ref: '#/components/schemas/ScanProfile' }
+        candidateType: { type: string, enum: [VIDEO, ASSET, ALBUM] }
+        identityKey: { type: string }
+        displayTitle: { type: [string, 'null'] }
+        assetRole: { type: [string, 'null'], enum: [PRIMARY_VIDEO, VIDEO, IMAGE, GIF, null] }
+        evidence: { type: object, additionalProperties: true }
+        state: { type: string, enum: [PENDING, REJECTED] }
+        decidedAt: { type: [string, 'null'], format: date-time }
     ScanIssue:
       type: object
       required: [id, sourceRelativePath, code, detail]
@@ -350,6 +412,8 @@ components:
         eventId: { type: [string, 'null'], format: uuid }
     ScanProposalPage:
       $ref: '#/components/schemas/PageScanProposal'
+    ReviewQueueProposalPage:
+      $ref: '#/components/schemas/PageReviewQueueProposal'
     ScanIssuePage:
       $ref: '#/components/schemas/PageScanIssue'
     PageScanProposal:
@@ -357,6 +421,15 @@ components:
       required: [content, page, size, totalElements, totalPages]
       properties:
         content: { type: array, items: { $ref: '#/components/schemas/ScanProposal' } }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    PageReviewQueueProposal:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/ReviewQueueProposal' } }
         page: { type: integer }
         size: { type: integer }
         totalElements: { type: integer, format: int64 }

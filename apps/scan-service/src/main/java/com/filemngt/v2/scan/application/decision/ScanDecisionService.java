@@ -100,6 +100,16 @@ public class ScanDecisionService {
         return newDecisions.size();
     }
 
+    /** Đưa proposal REJECT trở lại hàng chờ; APPROVE giữ bất biến vì có thể đã tới Catalog. */
+    @Transactional
+    public void reopen(UUID scanId, UUID proposalId) {
+        findProposal(scanId, proposalId);
+        var existing = decisions.findById(proposalId);
+        if (existing.isEmpty()) return;
+        if (APPROVE.equals(existing.get().decision())) throw new DecisionConflictException();
+        decisions.delete(existing.get());
+    }
+
     /** Tải toàn bộ quyết định hiện có bằng một query để batch decision không gọi database trong loop. */
     private Set<UUID> findDecidedProposalIds(List<ScanProposalEntity> scanProposals) {
         var proposalIds = scanProposals.stream().map(ScanProposalEntity::id).toList();
