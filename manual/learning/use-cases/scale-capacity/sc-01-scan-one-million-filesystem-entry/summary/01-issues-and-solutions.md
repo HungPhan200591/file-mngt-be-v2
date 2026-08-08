@@ -58,6 +58,86 @@ Một nguyên tắc xuyên suốt: **không tối ưu một phase bằng cách p
 | FE refresh/query khi scan còn `RUNNING` | Read query đụng các chunk chưa terminal | FT-028/027: không auto-refetch proposal/issue lúc RUNNING; SSE chỉ báo progress; terminal mới REST-verify/fetch | SSE best-effort, PostgreSQL/REST vẫn authoritative |
 | Approval phát event trùng khi retry | Kafka publish và DB decision không nằm cùng transaction | Decision + transactional outbox cùng commit; publisher at-least-once; Catalog dedupe theo `eventId` | At-least-once không phải exactly-once; idempotency nằm ở consumer/business key |
 
+## Interview lens — Problem, Trade-offs, Runtime và Failure Recovery
+
+Khi phỏng vấn, không kể lại toàn bộ lịch sử feature. Chọn card phù hợp với câu hỏi, rồi đi theo cùng
+một nhịp: **Problem → Trade-offs → Runtime Mechanism → Failure Modes & Recovery**.
+
+### 1. Durable run và bounded discovery/chunk
+
+- **Problem:** Scan 1M entry không thể giữ toàn bộ path/result trong JVM hoặc mở một transaction cho cả run;
+  process có thể chết giữa chừng.
+- **Trade-offs:** Chấp nhận nhiều chunk, checkpoint và transaction hơn để chặn heap, thời gian lock và phạm vi
+  rollback. Không dùng “một loop + `saveAll()`”.
+- **Runtime Mechanism:** `scan_run` giữ trạng thái durable; filesystem được lazy walk vào bounded queue để tạo
+  backpressure. Mỗi chunk được persist bằng transaction `REQUIRES_NEW`; checkpoint chỉ đại diện cho work đã
+  commit, không phải item vừa nằm trong memory.
+- **Failure Modes & Recovery:** Queue đầy thì producer bị chặn/throttle thay vì làm heap tăng vô hạn. Chunk lỗi
+  thì toàn chunk rollback và retry qua idempotency key. Exact resume theo filesystem cursor sau process restart
+  hoặc lease handoff **chưa được tuyên bố hỗ trợ**.
+
+### 2. Lease fencing và checkpoint atomic
+
+- **Problem:** Hai worker có thể cùng ghi một root, hoặc worker cũ tiếp tục ghi sau khi worker mới takeover;
+  checkpoint cũng có thể vượt dữ liệu durable nếu commit tách rời.
+- **Trade-offs:** Cần conditional update, lease timeout và retry phức tạp hơn. Lease bảo vệ quyền ghi, nhưng
+  không tự biến thành resume cursor chính xác.
+- **Runtime Mechanism:** Run có `workerId`, `leaseUntil`, status; worker validate ownership trước write và
+  update checkpoint/finalize có fence condition. Proposal/issue, inventory, counter, checkpoint và lease update
+  cùng commit trong transaction chunk.
+- **Failure Modes & Recovery:** Conditional update trả zero row nghĩa là worker stale; ném
+  `ScanLeaseExpiredException` để rollback chunk, không cho late write. Liveness guard/terminal-state protection
+  đã được implement nhưng verification còn `VERIFY PENDING` theo FT-026.
+
+### 3. `UNLOGGED` staging và changed-only reconciliation
+
+- **Problem:** Warm scan không đổi vẫn rewrite khoảng 1M inventory row qua `last_seen_run_id`, trong khi vẫn
+  phải tìm chính xác file `MISSING`.
+- **Trade-offs:** Staging là scratch state có thể mất; full filesystem walk vẫn là O(tổng file). Đổi lại giảm
+  database mutation, chứ không biến scan thành filesystem watcher.
+- **Runtime Mechanism:** Discovery stream qua queue capacity 1.024, `COPY` từng segment tối đa 500.000 row vào
+  `UNLOGGED scan_inventory_stage`; SQL set-based diff chỉ update file mới/đổi/revived và anti-join mark
+  `MISSING`. Staging statistics được `ANALYZE` để planner dùng composite lookup đúng cách.
+- **Failure Modes & Recovery:** PostgreSQL crash có thể làm mất `UNLOGGED` staging; run bị gián đoạn fail và run
+  sau rebuild lại scratch state. Canonical inventory không được lấy staging làm source of truth. Benchmark/failure
+  verification sau query-plan fix vẫn `VERIFY PENDING` theo FT-025.
+
+### 4. Parallel analyze, direct `COPY` và set-based persistence
+
+- **Problem:** JPA/JDBC batch và persistence từng row tạo quá nhiều mapping/round-trip, không đạt mục tiêu
+  throughput ở hot path proposal/issue và inventory.
+- **Trade-offs:** Java vẫn giữ parser, business policy và evidence; PostgreSQL chỉ làm bulk persistence. Không
+  parallel DB commit mù quáng vì connection, lock và lease fence là shared budget.
+- **Runtime Mechanism:** Partition được analyze bằng Java 25 virtual threads, merge xong mới single-thread commit
+  lease-fenced `REQUIRES_NEW`; proposal/issue ghi bằng direct PostgreSQL `COPY`, inventory bằng
+  `INSERT ... SELECT`/`UPDATE ... FROM`. `statement_timeout` phải thấp hơn lease/no-progress deadline.
+- **Failure Modes & Recovery:** COPY, set-based SQL hoặc fence lỗi thì rollback cả chunk; retry không tạo duplicate
+  nhờ unique/upsert. Failure-mode verification đầy đủ còn deferred ở FT-028. Bỏ FK proposal/issue → run là
+  trade-off hot path; decision/outbox → proposal vẫn giữ FK.
+
+### 5. Telemetry theo phase và tối ưu dựa trên evidence
+
+- **Problem:** Không tách được chậm ở discovery, diff, reconciliation hay finalize thì tối ưu chỉ là phỏng đoán.
+- **Trade-offs:** Thêm instrumentation/structured log nhưng không được đổi transaction boundary hoặc coi log là
+  source of truth. Tối ưu không có A/B evidence phải revert.
+- **Runtime Mechanism:** `ScanExecutionTimeline` gắn theo `runId`, đo accepted, queue wait, discovery, diff,
+  reconciliation, finalize và terminal aggregate; completion transaction ghi outcome qua
+  `TransactionSynchronization.afterCompletion`.
+- **Failure Modes & Recovery:** Log queue có thể block/drop nên không được quyết định business state; DB terminal
+  state vẫn authoritative. Buffered COPY 128 KiB đã được thử và revert vì không cải thiện có ý nghĩa; cold
+  inventory fast path được giữ vì đã có evidence runtime 1M.
+
+### 6. Transactional outbox và Catalog dedupe
+
+- **Problem:** Decision đã commit nhưng Kafka publish thất bại, hoặc publish/retry tạo duplicate event.
+- **Trade-offs:** Chọn at-least-once thay vì “exactly-once” xuyên DB/Kafka; consumer phải gánh dedupe theo
+  `eventId`/business key.
+- **Runtime Mechanism:** Decision và outbox được ghi trong cùng local transaction. Publisher gửi sau commit;
+  Catalog consumer dedupe `eventId` trước khi tạo canonical effect.
+- **Failure Modes & Recovery:** Crash trước hoặc sau broker ACK đều có thể replay/duplicate; idempotent consumer
+  biến replay thành an toàn. Retry/DLT cụ thể theo consumer policy vẫn là phần cần theo dõi, không phải outbox tự
+  giải quyết mọi lỗi downstream.
+
 ## Sequence kể chuyện theo từng chặng
 
 ### Chặng 1 — Làm cho job sống được
