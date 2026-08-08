@@ -4,13 +4,10 @@ Updated: 2026-08-08
 
 ## Hiện tại
 
-- Active SC-01: BT-02/BT-03 `DONE`; [FT-025.4 materialized diff staging](./features/025-inventory-staging-reconciliation/03-plan.md) đã loại bỏ các full staging pass lặp lại trong warm reconciliation, chờ migration và benchmark được người dùng cho phép.
-- Active SC-01: [FT-026 scan run liveness guard](./features/026-scan-run-liveness-guard/03-plan.md) đã implement timeout PostgreSQL cục bộ và delayed lease deadline; chờ verification được người dùng cho phép.
-- Active SC-01: [FT-027 scan run SSE progress](./features/027-scan-run-sse-progress/03-plan.md) `DONE`; SSE aggregate BE/Gateway và FE REST-first/SSE-primary đã implement, chờ verification runtime được người dùng cho phép.
-- Active SC-01: [FT-028 parallel reconciliation pipeline](./features/028-parallel-reconciliation-pipeline/03-plan.md) đã implement hybrid write path: parallel analyzer → direct PostgreSQL `COPY` vào `scan_proposal`/`scan_issue`, set-based write từ diff stage vào `scan_file_inventory`, checkpoint cùng transaction; PostgreSQL 18 + volume `postgres-data` mới + UUIDv7. V13 chỉ bỏ hai FK COPY hot path proposal/issue → run, giữ FK decision/outbox → proposal; V7 Catalog và V4 Query mở default native UUIDv7. FE không pull result list khi `RUNNING`; resume sau restart deferred. Chưa chạy verification/benchmark end-to-end.
-- Active Foundation: [FT-029 async logging foundation](./features/029-async-non-blocking-logging-foundation/03-plan.md) `IMPLEMENTED — pending runtime verification`; 5 microservices ghi console và JSON file qua AsyncAppender (`queueSize=16384`, `neverBlock=false`), scan worker đặt `runId` vào MDC. Cần xác nhận startup và file JSON của từng service trước khi đóng feature.
-- Active SC-01: [FT-030 scan performance telemetry](./features/030-scan-performance-telemetry/03-plan.md) `IMPLEMENTED — pending runtime verification`; terminal timeline phát theo `runId`, console và ECS JSON file dùng async logging lossless.
-- Active SC-01: [FT-031 scan reconciliation persistence optimization](./features/031-scan-reconciliation-persistence-optimization/03-plan.md) FT-031.1 `IMPLEMENTED — runtime evidence`; FT-031.2 `REVERTED` vì COPY buffer không cải thiện rõ; FT-031.3 `IMPLEMENTED — cold runtime evidence`: 1M file hoàn tất 25.763s, cold root dùng insert set-based, warm root giữ upsert hiện tại; chờ benchmark lặp lại/integration rollback trước 31.4.
+- SC-01 Scan API và persistence hot path đã hoàn tất. [FT-028](./features/028-parallel-reconciliation-pipeline/03-plan.md) dùng parallel analyze, direct PostgreSQL `COPY` cho proposal/issue, reconciliation set-based và checkpoint lease-fenced; PostgreSQL 18 + UUIDv7 đã mở cho Scan/Catalog/Query. V13 chỉ bỏ hai FK proposal/issue → run; FK decision/outbox → proposal vẫn giữ `ON DELETE CASCADE`.
+- [FT-030 telemetry](./features/030-scan-performance-telemetry/03-plan.md) đã có runtime evidence: terminal timeline và chunk persistence event đọc được ở console theo `runId`, đồng thời ghi ECS JSON không trùng MDC key.
+- [FT-031 persistence optimization](./features/031-scan-reconciliation-persistence-optimization/03-plan.md) `DONE`: buffer COPY đã thử rồi rollback vì không có lợi ích; cold inventory path dùng `INSERT ... SELECT`. Run `019fe018-7640-7ff9-b467-c855a050f963` xử lý 1M file, commit 10/10 chunk trong `25.763s` (`inventoryWriteMs=3.908s`), đạt mục tiêu dưới 30 giây. Warm root giữ upsert để bảo toàn changed/revived semantics; không đổi chunk size mặc định khi chưa có benchmark kiểm soát.
+- Các verification không chặn task tiếp theo được giữ deferred ở Plan owner: FT-025 semantics Testcontainers, FT-026 timeout/lease-loss, FT-027 E2E Gateway/SSE. [FT-029 async logging](./features/029-async-non-blocking-logging-foundation/03-plan.md) chỉ còn cần xác nhận runtime cho bốn service ngoài Scan.
 - Ready feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
 - Nợ kỹ thuật cần lưu ý: [`TD-004`–`TD-005`](./TECHNICAL_DEBT.md).
 
@@ -20,9 +17,8 @@ Updated: 2026-08-08
 - **Phase 7:** Chưa có importer/backfill V1: inventory root, dry-run, batch idempotent, checkpoint và reconciliation.
 - **Observability mở rộng:** alert/SLO, profiling sâu và k6.
 
-## Việc kế tiếp
+## Việc kế tiếp ưu tiên
 
-1. Khi được cho phép, verify và benchmark FT-028 hybrid write path với 1M file; ghi kết quả production-like vào benchmark folder.
-2. Khi được cho phép, chạy verification SSE qua Gateway: frame progress trước terminal, heartbeat >30 giây, reconnect/fallback và stale `404`.
-3. Khi được cho phép, chạy verification Scan Service và benchmark cold/warm sau FT-025.3/FT-026.
-4. Triển khai **BT-04 — Catalog batch existence API** (SC-01): internal API nhận tối đa 500 candidate, trả classification.
+1. Triển khai [FT-013 Media Worker processing foundation](./features/013-media-worker-processing-foundation/03-plan.md) cho Phase 4.
+2. Triển khai **BT-04 — Catalog batch existence API** (SC-01): internal API nhận tối đa 500 candidate, trả classification.
+3. Khi cần harden trước cutover, thực hiện các verification deferred theo Plan owner; không mở lại tuning persistence nếu chưa có benchmark hypothesis mới.

@@ -186,13 +186,15 @@
    **Đáp nhanh:** Console cần chứa **event ID + số liệu đọc ngay** để grep theo `runId`; ECS JSON giữ field có cấu trúc để aggregate/truy vết. Không được đưa cùng `runId` hoặc `correlationId` từ MDC và fluent key-value vì encoder JSON sẽ từ chối key trùng.
 5. **Hỏi:** Vì sao bỏ đúng hai FK hot path proposal/issue → run nhưng giữ FK decision/outbox → proposal?
    **Đáp nhanh:** COPY proposal/issue theo chunk cần tránh parent lookup trên hot write path; **decision/outbox → proposal** vẫn là lifecycle invariant nên giữ `ON DELETE CASCADE`. Đổi FK không đồng nghĩa thêm delete run: hiện chưa có lifecycle production xóa run, tương lai phải dọn proposal/issue tường minh và audit orphan.
-6. **Hỏi:** FT-031.2 thử buffer COPY rồi rollback nói gì về cách tối ưu?
+6. **Hỏi:** Cụ thể FK làm `INSERT`/`COPY` chậm hơn ở đâu?
+   **Đáp nhanh:** Với mỗi child row, PostgreSQL phải kiểm tra parent tồn tại qua primary-key/unique index để bảo toàn referential integrity; một triệu proposal/issue nghĩa là một triệu lần kiểm tra, kèm CPU, cache/I/O và phối hợp lock cần thiết. `COPY` chỉ giảm protocol/parse ở phía client-server, **không bỏ qua constraint**, nên chi phí FK vẫn nằm trên hot write path.
+7. **Hỏi:** FT-031.2 thử buffer COPY rồi rollback nói gì về cách tối ưu?
    **Đáp nhanh:** Ý tưởng hợp lý không đủ; benchmark cho thấy `proposalCopyMs` từ **7.578s** thành **7.623s**, không cải thiện rõ nên rollback. Tuning tốt là giữ invariant, đo cùng workload, rồi bỏ thay đổi không có evidence.
-7. **Hỏi:** Vì sao cold inventory fast path giảm mạnh từ hơn 11 giây xuống khoảng 3.9 giây?
+8. **Hỏi:** Vì sao cold inventory fast path giảm mạnh từ hơn 11 giây xuống khoảng 3.9 giây?
    **Đáp nhanh:** Root thật sự trống không có row để update hay probe anti-join; chỉ cần **INSERT … SELECT** từ diff stage. Cold run 1M đạt `durationMs=25.763s`, nhưng warm root vẫn phải dùng upsert để giữ changed/revived semantics.
-8. **Hỏi:** Cold fast path có phải nâng cấp thuần túy cho mọi scan không?
+9. **Hỏi:** Cold fast path có phải nâng cấp thuần túy cho mọi scan không?
    **Đáp nhanh:** Không; nó đúng khi classification **cold** đáng tin và một root không có writer cạnh tranh. Với manual SQL hoặc writer mới chen giữa classify và insert, unique constraint sẽ làm chunk fail/rollback thay vì tạo dữ liệu sai; vì vậy ownership và running-root invariant là một phần của tối ưu.
-9. **Hỏi:** Vì sao chưa tự tăng business chunk lên 200k hay 500k trong FT-031.4?
+10. **Hỏi:** Vì sao chưa tự tăng business chunk lên 200k hay 500k trong FT-031.4?
    **Đáp nhanh:** Chunk lớn có thể giảm overhead nhưng tăng **peak memory**, rollback blast radius và thời gian giữ transaction/lease. Cold target dưới 30 giây đã đạt với 100k; chỉ đổi default sau benchmark kiểm soát 100k/200k/250k/500k chứng minh thắng ổn định.
 
 ## Anchor interview questions

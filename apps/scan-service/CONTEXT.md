@@ -36,9 +36,11 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   (`scan.reconciliation-parallelism`, default 8). Commit DB vẫn single-thread trong
   `@Transactional(REQUIRES_NEW)`. Nếu bất kỳ partition fail, cancel tất cả partition còn lại.
 - Reconciliation hot write path dùng PostgreSQL `COPY` trực tiếp cho `scan_proposal`/
-  `scan_issue` và set-based `UPDATE ... FROM` + `INSERT ... SELECT` từ
-  `scan_inventory_diff_stage` cho `scan_file_inventory`. Ba write cùng conditional
-  checkpoint nằm trong một transaction chunk; JDBC/JPA batch không còn nằm trên hot path này.
+  `scan_issue`. Inventory cold root được nhận diện một lần sau lease validation và ghi bằng
+  `INSERT ... SELECT` từ `scan_inventory_diff_stage`; warm root giữ set-based
+  `UPDATE ... FROM` + `INSERT ... SELECT` để bảo toàn changed/revived semantics. Ba write
+  cùng conditional checkpoint nằm trong một transaction chunk; JDBC/JPA batch không còn nằm
+  trên hot path này.
 - Môi trường study dùng PostgreSQL 18. UUID production của `scan-service` dùng UUIDv7;
   database default dùng native `uuidv7()`. Hai FK hot path `scan_proposal`/`scan_issue`
   → `scan_run` được bỏ để COPY không lookup parent; giữ `scan_run_id` NOT NULL và unique

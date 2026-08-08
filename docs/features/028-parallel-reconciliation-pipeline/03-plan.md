@@ -1,6 +1,6 @@
 # 028 Parallel reconciliation pipeline — Plan
 
-Status: IMPLEMENTED — chờ verification và benchmark end-to-end
+Status: DONE — có runtime evidence 1M; failure-mode verification deferred
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -137,4 +137,5 @@ không tuyên bố `checkpoint_chunk` hiện tại là durable resume cursor.
 
 - `apps/scan-service/CONTEXT.md`: invariant parallel analyzer, hybrid persistence,
   PostgreSQL 18/UUIDv7, FK và giới hạn resume.
-- `docs/STATUS.md`: trạng thái FT-028 implemented, chờ verification/benchmark.
+- `docs/STATUS.md`: FT-028 hoàn tất cho Scan API; failure-mode verification giữ deferred
+  theo Plan owner.
