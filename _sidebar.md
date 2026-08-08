@@ -16,6 +16,8 @@
         * [📚 Deep-Dive: CQRS Lite, Read Projection & Dual-Store Search](/manual/learning/deep-dive/cqrs-read-projection/README.md)
         * **question-bank**
           * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: CQRS Lite, Read Projection & Dual-Store Search](/manual/learning/deep-dive/cqrs-read-projection/question-bank/00-cqrs-projection-questions.md)
+      * **durable-bounded-batch-pipeline**
+        * [Core Reference — Durable Bounded Batch Pipeline](/manual/learning/deep-dive/durable-bounded-batch-pipeline/README.md)
       * **observability**
         * [📊 Observability Overview & Architecture](/manual/learning/deep-dive/observability/00-overview.md)
         * [📈 Metrics Deep-Dive: Prometheus & Grafana](/manual/learning/deep-dive/observability/01-metrics-prometheus-grafana.md)
