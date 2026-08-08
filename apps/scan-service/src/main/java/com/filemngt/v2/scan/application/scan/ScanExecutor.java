@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -54,6 +55,12 @@ public class ScanExecutor {
 
     /** Quét root theo snapshot đã chốt, rồi hoàn tất hoặc đánh dấu thất bại cho scan run. */
     public void execute(UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
+        try (var ignored = MDC.putCloseable("runId", runId.toString())) {
+            executeRun(runId, root, snapshot);
+        }
+    }
+
+    private void executeRun(UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
         LOGGER.info("Bắt đầu scan bất đồng bộ: runId={}, rootKey={}", runId, root.key());
         try {
             var run = runs.findById(runId).orElseThrow();
