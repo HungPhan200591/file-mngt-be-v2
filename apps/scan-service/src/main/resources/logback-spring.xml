@@ -15,10 +15,26 @@
         <appender-ref ref="CONSOLE" />
         <queueSize>16384</queueSize>
         <discardingThreshold>0</discardingThreshold>
-        <neverBlock>true</neverBlock>
+        <neverBlock>false</neverBlock>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${LOG_FILE}</file>
+        <append>true</append>
+        <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+            <format>${FILE_LOG_STRUCTURED_FORMAT}</format>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE" />
+        <queueSize>16384</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
     </appender>
 
     <root level="INFO">
         <appender-ref ref="ASYNC_CONSOLE" />
+        <appender-ref ref="ASYNC_FILE" />
     </root>
 </configuration>

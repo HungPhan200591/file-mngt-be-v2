@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.application.scan;
 
+import com.filemngt.v2.observability.CorrelationId;
 import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileInventoryCursor;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
@@ -54,26 +55,31 @@ public class ScanExecutor {
     }
 
     /** Quét root theo snapshot đã chốt, rồi hoàn tất hoặc đánh dấu thất bại cho scan run. */
-    public void execute(UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
-        try (var ignored = MDC.putCloseable("runId", runId.toString())) {
-            executeRun(runId, root, snapshot);
+    public void execute(
+            UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot, ScanExecutionTimeline timeline) {
+        try (var ignoredRunId = MDC.putCloseable("runId", runId.toString());
+                var ignoredCorrelationId = MDC.putCloseable(CorrelationId.MDC_KEY, timeline.correlationId())) {
+            timeline.workerStarted();
+            executeRun(runId, root, snapshot, timeline);
         }
     }
 
-    private void executeRun(UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
-        long executionStartedNanos = ScanPerformanceTelemetry.startedNanos();
+    private void executeRun(
+            UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot, ScanExecutionTimeline timeline) {
+        var progress = new ScanProgress();
         LOGGER.info("Bắt đầu scan bất đồng bộ: runId={}, rootKey={}", runId, root.key());
         try {
             var run = runs.findById(runId).orElseThrow();
-            var progress = scanFiles(run, root, snapshot);
+            scanFiles(run, root, snapshot, progress, timeline);
             var finalProgress = progressSnapshot(progress);
             publishProgress(runId, ScanRunStreamPhase.FINALIZING, finalProgress, progress);
+            timeline.finalizingStarted();
             chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), finalProgress);
             liveness.publishTerminal(runId);
             logCompletion(runId, progress);
-            ScanPerformanceTelemetry.event(runId, "completed", executionStartedNanos, progress.files(), progress.proposals(), progress.issues());
+            timeline.completed(progress);
         } catch (Exception exception) {
-            ScanPerformanceTelemetry.event(runId, "failed", executionStartedNanos, 0, 0, 0);
+            timeline.failed(progress, exception);
             if (failureHandler.handle(runId, root.key(), exception)) {
                 liveness.publishTerminal(runId);
             }
@@ -82,21 +88,24 @@ public class ScanExecutor {
         }
     }
 
-    private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
-        var progress = new ScanProgress();
+    private void scanFiles(
+            ScanRunEntity run,
+            ScanProperties.Root root,
+            ScanRegistrySnapshot snapshot,
+            ScanProgress progress,
+            ScanExecutionTimeline timeline) {
         var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
-        long discoveryStartedNanos = ScanPerformanceTelemetry.startedNanos();
+        timeline.discoveryStarted();
         int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
-        ScanPerformanceTelemetry.event(context.runId(), "discovery.completed", discoveryStartedNanos, progress.files(), 0, 0);
-        long preparationStartedNanos = ScanPerformanceTelemetry.startedNanos();
+        timeline.discoveryCompleted();
+        timeline.diffStarted();
         progress.setChangedFiles(chunkCommitter.prepareReconciliation(context.runId(), context.workerId()));
-        ScanPerformanceTelemetry.event(context.runId(), "diff.materialized", preparationStartedNanos, progress.changedFiles(), 0, 0);
+        timeline.diffCompleted();
         nextChunkIndex++;
         heartbeatReconciliation(context, nextChunkIndex, progress);
-        long reconciliationStartedNanos = ScanPerformanceTelemetry.startedNanos();
+        timeline.reconciliationStarted();
         reconcileChanged(context, nextChunkIndex, progress);
-        ScanPerformanceTelemetry.event(context.runId(), "reconciliation.completed", reconciliationStartedNanos, progress.reconciledFiles(), progress.proposals(), progress.issues());
-        return progress;
+        timeline.reconciliationCompleted();
     }
 
     private int discover(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {

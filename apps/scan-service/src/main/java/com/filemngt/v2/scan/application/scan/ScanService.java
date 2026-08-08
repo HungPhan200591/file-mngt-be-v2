@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.application.scan;
 
+import com.filemngt.v2.observability.CorrelationId;
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
 import com.filemngt.v2.scan.adapter.out.filesystem.ConfiguredScanRootAccess;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
@@ -22,6 +23,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -70,6 +72,7 @@ public class ScanService {
 
     /** Khởi tạo scan mới cho root hợp lệ và trả ngay trạng thái RUNNING cho HTTP caller. */
     public ScanRunView start(String rootKey) {
+        var timeline = ScanExecutionTimeline.received(MDC.get(CorrelationId.MDC_KEY));
         var root = findRoot(rootKey);
         requireRootAvailable(root);
         expireStaleRuns(rootKey);
@@ -77,13 +80,14 @@ public class ScanService {
         String workerId = "worker-" + UuidV7.next();
         var run = createRun(root, snapshot, workerId);
         deadlineGuard.arm(run.id(), run.workerId(), run.leaseUntil());
+        timeline.accepted(run.id());
         LOGGER.info(
                 "Khởi tạo đợt scan thành công: runId={}, rootKey={}, workerId={}, leaseUntil={}",
                 run.id(),
                 rootKey,
                 workerId,
                 run.leaseUntil());
-        taskExecutor.execute(() -> executor.execute(run.id(), root, snapshot));
+        taskExecutor.execute(() -> executor.execute(run.id(), root, snapshot, timeline));
         return ScanViewMapper.run(run);
     }
 
