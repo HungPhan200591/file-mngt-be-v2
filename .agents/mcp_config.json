@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "file_mngt-postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://platform_admin:change-me-platform-admin@localhost:18110/catalog_db"
+      ]
+    },
+    "file_mngt-postgres-catalog": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://catalog_user:change-me-catalog@localhost:18110/catalog_db"
+      ]
+    },
+    "file_mngt-postgres-scan": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://scan_user:change-me-scan@localhost:18110/scan_db"
+      ]
+    },
+    "file_mngt-postgres-query": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://query_user:change-me-query@localhost:18110/query_db"
+      ]
+    }
+  }
+}
