@@ -29,25 +29,31 @@ Design: [02-design.md](./02-design.md)
 
 **Gate sang 31.2:** có evidence commit thực tế và không làm đổi transaction/SSE.
 
-### FT-031.2 — Buffered PostgreSQL COPY
+### FT-031.2 — Buffered PostgreSQL COPY — REVERTED
 
-1. Đổi `PostgresCsvCopy` sang buffer byte bounded (64–256 KiB), giữ grammar CSV
-   hiện có và một COPY session/connection.
-2. Test null, empty string, quote, newline, Unicode, cancel COPY và rollback.
-3. Benchmark cùng fixture/timing 31.1; chỉ giữ thay đổi nếu proposal/issue COPY
-   cải thiện mà output row/evidence không đổi.
+1. Đã thử buffer byte bounded 128 KiB trong `PostgresCsvCopy`, giữ grammar CSV,
+   COPY session/connection và cancel khi failure.
+2. Evidence: baseline `019fe00c-d2be-7328-a92d-dbd732b4c4ea` có `proposalCopyMs=7578`;
+   rerun `019fe011-2278-7c46-9008-19a8c90ed5e4` là `7623`. Chênh lệch không đáng kể
+   và không cho thấy COPY cải thiện rõ.
+3. Đã rollback helper/test buffer; giữ COPY per-row cũ. Không mở rộng benchmark A/B,
+   theo quyết định người dùng chuyển trọng tâm sang inventory.
 
 **Gate sang 31.3:** no regression correctness/rollback, COPY phase cải thiện rõ
 ràng và không tăng peak memory vượt budget benchmark.
 
-### FT-031.3 — Cold inventory fast path
+### FT-031.3 — Cold inventory fast path — IMPLEMENTED, đã có cold runtime evidence
 
-1. Xác định cold root một lần trước reconciliation bằng inventory owner query.
+1. Đã xác định cold root một lần trước reconciliation bằng `SELECT EXISTS` trong owner
+   inventory, sau lease validation và trước durable inventory write đầu tiên.
 2. Với cold root, dùng insert set-based theo path chunk, không chạy update hoặc
    anti-join; warm root giữ `UPDATE ... FROM` + `INSERT ... NOT EXISTS` hiện tại.
-3. Test cold insert, warm changed/revived, missing finalization, retry/lease-loss
-   rollback và root không được classify cold sai.
-4. Benchmark cold/warm độc lập; lưu số row inventory và state sau run.
+3. Đã bổ sung unit test phân loại cold/warm và cold SQL không có `UPDATE`/anti-join.
+   Chờ Testcontainers: cold insert, warm changed/revived, missing finalization,
+   retry/lease-loss rollback và root không được classify cold sai.
+4. Cold run `019fe018-7640-7ff9-b467-c855a050f963`: 1M file, 10/10 committed,
+   `durationMs=25763`, `inventoryWriteMs=3908`, `proposalCopyMs=7355`, không WARN/ERROR.
+   Đạt dưới 30 giây cho cold fixture; vẫn chờ benchmark cold/warm lặp lại.
 
 **Gate sang 31.4:** cold/warm semantics và rollback bằng nhau, cold inventory
 phase cải thiện rõ ràng.

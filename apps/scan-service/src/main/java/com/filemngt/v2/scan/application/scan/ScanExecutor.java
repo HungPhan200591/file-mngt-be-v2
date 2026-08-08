@@ -103,10 +103,12 @@ public class ScanExecutor {
         timeline.diffStarted();
         progress.setChangedFiles(chunkCommitter.prepareReconciliation(context.runId(), context.workerId()));
         timeline.diffCompleted();
+        var inventoryWriteMode =
+                chunkCommitter.inventoryWriteMode(context.runId(), context.workerId(), context.root().key());
         nextChunkIndex++;
         heartbeatReconciliation(context, nextChunkIndex, progress);
         timeline.reconciliationStarted();
-        reconcileChanged(context, nextChunkIndex, progress, timeline);
+        reconcileChanged(context, nextChunkIndex, new ReconciliationState(progress, timeline, inventoryWriteMode));
         timeline.reconciliationCompleted();
     }
 
@@ -165,14 +167,13 @@ public class ScanExecutor {
     private int reconcileChanged(
             ScanExecutionContext context,
             int chunkIndex,
-            ScanProgress progress,
-            ScanExecutionTimeline timeline) {
+            ReconciliationState state) {
         String afterPath = "";
         while (true) {
             var page = reconciliationPageReader.findChangedPage(context.runId(), afterPath, DIFF_PAGE_SIZE);
-            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, progress, timeline);
+            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, state);
             if (!page.hasMore()) {
-                progress.recordSkipped(progress.files() - progress.changedFiles());
+                state.progress().recordSkipped(state.progress().files() - state.progress().changedFiles());
                 return chunkIndex;
             }
             afterPath = page.nextCursor();
@@ -183,17 +184,20 @@ public class ScanExecutor {
             ScanExecutionContext context,
             List<ScanInventoryItem> changed,
             int chunkIndex,
-            ScanProgress progress,
-            ScanExecutionTimeline timeline) {
+            ReconciliationState state) {
         for (int start = 0; start < changed.size(); start += properties.getBusinessChunkSize()) {
             int end = Math.min(start + properties.getBusinessChunkSize(), changed.size());
             ScanChunk chunk = parallelAnalyzer.analyzeParallel(
                     context, changed.subList(start, end), properties.getReconciliationParallelism());
-            recordChunkProgress(chunk, progress);
+            recordChunkProgress(chunk, state.progress());
             chunkIndex++;
-            commitChangedChunk(context, chunkIndex, chunk, progress, timeline);
-            progress.recordReconciledFiles(chunk.changedInventoryItems().size());
-            publishProgress(context.runId(), ScanRunStreamPhase.RECONCILIATION, progressSnapshot(progress), progress);
+            commitChangedChunk(context, chunkIndex, chunk, state);
+            state.progress().recordReconciledFiles(chunk.changedInventoryItems().size());
+            publishProgress(
+                    context.runId(),
+                    ScanRunStreamPhase.RECONCILIATION,
+                    progressSnapshot(state.progress()),
+                    state.progress());
         }
         return chunkIndex;
     }
@@ -207,17 +211,18 @@ public class ScanExecutor {
             ScanExecutionContext context,
             int chunkIndex,
             ScanChunk chunk,
-            ScanProgress progress,
-            ScanExecutionTimeline timeline) {
+            ReconciliationState state) {
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
         var changedItems = chunk.changedInventoryItems();
         var batch = new ScanChunkCommitter.ChunkBatch(
                 chunkIndex,
                 changedItems.getFirst().sourceRelativePath(),
                 changedItems.getLast().sourceRelativePath(),
+                state.inventoryWriteMode(),
                 List.copyOf(chunk.proposals()),
                 List.copyOf(chunk.issues()));
-        Instant leaseUntil = chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress), timeline);
+        Instant leaseUntil = chunkCommitter.commitChangedChunk(
+                lease, batch, progressSnapshot(state.progress()), state.timeline());
         liveness.arm(context.runId(), context.workerId(), leaseUntil);
     }
 
@@ -267,4 +272,9 @@ public class ScanExecutor {
             ScanInventoryItem firstItem,
             long previouslyScanned,
             int chunkIndex) {}
+
+    private record ReconciliationState(
+            ScanProgress progress,
+            ScanExecutionTimeline timeline,
+            ScanChunkCommitter.InventoryWriteMode inventoryWriteMode) {}
 }

@@ -24,7 +24,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
-/** Commit chunk độc lập với timeout DB và conditional fence tại checkpoint/finalize. */
+/**
+ * Commit chunk độc lập với timeout DB và conditional fence tại checkpoint/finalize.
+ * Giữ các primitive commit trong cùng type vì chúng phải dùng chung lease, timeout và
+ * transaction boundary; writer riêng chịu trách nhiệm SQL/COPY.
+ */
 public class ScanChunkCommitter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanChunkCommitter.class);
 
@@ -94,6 +98,18 @@ public class ScanChunkCommitter {
                 changed,
                 durationMillis);
         return changed;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public InventoryWriteMode inventoryWriteMode(UUID runId, String workerId, String rootKey) {
+        timeouts.applyReconciliationTimeout();
+        var lease = new ChunkLease(runId, workerId, null);
+        validateLease(loadRun(lease), lease);
+        InventoryWriteMode mode = inventorySetWriter.hasInventoryForRoot(rootKey)
+                ? InventoryWriteMode.WARM_UPSERT
+                : InventoryWriteMode.COLD_INSERT;
+        LOGGER.info("Inventory reconciliation mode: runId={}, rootKey={}, mode={}", runId, rootKey, mode);
+        return mode;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -188,7 +204,10 @@ public class ScanChunkCommitter {
 
     private long writeInventory(ChunkLease lease, ChunkBatch batch) {
         long startedNanos = System.nanoTime();
-        inventorySetWriter.upsertChanged(lease.runId(), batch.firstPath(), batch.lastPath());
+        switch (batch.inventoryWriteMode()) {
+            case COLD_INSERT -> inventorySetWriter.insertCold(lease.runId(), batch.firstPath(), batch.lastPath());
+            case WARM_UPSERT -> inventorySetWriter.upsertChanged(lease.runId(), batch.firstPath(), batch.lastPath());
+        }
         return elapsedMillis(startedNanos);
     }
 
@@ -239,8 +258,14 @@ public class ScanChunkCommitter {
             int index,
             String firstPath,
             String lastPath,
+            InventoryWriteMode inventoryWriteMode,
             List<ScanProposalEntity> proposals,
             List<ScanIssueEntity> issues) {}
 
     public record ChunkProgress(long files, long proposals, long issues) {}
+
+    public enum InventoryWriteMode {
+        COLD_INSERT,
+        WARM_UPSERT
+    }
 }
