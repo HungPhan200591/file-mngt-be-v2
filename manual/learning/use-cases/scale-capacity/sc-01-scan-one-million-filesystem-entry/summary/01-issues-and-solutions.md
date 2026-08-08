@@ -14,6 +14,11 @@ Keyword spine:
 Bounded → Lease → Chunk → Inventory → Set-based → COPY → Telemetry → Outbox
 ```
 
+Kiến thức portable rút ra từ case study này được cô đọng thành mental model **D-B-F-I-S-T** tại
+[Durable Bounded Batch Pipeline — Core Reference](../../../../deep-dive/durable-bounded-batch-pipeline/README.md).
+Reference này dùng lại cho import, media backfill, projection rebuild, Kafka replay, retention cleanup,
+các job analytics/settlement của domain LiveStream và settlement/ledger reconciliation của domain Tài chính.
+
 ## Mental model 30 giây
 
 ```text
@@ -160,4 +165,3 @@ resume chính xác sau crash và FT-033 read projection vẫn là follow-up, kh�
 - [Scan Service context](../../../../../apps/scan-service/CONTEXT.md)
 - [Performance debug guide](../debug-performance.md)
 - [Question chain](../question-bank/01-question-chain.md)
-
