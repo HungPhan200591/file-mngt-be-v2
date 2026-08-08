@@ -21,7 +21,9 @@ public class ScanProperties {
     @Min(1)
     private long lockTimeoutSeconds = 5;
     @Min(1)
-    private int businessChunkSize = 15_000;
+    private int businessChunkSize = 5_000;
+    @Min(1)
+    private int reconciliationParallelism = 8;
 
     public List<Root> getRoots() {
         return roots;
@@ -69,6 +71,14 @@ public class ScanProperties {
 
     public void setBusinessChunkSize(int businessChunkSize) {
         this.businessChunkSize = businessChunkSize;
+    }
+
+    public int getReconciliationParallelism() {
+        return reconciliationParallelism;
+    }
+
+    public void setReconciliationParallelism(int reconciliationParallelism) {
+        this.reconciliationParallelism = reconciliationParallelism;
     }
 
     public record Root(String key, String path, ScanProfile profile) {}

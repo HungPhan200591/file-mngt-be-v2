@@ -39,7 +39,8 @@ scan:
   reconciliation-statement-timeout-seconds: ${SCAN_RECONCILIATION_STATEMENT_TIMEOUT_SECONDS:30}
   mutation-statement-timeout-seconds: ${SCAN_MUTATION_STATEMENT_TIMEOUT_SECONDS:45}
   lock-timeout-seconds: ${SCAN_LOCK_TIMEOUT_SECONDS:5}
-  business-chunk-size: ${SCAN_BUSINESS_CHUNK_SIZE:15000}
+  business-chunk-size: ${SCAN_BUSINESS_CHUNK_SIZE:100000}
+  reconciliation-parallelism: ${SCAN_RECONCILIATION_PARALLELISM:8}
   sse:
     heartbeat-seconds: ${SCAN_SSE_HEARTBEAT_SECONDS:15}
     connection-lifetime-seconds: ${SCAN_SSE_CONNECTION_LIFETIME_SECONDS:300}

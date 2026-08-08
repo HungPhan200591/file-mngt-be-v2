@@ -32,6 +32,20 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   issue; stream mất kết nối không được ảnh hưởng scan, browser tự REST-verify/fallback.
 - Reconciliation đếm set-based tập changed một lần sau discovery. Chỉ SSE progress mang
   workload/count xử lý phase 2; dữ liệu này transient, không phải state nghiệp vụ durable.
+- Reconciliation analyze chạy song song trên virtual thread với mức parallelism cấu hình
+  (`scan.reconciliation-parallelism`, default 8). Commit DB vẫn single-thread trong
+  `@Transactional(REQUIRES_NEW)`. Nếu bất kỳ partition fail, cancel tất cả partition còn lại.
+- Reconciliation hot write path dùng PostgreSQL `COPY` trực tiếp cho `scan_proposal`/
+  `scan_issue` và set-based `UPDATE ... FROM` + `INSERT ... SELECT` từ
+  `scan_inventory_diff_stage` cho `scan_file_inventory`. Ba write cùng conditional
+  checkpoint nằm trong một transaction chunk; JDBC/JPA batch không còn nằm trên hot path này.
+- Môi trường study dùng PostgreSQL 18. UUID production của `scan-service` dùng UUIDv7;
+  database default dùng native `uuidv7()`. FK proposal/issue → `scan_run` vẫn giữ.
+- Resume sau process restart hoặc lease handoff chưa được hỗ trợ; run gián đoạn bị đánh
+  `FAILED`. `REQUIRES_NEW` hiện chỉ bảo đảm atomicity/rollback của từng chunk.
+- `scan_proposal` và `scan_issue` chỉ dùng PK index và unique constraint index phục vụ cả
+  query lẫn insert; không tạo thêm index đơn cột hoặc composite trùng leading columns
+  của unique constraint vì gây write amplification nghiêm trọng khi bulk insert.
 - Approval ghi item và outbox cùng transaction.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không dùng root/path/file name làm metric label.

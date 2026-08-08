@@ -90,6 +90,6 @@ Diễn giải:
 
 ## 6. Kết luận hiện tại
 
-Set-based đã chứng minh persistence không còn là bottleneck 64s nếu dữ liệu đã được chuẩn hóa trong database. Tuy nhiên không được thay thế parser production bằng rule SQL đơn giản: parser/evidence cần được COPY vào một parsed-result staging table, sau đó mới `INSERT ... SELECT` sang inventory/proposal/issue.
+Set-based đã chứng minh persistence không còn là bottleneck 64s nếu dữ liệu đã được chuẩn hóa trong database. Tuy nhiên không được thay thế parser production bằng rule SQL đơn giản: parser/evidence vẫn chạy trong Java, sau đó `COPY` trực tiếp proposal/issue vào bảng source of truth; inventory đi bằng set-based SQL từ `scan_inventory_diff_stage`.
 
 Mục tiêu tổng scan dưới 30s vẫn phải đo lại sau khi tối ưu đồng thời filesystem, materialize/analyze/finalize, lease và transaction boundary.

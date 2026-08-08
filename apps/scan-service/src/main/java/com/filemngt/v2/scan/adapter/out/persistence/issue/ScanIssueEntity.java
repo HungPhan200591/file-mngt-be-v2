@@ -37,6 +37,10 @@ public class ScanIssueEntity implements Persistable<UUID> {
         return id;
     }
 
+    public UUID scanRunId() {
+        return scanRunId;
+    }
+
     public String sourceRelativePath() {
         return sourceRelativePath;
     }

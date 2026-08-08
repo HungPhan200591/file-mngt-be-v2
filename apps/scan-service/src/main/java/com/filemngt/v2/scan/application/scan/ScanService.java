@@ -13,13 +13,13 @@ import com.filemngt.v2.scan.application.exception.ScanRootUnavailableException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
 import com.filemngt.v2.scan.application.query.ScanViewMapper;
 import com.filemngt.v2.scan.config.ScanProperties;
+import com.filemngt.v2.scan.domain.identity.UuidV7;
 import com.filemngt.v2.scan.domain.registry.ScanRegion;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import com.filemngt.v2.scan.domain.scan.ScanRunStatus;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -74,7 +74,7 @@ public class ScanService {
         requireRootAvailable(root);
         expireStaleRuns(rootKey);
         var snapshot = fetchSnapshot(root);
-        String workerId = "worker-" + UUID.randomUUID();
+        String workerId = "worker-" + UuidV7.next();
         var run = createRun(root, snapshot, workerId);
         deadlineGuard.arm(run.id(), run.workerId(), run.leaseUntil());
         LOGGER.info(
@@ -152,7 +152,7 @@ public class ScanService {
     private ScanRunEntity createRun(ScanProperties.Root root, ScanRegistrySnapshot snapshot, String workerId) {
         Instant leaseUntil = Instant.now().plusSeconds(properties.getLeaseDurationSeconds());
         var run = new ScanRunEntity(
-                UUID.randomUUID(),
+                UuidV7.next(),
                 root.key(),
                 root.profile(),
                 Instant.now(),

@@ -4,6 +4,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanEvidenceCodec;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
+import com.filemngt.v2.scan.domain.identity.UuidV7;
 import com.filemngt.v2.scan.domain.proposal.ScanProposalEvaluator;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import com.filemngt.v2.scan.domain.scan.ScanProfile;
@@ -33,14 +34,14 @@ public class ScanFileAnalyzer {
 
         if (!evaluation.isProposal()) {
             return new Issue(new ScanIssueEntity(
-                    UUID.randomUUID(),
+                    UuidV7.next(),
                     runId,
                     relativePath,
                     evaluation.issueCode().name(),
                     evaluation.issueDetail()));
         }
         return new Proposal(new ScanProposalEntity(
-                UUID.randomUUID(),
+                UuidV7.next(),
                 runId,
                 relativePath,
                 profile,

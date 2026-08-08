@@ -12,6 +12,7 @@ import com.filemngt.v2.scan.application.exception.DecisionConflictException;
 import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
+import com.filemngt.v2.scan.domain.identity.UuidV7;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +61,7 @@ public class ScanDecisionService {
             return resolveExisting(existing.get(), decision);
         }
 
-        UUID eventId = APPROVE.equals(decision) ? UUID.randomUUID() : null;
+        UUID eventId = APPROVE.equals(decision) ? UuidV7.next() : null;
         var saved = decisions.save(new ScanDecisionEntity(proposalId, decision, eventId, Instant.now()));
         if (eventId != null) {
             saveOutboxEvent(eventId, scanId, proposal);
@@ -88,7 +89,7 @@ public class ScanDecisionService {
             if (decidedProposalIds.contains(proposal.id())) {
                 continue;
             }
-            UUID eventId = APPROVE.equals(decision) ? UUID.randomUUID() : null;
+            UUID eventId = APPROVE.equals(decision) ? UuidV7.next() : null;
             newDecisions.add(new ScanDecisionEntity(proposal.id(), decision, eventId, decidedAt));
             if (eventId != null) {
                 newOutboxEvents.add(eventFactory.create(eventId, scanId, proposal, run));

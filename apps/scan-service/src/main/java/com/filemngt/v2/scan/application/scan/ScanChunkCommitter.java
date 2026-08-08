@@ -1,12 +1,12 @@
 package com.filemngt.v2.scan.application.scan;
 
-import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryBatchWriter;
+import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventorySetWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueCopyWriter;
+import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalCopyWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter.Checkpoint;
@@ -14,7 +14,6 @@ import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter.Co
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.timeout.ScanTransactionTimeouts;
 import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
-import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -30,25 +29,25 @@ public class ScanChunkCommitter {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanChunkCommitter.class);
 
     private final ScanRunRepository runs;
-    private final ScanProposalRepository proposals;
-    private final ScanIssueRepository issues;
-    private final ScanFileInventoryBatchWriter inventoryBatchWriter;
+    private final ScanProposalCopyWriter proposalCopyWriter;
+    private final ScanIssueCopyWriter issueCopyWriter;
+    private final ScanFileInventorySetWriter inventorySetWriter;
     private final ScanInventoryStageWriter stageWriter;
     private final ScanRunProgressWriter runProgressWriter;
     private final ScanTransactionTimeouts timeouts;
 
     public ScanChunkCommitter(
             ScanRunRepository runs,
-            ScanProposalRepository proposals,
-            ScanIssueRepository issues,
-            ScanFileInventoryBatchWriter inventoryBatchWriter,
+            ScanProposalCopyWriter proposalCopyWriter,
+            ScanIssueCopyWriter issueCopyWriter,
+            ScanFileInventorySetWriter inventorySetWriter,
             ScanInventoryStageWriter stageWriter,
             ScanRunProgressWriter runProgressWriter,
             ScanTransactionTimeouts timeouts) {
         this.runs = runs;
-        this.proposals = proposals;
-        this.issues = issues;
-        this.inventoryBatchWriter = inventoryBatchWriter;
+        this.proposalCopyWriter = proposalCopyWriter;
+        this.issueCopyWriter = issueCopyWriter;
+        this.inventorySetWriter = inventorySetWriter;
         this.stageWriter = stageWriter;
         this.runProgressWriter = runProgressWriter;
         this.timeouts = timeouts;
@@ -68,7 +67,7 @@ public class ScanChunkCommitter {
     public Instant commitChangedChunk(ChunkLease lease, ChunkBatch batch, ChunkProgress progress) {
         timeouts.applyMutationTimeout();
         validateLease(loadRun(lease), lease);
-        inventoryBatchWriter.upsertChanged(batch.changedInventoryItems());
+        inventorySetWriter.upsertChanged(lease.runId(), batch.firstPath(), batch.lastPath());
         commitProposalsChunk(batch.proposals());
         commitIssuesChunk(batch.issues());
         advanceCheckpoint(lease, batch.index(), progress);
@@ -106,7 +105,7 @@ public class ScanChunkCommitter {
         timeouts.applyMutationTimeout();
         var lease = new ChunkLease(runId, workerId, null);
         validateLease(loadRun(lease), lease);
-        inventoryBatchWriter.markMissingFromStage(rootKey, runId);
+        inventorySetWriter.markMissingFromStage(rootKey, runId);
         stageWriter.deleteRun(runId);
         completeRun(runId, workerId, progress);
         LOGGER.info(
@@ -185,15 +184,13 @@ public class ScanChunkCommitter {
 
     private void commitProposalsChunk(List<ScanProposalEntity> proposalList) {
         if (!proposalList.isEmpty()) {
-            proposals.saveAll(proposalList);
-            proposals.flush();
+            proposalCopyWriter.copy(proposalList);
         }
     }
 
     private void commitIssuesChunk(List<ScanIssueEntity> issueList) {
         if (!issueList.isEmpty()) {
-            issues.saveAll(issueList);
-            issues.flush();
+            issueCopyWriter.copy(issueList);
         }
     }
 
@@ -233,7 +230,8 @@ public class ScanChunkCommitter {
 
     public record ChunkBatch(
             int index,
-            List<ScanInventoryItem> changedInventoryItems,
+            String firstPath,
+            String lastPath,
             List<ScanProposalEntity> proposals,
             List<ScanIssueEntity> issues) {}
 

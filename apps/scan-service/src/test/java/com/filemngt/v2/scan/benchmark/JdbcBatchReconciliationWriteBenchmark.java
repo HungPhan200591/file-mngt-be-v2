@@ -59,7 +59,7 @@ class JdbcBatchReconciliationWriteBenchmark {
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:17.4-alpine"));
+            new PostgreSQLContainer<>(DockerImageName.parse("postgres:18.0-alpine"));
 
     @Autowired
     JdbcTemplate jdbcTemplate;

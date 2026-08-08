@@ -35,7 +35,7 @@ import org.testcontainers.utility.DockerImageName;
 @AutoConfigureMockMvc
 class ElasticsearchSearchIntegrationTest {
     @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:17.4-alpine"));
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
 
     @Container
     static final ElasticsearchContainer ELASTICSEARCH = new ElasticsearchContainer(

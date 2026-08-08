@@ -7,12 +7,10 @@ import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
 import com.filemngt.v2.scan.application.stream.ScanRunStreamPhase;
 import com.filemngt.v2.scan.config.ScanProperties;
-import com.filemngt.v2.scan.domain.candidate.ScanCandidateParser;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -31,7 +29,7 @@ public class ScanExecutor {
 
     private final ScanRunRepository runs;
     private final ScanChunkCommitter chunkCommitter;
-    private final ScanFileAnalyzer analyzer;
+    private final ScanParallelAnalyzer parallelAnalyzer;
     private final ScanReconciliationPageReader reconciliationPageReader;
     private final ScanProperties properties;
     private final ScanExecutionFailureHandler failureHandler;
@@ -40,13 +38,14 @@ public class ScanExecutor {
     public ScanExecutor(
             ScanRunRepository runs,
             ScanChunkCommitter chunkCommitter,
-            ScanFileAnalyzer analyzer,
+            ScanParallelAnalyzer parallelAnalyzer,
             ScanReconciliationPageReader reconciliationPageReader,
             ScanProperties properties,
-            ScanExecutionFailureHandler failureHandler, ScanExecutionLiveness liveness) {
+            ScanExecutionFailureHandler failureHandler,
+            ScanExecutionLiveness liveness) {
         this.runs = runs;
         this.chunkCommitter = chunkCommitter;
-        this.analyzer = analyzer;
+        this.parallelAnalyzer = parallelAnalyzer;
         this.reconciliationPageReader = reconciliationPageReader;
         this.properties = properties;
         this.failureHandler = failureHandler;
@@ -156,7 +155,9 @@ public class ScanExecutor {
             ScanProgress progress) {
         for (int start = 0; start < changed.size(); start += properties.getBusinessChunkSize()) {
             int end = Math.min(start + properties.getBusinessChunkSize(), changed.size());
-            ScanChunk chunk = analyzeChanged(context, changed.subList(start, end), progress);
+            ScanChunk chunk = parallelAnalyzer.analyzeParallel(
+                    context, changed.subList(start, end), properties.getReconciliationParallelism());
+            recordChunkProgress(chunk, progress);
             chunkIndex++;
             commitChangedChunk(context, chunkIndex, chunk, progress);
             progress.recordReconciledFiles(chunk.changedInventoryItems().size());
@@ -165,38 +166,21 @@ public class ScanExecutor {
         return chunkIndex;
     }
 
-    private ScanChunk analyzeChanged(
-            ScanExecutionContext context, List<ScanInventoryItem> changed, ScanProgress progress) {
-        var chunk = new ScanChunk();
-        for (ScanInventoryItem item : changed) {
-            chunk.addChangedInventory(item);
-            analyzeCandidate(context, item, chunk, progress);
-        }
-        return chunk;
-    }
-
-    private void analyzeCandidate(
-            ScanExecutionContext context, ScanInventoryItem item, ScanChunk chunk, ScanProgress progress) {
-        if (!ScanCandidateParser.supports(context.root().profile(), Path.of(item.sourceRelativePath()))) {
-            return;
-        }
-        var result = analyzer.analyze(
-                context.runId(), context.root().profile(), item.sourceRelativePath(), context.snapshot());
-        progress.recordResult(result);
-        switch (result) {
-            case ScanFileAnalyzer.Proposal(var proposal) -> chunk.addProposal(proposal);
-            case ScanFileAnalyzer.Issue(var issue) -> chunk.addIssue(issue);
-        }
+    private void recordChunkProgress(ScanChunk chunk, ScanProgress progress) {
+        chunk.proposals().forEach(p -> progress.recordResult(new ScanFileAnalyzer.Proposal(p)));
+        chunk.issues().forEach(i -> progress.recordResult(new ScanFileAnalyzer.Issue(i)));
     }
 
     private void commitChangedChunk(
             ScanExecutionContext context, int chunkIndex, ScanChunk chunk, ScanProgress progress) {
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
+        var changedItems = chunk.changedInventoryItems();
         var batch = new ScanChunkCommitter.ChunkBatch(
                 chunkIndex,
-                new ArrayList<>(chunk.changedInventoryItems()),
-                new ArrayList<>(chunk.proposals()),
-                new ArrayList<>(chunk.issues()));
+                changedItems.getFirst().sourceRelativePath(),
+                changedItems.getLast().sourceRelativePath(),
+                List.copyOf(chunk.proposals()),
+                List.copyOf(chunk.issues()));
         Instant leaseUntil = chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(progress));
         liveness.arm(context.runId(), context.workerId(), leaseUntil);
     }
@@ -241,9 +225,6 @@ public class ScanExecutor {
                 progress.issues(),
                 progress.skipped());
     }
-
-    private record ScanExecutionContext(
-            UUID runId, String workerId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {}
 
     private record DiscoveryRequest(
             ScanExecutionContext context,

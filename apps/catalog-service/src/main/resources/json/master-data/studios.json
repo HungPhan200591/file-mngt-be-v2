@@ -1,0 +1,602 @@
+{
+  "JOKE": [
+    {
+      "studio": "S1",
+      "code": [
+        "SSNI",
+        "SSIS",
+        "SONE",
+        "OFJE",
+        "SOE",
+        "SIVR",
+        "SNIS",
+        "MIAA"
+      ]
+    },
+    {
+      "studio": "Idea Pocket",
+      "code": [
+        "IPX",
+        "IDBD",
+        "IPZ",
+        "IPTD",
+        "IPSD",
+        "IPIT",
+        "IPID",
+        "IPVR",
+        "IPZZ",
+        "IPTR"
+      ]
+    },
+    {
+      "studio": "Moodyz",
+      "code": [
+        "MIDE",
+        "MIDD",
+        "MIDV",
+        "MIGD",
+        "MIAD",
+        "MIBD",
+        "MIRD",
+        "MIST"
+      ]
+    },
+    {
+      "studio": "Premium",
+      "code": [
+        "PRED",
+        "PGD",
+        "PXD"
+      ]
+    },
+    {
+      "studio": "Madonna",
+      "code": [
+        "JUL",
+        "JUQ",
+        "JUY",
+        "JUX",
+        "URE",
+        "JUFE"
+      ]
+    },
+    {
+      "studio": "Attackers",
+      "code": [
+        "ADN",
+        "ATID",
+        "RBD",
+        "SSPD",
+        "SHKD"
+      ]
+    },
+    {
+      "studio": "SOD Create",
+      "code": [
+        "STARS",
+        "STAR",
+        "SDJS",
+        "SDAB",
+        "SDDE"
+      ]
+    },
+    {
+      "studio": "Fanza",
+      "code": [
+        "DLDSS",
+        "SAME"
+      ]
+    },
+    {
+      "studio": "E-Body",
+      "code": [
+        "EBOD",
+        "EYAN",
+        "EKAI"
+      ]
+    },
+    {
+      "studio": "Prestige",
+      "code": [
+        "ABP",
+        "ABS",
+        "CHN",
+        "PPT",
+        "BGN",
+        "SGA",
+        "MEI",
+        "TRE"
+      ]
+    },
+    {
+      "studio": "Kawaii",
+      "code": [
+        "CAWD",
+        "KAVR",
+        "KAWD"
+      ]
+    },
+    {
+      "studio": "Wanz",
+      "code": [
+        "WANZ",
+        "WAVR"
+      ]
+    },
+    {
+      "studio": "Natural High",
+      "code": [
+        "NHDTB",
+        "NHDTA",
+        "HUNTA",
+        "HUNTB"
+      ]
+    },
+    {
+      "studio": "Faleno",
+      "code": [
+        "FSDSS",
+        "FLNS"
+      ]
+    },
+    {
+      "studio": "Honnaka",
+      "code": [
+        "HMN"
+      ]
+    },
+    {
+      "studio": "BeFree",
+      "code": [
+        "BF"
+      ]
+    },
+    {
+      "studio": "Oppai",
+      "code": [
+        "PPPD"
+      ]
+    },
+    {
+      "studio": "Maxing",
+      "code": [
+        "MXGS",
+        "MAXING"
+      ]
+    },
+    {
+      "studio": "Alice Japan",
+      "code": [
+        "DVAJ"
+      ]
+    },
+    {
+      "studio": "Muteki",
+      "code": [
+        "TEK"
+      ]
+    },
+    {
+      "studio": "Rookie",
+      "code": [
+        "RKI"
+      ]
+    },
+    {
+      "studio": "H.M.P",
+      "code": [
+        "HODV",
+        "HMPD"
+      ]
+    },
+    {
+      "studio": "Venus",
+      "code": [
+        "VEC",
+        "VENU"
+      ]
+    },
+    {
+      "studio": "Waap",
+      "code": [
+        "CWM",
+        "DFE",
+        "WSS"
+      ]
+    },
+    {
+      "studio": "Tameike Goro",
+      "code": [
+        "MEYD",
+        "MDYD"
+      ]
+    },
+    {
+      "studio": "Fitch",
+      "code": [
+        "JUFD",
+        "FINH"
+      ]
+    },
+    {
+      "studio": "Bi",
+      "code": [
+        "BIJN",
+        "BILA"
+      ]
+    },
+    {
+      "studio": "Glory Quest",
+      "code": [
+        "GVH",
+        "GVG"
+      ]
+    },
+    {
+      "studio": "Miman",
+      "code": [
+        "MIMK"
+      ]
+    },
+    {
+      "studio": "Crystal Ex",
+      "code": [
+        "CEMD",
+        "CEAD"
+      ]
+    },
+    {
+      "studio": "KMP",
+      "code": [
+        "MKMP",
+        "DSVR"
+      ]
+    },
+    {
+      "studio": "Opera",
+      "code": [
+        "OPUD",
+        "OPBD"
+      ]
+    },
+    {
+      "studio": "Dogma",
+      "code": [
+        "DVDMS",
+        "DOCP"
+      ]
+    },
+    {
+      "studio": "Fset",
+      "code": [
+        "FSET"
+      ]
+    },
+    {
+      "studio": "Sora",
+      "code": [
+        "SORA"
+      ]
+    },
+    {
+      "studio": "Air Control",
+      "code": [
+        "OAE"
+      ]
+    },
+    {
+      "studio": "Miman",
+      "code": [
+        "MMKZ"
+      ]
+    },
+    {
+      "studio": "DAS",
+      "code": [
+        "DV"
+      ]
+    },
+    {
+      "studio": "Nakadashi",
+      "code": [
+        "NACR"
+      ]
+    },
+    {
+      "studio": "FC2",
+      "code": [
+        "FC2PPV"
+      ]
+    },
+    {
+      "studio": "Uncen",
+      "code": [
+        "Heyzo",
+        "Javhd",
+        "Caribbean",
+        "1Pondo",
+        "TokyoHot",
+        "Luxury"
+      ]
+    },
+    {
+      "studio": "Dangling",
+      "code": [
+        "Nocode"
+      ]
+    },
+    {
+      "studio": "Test",
+      "code": [
+        "Test"
+      ]
+    }
+  ],
+  "USE": [
+    {
+      "studio": "Blacked",
+      "code": [
+        "BlackedRaw",
+        "Blacked"
+      ]
+    },
+    {
+      "studio": "Tushy",
+      "code": [
+        "TushyRaw",
+        "Tushy"
+      ]
+    },
+    {
+      "studio": "Vixen",
+      "code": [
+        "Vixen"
+      ]
+    },
+    {
+      "studio": "Brazzers",
+      "code": [
+        "Brazzers",
+        "BigButtsLikeItBig",
+        "BigTitsLikeBigDicks",
+        "PornstarsLikeItBig",
+        "TeenLoveBlackCocks"
+      ]
+    },
+    {
+      "studio": "HardX",
+      "code": [
+        "HardX",
+        "DarkX"
+      ]
+    },
+    {
+      "studio": "Fidelity",
+      "code": [
+        "TeenFidelity",
+        "PornFidelity"
+      ]
+    },
+    {
+      "studio": "Naughty America",
+      "code": [
+        "NaughtyAmerica",
+        "MySistersHotFriend",
+        "MyWifesHotFriend",
+        "MyFriendsHotGirl"
+      ]
+    },
+    {
+      "studio": "Jules Jordan",
+      "code": [
+        "JulesJordan"
+      ]
+    },
+    {
+      "studio": "Digital Playground",
+      "code": [
+        "DigitalPlayground"
+      ]
+    },
+    {
+      "studio": "Blacks On Blondes",
+      "code": [
+        "BlacksOnBlondes"
+      ]
+    },
+    {
+      "studio": "EroticaX",
+      "code": [
+        "EroticaX"
+      ]
+    },
+    {
+      "studio": "Zishy",
+      "code": [
+        "Zishy"
+      ]
+    },
+    {
+      "studio": "Neighbor Affair",
+      "code": [
+        "NeighborAffair"
+      ]
+    },
+    {
+      "studio": "Babes",
+      "code": [
+        "Babes"
+      ]
+    },
+    {
+      "studio": "MetArt",
+      "code": [
+        "MetArt"
+      ]
+    },
+    {
+      "studio": "HD Love",
+      "code": [
+        "HDLove"
+      ]
+    },
+    {
+      "studio": "Teens Love Huge Cocks",
+      "code": [
+        "TeensLoveHugeCocks"
+      ]
+    },
+    {
+      "studio": "Teens Love Black Cocks",
+      "code": [
+        "TeensLoveBlackCocks"
+      ]
+    },
+    {
+      "studio": "Monster Curves",
+      "code": [
+        "MonsterCurves"
+      ]
+    },
+    {
+      "studio": "Evil Angel",
+      "code": [
+        "EvilAngel"
+      ]
+    },
+    {
+      "studio": "Passion HD",
+      "code": [
+        "PassionHD"
+      ]
+    },
+    {
+      "studio": "Nubile Films",
+      "code": [
+        "NubileFilms"
+      ]
+    },
+    {
+      "studio": "The Real Workout",
+      "code": [
+        "TheRealWorkout"
+      ]
+    },
+    {
+      "studio": "21 Sextury",
+      "code": [
+        "21Sextury",
+        "21Naturals"
+      ]
+    },
+    {
+      "studio": "Big Tits At School",
+      "code": [
+        "BigTitsAtSchool"
+      ]
+    },
+    {
+      "studio": "Devils Film",
+      "code": [
+        "DevilsFilm"
+      ]
+    },
+    {
+      "studio": "X-Art",
+      "code": [
+        "XArt"
+      ]
+    },
+    {
+      "studio": "Kelly Madison",
+      "code": [
+        "KellyMadison"
+      ]
+    },
+    {
+      "studio": "FTV Girls",
+      "code": [
+        "FTVGirls"
+      ]
+    },
+    {
+      "studio": "Bang Bros",
+      "code": [
+        "BangBros",
+        "AssParade"
+      ]
+    },
+    {
+      "studio": "RK Prime",
+      "code": [
+        "RKPrime"
+      ]
+    },
+    {
+      "studio": "Team Skeet",
+      "code": [
+        "TeamSkeet"
+      ]
+    },
+    {
+      "studio": "Private",
+      "code": [
+        "Private"
+      ]
+    },
+    {
+      "studio": "Pure Taboo",
+      "code": [
+        "PureTaboo"
+      ]
+    },
+    {
+      "studio": "Monsters Of Cock",
+      "code": [
+        "MonstersOfCock"
+      ]
+    },
+    {
+      "studio": "Twistys",
+      "code": [
+        "Twistys"
+      ]
+    },
+    {
+      "studio": "New Sensations",
+      "code": [
+        "NewSensations"
+      ]
+    },
+    {
+      "studio": "Deeper",
+      "code": [
+        "Deeper"
+      ]
+    },
+    {
+      "studio": "Teen Curves",
+      "code": [
+        "TeenCurves"
+      ]
+    },
+    {
+      "studio": "Only Fans",
+      "code": [
+        "OnlyFans"
+      ]
+    },
+    {
+      "studio": "Xvideos",
+      "code": [
+        "Xvideos"
+      ]
+    },
+    {
+      "studio": "Test",
+      "code": [
+        "Test"
+      ]
+    }
+  ]
+}

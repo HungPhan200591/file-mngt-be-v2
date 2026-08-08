@@ -6,7 +6,7 @@
 
 - Đi theo chuỗi `WHY → WHAT → HOW → FAILURE → TRADE-OFF → PROJECT → EVOLUTION`.
 - Mỗi câu trả lời nhanh chỉ giữ keyword chính; khi luyện nói, mở rộng bằng evidence được link.
-- Phạm vi hiện tại: overview SC-01, architecture touchpoints, cross-service deduplication, BT-01, BT-02 và BT-03. SSE, resume chính xác và các break task sau BT-03 chỉ là hướng tiến hóa, chưa phải capability hiện hành.
+- Phạm vi hiện tại: overview SC-01, architecture touchpoints, cross-service deduplication, BT-01, BT-02, BT-03 và FT-028. Chain bám theo evidence benchmark 1M, SSE progress, lease/checkpoint và trade-off persistence đã thử nghiệm; resume chính xác sau crash vẫn là follow-up.
 - Update FT-025/BT-03F bổ sung staging reconciliation để sửa write amplification của BT-03; các câu CH-05 giữ nguyên bối cảnh lịch sử, CH-07 là behavior hiện hành sau migration V9.
 
 ## Coverage matrix
@@ -20,6 +20,8 @@
 | CH-05 Inventory seed & idempotency | Có | Có | Có | BT-02 + migration/integration test |
 | CH-06 Service boundary & evolution | Có | Có | Có | Context/architecture + SC-01 |
 | CH-07 Staging reconciliation | Có | Có | Có | FT-025 + runtime evidence 1M |
+
+| CH-08 FT-028 performance evolution | Có | Có | Có | JDBC/set-based benchmark, transaction 1M và batch 100k |
 
 ## Rapid question chains
 
@@ -113,7 +115,7 @@
 6. **Hỏi:** Trade-off của rewalk + dedupe so với resume chính xác?
    **Đáp nhanh:** Rewalk dễ hiểu và ít state nhưng đọc filesystem lặp lại; resume chính xác giảm I/O nhưng tăng độ phức tạp partition/checkpoint. Chọn sau khi có baseline.
 7. **Hỏi:** Polling và SSE nên tiến hóa như thế nào?
-   **Đáp nhanh:** Baseline hiện tại dùng polling qua `GET /api/v2/scans/{scanId}` vì đã có contract và tự khôi phục sau refresh. SSE là tối ưu tương lai, cần event schema, reconnect/heartbeat và không thuộc BT-03.
+   **Đáp nhanh:** FE hiện nhận SSE progress khi run đang `RUNNING` và chỉ đọc REST authoritative ở terminal; SSE cần heartbeat/reconnect nhưng không thay thế lease hay transaction. Polling vẫn có thể dùng để khôi phục sau refresh.
 8. **Hỏi:** FE phải làm gì nếu poll run trả `404` sau khi dữ liệu dev bị truncate?
    **Đáp nhanh:** Dừng polling ID cũ, vô hiệu hóa response stale, xóa `scanId` khỏi URL và reload recent runs; nếu history rỗng thì về empty state cho phép tạo scan mới. Không map `404` thành `FAILED`.
 
@@ -151,6 +153,25 @@
     **Đáp nhanh:** LEFT JOIN plan chỉ dùng `root_key`; path rơi xuống join filter, trong khi staging statistics stale báo 0 row. Nested loop thực tế gần O(stage × inventory-root), trái hẳn cost estimate.
 16. **Hỏi:** FT-025.3 sửa query plan bằng cách nào?
     **Đáp nhanh:** ANALYZE staging, keyset page 100.000 row và correlated lookup để `(root_key, source_relative_path)` xuất hiện đầy đủ trong inventory `Index Cond`; page zero-change heartbeat lease.
+
+### CH-08 — FT-028: performance evolution
+
+1. **Question:** JDBC batch benchmark 1M cho biết bottleneck ở đâu?
+   **Đáp nhanh:** Đọc và classify gần như không đáng kể; ghi 1.000.000 inventory, 900.000 proposal và 100.000 issue mất khoảng 43–45 giây, nên bottleneck là **database write path**.
+2. **Question:** Set-based benchmark khác production scan ở điểm nào?
+   **Đáp nhanh:** Benchmark set-based bỏ qua filesystem và analyzer, chỉ đo `INSERT ... SELECT`; 18–19 giây là **isolated lower bound**, không phải E2E SLO.
+3. **Question:** Vì sao proposal thường đắt hơn inventory?
+   **Đáp nhanh:** Proposal có payload `evidence` lớn và phải duy trì UUID/index/unique/FK; inventory chủ yếu là metadata và natural-key lookup. Phải đo từng invariant, không suy đoán từ row count.
+4. **Question:** UUIDv7 có giải quyết bottleneck proposal không?
+   **Đáp nhanh:** UUIDv7 có thể giảm random B-tree page split so với UUIDv4, nhưng benchmark chỉ cho thấy cải thiện một phần; payload và invariant vẫn là chi phí chính.
+5. **Question:** Vì sao gom 1M vào một transaction giảm từ 56,508s xuống 37,921s?
+   **Đáp nhanh:** `scan_file_inventory` được set-based một lần thay vì 70 lần, giảm transaction/index amplification; E2E giảm khoảng 33%. Đây là experiment throughput, chưa phải transaction boundary cuối cùng.
+6. **Question:** Nhược điểm của transaction 1M là gì?
+   **Đáp nhanh:** SSE proposal/issue chỉ nhảy một lần khi commit xong, và một lỗi rollback toàn bộ 1M. Blast radius và khả năng resume là trade-off lớn.
+7. **Question:** Batch 100k thay đổi behavior và latency ra sao?
+   **Đáp nhanh:** 1M được ghi thành 10 transaction, FE nhận progress tăng dần và mỗi lỗi rollback tối đa 100k; E2E đo được 43,069s. Inventory tăng từ 428ms batch đầu lên 1.702ms batch cuối.
+8. **Question:** Solution tiếp theo để vừa nhanh vừa có progress là gì?
+   **Đáp nhanh:** COPY kết quả phân tích vào staging theo batch, phát SSE `staged/analyzed`, sau đó materialize business theo batch lớn và checkpoint. Resume chi tiết sau crash và retry staging là follow-up riêng.
 
 ## Anchor interview questions
 
@@ -207,7 +228,7 @@
 ### A-06 — `ARCHITECT` · `ARCHITECTURE_EVOLUTION`
 **Question:** Khi nào nên đổi polling trạng thái scan sang SSE?
 **Interviewer evaluates:** Biết phân biệt baseline contract đang chạy với tối ưu realtime cần thêm boundary và failure semantics.
-**Trả lời 30 giây:** Hiện tại dùng polling qua `GET /api/v2/scans/{scanId}` vì đơn giản, tự khôi phục sau refresh và đã có contract. SSE chỉ nên thêm khi polling trở thành bottleneck; khi đó cần event schema, reconnect/heartbeat, `Last-Event-ID` và chính sách connection riêng, không gộp vào BT-03.
+**Trả lời 30 giây:** FE dùng SSE để hiển thị progress trong lúc run chạy và đọc REST authoritative ở terminal; polling chỉ là fallback/recovery sau refresh. SSE cần event schema, reconnect/heartbeat và backpressure riêng, không phải cơ chế resume scan.
 **Answer spine:** current contract → polling baseline → measured bottleneck → SSE event contract → reconnect/failure.
 **Project evidence:** [05-ui-ux-solution-behavior.md](../05-ui-ux-solution-behavior.md), `ScanController`.
 **Trade-offs:** Polling tạo request định kỳ nhưng dễ vận hành; SSE giảm request thừa nhưng giữ connection dài và phải xử lý reconnect, duplicate event và backpressure.
