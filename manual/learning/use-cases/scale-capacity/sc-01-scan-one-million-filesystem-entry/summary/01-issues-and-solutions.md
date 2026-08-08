@@ -14,6 +14,28 @@ Keyword spine:
 Bounded → Lease → Chunk → Inventory → Set-based → COPY → Telemetry → Outbox
 ```
 
+Hiểu chuỗi này như cách ta xử lý một đoàn xe rất dài — mỗi từ trả lời một câu hỏi đơn giản:
+
+- **Bounded — Giới hạn:** Không bê cả triệu file vào memory. Queue, số worker và lượng dữ liệu đang xử lý đều
+  có mức trần; đầy thì chậm lại để bảo vệ máy.
+- **Lease — Ai đang được quyền làm?:** Run ghi rõ worker nào đang sở hữu và thời hạn đến khi nào. Worker cũ
+  hết hạn không được phép ghi tiếp.
+- **Chunk — Làm từng phần:** Chia một triệu entry thành các phần nhỏ. Mỗi phần ghi xong thì commit; lỗi thì chỉ
+  phải làm lại phần đó, không rollback cả run.
+- **Inventory — Biết trạng thái trước đó:** Lưu dấu vết file lần trước (path, size, modified time/fingerprint)
+  để phân biệt file mới, file đổi, file không đổi và file biến mất.
+- **Set-based — Để database xử lý theo tập:** So sánh/cập nhật nhiều dòng bằng SQL (`INSERT ... SELECT`,
+  `UPDATE ... FROM`) thay vì lặp từng dòng rồi gọi database hàng triệu lần.
+- **COPY — Đưa dữ liệu vào bulk:** Khi cần đẩy rất nhiều row vào staging, dùng PostgreSQL `COPY` để giảm
+  round-trip; đây là đường ghi nhanh, không phải source of truth mới.
+- **Telemetry — Đo trước khi đoán:** Tách thời gian discovery, diff, reconciliation, finalize và commit để biết
+  nghẽn ở đâu rồi mới tối ưu đúng chỗ.
+- **Outbox — Giao tiếp sau khi đã commit:** Quyết định và event được ghi cùng transaction. Publisher có thể gửi
+  lại; Catalog dedupe để retry không tạo tác động nghiệp vụ trùng.
+
+**Câu nhớ nhanh:** *Chặn tài nguyên → giữ quyền → làm từng phần → biết cái gì đã có → xử lý theo tập → nạp bulk
+→ đo từng chặng → giao event an toàn.*
+
 Kiến thức portable rút ra từ case study này được cô đọng thành mental model **D-B-F-I-S-T** tại
 [Durable Bounded Batch Pipeline — Core Reference](../../../../deep-dive/durable-bounded-batch-pipeline/README.md).
 Reference này dùng lại cho import, media backfill, projection rebuild, Kafka replay, retention cleanup,
