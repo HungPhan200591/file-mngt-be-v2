@@ -1,7 +1,7 @@
 # SC-01 — Summary: Issue, solution và câu chuyện phỏng vấn
 
 Đây là study artifact, không phải source of truth triển khai. Trạng thái thật nằm ở các Feature Plan,
-`apps/scan-service/CONTEXT.md` và [STATUS](../../../../../docs/STATUS.md).
+`apps/scan-service/CONTEXT.md` và [STATUS](../../../../../../docs/STATUS.md).
 
 ## North star
 
@@ -196,7 +196,7 @@ không có lợi ích rõ; cold insert được giữ vì runtime evidence đạ
 | Đã cấu hình/triển khai ở project | PostgreSQL 18, UUIDv7, parallelism mặc định 8, direct COPY, staging `UNLOGGED`, cold/warm inventory path |
 | Evidence đã có | FT-030 runtime timeline; FT-031 cold run `1M`, `10/10 committed`, `durationMs=25763`, `inventoryWriteMs=3908` |
 | Chưa được tuyên bố | Resume chính xác sau process restart/lease handoff; full failure-mode Testcontainers; chunk-size tối ưu toàn cục |
-| Chưa làm | FT-033 read model; BT-04 Catalog batch existence API; targeted issue recheck TD-006 |
+| Chưa làm | FT-033 read model; [FT-034 Catalog batch existence API](../../../../../../docs/features/034-catalog-batch-existence-api/01-brief.md) đã `READY` nhưng chưa code; targeted issue recheck TD-006 |
 
 ## Decision rules khi bị hỏi “tại sao không dùng X?”
 
@@ -258,12 +258,12 @@ resume chính xác sau crash và FT-033 read projection vẫn là follow-up, kh�
 
 ## Evidence map
 
-- [FT-025 staging reconciliation](../../../../../docs/features/025-inventory-staging-reconciliation/03-plan.md)
-- [FT-026 liveness guard](../../../../../docs/features/026-scan-run-liveness-guard/03-plan.md)
-- [FT-027 SSE progress](../../../../../docs/features/027-scan-run-sse-progress/03-plan.md)
-- [FT-028 parallel reconciliation](../../../../../docs/features/028-parallel-reconciliation-pipeline/03-plan.md)
-- [FT-030 telemetry](../../../../../docs/features/030-scan-performance-telemetry/03-plan.md)
-- [FT-031 persistence optimization](../../../../../docs/features/031-scan-reconciliation-persistence-optimization/03-plan.md)
-- [Scan Service context](../../../../../apps/scan-service/CONTEXT.md)
+- [FT-025 staging reconciliation](../../../../../../docs/features/025-inventory-staging-reconciliation/03-plan.md)
+- [FT-026 liveness guard](../../../../../../docs/features/026-scan-run-liveness-guard/03-plan.md)
+- [FT-027 SSE progress](../../../../../../docs/features/027-scan-run-sse-progress/03-plan.md)
+- [FT-028 parallel reconciliation](../../../../../../docs/features/028-parallel-reconciliation-pipeline/03-plan.md)
+- [FT-030 telemetry](../../../../../../docs/features/030-scan-performance-telemetry/03-plan.md)
+- [FT-031 persistence optimization](../../../../../../docs/features/031-scan-reconciliation-persistence-optimization/03-plan.md)
+- [Scan Service context](../../../../../../apps/scan-service/CONTEXT.md)
 - [Performance debug guide](../debug-performance.md)
 - [Question chain](../question-bank/01-question-chain.md)

@@ -2,35 +2,18 @@
 
 Updated: 2026-08-08
 
-## Trọng tâm hiện tại — FT-033
+## Trọng tâm hiện tại — FT-034
 
-[FT-033 — Scan review read model](./features/033-scan-review-read-model/01-brief.md) đang ở
-`DRAFT` và **NOT READY** sau architecture review.
+[FT-034 — Catalog batch existence API](./features/034-catalog-batch-existence-api/01-brief.md) đã có
+Brief/Design/Plan và OpenAPI ở trạng thái `READY`, **chưa triển khai code**.
 
-Mục tiêu là tách review read path khỏi các query anti-join lịch sử, đồng thời không làm regress scan
-hot path 1M file. Ranh giới đang theo đuổi:
+Phạm vi chỉ là Catalog provider cho SC-01 BT-04:
 
-- Scan chunk vẫn giữ direct PostgreSQL `COPY`, set-based inventory, `REQUIRES_NEW`, lease fence và
-  deadline.
-- Terminal scan chỉ được phép tạo một durable projection handoff O(1) trong cùng transaction finalize;
-  không ghi projection item theo từng proposal/issue trong chunk.
-- Projector chạy bất đồng bộ, batch bounded, idempotent, có ordering/fence theo `root` và có resource
-  budget riêng; read API chỉ đọc projection sau cutover.
-- Decision authority vẫn nằm ở write model; read-after-commit chỉ là ngoại lệ nhỏ, phải có merge rule
-  để projector cũ không ghi đè decision mới.
-
-## Gate bắt buộc trước khi code FT-033
-
-1. Chọn durable delta hay async root rebuild; không tuyên bố đồng thời không thêm write, không rebuild
-   nặng và vẫn incremental chính xác.
-2. Chốt atomic handoff, root generation/conditional mutation và merge rule giữa projector với decision.
-3. Chốt task lease, timeout, retry, stale reclaim, restart/shutdown và terminal failure state.
-4. Chốt freshness contract: watermark/status, dữ liệu stale khi lag và semantics cho queue toàn cục.
-5. Chốt rollout không phá global ordering/pagination; sau đó benchmark scan 1M khi projector có tải.
-
-Evidence nền tảng và findings nằm ở [mental model](./features/033-scan-review-read-model/04-read-write-separation-mindset.md)
-và [architecture review](./features/033-scan-review-read-model/05-architecture-review.md). Không sửa
-`01-brief.md`, `02-design.md`, `03-plan.md` cho tới khi các gate trên được hiểu và quyết định rõ.
+- Internal read-only `POST /internal/v2/catalog/scan-existence`, batch từ 1 đến 500 candidate.
+- Lookup set-based locator `storageKey + relativePath` và canonical subject identity trong `catalog_db`.
+- Trả bốn classification; không tạo subject/asset/outbox và chưa thêm Scan client.
+- Thêm unique partial index locator non-null khi triển khai; migration phải fail nếu data conflict, không
+  tự cleanup/import dữ liệu.
 
 ## Trạng thái đã ổn định
 
@@ -47,6 +30,9 @@ và [architecture review](./features/033-scan-review-read-model/05-architecture-
 
 ## Deferred và gate rộng hơn
 
+- [FT-033 Scan review read model](./features/033-scan-review-read-model/03-plan.md) vẫn `DRAFT` và
+  **NOT READY**; các quyết định durable delta/rebuild, handoff/fence, projector liveness, freshness và
+  rollout vẫn theo [architecture review](./features/033-scan-review-read-model/05-architecture-review.md).
 - Verification deferred: FT-025 semantics Testcontainers, FT-026 timeout/lease-loss, FT-027 E2E
   Gateway/SSE; thực hiện theo Plan owner khi có scope hardening phù hợp.
 - Phase 4 còn thiếu Media Worker processing pipeline; Phase 7 còn thiếu importer/backfill V1.
@@ -59,7 +45,7 @@ liên kết snapshot; chi tiết remediation nằm ở debt/feature owner.
 
 ## Việc tiếp theo theo thứ tự ưu tiên
 
-1. Đọc và chốt mental model/trade-off của FT-033; quyết định durable delta hoặc root rebuild.
-2. Cập nhật lại FT-033 Design/Plan theo các gate và findings; chưa triển khai code.
-3. Sau khi Design đạt READY, mới implement projector/handoff và benchmark cạnh tranh tài nguyên với
-   scan 1M file.
+1. Review/chấp thuận contract và decision table của FT-034; chưa cần sửa code nếu chỉ đang chốt feature.
+2. Khi người dùng yêu cầu, triển khai riêng Catalog provider FT-034 và direct integration test; không kéo
+   Scan client vào cùng scope.
+3. Chỉ sau evidence FT-034 mới mở BT-05 Scan–Catalog filtering; FT-033 tiếp tục chờ các gate kiến trúc.

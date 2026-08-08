@@ -1,0 +1,187 @@
+openapi: 3.1.1
+info:
+  title: Catalog Scan Existence Internal API
+  version: v1
+  description: |
+    Internal read-only contract để scan-service kiểm tra tối đa 500 filesystem candidate với
+    canonical subject/asset do catalog-service sở hữu. Endpoint không route qua Gateway và không tạo
+    subject, asset hoặc outbox event.
+servers:
+  - url: http://localhost:18101
+    description: Local Catalog direct port theo ADR-004
+paths:
+  /internal/v2/catalog/scan-existence:
+    post:
+      operationId: classifyScanExistenceBatch
+      summary: "[Internal] Classify changed scan candidates against Catalog"
+      description: |
+        Thực hiện một bounded, read-only batch lookup. Kết quả là snapshot tư vấn tại thời điểm request;
+        không reserve locator và không thay thế write-side idempotency/constraints khi discovery event
+        được xử lý sau approval.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanExistenceRequest'
+      responses:
+        '200':
+          description: One classification result per unique clientRef
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanExistenceResponse'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableProblem'
+components:
+  responses:
+    ValidationProblem:
+      description: Entire request is invalid; no partial classification is returned
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    ServiceUnavailableProblem:
+      description: Catalog persistence is temporarily unavailable; caller must fail closed
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+  schemas:
+    ScanExistenceRequest:
+      type: object
+      additionalProperties: false
+      required: [scanRunId, items]
+      properties:
+        scanRunId:
+          type: string
+          format: uuid
+          description: Opaque correlation id from Scan; Catalog does not read scan_db to validate it.
+        items:
+          type: array
+          minItems: 1
+          maxItems: 500
+          description: clientRef values must be unique within this request.
+          items:
+            $ref: '#/components/schemas/ScanExistenceCandidate'
+    ScanExistenceCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        - clientRef
+        - storageKey
+        - relativePath
+        - region
+        - subjectType
+        - identityKey
+        - assetRole
+      properties:
+        clientRef:
+          type: string
+          format: uuid
+          description: Request-local correlation id; must be unique in the batch.
+        storageKey:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: '^[A-Za-z0-9._-]+$'
+          description: Logical Scan root key, never an absolute filesystem path.
+        relativePath:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Normalized path relative to storageKey; absolute paths are invalid.
+        region:
+          $ref: '#/components/schemas/Region'
+        subjectType:
+          $ref: '#/components/schemas/SubjectType'
+        identityKey:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: Canonical semantic key normalized by Scan; Catalog performs exact matching.
+        assetRole:
+          $ref: '#/components/schemas/MediaAssetRole'
+    ScanExistenceResponse:
+      type: object
+      additionalProperties: false
+      required: [scanRunId, items]
+      properties:
+        scanRunId:
+          type: string
+          format: uuid
+          description: Echo of the request scanRunId.
+        items:
+          type: array
+          minItems: 1
+          maxItems: 500
+          description: |
+            Contains exactly one result for every request clientRef. Consumers correlate by clientRef
+            and must not rely on array order.
+          items:
+            $ref: '#/components/schemas/ScanExistenceResult'
+    ScanExistenceResult:
+      type: object
+      additionalProperties: false
+      required: [clientRef, classification]
+      properties:
+        clientRef:
+          type: string
+          format: uuid
+        classification:
+          $ref: '#/components/schemas/ScanExistenceClassification'
+        matchedSubjectId:
+          type: string
+          format: uuid
+          description: Present when an existing canonical subject is relevant to the result.
+        matchedAssetId:
+          type: string
+          format: uuid
+          description: Present for an existing locator, including locator conflicts when known.
+        conflictCode:
+          $ref: '#/components/schemas/ScanExistenceConflictCode'
+    ScanExistenceClassification:
+      type: string
+      enum:
+        - EXACT_ASSET_EXISTS
+        - EXISTING_SUBJECT_NEW_ASSET
+        - NEW_SUBJECT
+        - CONFLICT
+      description: |
+        EXACT_ASSET_EXISTS requires locator, subject identity and role to match.
+        EXISTING_SUBJECT_NEW_ASSET means the identity exists and the locator can be attached.
+        NEW_SUBJECT means neither locator nor identity exists.
+        CONFLICT means the caller must not auto-decide.
+    ScanExistenceConflictCode:
+      type: string
+      enum:
+        - LOCATOR_SUBJECT_MISMATCH
+        - LOCATOR_ROLE_MISMATCH
+        - SUBJECT_PRIMARY_ASSET_EXISTS
+      description: Present only when classification is CONFLICT.
+    Region:
+      type: string
+      enum: [JOKE, USE]
+    SubjectType:
+      type: string
+      enum: [VIDEO, ALBUM]
+    MediaAssetRole:
+      type: string
+      enum: [PRIMARY_VIDEO, VIDEO, IMAGE, GIF]
+    ProblemDetail:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string

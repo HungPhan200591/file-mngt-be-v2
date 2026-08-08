@@ -56,6 +56,8 @@
 - Chốt OpenAPI internal và Flyway/index Catalog cho locator `storageKey + relativePath`.
 - API nhận tối đa 500 item, trả `EXACT_ASSET_EXISTS`, `EXISTING_SUBJECT_NEW_ASSET`, `NEW_SUBJECT`, `CONFLICT`.
 - Test: gọi API trực tiếp với fixture Catalog; chưa thêm client Scan.
+- FT owner: [FT-034 — Catalog batch existence API](../../../../../docs/features/034-catalog-batch-existence-api/01-brief.md)
+  đang `READY` ở mức Brief/Design/Plan và contract; chưa triển khai code.
 
 ### BT-05 — Scan–Catalog filtering
 
