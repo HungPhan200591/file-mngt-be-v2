@@ -13,7 +13,8 @@ Design: [02-design.md](./02-design.md)
   COPY/staging, materialization diff, finalization anti-join, `ScanProgress`
   accuracy, REST query repositories (JPA), driver setting `reWriteBatchedInserts`
   chỉ còn áp dụng cho write path legacy ngoài reconciliation hot path,
-  REST API, Kafka event và SSE contract; schema change additive qua V12; FK hiện hữu.
+  REST API, Kafka event và SSE contract; V12/V13 và các migration UUIDv7 Catalog/Query;
+  chỉ hai FK hot path proposal/issue → run được bỏ, FK decision/outbox → proposal giữ nguyên.
 - Read on demand: FT-025 staging reconciliation, FT-026 liveness guard,
   FT-027 SSE progress, `ScanFileAnalyzer`, `ScanCandidateParser`,
   `ScanSemanticParser`, `ScanEvidenceCodec`, pgJDBC COPY API và Java 25 virtual threads.
@@ -86,9 +87,16 @@ Design: [02-design.md](./02-design.md)
    không auto-refetch. SSE chỉ cập nhật progress/count/state. Hiển thị dưới list:
    `Đang scan, hãy đợi ...`; khi nhận terminal event hoặc REST verify terminal,
    mới fetch proposal/issue một lần.
-7. **FK decision gate — deferred**: chưa bỏ FK. Sau khi hybrid flow đạt correctness,
-   restart/retry/cleanup và benchmark production-like, tạo decision riêng cho
-   việc bỏ FK; nếu bỏ phải thêm explicit business-row cleanup và orphan audit.
+7. **FK decision gate — implemented**: V13 chỉ bỏ FK `scan_proposal.scan_run_id`
+   và `scan_issue.scan_run_id` → `scan_run`, là hai parent lookup trên COPY hot
+   path. Giữ `scan_run_id` NOT NULL, mọi unique constraint và FK
+   `scan_decision`/`scan_outbox_event` → `scan_proposal`. Không có production
+   delete run hiện tại; cleanup retention/delete run sau này phải xóa proposal,
+   issue tường minh cùng transaction rồi audit orphan.
+8. **UUIDv7 default — implemented**: V7 Catalog và V4 Query đặt native
+   `uuidv7()` cho các cột PK được tạo nội bộ. ID projection/processed event do
+   Catalog/Kafka truyền vào không đổi; migration không tự thay UUIDv4 đã có
+   trong application.
 
 Resume sau process restart/lease handoff được deferred sang feature riêng.
 Follow-up này chỉ giữ atomicity/rollback theo `REQUIRES_NEW` của từng chunk;

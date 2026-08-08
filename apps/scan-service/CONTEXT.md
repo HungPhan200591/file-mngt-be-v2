@@ -40,7 +40,11 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   `scan_inventory_diff_stage` cho `scan_file_inventory`. Ba write cùng conditional
   checkpoint nằm trong một transaction chunk; JDBC/JPA batch không còn nằm trên hot path này.
 - Môi trường study dùng PostgreSQL 18. UUID production của `scan-service` dùng UUIDv7;
-  database default dùng native `uuidv7()`. FK proposal/issue → `scan_run` vẫn giữ.
+  database default dùng native `uuidv7()`. Hai FK hot path `scan_proposal`/`scan_issue`
+  → `scan_run` được bỏ để COPY không lookup parent; giữ `scan_run_id` NOT NULL và unique
+  constraint. FK `scan_decision`/`scan_outbox_event` → `scan_proposal` vẫn giữ `ON DELETE
+  CASCADE`. Hiện không có lifecycle production xóa `scan_run`; nếu bổ sung phải dọn
+  proposal/issue tường minh trước khi xóa run và audit orphan.
 - Resume sau process restart hoặc lease handoff chưa được hỗ trợ; run gián đoạn bị đánh
   `FAILED`. `REQUIRES_NEW` hiện chỉ bảo đảm atomicity/rollback của từng chunk.
 - `scan_proposal` và `scan_issue` chỉ dùng PK index và unique constraint index phục vụ cả

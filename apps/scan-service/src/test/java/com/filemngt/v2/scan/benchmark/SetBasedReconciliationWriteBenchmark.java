@@ -90,22 +90,23 @@ class SetBasedReconciliationWriteBenchmark {
     void measuresProposalInvariantCost() {
         UUID runId = UUID.randomUUID();
         resetTables();
+        prepareProposalConstraints(false);
         seedDiffStage(runId);
 
         ReconciliationTiming timing = writeDiffStage(runId);
-        LOGGER.info("Proposal baseline (FK + unique): durationMs={}", timing.proposalMillis());
+        LOGGER.info("Proposal baseline (unique, no FK): durationMs={}", timing.proposalMillis());
         assertThat(count("scan_file_inventory")).isEqualTo(ROW_COUNT);
         assertThat(count("scan_proposal")).isEqualTo(900_000);
         assertThat(count("scan_issue")).isEqualTo(100_000);
 
-        long withoutForeignKey = measureProposalVariant(runId, true, false);
+        long withForeignKey = measureProposalVariant(runId, true, false);
         long withoutUnique = measureProposalVariant(runId, false, true);
         long withUuidV7 = measureProposalVariant(runId, PROPOSAL_UUID_V7_SQL, "proposal UUIDv7", false, false);
 
         LOGGER.info(
-                "Invariant benchmark: baselineProposalMs={}, withoutForeignKeyMs={}, withoutUniqueMs={}, uuidV7Ms={}",
+                "Invariant benchmark: baselineProposalMs={}, withForeignKeyMs={}, withoutUniqueMs={}, uuidV7Ms={}",
                 timing.proposalMillis(),
-                withoutForeignKey,
+                withForeignKey,
                 withoutUnique,
                 withUuidV7);
         LOGGER.info(
@@ -151,35 +152,34 @@ class SetBasedReconciliationWriteBenchmark {
         LOGGER.info("Đã seed diff stage: rows={}, durationMs={}", seeded, elapsedMillis(started));
     }
 
-    private long measureProposalVariant(UUID runId, boolean dropForeignKey, boolean dropUnique) {
-        return measureProposalVariant(runId, PROPOSAL_SQL, "proposal variant", dropForeignKey, dropUnique);
+    private long measureProposalVariant(UUID runId, boolean addForeignKey, boolean dropUnique) {
+        return measureProposalVariant(runId, PROPOSAL_SQL, "proposal variant", addForeignKey, dropUnique);
     }
 
     private long measureProposalVariant(
-            UUID runId, String proposalSql, String label, boolean dropForeignKey, boolean dropUnique) {
+            UUID runId, String proposalSql, String label, boolean addForeignKey, boolean dropUnique) {
         jdbcTemplate.update("DELETE FROM scan_proposal");
-        restoreProposalConstraints();
-        if (dropForeignKey) {
-            jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT " + PROPOSAL_FK);
-        }
+        prepareProposalConstraints(addForeignKey);
         if (dropUnique) {
             jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT " + PROPOSAL_UNIQUE);
         }
         long elapsed = execute(label, proposalSql, runId);
         jdbcTemplate.update("DELETE FROM scan_proposal");
-        restoreProposalConstraints();
+        prepareProposalConstraints(false);
         return elapsed;
     }
 
-    private void restoreProposalConstraints() {
+    private void prepareProposalConstraints(boolean addForeignKey) {
         jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT IF EXISTS " + PROPOSAL_FK);
         jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT IF EXISTS " + PROPOSAL_UNIQUE);
         jdbcTemplate.execute(
                 "ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_UNIQUE
                         + " UNIQUE (scan_run_id, source_relative_path)");
-        jdbcTemplate.execute(
-                "ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_FK
-                        + " FOREIGN KEY (scan_run_id) REFERENCES scan_run(id) ON DELETE CASCADE");
+        if (addForeignKey) {
+            jdbcTemplate.execute(
+                    "ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_FK
+                            + " FOREIGN KEY (scan_run_id) REFERENCES scan_run(id) ON DELETE CASCADE");
+        }
     }
 
     private ReconciliationTiming writeDiffStage(UUID runId) {

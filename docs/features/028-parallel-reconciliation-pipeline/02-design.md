@@ -152,11 +152,18 @@ Migration schema phải là V12 mới, không sửa V11.
 
 ## 8. Foreign key policy
 
-Foreign key proposal/issue → `scan_run` được giữ nguyên ở phase đầu. Benchmark
-cho thấy FK đắt, nhưng nó vẫn bảo vệ ownership và `ON DELETE CASCADE`.
+Migration V13 chỉ bỏ hai FK parent lookup trên COPY hot path:
+`scan_proposal.scan_run_id` → `scan_run` và `scan_issue.scan_run_id` → `scan_run`.
+`scan_run_id` vẫn `NOT NULL`; unique constraint business vẫn bảo vệ retry/idempotency.
 
-Chỉ đánh giá bỏ FK sau khi flow mới đã chứng minh correctness, retry, restart,
-timeout, cleanup stale run và orphan audit bằng benchmark production-like.
+FK `scan_decision.proposal_id` và `scan_outbox_event.proposal_id` →
+`scan_proposal` vẫn giữ `ON DELETE CASCADE`, nên lifecycle của một proposal đã
+được decision/outbox vẫn không đổi. Production hiện không có use case xóa
+`scan_run`: stale/restart chỉ chuyển run sang `FAILED`, staging được dọn riêng.
+Fixture/benchmark cũng xóa outbox/proposal/issue trước run. Khi thêm retention
+hoặc delete run, use case đó phải xóa proposal (để cascade decision/outbox) và
+issue theo `scan_run_id` trong cùng transaction trước, rồi audit orphan; không
+được dựa vào cascade FK đã bỏ.
 
 ## 9. Frontend khi scan đang chạy
 
@@ -206,8 +213,10 @@ cuối cùng vì chưa chạy đầy đủ parser/evidence. Chi tiết ở
   `REQUIRES_NEW` của chunk; mất lease hoặc write lỗi sẽ rollback toàn bộ chunk.
 - FE không gọi API list proposal/issue khi run `RUNNING`, kể cả khi đổi tab, filter,
   phân trang hoặc search; UI chỉ hiển thị SSE progress và thông báo chờ.
-- FK từ proposal/issue tới `scan_run` vẫn được giữ. Resume sau restart/lease handoff
-  vẫn deferred sang feature riêng.
+- V13 bỏ đúng hai FK từ proposal/issue tới `scan_run`; FK decision/outbox tới proposal
+  vẫn giữ. V7 Catalog và V4 Query thêm default native `uuidv7()` cho các PK phù hợp;
+  UUID do application/event truyền tường minh không bị migration đổi. Resume sau
+  restart/lease handoff vẫn deferred sang feature riêng.
 
 Kết quả thời gian thực tế của kiến trúc mới sẽ được bổ sung sau khi được phép chạy
 verification và benchmark 1M file.
