@@ -156,21 +156,21 @@
 
 ### CH-08 — FT-028: performance evolution
 
-1. **Question:** JDBC batch benchmark 1M cho biết bottleneck ở đâu?
+1. **Hỏi:** JDBC batch benchmark 1M cho biết bottleneck ở đâu?
    **Đáp nhanh:** Đọc và classify gần như không đáng kể; ghi 1.000.000 inventory, 900.000 proposal và 100.000 issue mất khoảng 43–45 giây, nên bottleneck là **database write path**.
-2. **Question:** Set-based benchmark khác production scan ở điểm nào?
+2. **Hỏi:** Set-based benchmark khác production scan ở điểm nào?
    **Đáp nhanh:** Benchmark set-based bỏ qua filesystem và analyzer, chỉ đo `INSERT ... SELECT`; 18–19 giây là **isolated lower bound**, không phải E2E SLO.
-3. **Question:** Vì sao proposal thường đắt hơn inventory?
+3. **Hỏi:** Vì sao proposal thường đắt hơn inventory?
    **Đáp nhanh:** Proposal có payload `evidence` lớn và phải duy trì UUID/index/unique/FK; inventory chủ yếu là metadata và natural-key lookup. Phải đo từng invariant, không suy đoán từ row count.
-4. **Question:** UUIDv7 có giải quyết bottleneck proposal không?
+4. **Hỏi:** UUIDv7 có giải quyết bottleneck proposal không?
    **Đáp nhanh:** UUIDv7 có thể giảm random B-tree page split so với UUIDv4, nhưng benchmark chỉ cho thấy cải thiện một phần; payload và invariant vẫn là chi phí chính.
-5. **Question:** Vì sao gom 1M vào một transaction giảm từ 56,508s xuống 37,921s?
+5. **Hỏi:** Vì sao gom 1M vào một transaction giảm từ 56,508s xuống 37,921s?
    **Đáp nhanh:** `scan_file_inventory` được set-based một lần thay vì 70 lần, giảm transaction/index amplification; E2E giảm khoảng 33%. Đây là experiment throughput, chưa phải transaction boundary cuối cùng.
-6. **Question:** Nhược điểm của transaction 1M là gì?
+6. **Hỏi:** Nhược điểm của transaction 1M là gì?
    **Đáp nhanh:** SSE proposal/issue chỉ nhảy một lần khi commit xong, và một lỗi rollback toàn bộ 1M. Blast radius và khả năng resume là trade-off lớn.
-7. **Question:** Batch 100k thay đổi behavior và latency ra sao?
+7. **Hỏi:** Batch 100k thay đổi behavior và latency ra sao?
    **Đáp nhanh:** 1M được ghi thành 10 transaction, FE nhận progress tăng dần và mỗi lỗi rollback tối đa 100k; E2E đo được 43,069s. Inventory tăng từ 428ms batch đầu lên 1.702ms batch cuối.
-8. **Question:** Solution tiếp theo để vừa nhanh vừa có progress là gì?
+8. **Hỏi:** Solution tiếp theo để vừa nhanh vừa có progress là gì?
    **Đáp nhanh:** COPY kết quả phân tích vào staging theo batch, phát SSE `staged/analyzed`, sau đó materialize business theo batch lớn và checkpoint. Resume chi tiết sau crash và retry staging là follow-up riêng.
 
 ## Anchor interview questions
@@ -196,12 +196,12 @@
 **Red flags:** Commit checkpoint trước data, transaction bao filesystem walk, hoặc gọi remote Catalog trong transaction.
 
 ### A-03 — `SENIOR` · `PROJECT_APPLICATION`
-**Question:** Vì sao inventory dùng JDBC batch `ON CONFLICT` thay vì chỉ `JpaRepository.saveAll()`?
+**Question:** Vì sao hot path FT-028 dùng direct `COPY` và set-based SQL thay vì chỉ `JpaRepository.saveAll()`?
 **Interviewer evaluates:** Phân biệt ORM batching với business-key upsert.
-**Trả lời 30 giây:** `saveAll()` lặp `save()` và Hibernate có thể batch SQL khi entity state đã rõ, nhưng không tự tìm row theo `(rootKey, relativePath)`. JDBC batch với `ON CONFLICT` xử lý atomic upsert và cập nhật run/metadata trong một write path.
-**Answer spine:** saveAll semantics → composite key → atomic conflict → batch.
-**Project evidence:** `ScanFileInventoryBatchWriter`, migration V8, `application.yml` batch settings.
-**Trade-offs:** Native SQL giảm abstraction JPA nhưng đặt persistence detail đúng adapter và phù hợp hot path.
+**Trả lời 30 giây:** `saveAll()` vẫn tạo nhiều entity/statement và không mô tả tốt changed-set; `COPY` giảm protocol overhead còn `UPDATE ... FROM`/`INSERT ... SELECT` để PostgreSQL xử lý cả tập dữ liệu. Native SQL giảm abstraction JPA nhưng phù hợp hot path đã đo được bottleneck.
+**Answer spine:** ORM overhead → COPY transport → set-based plan → transaction boundary.
+**Project evidence:** `ScanFileInventorySetWriter`, `ScanProposalCopyWriter`, `ScanIssueCopyWriter`, `SetBasedReconciliationWriteBenchmark`.
+**Trade-offs:** Một transaction lớn nhanh hơn nhưng mất progress và tăng rollback blast radius; batch 100k là compromise hiện tại.
 **Follow-up ladder:** 499 insert + 1 update? Retry? Có cần lock không?
 **Red flags:** Đồng nhất `saveAll()` với một SQL statement duy nhất, hoặc dùng Redis làm source of truth.
 
@@ -260,3 +260,5 @@
 | 2026-08-07 | Runtime warm scan 1M phát hiện write amplification | Run `52e59625...`: 1.000.000 skipped, 0 proposal/issue, khoảng 80 giây nhưng 1.000.000 inventory row vẫn đổi `updated_at`; evidence mở FT-025. |
 | 2026-08-07 | Microbenchmark one streaming COPY có staging index | `BenchmarkFullCopy`: walkFileTree + encode + IPC + COPY một triệu row vào TEMP table trong 2,890 giây; transaction rollback, chưa gồm inventory diff/finalization. |
 | 2026-08-07 | FT-025 staging reconciliation | Code/migration/test source đã triển khai; verification và benchmark chưa chạy theo rule người dùng. |
+| 2026-08-08 | FT-028 JDBC/set-based isolation | JDBC batch 1M khoảng 43–45s; set-based isolation khoảng 18–19s; proposal là writer đắt nhất trong benchmark. |
+| 2026-08-08 | FT-028 E2E transaction experiment | Một transaction 1M đạt 37,921s nhưng SSE chỉ nhảy cuối và rollback toàn bộ khi lỗi; batch 100k đạt 43,069s với 10 mốc progress. |
