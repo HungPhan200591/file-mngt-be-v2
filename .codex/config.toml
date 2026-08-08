@@ -8,22 +8,22 @@ startup_timeout_sec = 30
 tool_timeout_sec = 120
 
 [mcp_servers.catalog_postgres]
-command = "powershell"
-args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "D:\\Study\\Project\\file_mngt_microservice\\tools\\mcp\\postgres-mcp.ps1", "catalog"]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://catalog_user:change-me-catalog@localhost:18110/catalog_db"]
 enabled_tools = ["query"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
 
 [mcp_servers.scan_postgres]
-command = "powershell"
-args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "D:\\Study\\Project\\file_mngt_microservice\\tools\\mcp\\postgres-mcp.ps1", "scan"]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://scan_user:change-me-scan@localhost:18110/scan_db"]
 enabled_tools = ["query"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
 
 [mcp_servers.query_postgres]
-command = "powershell"
-args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "D:\\Study\\Project\\file_mngt_microservice\\tools\\mcp\\postgres-mcp.ps1", "query"]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://query_user:change-me-query@localhost:18110/query_db"]
 enabled_tools = ["query"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
