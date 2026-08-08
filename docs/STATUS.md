@@ -2,23 +2,64 @@
 
 Updated: 2026-08-08
 
-## Hiện tại
+## Trọng tâm hiện tại — FT-033
 
-- SC-01 Scan API và persistence hot path đã hoàn tất. [FT-028](./features/028-parallel-reconciliation-pipeline/03-plan.md) dùng parallel analyze, direct PostgreSQL `COPY` cho proposal/issue, reconciliation set-based và checkpoint lease-fenced; PostgreSQL 18 + UUIDv7 đã mở cho Scan/Catalog/Query. V13 chỉ bỏ hai FK proposal/issue → run; FK decision/outbox → proposal vẫn giữ `ON DELETE CASCADE`.
-- [FT-030 telemetry](./features/030-scan-performance-telemetry/03-plan.md) đã có runtime evidence: terminal timeline và chunk persistence event đọc được ở console theo `runId`, đồng thời ghi ECS JSON không trùng MDC key.
-- [FT-031 persistence optimization](./features/031-scan-reconciliation-persistence-optimization/03-plan.md) `DONE`: buffer COPY đã thử rồi rollback vì không có lợi ích; cold inventory path dùng `INSERT ... SELECT`. Run `019fe018-7640-7ff9-b467-c855a050f963` xử lý 1M file, commit 10/10 chunk trong `25.763s` (`inventoryWriteMs=3.908s`), đạt mục tiêu dưới 30 giây. Warm root giữ upsert để bảo toàn changed/revived semantics; không đổi chunk size mặc định khi chưa có benchmark kiểm soát.
-- Các verification không chặn task tiếp theo được giữ deferred ở Plan owner: FT-025 semantics Testcontainers, FT-026 timeout/lease-loss, FT-027 E2E Gateway/SSE. [FT-029 async logging](./features/029-async-non-blocking-logging-foundation/03-plan.md) chỉ còn cần xác nhận runtime cho bốn service ngoài Scan.
-- Ready feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
-- Nợ kỹ thuật cần lưu ý: [`TD-004`–`TD-005`](./TECHNICAL_DEBT.md).
+[FT-033 — Scan review read model](./features/033-scan-review-read-model/01-brief.md) đang ở
+`DRAFT` và **NOT READY** sau architecture review.
 
-## Gate còn mở trước cutover frontend
+Mục tiêu là tách review read path khỏi các query anti-join lịch sử, đồng thời không làm regress scan
+hot path 1M file. Ranh giới đang theo đuổi:
 
-- **Phase 4:** Media Worker chưa có processing pipeline: technical metadata, thumbnail, GIF, hash, completion event và Catalog update.
-- **Phase 7:** Chưa có importer/backfill V1: inventory root, dry-run, batch idempotent, checkpoint và reconciliation.
-- **Observability mở rộng:** alert/SLO, profiling sâu và k6.
+- Scan chunk vẫn giữ direct PostgreSQL `COPY`, set-based inventory, `REQUIRES_NEW`, lease fence và
+  deadline.
+- Terminal scan chỉ được phép tạo một durable projection handoff O(1) trong cùng transaction finalize;
+  không ghi projection item theo từng proposal/issue trong chunk.
+- Projector chạy bất đồng bộ, batch bounded, idempotent, có ordering/fence theo `root` và có resource
+  budget riêng; read API chỉ đọc projection sau cutover.
+- Decision authority vẫn nằm ở write model; read-after-commit chỉ là ngoại lệ nhỏ, phải có merge rule
+  để projector cũ không ghi đè decision mới.
 
-## Việc kế tiếp ưu tiên
+## Gate bắt buộc trước khi code FT-033
 
-1. Triển khai [FT-013 Media Worker processing foundation](./features/013-media-worker-processing-foundation/03-plan.md) cho Phase 4.
-2. Triển khai **BT-04 — Catalog batch existence API** (SC-01): internal API nhận tối đa 500 candidate, trả classification.
-3. Khi cần harden trước cutover, thực hiện các verification deferred theo Plan owner; không mở lại tuning persistence nếu chưa có benchmark hypothesis mới.
+1. Chọn durable delta hay async root rebuild; không tuyên bố đồng thời không thêm write, không rebuild
+   nặng và vẫn incremental chính xác.
+2. Chốt atomic handoff, root generation/conditional mutation và merge rule giữa projector với decision.
+3. Chốt task lease, timeout, retry, stale reclaim, restart/shutdown và terminal failure state.
+4. Chốt freshness contract: watermark/status, dữ liệu stale khi lag và semantics cho queue toàn cục.
+5. Chốt rollout không phá global ordering/pagination; sau đó benchmark scan 1M khi projector có tải.
+
+Evidence nền tảng và findings nằm ở [mental model](./features/033-scan-review-read-model/04-read-write-separation-mindset.md)
+và [architecture review](./features/033-scan-review-read-model/05-architecture-review.md). Không sửa
+`01-brief.md`, `02-design.md`, `03-plan.md` cho tới khi các gate trên được hiểu và quyết định rõ.
+
+## Trạng thái đã ổn định
+
+- SC-01 Scan API và persistence hot path của [FT-028](./features/028-parallel-reconciliation-pipeline/03-plan.md)
+  đã có parallel analyze, direct `COPY`, set-based reconciliation và checkpoint lease-fenced.
+- [FT-030 telemetry](./features/030-scan-performance-telemetry/03-plan.md) đã có runtime evidence cho
+  terminal timeline và chunk persistence theo `runId`.
+- [FT-031 persistence optimization](./features/031-scan-reconciliation-persistence-optimization/03-plan.md)
+  đã benchmark run 1M file dưới 30 giây; không tuning lại chunk size nếu chưa có hypothesis/evidence mới.
+- [FT-032 Scan review queue](./features/032-scan-review-queue/03-plan.md) có code tối thiểu ở trạng thái
+  `DONE`, nhưng còn chờ architecture review; FT-033 là hướng xử lý nền tảng cho read path tiếp theo.
+- [FT-013 Media Worker processing foundation](./features/013-media-worker-processing-foundation/03-plan.md)
+  vẫn `READY`, nhưng không phải trọng tâm của session hiện tại.
+
+## Deferred và gate rộng hơn
+
+- Verification deferred: FT-025 semantics Testcontainers, FT-026 timeout/lease-loss, FT-027 E2E
+  Gateway/SSE; thực hiện theo Plan owner khi có scope hardening phù hợp.
+- Phase 4 còn thiếu Media Worker processing pipeline; Phase 7 còn thiếu importer/backfill V1.
+- Observability mở rộng còn thiếu alert/SLO, profiling sâu và k6.
+
+## Nợ kỹ thuật đang mở
+
+Xem [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md) — hiện còn TD-004, TD-005 và TD-006. STATUS chỉ giữ
+liên kết snapshot; chi tiết remediation nằm ở debt/feature owner.
+
+## Việc tiếp theo theo thứ tự ưu tiên
+
+1. Đọc và chốt mental model/trade-off của FT-033; quyết định durable delta hoặc root rebuild.
+2. Cập nhật lại FT-033 Design/Plan theo các gate và findings; chưa triển khai code.
+3. Sau khi Design đạt READY, mới implement projector/handoff và benchmark cạnh tranh tài nguyên với
+   scan 1M file.
