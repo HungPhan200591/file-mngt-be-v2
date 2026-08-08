@@ -61,6 +61,7 @@ public class ScanExecutor {
     }
 
     private void executeRun(UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
+        long executionStartedNanos = ScanPerformanceTelemetry.startedNanos();
         LOGGER.info("Bắt đầu scan bất đồng bộ: runId={}, rootKey={}", runId, root.key());
         try {
             var run = runs.findById(runId).orElseThrow();
@@ -70,7 +71,9 @@ public class ScanExecutor {
             chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), finalProgress);
             liveness.publishTerminal(runId);
             logCompletion(runId, progress);
+            ScanPerformanceTelemetry.event(runId, "completed", executionStartedNanos, progress.files(), progress.proposals(), progress.issues());
         } catch (Exception exception) {
+            ScanPerformanceTelemetry.event(runId, "failed", executionStartedNanos, 0, 0, 0);
             if (failureHandler.handle(runId, root.key(), exception)) {
                 liveness.publishTerminal(runId);
             }
@@ -82,11 +85,17 @@ public class ScanExecutor {
     private ScanProgress scanFiles(ScanRunEntity run, ScanProperties.Root root, ScanRegistrySnapshot snapshot) {
         var progress = new ScanProgress();
         var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
+        long discoveryStartedNanos = ScanPerformanceTelemetry.startedNanos();
         int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
+        ScanPerformanceTelemetry.event(context.runId(), "discovery.completed", discoveryStartedNanos, progress.files(), 0, 0);
+        long preparationStartedNanos = ScanPerformanceTelemetry.startedNanos();
         progress.setChangedFiles(chunkCommitter.prepareReconciliation(context.runId(), context.workerId()));
+        ScanPerformanceTelemetry.event(context.runId(), "diff.materialized", preparationStartedNanos, progress.changedFiles(), 0, 0);
         nextChunkIndex++;
         heartbeatReconciliation(context, nextChunkIndex, progress);
+        long reconciliationStartedNanos = ScanPerformanceTelemetry.startedNanos();
         reconcileChanged(context, nextChunkIndex, progress);
+        ScanPerformanceTelemetry.event(context.runId(), "reconciliation.completed", reconciliationStartedNanos, progress.reconciledFiles(), progress.proposals(), progress.issues());
         return progress;
     }
 
@@ -232,7 +241,6 @@ public class ScanExecutor {
                 progress.issues(),
                 progress.skipped());
     }
-
     private record DiscoveryRequest(
             ScanExecutionContext context,
             ScanFileInventoryCursor cursor,

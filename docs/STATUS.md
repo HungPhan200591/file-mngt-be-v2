@@ -9,6 +9,7 @@ Updated: 2026-08-08
 - Active SC-01: [FT-027 scan run SSE progress](./features/027-scan-run-sse-progress/03-plan.md) `DONE`; SSE aggregate BE/Gateway và FE REST-first/SSE-primary đã implement, chờ verification runtime được người dùng cho phép.
 - Active SC-01: [FT-028 parallel reconciliation pipeline](./features/028-parallel-reconciliation-pipeline/03-plan.md) đã implement hybrid write path: parallel analyzer → direct PostgreSQL `COPY` vào `scan_proposal`/`scan_issue`, set-based write từ diff stage vào `scan_file_inventory`, checkpoint cùng transaction; PostgreSQL 18 + volume `postgres-data` mới + UUIDv7; FE không pull result list khi `RUNNING`. FK vẫn giữ, resume sau restart deferred. Chưa chạy verification/benchmark end-to-end.
 - Active Foundation: [FT-029 async logging foundation](./features/029-async-non-blocking-logging-foundation/03-plan.md) `IMPLEMENTED — pending runtime verification`; 5 microservices ghi console và JSON file qua AsyncAppender (`queueSize=16384`, `neverBlock=false`), scan worker đặt `runId` vào MDC. Cần xác nhận startup và file JSON của từng service trước khi đóng feature.
+- Active SC-01: [FT-030 scan performance telemetry](./features/030-scan-performance-telemetry/03-plan.md) `IMPLEMENTED — pending runtime verification`; JSON log phát các phase discovery, diff, reconciliation và terminal theo `runId`.
 - Ready feature: [`013-media-worker-processing-foundation`](./features/013-media-worker-processing-foundation/03-plan.md) `READY`: bắt đầu khi quay lại Phase 4.
 - Nợ kỹ thuật cần lưu ý: [`TD-004`–`TD-005`](./TECHNICAL_DEBT.md).
 
