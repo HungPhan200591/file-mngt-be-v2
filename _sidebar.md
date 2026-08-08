@@ -79,9 +79,12 @@
           * [SC-01 — Full scan có inventory và khử trùng xuyên service](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/03-cross-service-deduplication.md)
           * [SC-01 — Break task triển khai](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md)
           * [SC-01 — UI/UX Solution Behavior (Trải nghiệm người dùng cho Quét 1 Triệu File)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/05-ui-ux-solution-behavior.md)
+          * [Debug performance scan 1M](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/debug-performance.md)
           * [SC-01 — Scan một triệu filesystem entry](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md)
           * **question-bank**
             * [SC-01 — Question chain phỏng vấn](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/question-bank/01-question-chain.md)
+          * **summary**
+            * [SC-01 — Summary: Issue, solution và câu chuyện phỏng vấn](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/summary/01-issues-and-solutions.md)
   * **operations**
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
@@ -91,7 +94,7 @@
     * [Hướng dẫn chạy Test (Unit, Integration & E2E)](/manual/operations/testing-guide.md)
 * **docs**
   * [Trạng thái Backend V2](/docs/STATUS.md)
-  * [🛠️ Nợ Kỹ Thuật (Technical Debt) & Lộ Trình Refactor Backend V2](/docs/TECHNICAL_DEBT.md)
+  * [Nợ kỹ thuật Backend V2](/docs/TECHNICAL_DEBT.md)
   * **adlc**
     * [ADLC workflow](/docs/adlc/WORKFLOW.md)
   * **adr**
@@ -225,6 +228,37 @@
       * [026 Scan run liveness guard](/docs/features/026-scan-run-liveness-guard/01-brief.md)
       * [026 Scan run liveness guard — Design](/docs/features/026-scan-run-liveness-guard/02-design.md)
       * [026 Scan run liveness guard — Plan](/docs/features/026-scan-run-liveness-guard/03-plan.md)
+    * **027-scan-run-sse-progress**
+      * [027 Scan run SSE progress](/docs/features/027-scan-run-sse-progress/01-brief.md)
+      * [027 Scan run SSE progress — Design](/docs/features/027-scan-run-sse-progress/02-design.md)
+      * [027 Scan run SSE progress — Plan](/docs/features/027-scan-run-sse-progress/03-plan.md)
+    * **028-parallel-reconciliation-pipeline**
+      * [028 Parallel reconciliation pipeline](/docs/features/028-parallel-reconciliation-pipeline/01-brief.md)
+      * [FT-028 — Thiết kế pipeline reconciliation 1M file](/docs/features/028-parallel-reconciliation-pipeline/02-design.md)
+      * [028 Parallel reconciliation pipeline — Plan](/docs/features/028-parallel-reconciliation-pipeline/03-plan.md)
+      * [FT-028 — Deep-dive hiệu năng reconciliation 1M file](/docs/features/028-parallel-reconciliation-pipeline/04-performance-deep-dive.md)
+    * **029-async-non-blocking-logging-foundation**
+      * [029 Async non-blocking logging foundation](/docs/features/029-async-non-blocking-logging-foundation/01-brief.md)
+      * [029 Async non-blocking logging foundation — Design](/docs/features/029-async-non-blocking-logging-foundation/02-design.md)
+      * [029 Async non-blocking logging foundation — Plan](/docs/features/029-async-non-blocking-logging-foundation/03-plan.md)
+    * **030-scan-performance-telemetry**
+      * [030 Scan performance telemetry](/docs/features/030-scan-performance-telemetry/01-brief.md)
+      * [030 Scan performance telemetry — Design](/docs/features/030-scan-performance-telemetry/02-design.md)
+      * [030 Scan performance telemetry — Plan](/docs/features/030-scan-performance-telemetry/03-plan.md)
+    * **031-scan-reconciliation-persistence-optimization**
+      * [FT-031 — Tối ưu persistence reconciliation Scan 1M file](/docs/features/031-scan-reconciliation-persistence-optimization/01-brief.md)
+      * [FT-031 — Thiết kế tối ưu persistence reconciliation Scan 1M file](/docs/features/031-scan-reconciliation-persistence-optimization/02-design.md)
+      * [FT-031 — Kế hoạch tối ưu persistence reconciliation Scan 1M file](/docs/features/031-scan-reconciliation-persistence-optimization/03-plan.md)
+    * **032-scan-review-queue**
+      * [FT-032 — Scan review queue](/docs/features/032-scan-review-queue/01-brief.md)
+      * [FT-032 — Thiết kế Scan review queue](/docs/features/032-scan-review-queue/02-design.md)
+      * [FT-032 — Kế hoạch Scan review queue](/docs/features/032-scan-review-queue/03-plan.md)
+    * **033-scan-review-read-model**
+      * [FT-033 — Scan review read model](/docs/features/033-scan-review-read-model/01-brief.md)
+      * [FT-033 — Thiết kế Scan review read model](/docs/features/033-scan-review-read-model/02-design.md)
+      * [FT-033 — Kế hoạch Scan review read model](/docs/features/033-scan-review-read-model/03-plan.md)
+      * [Nền tảng tư duy tách Write Path và Read Path](/docs/features/033-scan-review-read-model/04-read-write-separation-mindset.md)
+      * [FT-033 — Architecture Review Notes](/docs/features/033-scan-review-read-model/05-architecture-review.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)

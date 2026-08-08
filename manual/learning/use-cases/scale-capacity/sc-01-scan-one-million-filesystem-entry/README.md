@@ -12,7 +12,7 @@ Scenario, prerequisite, workload contract và evidence cần thu thập do [road
 | Break task triển khai | [04-break-task.md](./04-break-task.md) | Đã tạo |
 | Phương án UI/UX Solution Behavior | [05-ui-ux-solution-behavior.md](./05-ui-ux-solution-behavior.md) | Đã tạo |
 | Java 25 Fixture Tool | [fixture-tools](../../../../tests/fixtures/tools/pom.xml) (package `com.filemngt.tools.sc01_scan_one_million`) | Đã tạo |
-| Summary | `summary/` | Chưa yêu cầu |
+| Summary | [summary/01-issues-and-solutions.md](./summary/01-issues-and-solutions.md) | Đã tạo; distill từ issue/solution/evidence |
 | Question chain | [question-bank/01-question-chain.md](./question-bank/01-question-chain.md) | Đã tạo, bổ sung dần theo BT/deep-dive |
 
 Xem [UC-01](../../core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) cho flow nhỏ làm prerequisite. Không thay architecture, contract, owner context hoặc `docs/STATUS.md`.
