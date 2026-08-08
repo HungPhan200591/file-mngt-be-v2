@@ -6,7 +6,7 @@
 
 - Đi theo chuỗi `WHY → WHAT → HOW → FAILURE → TRADE-OFF → PROJECT → EVOLUTION`.
 - Mỗi câu trả lời nhanh chỉ giữ keyword chính; khi luyện nói, mở rộng bằng evidence được link.
-- Phạm vi hiện tại: overview SC-01, architecture touchpoints, cross-service deduplication, BT-01, BT-02, BT-03 và FT-028. Chain bám theo evidence benchmark 1M, SSE progress, lease/checkpoint và trade-off persistence đã thử nghiệm; resume chính xác sau crash vẫn là follow-up.
+- Phạm vi hiện tại: overview SC-01, architecture touchpoints, cross-service deduplication, BT-01, BT-02, BT-03, FT-028 và FT-029–031. Chain bám theo API/UX bất đồng bộ, SSE/REST, evidence benchmark 1M, lease/checkpoint và trade-off persistence đã thử nghiệm; resume chính xác sau crash vẫn là follow-up.
 - Update FT-025/BT-03F bổ sung staging reconciliation để sửa write amplification của BT-03; các câu CH-05 giữ nguyên bối cảnh lịch sử, CH-07 là behavior hiện hành sau migration V9.
 
 ## Coverage matrix
@@ -22,6 +22,7 @@
 | CH-07 Staging reconciliation | Có | Có | Có | FT-025 + runtime evidence 1M |
 
 | CH-08 FT-028 performance evolution | Có | Có | Có | JDBC/set-based benchmark, transaction 1M và batch 100k |
+| CH-09 Evidence-driven API, UX & persistence tuning | Có | Có | Có | FT-029–031, runtime logs 1M, rollback 31.2 và cold path 31.3 |
 
 ## Rapid question chains
 
@@ -173,6 +174,27 @@
 8. **Hỏi:** Solution tiếp theo để vừa nhanh vừa có progress là gì?
    **Đáp nhanh:** COPY kết quả phân tích vào staging theo batch, phát SSE `staged/analyzed`, sau đó materialize business theo batch lớn và checkpoint. Resume chi tiết sau crash và retry staging là follow-up riêng.
 
+### CH-09 — Tuning có evidence: API, UX và persistence
+
+1. **Hỏi:** Vì sao tối ưu scan không bắt đầu bằng SQL mà bắt đầu từ API/UX bất đồng bộ?
+   **Đáp nhanh:** `POST /api/v2/scans/previews` trả **202 Accepted** với `scanRunId` để UI không bị khóa bởi công việc dài. Durable run, progress và trạng thái terminal biến thời gian chờ thành trải nghiệm quan sát được.
+2. **Hỏi:** SSE, REST và database chia trách nhiệm thế nào để vừa realtime vừa đúng?
+   **Đáp nhanh:** **SSE** là kênh best-effort cho progress; REST là nguồn đọc authoritative sau refresh/reconnect; database mới quyết định lease, checkpoint và terminal state. Mất SSE không được làm scan dừng hoặc làm client tự kết luận sai.
+3. **Hỏi:** Vì sao phải đo `httpAcceptedMs`, queue wait và các phase thay vì chỉ nhìn tổng thời gian scan?
+   **Đáp nhanh:** Tổng thời gian không chỉ ra chậm ở nhận request, chờ worker, discovery hay persistence. **Terminal timeline** tách từng phase, còn telemetry chunk tách inventory/COPY/commit để giả thuyết có thể bị bác bỏ.
+4. **Hỏi:** Log console và ECS JSON phục vụ hai đối tượng nào?
+   **Đáp nhanh:** Console cần chứa **event ID + số liệu đọc ngay** để grep theo `runId`; ECS JSON giữ field có cấu trúc để aggregate/truy vết. Không được đưa cùng `runId` hoặc `correlationId` từ MDC và fluent key-value vì encoder JSON sẽ từ chối key trùng.
+5. **Hỏi:** Vì sao bỏ đúng hai FK hot path proposal/issue → run nhưng giữ FK decision/outbox → proposal?
+   **Đáp nhanh:** COPY proposal/issue theo chunk cần tránh parent lookup trên hot write path; **decision/outbox → proposal** vẫn là lifecycle invariant nên giữ `ON DELETE CASCADE`. Đổi FK không đồng nghĩa thêm delete run: hiện chưa có lifecycle production xóa run, tương lai phải dọn proposal/issue tường minh và audit orphan.
+6. **Hỏi:** FT-031.2 thử buffer COPY rồi rollback nói gì về cách tối ưu?
+   **Đáp nhanh:** Ý tưởng hợp lý không đủ; benchmark cho thấy `proposalCopyMs` từ **7.578s** thành **7.623s**, không cải thiện rõ nên rollback. Tuning tốt là giữ invariant, đo cùng workload, rồi bỏ thay đổi không có evidence.
+7. **Hỏi:** Vì sao cold inventory fast path giảm mạnh từ hơn 11 giây xuống khoảng 3.9 giây?
+   **Đáp nhanh:** Root thật sự trống không có row để update hay probe anti-join; chỉ cần **INSERT … SELECT** từ diff stage. Cold run 1M đạt `durationMs=25.763s`, nhưng warm root vẫn phải dùng upsert để giữ changed/revived semantics.
+8. **Hỏi:** Cold fast path có phải nâng cấp thuần túy cho mọi scan không?
+   **Đáp nhanh:** Không; nó đúng khi classification **cold** đáng tin và một root không có writer cạnh tranh. Với manual SQL hoặc writer mới chen giữa classify và insert, unique constraint sẽ làm chunk fail/rollback thay vì tạo dữ liệu sai; vì vậy ownership và running-root invariant là một phần của tối ưu.
+9. **Hỏi:** Vì sao chưa tự tăng business chunk lên 200k hay 500k trong FT-031.4?
+   **Đáp nhanh:** Chunk lớn có thể giảm overhead nhưng tăng **peak memory**, rollback blast radius và thời gian giữ transaction/lease. Cold target dưới 30 giây đã đạt với 100k; chỉ đổi default sau benchmark kiểm soát 100k/200k/250k/500k chứng minh thắng ổn định.
+
 ## Anchor interview questions
 
 ### A-01 — `FOUNDATION` · `COMMON_SCENARIO`
@@ -262,3 +284,5 @@
 | 2026-08-07 | FT-025 staging reconciliation | Code/migration/test source đã triển khai; verification và benchmark chưa chạy theo rule người dùng. |
 | 2026-08-08 | FT-028 JDBC/set-based isolation | JDBC batch 1M khoảng 43–45s; set-based isolation khoảng 18–19s; proposal là writer đắt nhất trong benchmark. |
 | 2026-08-08 | FT-028 E2E transaction experiment | Một transaction 1M đạt 37,921s nhưng SSE chỉ nhảy cuối và rollback toàn bộ khi lỗi; batch 100k đạt 43,069s với 10 mốc progress. |
+| 2026-08-08 | FT-029–031 observability và tuning loop | Terminal/per-chunk telemetry phân tách inventory, proposal COPY, issue COPY và commit; COPY buffer 31.2 bị rollback vì không cải thiện rõ. |
+| 2026-08-08 | FT-031.3 cold inventory fast path | Run `019fe018-7640-7ff9-b467-c855a050f963`: 1M file, 10/10 committed, 25.763s; `inventoryWriteMs=3.908s`, không WARN/ERROR. |
