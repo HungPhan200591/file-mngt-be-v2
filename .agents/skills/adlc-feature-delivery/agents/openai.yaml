@@ -1,0 +1,4 @@
+interface:
+  display_name: "ADLC Feature Delivery"
+  short_description: "Deliver Backend V2 features by ADLC"
+  default_prompt: "Use $adlc-feature-delivery to deliver this Backend V2 feature through Brief, Design, Plan, implementation, and handoff."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Find Docs"
-  short_description: "Look up current docs via Context7"
-  default_prompt: "Use $find-docs to look up current library documentation."

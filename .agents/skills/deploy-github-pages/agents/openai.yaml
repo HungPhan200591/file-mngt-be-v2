@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy GitHub Pages"
+  short_description: "Publish the Backend V2 Docsify site"
+  default_prompt: "Use $deploy-github-pages to preview or publish this Backend V2 Docsify documentation site."

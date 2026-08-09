@@ -1,4 +1,4 @@
 interface:
-  display_name: Use Case & Scale Scenario
-  short_description: Manage UC/SC cards and study artifacts by owner.
-  default_prompt: Create or update a UC/SC study card using the project taxonomy.
+  display_name: "Use Case & Scale Scenario"
+  short_description: "Manage UC/SC study artifacts by owner"
+  default_prompt: "Use $study-use-case-scenario to create or update a UC/SC study card using the project taxonomy."

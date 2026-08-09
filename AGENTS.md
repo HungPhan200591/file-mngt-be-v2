@@ -2,14 +2,13 @@
 
 ## Bất biến toàn cục
 
-- Giao tiếp và tài liệu viết tiếng Việt có dấu; giữ identifier/API/event/package bằng tiếng Anh.
 - Một Agent chính tự thực hiện toàn bộ khảo sát, triển khai và review; không dùng sub-agent.
 - Không tự chạy test/build, migration/import thật, xóa dữ liệu, reset repository, khởi động service, Docker Compose, git commit/push hoặc sinh sidebar/deploy docs nếu chưa được người dùng yêu cầu rõ ràng.
 - File source tối đa 500 dòng; tách theo trách nhiệm, không tách vụn.
 - Với Java mới/sửa, Agent bắt buộc khảo sát owner/package bị chạm trước khi code và tự audit/refactor ngay sau khi code theo `docs/architecture/03-CODING_RULES.md`; không bàn giao code vượt ngưỡng mà không tách hoặc ghi ngoại lệ.
 - Service chỉ truy cập database của chính nó. Redis không là source of truth; Kafka không thay thế mọi HTTP call.
 - Port local V2 bắt buộc theo `docs/adr/ADR-004-local-port-allocation.md`; không tự chọn port chuẩn hoặc port mới trước khi kiểm tra ADR và port đang listen.
-- Mặc định mọi nhắc đến **FE/frontend** là **FE V2** `D:\Study\Project\file_mngt_fe_v2`; đọc `AGENTS.md` và đúng context module của repo này trước khi khảo sát, lập feature hoặc code FE. Chỉ khi người dùng chỉ định rõ cần tham chiếu/đối chiếu V1 mới dùng link refer chỉ đọc: **BE V1** `D:\Study\Project\file_mngt`; **FE V1** `D:\Study\Project\file_mngt_FE`.
+- Mặc định mọi nhắc đến **FE/frontend** là **FE V2** tại sibling repo `../file_mngt_fe_v2`; đọc `AGENTS.md` và đúng context module của repo đó trước khi khảo sát, lập feature hoặc code FE. Chỉ khi người dùng chỉ định rõ cần đối chiếu V1 mới dùng sibling repo chỉ đọc: **BE V1** `../file_mngt`; **FE V1** `../file_mngt_FE`.
 - Khi gợi ý câu lệnh CLI cho người dùng, luôn viết từ thư mục gốc dự án (dùng cờ prefix hoặc đường dẫn từ root); không bắt người dùng gõ lệnh `cd` chuyển thư mục.
 - Context hygiene: `docs/STATUS.md` và `docs/TECHNICAL_DEBT.md` chỉ là snapshot hiện tại; khi task hoàn tất, xóa debt đã trả và nội dung stale/trùng lặp, giữ bằng chứng chi tiết ở Plan/commit và link thay vì sao chép.
 
@@ -20,10 +19,10 @@ Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corrett
 1. Session mới, mất context, cần biết trạng thái dự án: dùng `$load-v2-context`; nếu skill chưa được nhận diện, đọc `.agents/skills/load-v2-context/SKILL.md`.
 2. Feature mới hoặc thay đổi nghiệp vụ: dùng `$adlc-feature-delivery`; nếu skill chưa được nhận diện, đọc `.agents/skills/adlc-feature-delivery/SKILL.md`.
 3. Đổi REST, Kafka event, database ownership, migration hoặc chạm từ hai service: dùng `$cross-service-contract`; nếu skill chưa được nhận diện, đọc `.agents/skills/cross-service-contract/SKILL.md`.
-4. Tạo/sửa rule, context, template, skill hoặc router tài liệu: dùng `$maintain-ai-governance`; nếu skill chưa được nhận diện, đọc `.agents/skills/maintain-ai-governance/SKILL.md`.
-5. Tạo/sửa Mermaid: dùng `$mermaid-styling`; skill local sở hữu layout, wrap label và palette của diagram.
+4. Thiết kế ownership/router dùng global `$maintain-ai-governance`; dọn rule/skill dùng global `$standardize-project-ai-context`; sửa source of truth riêng Backend V2 dùng `$maintain-v2-project-context`.
+5. Tạo/sửa Mermaid: dùng global `$mermaid-styling`; không duy trì bản sao local.
 6. Task cục bộ: đọc `docs/architecture/01-SUMMARY.md` và đúng một `apps/<service>/CONTEXT.md`; chỉ mở dependency trực tiếp.
-7. Viết/review Java: đọc `docs/architecture/03-CODING_RULES.md` sau context owner. Nếu chạm API, configuration hoặc hành vi phụ thuộc version của framework/tool, dùng `$find-docs` trước khi code; chỉ đọc contract/ADR khi task chạm đúng boundary.
+7. Viết/review Java: đọc `docs/architecture/03-CODING_RULES.md` sau context owner. Nếu chạm API, configuration hoặc hành vi phụ thuộc version của framework/tool, dùng global `$find-docs` trước khi code; chỉ đọc contract/ADR khi task chạm đúng boundary.
 8. Viết/chạy E2E HTTP: đọc `tests/e2e/README.md`; chỉ đọc feature/contract của API được kiểm tra.
 9. Sửa Docsify/GitHub Pages hoặc khi người dùng yêu cầu preview/deploy docs: dùng `$deploy-github-pages`; trước khi khảo sát hoặc deploy phải đồng bộ remote bằng `git pull`; Agent chạy `node ./.docsify/generate-sidebar.mjs` ngay trước commit/push. Sidebar chỉ sinh từ `manual/` và `docs/`, không sửa tay.
 10. Tạo/sửa trọn bộ deep-dive + summary + question bank: dùng `$study-topic-workflow`; nếu chỉ sửa một artifact, dùng đúng `$deep-dive-technical-topic`, `$distill-study-summary` hoặc `$build-question-bank`.
