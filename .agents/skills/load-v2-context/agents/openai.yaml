@@ -1,4 +1,4 @@
 interface:
-  display_name: "Load V2 Context"
+  display_name: "load-v2-context - Nạp context Backend V2"
   short_description: "Reload focused Backend V2 context"
   default_prompt: "Use $load-v2-context to reload the current Backend V2 status and the relevant service context."

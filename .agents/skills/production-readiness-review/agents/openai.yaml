@@ -1,4 +1,4 @@
 interface:
-  display_name: "Production Readiness Review"
+  display_name: "production-readiness-review - Review mức sẵn sàng production"
   short_description: "Review six operational readiness pillars"
   default_prompt: "Use $production-readiness-review to assess this release or feature against the six Production Readiness pillars."

@@ -1,4 +1,4 @@
 interface:
-  display_name: "Maintain V2 Project Context"
+  display_name: "maintain-v2-project-context - Duy trì context dự án Backend V2"
   short_description: "Duy trì source of truth riêng Backend V2"
   default_prompt: "Dùng $maintain-v2-project-context để cập nhật đúng source of truth của Backend V2."

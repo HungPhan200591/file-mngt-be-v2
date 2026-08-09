@@ -1,4 +1,4 @@
 interface:
-  display_name: "Study Topic Workflow"
+  display_name: "study-topic-workflow - Điều phối workflow học tập"
   short_description: "Điều phối bộ tài liệu học tập hoàn chỉnh"
   default_prompt: "Use $study-topic-workflow to create or repair a complete study pack: deep-dive, summary, and interview question bank."

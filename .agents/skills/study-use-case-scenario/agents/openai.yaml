@@ -1,4 +1,4 @@
 interface:
-  display_name: "Use Case & Scale Scenario"
+  display_name: "study-use-case-scenario - Quản lý use case và scale scenario"
   short_description: "Manage UC/SC study artifacts by owner"
   default_prompt: "Use $study-use-case-scenario to create or update a UC/SC study card using the project taxonomy."

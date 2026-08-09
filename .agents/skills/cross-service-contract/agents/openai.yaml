@@ -1,4 +1,4 @@
 interface:
-  display_name: "Cross-service Contract"
+  display_name: "cross-service-contract - Bảo vệ contract liên service"
   short_description: "Protect Backend V2 service contracts"
   default_prompt: "Use $cross-service-contract to design or change this REST, Kafka, database, or cross-service contract safely."
