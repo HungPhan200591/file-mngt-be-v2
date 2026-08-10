@@ -13,7 +13,7 @@ trường hợp thông thường.
 Nếu muốn đặt file ở vị trí khác, thêm riêng cho Run Configuration:
 
 ```text
-OBSERVABILITY_LOG_FILE=D:/Study/Project/file_mngt_microservice/logs/<service>.json.log
+OBSERVABILITY_LOG_FILE=D:/Pesonal/file-management/v2/file-mngt-be-v2/logs/<service>.json.log
 ```
 
 ## 2. Bật stack

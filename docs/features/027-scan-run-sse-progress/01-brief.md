@@ -9,7 +9,7 @@ request thừa và đang trộn việc cập nhật trạng thái run với refr
 Sau khi FT-025/FT-026 làm scan theo segment lớn, UI cũng cần tín hiệu tiến độ nhẹ
 giữa các durable checkpoint mà không tăng tần suất ghi PostgreSQL.
 
-Companion FE: `D:\Study\Project\file_mngt_fe_v2\docs\features\004-scan-run-sse-progress\`.
+Companion FE: `D:\Pesonal\file-management\v2\file-mngt-fe-v2\docs\features\004-scan-run-sse-progress\`.
 
 ## Mục tiêu và acceptance criteria
 

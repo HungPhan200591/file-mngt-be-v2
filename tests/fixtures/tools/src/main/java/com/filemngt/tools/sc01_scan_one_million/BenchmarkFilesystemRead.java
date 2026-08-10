@@ -12,7 +12,7 @@ import java.nio.file.Path;
  */
 public final class BenchmarkFilesystemRead {
     private static final String DEFAULT_TARGET_DIR =
-            "D:/Study/Project/file_mngt_fixtures/one_million_joke_video";
+            "D:/Pesonal/file-management/v2/file-mngt-fixtures/one_million_joke_video";
     private static final long PROGRESS_INTERVAL = 100_000L;
 
     private BenchmarkFilesystemRead() {

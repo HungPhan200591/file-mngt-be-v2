@@ -1,6 +1,6 @@
 # FT019 — Studio import contract
 
-Source input có thể theo schema của [studios.json BE V1](D:/Study/Project/file_mngt/src/main/resources/json/studios.json). File này chỉ là input import do người dùng cung cấp; V2 không đọc BE V1 ở runtime và test dùng fixture V2 độc lập.
+Source input có thể theo schema của [studios.json BE V1](D:/Pesonal/file-management/v1/file-mngt-be-v1/src/main/resources/json/studios.json). File này chỉ là input import do người dùng cung cấp; V2 không đọc BE V1 ở runtime và test dùng fixture V2 độc lập.
 
 ## Schema nguồn
 
