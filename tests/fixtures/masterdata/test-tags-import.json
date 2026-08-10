@@ -1,7 +1,7 @@
 [
-  { "displayName": "Test Tag 1" },
-  { "displayName": "Test Tag 2" },
-  { "displayName": "Test Tag 3" },
-  { "displayName": "High Quality" },
-  { "displayName": "Subtitled" }
+  "Test Tag 1",
+  "Test Tag 2",
+  "Test Tag 3",
+  "High Quality",
+  "Subtitled"
 ]

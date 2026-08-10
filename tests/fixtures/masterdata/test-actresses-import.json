@@ -1,14 +1,9 @@
-[
-  {
-    "region": "JOKE",
-    "displayName": "Test Actress 1"
-  },
-  {
-    "region": "JOKE",
-    "displayName": "Test Actress 2"
-  },
-  {
-    "region": "USE",
-    "displayName": "Test Actress 3"
-  }
-]
+{
+  "JOKE": [
+    "Test Actress 1",
+    "Test Actress 2"
+  ],
+  "USE": [
+    "Test Actress 3"
+  ]
+}
