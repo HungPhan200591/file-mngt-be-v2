@@ -1,4 +1,4 @@
 interface:
-  display_name: "Ôn tập kiến thức đã học"
+  display_name: "review-learning - Ôn tập kiến thức đã học"
   short_description: "Luyện active recall theo học liệu Backend V2"
   default_prompt: "Use $review-learning to list my learned topics and quiz me one question at a time."
