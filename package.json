@@ -1,5 +1,5 @@
 {
-  "name": "file-mngt-microservice-v2",
+  "name": "file-mngt-be-v2",
   "version": "1.0.0",
   "private": true,
   "description": "Backend V2 root scripts for local infrastructure, unit/integration testing and E2E harness",
