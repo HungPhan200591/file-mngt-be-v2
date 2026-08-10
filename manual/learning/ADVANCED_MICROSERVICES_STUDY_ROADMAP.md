@@ -14,6 +14,21 @@ Scenario thật → Deep-dive → Summary → Question bank → failure test / e
 - UC pack ở `use-cases/core-flows/`; SC pack ở `use-cases/scale-capacity/`. Đọc [System Primer](./system-primer/README.md) trước UC-01.
 - Không học công nghệ trước failure mode thật; không dùng roadmap làm backlog implementation.
 
+## Tiến độ ôn tập cá nhân
+
+Đây là snapshot duy nhất về mức độ học cá nhân, không phải lịch sử điểm hay bằng chứng implementation. `Chưa xác nhận` nghĩa là có học liệu để ôn, nhưng chưa đủ căn cứ kết luận người học đã nắm. Dùng `$review-learning` để ôn và chỉ cập nhật hàng topic khi người học yêu cầu lưu kết quả.
+
+| Topic | Học liệu owner | Mức hiện tại | Ôn gần nhất | Trọng tâm lần tới |
+| --- | --- | --- | --- | --- |
+| Domain, ownership và data flow | [System Primer](./system-primer/README.md) | Chưa xác nhận | — | Subject/Asset, service và database boundary |
+| Scan preview và approval | [Scan service](./deep-dive/scan-service/00-overview.md) | Chưa xác nhận | — | Discovery/review, proposal và issue |
+| Transactional Outbox | [Deep-dive](./deep-dive/transactional-outbox/README.md) | Chưa xác nhận | — | Local transaction, relay, duplicate và DLT |
+| Virtual Threads | [Deep-dive](./deep-dive/virtual-threads/00-overview.md) | Chưa xác nhận | — | Pinning, no-pooling và throttling |
+| CQRS Read Projection | [Deep-dive](./deep-dive/cqrs-read-projection/README.md) | Chưa xác nhận | — | Version guard, hydration và reconciliation |
+| Observability | [Deep-dive](./deep-dive/observability/README.md) | Chưa xác nhận | — | Metrics, logs, trace và incident flow |
+| UC-01 — Scan → Catalog ingestion | [Study pack](./use-cases/core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) | Chưa xác nhận | — | Ownership, outbox và idempotent consumer |
+| SC-01 — Scan 1M filesystem entry | [Study pack](./use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md) | Chưa xác nhận | — | Lease, checkpoint, chunk commit và backpressure |
+
 ## Lộ trình core theo dependency
 
 | Thứ tự | Use case | Dịch vụ trọng tâm | Năng lực cần chứng minh | Trạng thái |

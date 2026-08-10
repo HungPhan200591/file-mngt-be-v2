@@ -29,6 +29,7 @@ Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corrett
 11. Refactor giữ nguyên hành vi, tách hàm/tách file hoặc cleanup Java: dùng `$refactor-spring-service`; chỉ đọc và cập nhật `docs/TECHNICAL_DEBT.md` khi task trả một debt đã đăng ký.
 12. Tạo/sửa học liệu UC-xx, SC-xx, scenario hoặc Scale & Capacity: dùng `$study-use-case-scenario`; card/evidence ở `manual/learning/use-cases/`, deep-dive dùng chung ở `manual/learning/deep-dive/`.
 13. Đánh giá release/cutover, service mới, async worker/scheduler, messaging pipeline hoặc major migration: dùng `$production-readiness-review` theo sáu pillar Well-Architected và control workflow nội bộ; không dùng mặc định cho diff nhỏ.
+14. Liệt kê kiến thức đã học, active recall, mock hỏi-đáp hoặc đánh giá mức nắm một topic: dùng `$review-learning`; roadmap là owner của snapshot tiến độ học cá nhân.
 
 Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về ADLC, contract và session nằm trong skill tương ứng.
 
