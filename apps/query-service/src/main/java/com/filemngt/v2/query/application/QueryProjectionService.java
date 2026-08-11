@@ -49,7 +49,11 @@ public class QueryProjectionService {
         if (processed.existsById(event.eventId())) return;
         var existingSubject = subjects.findById(event.subjectId());
         var subject = existingSubject.orElseGet(() -> new QuerySubjectEntity(event.subjectId()));
-        if (existingSubject.isEmpty() || subject.projectionVersion() < event.subjectVersion()) {
+        var versionAdvanced = existingSubject.isEmpty() || subject.projectionVersion() < event.subjectVersion();
+        var needsLocatorHydration = existingSubject.isPresent()
+                && subject.projectionVersion() == event.subjectVersion()
+                && subject.requiresLocatorHydration(event.assets());
+        if (versionAdvanced || needsLocatorHydration) {
             subject.apply(
                     new QuerySubjectEntity.ProjectionSnapshot(
                             event.subjectVersion(),
@@ -72,8 +76,11 @@ public class QueryProjectionService {
                                     asset.storageKey()))
                             .toList());
             subjects.save(subject);
-            searchOutbox.save(new QuerySearchOutboxEntity(subject.id(), subject.projectionVersion(), Instant.now()));
-            events.publishEvent(new QuerySubjectProjectionChanged(subject.id()));
+            if (versionAdvanced) {
+                searchOutbox.save(
+                        new QuerySearchOutboxEntity(subject.id(), subject.projectionVersion(), Instant.now()));
+                events.publishEvent(new QuerySubjectProjectionChanged(subject.id()));
+            }
         }
         processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
         LOGGER.info(

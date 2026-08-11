@@ -7,7 +7,7 @@ Base URL local: `http://localhost:18100`
 
 | Gateway path | Downstream owner | Forwarded path |
 | --- | --- | --- |
-| `/api/v2/catalog/subjects`, `/api/v2/catalog/subjects/**` | Catalog | Không đổi |
+| `/api/v2/catalog/subjects`, `/api/v2/catalog/subjects/**`, `/api/v2/catalog/operations/**` | Catalog | Query projection replay operation được route qua Gateway. |
 | `/api/v2/scans/**` | Scan | Không đổi |
 
 SC-01 dùng cùng route Scan wildcard cho các endpoint bất đồng bộ mới:

@@ -14,7 +14,7 @@ spring:
             - id: catalog-subjects
               uri: ${CATALOG_SERVICE_URL:http://localhost:18101}
               predicates:
-                - Path=/api/v2/catalog/subjects,/api/v2/catalog/subjects/**
+                - Path=/api/v2/catalog/subjects,/api/v2/catalog/subjects/**,/api/v2/catalog/operations/**
             - id: scan-api
               uri: ${SCAN_SERVICE_URL:http://localhost:18102}
               predicates:

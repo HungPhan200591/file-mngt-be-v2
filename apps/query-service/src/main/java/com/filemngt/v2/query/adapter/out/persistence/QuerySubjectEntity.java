@@ -1,5 +1,6 @@
 package com.filemngt.v2.query.adapter.out.persistence;
 
+import com.filemngt.v2.contracts.events.MediaSubjectChangedV1;
 import com.filemngt.v2.query.domain.Region;
 import com.filemngt.v2.query.domain.SubjectType;
 import jakarta.persistence.CascadeType;
@@ -147,6 +148,11 @@ public class QuerySubjectEntity {
 
     public List<QueryAssetEntity> assets() {
         return List.copyOf(assets);
+    }
+
+    public boolean requiresLocatorHydration(List<MediaSubjectChangedV1.AssetSnapshot> snapshotAssets) {
+        return assets.stream().anyMatch(asset -> asset.storageKey() == null)
+                && snapshotAssets.stream().anyMatch(asset -> asset.storageKey() != null);
     }
 
     public record ProjectionSnapshot(

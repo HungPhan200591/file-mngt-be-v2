@@ -9,6 +9,24 @@ servers:
   - url: http://localhost:18101
     description: Local Catalog theo ADR-004
 paths:
+  /api/v2/catalog/operations/query-projection/replay:
+    post:
+      operationId: replayCatalogQueryProjection
+      summary: Enqueue current Catalog subject snapshots for Query projection hydration
+      parameters:
+        - name: batchSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 500 }
+      responses:
+        '200':
+          description: Snapshots enqueued to Catalog transactional outbox
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enqueued]
+                properties:
+                  enqueued: { type: integer, minimum: 0 }
   /api/v2/catalog/subjects:
     post:
       operationId: createMediaSubject

@@ -75,13 +75,19 @@ class GatewayRoutingIntegrationTest {
         assertThat(QUERY.lastRequest.pathAndQuery()).isEqualTo("/api/v2/query/subjects?search=sample");
 
         var bulkJob = exchange(
-                "POST", "/api/v2/scans/review-queue/decision-jobs?rootKey=JOKE&search=sample", "{\"decision\":\"APPROVE\"}", List.of());
+                "POST",
+                "/api/v2/scans/review-queue/decision-jobs?rootKey=JOKE&search=sample",
+                "{\"decision\":\"APPROVE\"}",
+                List.of());
         assertThat(bulkJob.statusCode()).isEqualTo(202);
-        assertThat(SCAN.lastRequest.pathAndQuery()).isEqualTo("/api/v2/scans/review-queue/decision-jobs?rootKey=JOKE&search=sample");
+        assertThat(SCAN.lastRequest.pathAndQuery())
+                .isEqualTo("/api/v2/scans/review-queue/decision-jobs?rootKey=JOKE&search=sample");
 
-        var recheck = exchange("POST", "/api/v2/scans/issues/00000000-0000-0000-0000-000000000001/recheck", "", List.of());
+        var recheck =
+                exchange("POST", "/api/v2/scans/issues/00000000-0000-0000-0000-000000000001/recheck", "", List.of());
         assertThat(recheck.statusCode()).isEqualTo(202);
-        assertThat(SCAN.lastRequest.pathAndQuery()).isEqualTo("/api/v2/scans/issues/00000000-0000-0000-0000-000000000001/recheck");
+        assertThat(SCAN.lastRequest.pathAndQuery())
+                .isEqualTo("/api/v2/scans/issues/00000000-0000-0000-0000-000000000001/recheck");
 
         var cors = exchange("GET", "/api/v2/query/subjects", "", List.of(), "http://localhost:18119");
         assertThat(cors.headers().firstValue("Access-Control-Allow-Origin")).contains("http://localhost:18119");
