@@ -39,12 +39,27 @@ final class SemanticParserSupport {
             }
             String normalized = token.toUpperCase(Locale.ROOT);
             if (activeTags.contains(normalized)) {
-                addUnique(recognized, normalized);
+                addUnique(recognized, canonicalTagName(token));
             } else {
                 addUnique(unrecognized, token);
             }
         }
         return new TagClassification(recognized, unrecognized);
+    }
+
+    static String canonicalTagName(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) return rawToken;
+        String upper = rawToken.trim().toUpperCase(Locale.ROOT);
+        return switch (upper) {
+            case "BEST" -> "Best";
+            case "BEST OF", "BESTOF" -> "Best of";
+            case "UNCENSORED" -> "Uncensored";
+            case "COLLECTION" -> "Collection";
+            case "SHARPNESS" -> "Sharpness";
+            case "4K" -> "4K";
+            case "COVER" -> "Cover";
+            default -> rawToken.trim();
+        };
     }
 
     static String removeTags(String cleanName) {
