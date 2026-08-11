@@ -2,7 +2,8 @@
 
 ## Scope
 
-Xử lý nền cho technical media metadata, thumbnail, GIF preview và hash file. Media delivery là trách nhiệm của Nginx theo `ADR-005`.
+Xử lý nền cho technical media metadata và hash file. Media delivery là trách nhiệm của Nginx theo `ADR-005`.
+Gallery preview không thuộc Media Worker: nó dùng trực tiếp asset `IMAGE`/`GIF` đã scan của subject làm các slide.
 
 ## Owns
 
