@@ -28,6 +28,8 @@ public class ScanOutboxEventEntity implements Persistable<UUID> {
     private String traceparent;
     private Instant createdAt;
     private Instant publishedAt;
+    private String leaseOwner;
+    private Instant leaseUntil;
     private int attemptCount;
     private String lastError;
 
@@ -86,6 +88,13 @@ public class ScanOutboxEventEntity implements Persistable<UUID> {
 
     public String lastError() {
         return lastError;
+    }
+
+    public Instant createdAt() { return createdAt; }
+
+    public void claim(String owner, Instant until) {
+        leaseOwner = owner;
+        leaseUntil = until;
     }
 
     @Override

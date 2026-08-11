@@ -35,8 +35,8 @@
 | BT-06B — Review read model | [FT-033](../../../../../docs/features/033-scan-review-read-model/03-plan.md) | `DRAFT — NOT READY` | Chưa chốt durable source/rebuild, handoff/fence, freshness, worker liveness và global cutover. |
 | BT-06C — Targeted issue recheck | [TD-006](../../../../../docs/TECHNICAL_DEBT.md) | `WAITING` | Job recheck theo issue/list sau khi sửa file; không dùng full-root scan trá hình hoặc phá inventory/lease. |
 | BT-07 — Durable bulk decision | Chưa mở FT | `WAITING` | Thay bulk một transaction/materialize-all bằng job persisted, chunk bounded và restart-safe. |
-| BT-08A — Event contract/DLT alignment | Chưa mở FT | `WAITING` | Bổ sung source of truth `media.file.discovered.v2` và đồng bộ retry/DLT observer với runtime v1/v2. |
-| BT-08B — Outbox backlog capacity | Chưa mở FT | `WAITING` | Đo queue age/throughput trước; sau đó mới chốt claim, concurrency, ordering, backoff và recovery. |
+| BT-08A — Event contract/DLT alignment | [FT-036](../../../../../docs/features/036-event-contract-dlt-alignment/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Contract v2, explicit consumer dispatch và DLT observer cho cả v1/v2; Kafka verification deferred. |
+| BT-08B — Outbox backlog capacity | [FT-037](../../../../../docs/features/037-outbox-backlog-capacity/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Bounded lease claim/`SKIP LOCKED`, conditional publish state và backlog metrics cho Scan/Catalog; runtime verification deferred. |
 
 Dependency hiện hành:
 
@@ -50,8 +50,8 @@ BT-01 → BT-02 → BT-03 → BT-03F/H1/H2/H3/H4/H5
 
 BT-04 đã được triển khai độc lập với FT-033 vì chỉ cung cấp read-only Catalog provider. BT-05 là feature
 riêng, đã tích hợp consumer Scan nhưng vẫn còn verification deferred. BT-07 phải theo sau quyết định read model/bulk candidate selection của BT-06B để không
-đóng cứng thêm query anti-join hiện tại. BT-08A là corrective gate độc lập có thể mở ngay; BT-08B chờ cả
-contract/DLT alignment và workload backlog từ bulk path.
+đóng cứng thêm query anti-join hiện tại. BT-08A/BT-08B đã có code riêng; runtime evidence vẫn là gate trước
+cutover hoặc tuning tiếp theo.
 
 ## Hồi ký BT-01 → BT-03H5
 
@@ -224,27 +224,19 @@ FT tương lai phải:
 
 Không gộp tuning publisher vào BT-07; backlog sinh ra là input đo cho BT-08.
 
-### BT-08A — Đồng bộ event contract và DLT — task bị thiếu trong bản cũ
+### BT-08A — Đồng bộ event contract và DLT — FT-036 `IMPLEMENTED — VERIFY PENDING`
 
-Finding hiện hành:
+FT-036 bổ sung source of truth `media.file.discovered.v2.md`, Catalog dispatch theo `eventType` và DLT
+observer theo dõi hai topic version. v1 không đổi payload; unknown version fail vào DLT thay vì bị đoán là v1.
+Kafka retry/DLT/duplicate evidence còn deferred.
 
-- Runtime Scan tạo `media.file.discovered.v2`; Catalog consumer subscribe cả v1/v2.
-- Source of truth `docs/contracts/events/` mới có `media.file.discovered.v1.md`.
-- Catalog error handler route DLT theo source topic, nhưng DLT observer hiện chỉ theo dõi
-  `media.file.discovered.v1.DLT`.
+### BT-08B — Outbox backlog capacity — FT-037 `IMPLEMENTED — VERIFY PENDING`
 
-Trước backlog scale phải mở FT cross-service để document payload/partition/compatibility v2, review
-producer-consumer cùng nhau và đồng bộ retry/DLT/operations visibility cho cả version đang chạy. Không
-sửa payload v1 breaking và không coi Java record là contract duy nhất.
+FT-037 thay poll/saveAll bằng claim `SKIP LOCKED` + lease 30 giây cho Scan/Catalog outbox. Publisher commit
+lease trước khi chờ Kafka và conditional update theo owner sau ack/lỗi; crash sau ack vẫn có thể duplicate,
+Catalog tiếp tục dedupe `eventId`. Batch mặc định 20 được giữ bounded, có metrics pending/oldest age/success/failure.
 
-### BT-08B — Outbox backlog capacity — chưa mở FT
-
-Baseline hiện hành: scheduler mỗi giây lấy tối đa 20 unpublished event cũ nhất, publish từng event để chờ
-broker acknowledgement rồi `saveAll`; crash sau ack trước DB update có thể publish duplicate và Catalog
-phải dedupe `eventId`.
-
-FT tương lai phải bắt đầu bằng evidence queue age, publish rate, broker latency/failure và Catalog lag,
-sau đó mới chốt:
+Verification còn cần evidence queue age, publish rate, broker latency/failure và Catalog lag:
 
 - Claim/lease/`SKIP LOCKED` hoặc single-owner policy khi có nhiều publisher instance.
 - Bounded batch/concurrency giữ partition-key ordering và không làm connection/heap tăng vô hạn.

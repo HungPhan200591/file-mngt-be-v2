@@ -56,6 +56,9 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   query lẫn insert; không tạo thêm index đơn cột hoặc composite trùng leading columns
   của unique constraint vì gây write amplification nghiêm trọng khi bulk insert.
 - Approval ghi item và outbox cùng transaction.
+- Outbox publisher claim tối đa 20 record bằng `SKIP LOCKED` + lease 30 giây, publish ngoài transaction và
+  conditional mark theo instance owner; duplicate sau crash được consumer dedupe theo `eventId`. Metrics
+  backlog chỉ gồm count/oldest age/success/failure, không dùng path hoặc identity làm label.
 - Review queue CQRS-lite dùng `scan_review_projection_root`, durable task và proposal/issue snapshot theo
   generation. Terminal finalize chỉ enqueue task O(1); projector root rebuild set-based ngoài Scan hot path,
   dùng lease + root generation fence và atomic pointer swap. Decision/reopen khóa cùng root watermark để giữ

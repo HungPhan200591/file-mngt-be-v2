@@ -34,6 +34,8 @@ catalog:
   outbox:
     enabled: ${CATALOG_OUTBOX_ENABLED:true}
     fixed-delay-ms: ${CATALOG_OUTBOX_FIXED_DELAY_MS:1000}
+    batch-size: ${CATALOG_OUTBOX_BATCH_SIZE:20}
+    instance-id: ${CATALOG_OUTBOX_INSTANCE_ID:${HOSTNAME:catalog-publisher}}
   kafka:
     consumer:
       enabled: ${CATALOG_KAFKA_CONSUMER_ENABLED:true}

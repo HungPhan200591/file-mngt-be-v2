@@ -1,0 +1,44 @@
+# `media.file.discovered.v2`
+
+## Ownership
+
+- Producer: `scan-service` transactional outbox sau decision `APPROVE`.
+- Consumer: `catalog-service`.
+- Topic: `media.file.discovered.v2`.
+- Partition key: `region:subjectType:identityKey`.
+
+## Payload
+
+```json
+{
+  "eventId": "UUID",
+  "eventType": "media.file.discovered.v2",
+  "timestamp": "2026-08-01T00:00:00Z",
+  "scanRunId": "UUID",
+  "proposalId": "UUID",
+  "region": "JOKE",
+  "subjectType": "VIDEO",
+  "identityKey": "START-001",
+  "baseCode": "START",
+  "part": "001",
+  "studioCode": "STUDIO",
+  "displayTitle": "Actress - [START-001]",
+  "actressNames": ["Actress"],
+  "tagNames": ["tag"],
+  "role": "PRIMARY_VIDEO",
+  "storageKey": "fixture-joke-video",
+  "relativePath": "Actress - [START-001].mp4"
+}
+```
+
+`role` may be `null` for an album candidate. `storageKey` is a logical root key; absolute filesystem paths
+are never emitted. `eventId` is the idempotency key and is deduplicated by Catalog in the same transaction
+as canonical state changes.
+
+## Compatibility and failure
+
+- v1 remains supported without payload mutation. v2 is additive and is consumed by an explicit `eventType` dispatch.
+- Delivery is at-least-once. Kafka retry is two retries after one second; unrecoverable records go to
+  `<source-topic>.DLT`, so both `media.file.discovered.v1.DLT` and `.v2.DLT` are observed.
+- Correlation/trace context is carried in Kafka headers, not JSON. Unknown event versions fail and are retained
+  in the corresponding DLT for operator action.

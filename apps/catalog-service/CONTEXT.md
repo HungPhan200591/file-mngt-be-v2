@@ -20,6 +20,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Subject identity dùng key chuẩn hóa theo region/kind.
 - Khi feature có business event, mọi thay đổi publish qua transactional outbox.
 - Consumer Kafka idempotent; không ghi projection Query trực tiếp.
+- Outbox publisher của Catalog và Scan dùng bounded lease claim, publish ngoài transaction và conditional
+  update; DLT observer theo dõi cả `media.file.discovered.v1.DLT` và `.v2.DLT`.
 - Không tự scan filesystem.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không đưa identity/path vào metric label.

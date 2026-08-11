@@ -2,11 +2,14 @@
 
 Updated: 2026-08-11
 
-## Trọng tâm hiện tại — FT-035
+## Trọng tâm hiện tại — FT-036/037
 
 [FT-034 — Catalog batch existence API](./features/034-catalog-batch-existence-api/01-brief.md) và
 [FT-035 — Scan–Catalog filtering](./features/035-scan-catalog-filtering/01-brief.md) đã thông luồng
 BT-04 → BT-05 của SC-01, đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
+[FT-036 — Event contract/DLT alignment](./features/036-event-contract-dlt-alignment/01-brief.md) và
+[FT-037 — Outbox backlog capacity](./features/037-outbox-backlog-capacity/01-brief.md) đã có code,
+cũng **`IMPLEMENTED — verification deferred`**.
 
 Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
 
@@ -18,6 +21,8 @@ Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
   cleanup/import dữ liệu.
 - Không mở Gateway route hay mapping FE trong lát này. Direct Catalog/Scan integration, migration, timeout,
   protocol mismatch và E2E verification được deferred theo ưu tiên thông luồng.
+- BT-08A ghi contract v2, explicit event dispatch và quan sát cả v1/v2 DLT. BT-08B claim outbox bounded có
+  lease/`SKIP LOCKED` cho cả Scan và Catalog, publish ngoài transaction và metrics backlog.
 
 ## Trạng thái đã ổn định
 
@@ -51,7 +56,7 @@ liên kết snapshot; chi tiết remediation nằm ở debt/feature owner.
 
 ## Việc tiếp theo theo thứ tự ưu tiên
 
-1. Khi người dùng ưu tiên hardening, chạy direct verification FT-034/FT-035: Flyway/index, Catalog/Scan
-   Testcontainers, snapshot/conflict/read-only, timeout/protocol mismatch và transaction boundary evidence.
+1. Khi người dùng ưu tiên hardening, chạy direct verification FT-034/035/036/037: Flyway/index, Catalog/Scan
+   Testcontainers, Kafka contract/DLT, `SKIP LOCKED`, lease reclaim và duplicate evidence.
 2. Mở feature Gateway/FE mapping riêng sau khi behavior backend có evidence; không gộp vào internal API.
 3. Khi ưu tiên verification, chạy FT-033 Testcontainers/benchmark đã deferred.

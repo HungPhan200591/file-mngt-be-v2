@@ -22,6 +22,8 @@ public class CatalogOutboxEventEntity {
     private String traceparent;
     private Instant createdAt;
     private Instant publishedAt;
+    private String leaseOwner;
+    private Instant leaseUntil;
     private int attemptCount;
     private String lastError;
 
@@ -99,6 +101,11 @@ public class CatalogOutboxEventEntity {
     public void published() {
         publishedAt = Instant.now();
         lastError = null;
+    }
+
+    public void claim(String owner, Instant until) {
+        leaseOwner = owner;
+        leaseUntil = until;
     }
 
     public void failed(Exception error) {

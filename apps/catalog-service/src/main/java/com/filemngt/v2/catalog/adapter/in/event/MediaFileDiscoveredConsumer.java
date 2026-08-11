@@ -27,10 +27,11 @@ public class MediaFileDiscoveredConsumer {
     public void consume(ConsumerRecord<String, String> record) throws JacksonException {
         try (var ignored = KafkaTracingHeaderPropagation.extractAndSetMdc(record)) {
             String payload = record.value();
-            if (payload.contains("\"eventType\":\"media.file.discovered.v2\"")) {
-                service.handleV2(json.readValue(payload, MediaFileDiscoveredV2.class));
-            } else {
-                service.handle(json.readValue(payload, MediaFileDiscoveredV1.class));
+            var eventType = json.readTree(payload).path("eventType").asText(null);
+            switch (eventType) {
+                case "media.file.discovered.v1" -> service.handle(json.readValue(payload, MediaFileDiscoveredV1.class));
+                case "media.file.discovered.v2" -> service.handleV2(json.readValue(payload, MediaFileDiscoveredV2.class));
+                default -> throw new IllegalArgumentException("Unsupported media discovery eventType: " + eventType);
             }
         }
     }
