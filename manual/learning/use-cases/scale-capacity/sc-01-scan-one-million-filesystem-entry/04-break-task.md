@@ -32,7 +32,7 @@
 | BT-04 — Catalog existence provider | [FT-034](../../../../../docs/features/034-catalog-batch-existence-api/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Catalog read-only API, set-based lookup và Flyway locator uniqueness đã có code; direct integration/migration evidence deferred. |
 | BT-05 — Scan–Catalog filtering | [FT-035](../../../../../docs/features/035-scan-catalog-filtering/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Scan gọi Catalog ngoài transaction, micro-batch ≤500, exact skip và evidence cho các classification còn lại; runtime verification deferred. |
 | BT-06A — Review queue baseline | [FT-032](../../../../../docs/features/032-scan-review-queue/03-plan.md) | `DONE` code tối thiểu, verification/review còn chờ | Global queue/history hiện dùng offset và query anti-join lịch sử; chưa có index evidence. |
-| BT-06B — Review read model | [FT-033](../../../../../docs/features/033-scan-review-read-model/03-plan.md) | `DRAFT — NOT READY` | Chưa chốt durable source/rebuild, handoff/fence, freshness, worker liveness và global cutover. |
+| BT-06B — Review read model | [FT-033](../../../../../docs/features/033-scan-review-read-model/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Generation projection, durable worker, fallback read và decision synchronization đã có code; migration/runtime evidence deferred. |
 | BT-06C — Targeted issue recheck | [TD-006](../../../../../docs/TECHNICAL_DEBT.md) | `WAITING` | Job recheck theo issue/list sau khi sửa file; không dùng full-root scan trá hình hoặc phá inventory/lease. |
 | BT-07 — Durable bulk decision | Chưa mở FT | `WAITING` | Thay bulk một transaction/materialize-all bằng job persisted, chunk bounded và restart-safe. |
 | BT-08A — Event contract/DLT alignment | [FT-036](../../../../../docs/features/036-event-contract-dlt-alignment/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Contract v2, explicit consumer dispatch và DLT observer cho cả v1/v2; Kafka verification deferred. |
@@ -163,9 +163,10 @@ skip, các case còn lại vào review, không có partial durable chunk khi cla
   item. FT-032 chưa thêm index vì chưa có `EXPLAIN (ANALYZE, BUFFERS)` evidence.
 - Đây là code tối thiểu để dùng UI, không phải read path đã chứng minh ở 1M history.
 
-#### BT-06B — FT-033 read model đang `NOT READY`
+#### BT-06B — FT-033 read model `IMPLEMENTED — VERIFY PENDING`
 
-Trước khi code phải chốt đủ gate trong
+FT-033 đã có code cho durable task, generation fence/swap, fallback và decision synchronization. Các gate
+trước production cutover vẫn được giữ trong
 [architecture review](../../../../../docs/features/033-scan-review-read-model/05-architecture-review.md):
 
 - Durable delta hay async root rebuild; terminal handoff O(1) phải atomic với finalize.
