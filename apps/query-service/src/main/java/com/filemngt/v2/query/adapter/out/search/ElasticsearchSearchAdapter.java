@@ -48,7 +48,12 @@ public class ElasticsearchSearchAdapter {
                         .trackTotalHits(track -> track.enabled(true))
                         .query(query ->
                                 query.bool(bool -> bool.must(match -> match.multiMatch(multi -> multi.query(search)
-                                                .fields("identityKey^3", "displayTitle")
+                                                .fields(
+                                                        "identityKey^3",
+                                                        "displayTitle^2",
+                                                        "studioCode",
+                                                        "actressNames",
+                                                        "tagNames")
                                                 .fuzziness("AUTO")))
                                         .filter(filters)))
                         .sort(sort(order)),
@@ -96,6 +101,9 @@ public class ElasticsearchSearchAdapter {
                                 property -> property.text(text -> text.indexPrefixes(
                                                 prefix -> prefix.minChars(2).maxChars(10))
                                         .fields("keyword", field -> field.keyword(keyword -> keyword))))
+                        .properties("studioCode", property -> property.keyword(keyword -> keyword))
+                        .properties("actressNames", property -> property.text(text -> text))
+                        .properties("tagNames", property -> property.text(text -> text))
                         .properties("createdAt", property -> property.date(date -> date))
                         .properties("projectedAt", property -> property.date(date -> date))));
         return index;
@@ -184,6 +192,15 @@ public class ElasticsearchSearchAdapter {
             case "TITLE" ->
                 co.elastic.clients.elasticsearch._types.SortOptions.of(sort ->
                         sort.field(field -> field.field("displayTitle.keyword").order(SortOrder.Asc)));
+            case "CREATED_AT_ASC" ->
+                co.elastic.clients.elasticsearch._types.SortOptions.of(
+                        sort -> sort.field(field -> field.field("createdAt").order(SortOrder.Asc)));
+            case "TITLE_DESC" ->
+                co.elastic.clients.elasticsearch._types.SortOptions.of(sort ->
+                        sort.field(field -> field.field("displayTitle.keyword").order(SortOrder.Desc)));
+            case "SHUFFLE" ->
+                co.elastic.clients.elasticsearch._types.SortOptions.of(sort ->
+                        sort.field(field -> field.field("identityKey.keyword").order(SortOrder.Asc)));
             default ->
                 co.elastic.clients.elasticsearch._types.SortOptions.of(
                         sort -> sort.score(score -> score.order(SortOrder.Desc)));

@@ -20,18 +20,26 @@
   "subjectType": "VIDEO",
   "identityKey": "START-001",
   "displayTitle": "Actress - [START-001]",
+  "baseCode": "START",
+  "part": "001",
+  "studioCode": "STUDIO",
+  "actressNames": ["Actress"],
+  "tagNames": ["tag"],
   "createdAt": "2026-08-01T13:00:00Z",
   "assets": [
     {
       "assetId": "0371fd34-6aac-47ce-94ad-c8c58966af86",
       "role": "PRIMARY_VIDEO",
-      "relativePath": "Actress - [START-001].mp4"
+      "relativePath": "Actress - [START-001].mp4",
+      "storageKey": "fixture-joke-video"
     }
   ]
 }
 ```
 
-`assets` là full snapshot tại `subjectVersion`, không phải delta. `displayTitle` có thể là `null`; `assets` có thể rỗng. Payload không chứa absolute filesystem path.
+`assets` là full snapshot tại `subjectVersion`, không phải delta. `displayTitle`, `baseCode`, `part`,
+`studioCode` và `storageKey` có thể là `null`; các list metadata có thể rỗng. Các field Gallery là additive
+và consumer v1 cũ được phép bỏ qua. Payload không chứa absolute filesystem path.
 
 ## Semantics và idempotency
 

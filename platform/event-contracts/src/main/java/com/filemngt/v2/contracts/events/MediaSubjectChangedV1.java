@@ -14,8 +14,54 @@ public record MediaSubjectChangedV1(
         String subjectType,
         String identityKey,
         String displayTitle,
+        String baseCode,
+        String part,
+        String studioCode,
+        List<String> actressNames,
+        List<String> tagNames,
         Instant createdAt,
         List<AssetSnapshot> assets) {
 
-    public record AssetSnapshot(UUID assetId, String role, String relativePath) {}
+    public MediaSubjectChangedV1 {
+        actressNames = actressNames == null ? List.of() : List.copyOf(actressNames);
+        tagNames = tagNames == null ? List.of() : List.copyOf(tagNames);
+        assets = assets == null ? List.of() : List.copyOf(assets);
+    }
+
+    public MediaSubjectChangedV1(
+            UUID eventId,
+            String eventType,
+            Instant occurredAt,
+            UUID subjectId,
+            long subjectVersion,
+            String region,
+            String subjectType,
+            String identityKey,
+            String displayTitle,
+            Instant createdAt,
+            List<AssetSnapshot> assets) {
+        this(
+                eventId,
+                eventType,
+                occurredAt,
+                subjectId,
+                subjectVersion,
+                region,
+                subjectType,
+                identityKey,
+                displayTitle,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                createdAt,
+                assets);
+    }
+
+    public record AssetSnapshot(UUID assetId, String role, String relativePath, String storageKey) {
+        public AssetSnapshot(UUID assetId, String role, String relativePath) {
+            this(assetId, role, relativePath, null);
+        }
+    }
 }

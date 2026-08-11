@@ -15,22 +15,41 @@ import org.springframework.data.repository.query.Param;
 
 public interface QuerySubjectRepository extends JpaRepository<QuerySubjectEntity, UUID> {
     @Override
-    @EntityGraph(attributePaths = "assets")
+    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
     Optional<QuerySubjectEntity> findById(UUID id);
 
     @Query(
-            "select s from QuerySubjectEntity s where (:region is null or s.region = :region) and (:type is null or s.subjectType = :type) and (lower(s.identityKey) like lower(concat('%', :search, '%')) or lower(coalesce(s.displayTitle, '')) like lower(concat('%', :search, '%')))")
+            "select s from QuerySubjectEntity s where (:region is null or s.region = :region) and (:type is null or s.subjectType = :type) and (:studio is null or s.studioCode = :studio) and (:actress is null or :actress member of s.actressNames) and (:tag is null or :tag member of s.tagNames) and (lower(s.identityKey) like lower(concat('%', :search, '%')) or lower(coalesce(s.displayTitle, '')) like lower(concat('%', :search, '%')) or lower(coalesce(s.studioCode, '')) like lower(concat('%', :search, '%')))")
     Page<QuerySubjectEntity> search(
             @Param("region") Region region,
             @Param("type") SubjectType type,
+            @Param("studio") String studio,
+            @Param("actress") String actress,
+            @Param("tag") String tag,
             @Param("search") String search,
             Pageable pageable);
 
     @Query(
-            "select s from QuerySubjectEntity s where (:region is null or s.region = :region) and (:type is null or s.subjectType = :type)")
-    Page<QuerySubjectEntity> filter(@Param("region") Region region, @Param("type") SubjectType type, Pageable pageable);
+            "select s from QuerySubjectEntity s where (:region is null or s.region = :region) and (:type is null or s.subjectType = :type) and (:studio is null or s.studioCode = :studio) and (:actress is null or :actress member of s.actressNames) and (:tag is null or :tag member of s.tagNames)")
+    Page<QuerySubjectEntity> filter(
+            @Param("region") Region region,
+            @Param("type") SubjectType type,
+            @Param("studio") String studio,
+            @Param("actress") String actress,
+            @Param("tag") String tag,
+            Pageable pageable);
 
-    @EntityGraph(attributePaths = "assets")
+    @Query(
+            "select distinct s.studioCode from QuerySubjectEntity s where s.studioCode is not null order by s.studioCode")
+    List<String> listStudios();
+
+    @Query("select distinct actress from QuerySubjectEntity s join s.actressNames actress order by actress")
+    List<String> listActresses();
+
+    @Query("select distinct tag from QuerySubjectEntity s join s.tagNames tag order by tag")
+    List<String> listTags();
+
+    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
     @Query("select distinct s from QuerySubjectEntity s where s.id in :ids")
     List<QuerySubjectEntity> findAllWithAssetsByIdIn(@Param("ids") Collection<UUID> ids);
 }

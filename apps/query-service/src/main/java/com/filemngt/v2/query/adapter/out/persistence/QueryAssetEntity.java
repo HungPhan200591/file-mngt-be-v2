@@ -24,22 +24,29 @@ public class QueryAssetEntity {
     private MediaAssetRole role;
 
     private String relativePath;
+    private String storageKey;
 
     protected QueryAssetEntity() {}
 
-    public QueryAssetEntity(UUID id, MediaAssetRole role, String path) {
+    public QueryAssetEntity(UUID id, MediaAssetRole role, String path, String key) {
         this.id = id;
         this.role = role;
         relativePath = path;
+        storageKey = key;
+    }
+
+    public QueryAssetEntity(UUID id, MediaAssetRole role, String path) {
+        this(id, role, path, null);
     }
 
     void assignSubject(QuerySubjectEntity value) {
         subject = value;
     }
 
-    void update(MediaAssetRole nextRole, String nextPath) {
+    void update(MediaAssetRole nextRole, String nextPath, String nextStorageKey) {
         role = nextRole;
         relativePath = nextPath;
+        storageKey = nextStorageKey;
     }
 
     public UUID id() {
@@ -52,5 +59,9 @@ public class QueryAssetEntity {
 
     public String relativePath() {
         return relativePath;
+    }
+
+    public String storageKey() {
+        return storageKey;
     }
 }

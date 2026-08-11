@@ -20,11 +20,11 @@ public class ScanReviewProjectionReadStore {
          AND root.current_generation = item.generation
          AND root.status = 'READY'
         WHERE item.decision_state = ?
-          AND (?::text IS NULL OR item.root_key = ?)
-          AND (?::uuid IS NULL OR item.scan_run_id = ?)
-          AND (?::text IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?, '%'))
-               OR lower(coalesce(item.display_title, '')) LIKE lower(concat('%', ?, '%'))
-               OR lower(item.identity_key) LIKE lower(concat('%', ?, '%')))
+          AND (?::text IS NULL OR item.root_key = ?::text)
+          AND (?::uuid IS NULL OR item.scan_run_id = ?::uuid)
+          AND (?::text IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?::text, '%'))
+               OR lower(coalesce(item.display_title, '')) LIKE lower(concat('%', ?::text, '%'))
+               OR lower(item.identity_key) LIKE lower(concat('%', ?::text, '%')))
         """;
     private static final String ISSUE_FROM = """
         FROM scan_review_issue item
@@ -32,10 +32,10 @@ public class ScanReviewProjectionReadStore {
           ON root.root_key = item.root_key
          AND root.current_generation = item.generation
          AND root.status = 'READY'
-        WHERE (?::text IS NULL OR item.root_key = ?)
-          AND (?::text IS NULL OR item.code = ?)
-          AND (?::text IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?, '%'))
-               OR lower(item.detail) LIKE lower(concat('%', ?, '%')))
+        WHERE (?::text IS NULL OR item.root_key = ?::text)
+          AND (?::text IS NULL OR item.code = ?::text)
+          AND (?::text IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?::text, '%'))
+               OR lower(item.detail) LIKE lower(concat('%', ?::text, '%')))
         """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -143,7 +143,7 @@ public class ScanReviewProjectionReadStore {
 
     private List<Object> proposalFilters(String state, String rootKey, String search, UUID scanRunId) {
         return new ArrayList<>(Arrays.asList(
-                state, rootKey, rootKey, search, search, search, search, scanRunId, scanRunId));
+                state, rootKey, rootKey, scanRunId, scanRunId, search, search, search, search));
     }
 
     private List<Object> issueFilters(String rootKey, String code, String search) {

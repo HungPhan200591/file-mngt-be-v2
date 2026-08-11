@@ -28,11 +28,20 @@ paths:
             type: string
             minLength: 1
             maxLength: 512
+        - name: studio
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 512 }
+        - name: actress
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 512 }
+        - name: tag
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 512 }
         - name: order
           in: query
           schema:
             type: string
-            enum: [CREATED_AT, TITLE, RELEVANCE]
+            enum: [CREATED_AT, CREATED_AT_ASC, TITLE, TITLE_DESC, SHUFFLE, RELEVANCE]
             default: CREATED_AT
         - name: page
           in: query
@@ -76,6 +85,15 @@ paths:
                 $ref: '#/components/schemas/QuerySubjectDetail'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v2/query/subjects/facets:
+    get:
+      operationId: getQuerySubjectFacets
+      responses:
+        '200':
+          description: Available Gallery metadata filters
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueryFacets' }
   /api/v2/query/subjects/suggestions:
     get:
       operationId: suggestQuerySubjects
@@ -144,6 +162,10 @@ components:
           $ref: '#/components/schemas/MediaAssetRole'
         relativePath:
           type: string
+        mediaUrl:
+          type: [string, 'null']
+          format: uri
+          description: Nginx URL resolved by Query; null when locator/root mapping is unavailable.
     QuerySubjectDetail:
       type: object
       required:
@@ -154,6 +176,8 @@ components:
         - identityKey
         - createdAt
         - projectedAt
+        - actressNames
+        - tagNames
         - assets
       properties:
         id:
@@ -171,6 +195,18 @@ components:
           type: string
         displayTitle:
           type: [string, 'null']
+        baseCode:
+          type: [string, 'null']
+        part:
+          type: [string, 'null']
+        studioCode:
+          type: [string, 'null']
+        actressNames:
+          type: array
+          items: { type: string }
+        tagNames:
+          type: array
+          items: { type: string }
         createdAt:
           type: string
           format: date-time
@@ -212,6 +248,19 @@ components:
       required: [content]
       properties:
         content:
+          type: array
+          items: { type: string }
+    QueryFacets:
+      type: object
+      required: [studios, actresses, tags]
+      properties:
+        studios:
+          type: array
+          items: { type: string }
+        actresses:
+          type: array
+          items: { type: string }
+        tags:
           type: array
           items: { type: string }
     RebuildResponse:

@@ -5,6 +5,7 @@ import com.filemngt.v2.query.application.QueryProjectionService;
 import com.filemngt.v2.query.application.QuerySearchService;
 import com.filemngt.v2.query.application.QuerySubjectDetail;
 import com.filemngt.v2.query.application.QuerySubjectDetailService;
+import com.filemngt.v2.query.application.QuerySubjectFilter;
 import com.filemngt.v2.query.domain.Region;
 import com.filemngt.v2.query.domain.SubjectType;
 import java.time.Instant;
@@ -24,12 +25,17 @@ public class QueryController {
     private final QueryProjectionService service;
     private final QuerySearchService searchService;
     private final QuerySubjectDetailService detailService;
+    private final MediaUrlResolver mediaUrls;
 
     public QueryController(
-            QueryProjectionService service, QuerySearchService searchService, QuerySubjectDetailService detailService) {
+            QueryProjectionService service,
+            QuerySearchService searchService,
+            QuerySubjectDetailService detailService,
+            MediaUrlResolver mediaUrls) {
         this.service = service;
         this.searchService = searchService;
         this.detailService = detailService;
+        this.mediaUrls = mediaUrls;
     }
 
     @GetMapping("/{id}")
@@ -42,6 +48,9 @@ public class QueryController {
             @RequestParam(required = false) Region region,
             @RequestParam(required = false) SubjectType subjectType,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String studio,
+            @RequestParam(required = false) String actress,
+            @RequestParam(required = false) String tag,
             @RequestParam(defaultValue = "CREATED_AT") Order order,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -52,11 +61,10 @@ public class QueryController {
             throw new InvalidQueryRequestException("RELEVANCE order requires search");
         if (normalizedSearch != null && (long) page * size + size > 10_000)
             throw new InvalidQueryRequestException("page and size must not exceed 10000 search results");
-        var sort = order == Order.TITLE
-                ? Sort.by("displayTitle").ascending()
-                : Sort.by("createdAt").descending();
-        var result = searchService.list(
-                region, subjectType, normalizedSearch, order.name(), PageRequest.of(page, size, sort));
+        var sort = sort(order);
+        var filter = new QuerySubjectFilter(
+                region, subjectType, normalizeExact(studio), normalizeExact(actress), normalizeExact(tag));
+        var result = searchService.list(filter, normalizedSearch, order.name(), PageRequest.of(page, size, sort));
         return new SubjectPage(
                 result.subjects().map(this::detail).getContent(),
                 result.subjects().getNumber(),
@@ -65,6 +73,12 @@ public class QueryController {
                 result.subjects().getTotalPages(),
                 result.backend(),
                 result.degraded());
+    }
+
+    @GetMapping("/facets")
+    public Facets facets() {
+        var facets = service.facets();
+        return new Facets(facets.studios(), facets.actresses(), facets.tags());
     }
 
     @GetMapping("/suggestions")
@@ -85,6 +99,24 @@ public class QueryController {
         return normalized;
     }
 
+    private String normalizeExact(String value) {
+        if (value == null) return null;
+        var normalized = value.trim();
+        if (normalized.isEmpty() || normalized.length() > 512)
+            throw new InvalidQueryRequestException("metadata filter must contain between 1 and 512 characters");
+        return normalized;
+    }
+
+    private Sort sort(Order order) {
+        return switch (order) {
+            case TITLE -> Sort.by("displayTitle").ascending();
+            case TITLE_DESC -> Sort.by("displayTitle").descending();
+            case CREATED_AT_ASC -> Sort.by("createdAt").ascending();
+            case SHUFFLE -> Sort.by("id").ascending();
+            default -> Sort.by("createdAt").descending();
+        };
+    }
+
     private String normalizeSuggestion(String query, int size) {
         var normalized = query == null ? "" : query.trim();
         if (normalized.isEmpty() || normalized.length() > 100 || size < 1 || size > 20)
@@ -101,10 +133,19 @@ public class QueryController {
                 s.region(),
                 s.identityKey(),
                 s.displayTitle(),
+                s.baseCode(),
+                s.part(),
+                s.studioCode(),
+                s.actressNames().stream().sorted().toList(),
+                s.tagNames().stream().sorted().toList(),
                 s.createdAt(),
                 s.projectedAt(),
                 s.assets().stream()
-                        .map(a -> new Asset(a.id(), a.role().name(), a.relativePath()))
+                        .map(a -> new Asset(
+                                a.id(),
+                                a.role().name(),
+                                a.relativePath(),
+                                mediaUrls.resolve(a.storageKey(), a.relativePath())))
                         .toList());
     }
 
@@ -116,16 +157,28 @@ public class QueryController {
                 detail.region(),
                 detail.identityKey(),
                 detail.displayTitle(),
+                detail.baseCode(),
+                detail.part(),
+                detail.studioCode(),
+                detail.actressNames(),
+                detail.tagNames(),
                 detail.createdAt(),
                 detail.projectedAt(),
                 detail.assets().stream()
-                        .map(asset -> new Asset(asset.id(), asset.role(), asset.relativePath()))
+                        .map(asset -> new Asset(
+                                asset.id(),
+                                asset.role(),
+                                asset.relativePath(),
+                                mediaUrls.resolve(asset.storageKey(), asset.relativePath())))
                         .toList());
     }
 
     public enum Order {
         CREATED_AT,
+        CREATED_AT_ASC,
         TITLE,
+        TITLE_DESC,
+        SHUFFLE,
         RELEVANCE
     }
 
@@ -136,11 +189,16 @@ public class QueryController {
             Region region,
             String identityKey,
             String displayTitle,
+            String baseCode,
+            String part,
+            String studioCode,
+            List<String> actressNames,
+            List<String> tagNames,
             Instant createdAt,
             Instant projectedAt,
             List<Asset> assets) {}
 
-    public record Asset(UUID id, String role, String relativePath) {}
+    public record Asset(UUID id, String role, String relativePath, String mediaUrl) {}
 
     public record SubjectPage(
             List<SubjectDetail> content,
@@ -152,6 +210,8 @@ public class QueryController {
             boolean degraded) {}
 
     public record Suggestions(List<String> content) {}
+
+    public record Facets(List<String> studios, List<String> actresses, List<String> tags) {}
 
     public static class InvalidQueryRequestException extends RuntimeException {
         public InvalidQueryRequestException(String detail) {

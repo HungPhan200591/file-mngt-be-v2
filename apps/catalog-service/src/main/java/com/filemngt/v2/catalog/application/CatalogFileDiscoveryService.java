@@ -54,6 +54,8 @@ public class CatalogFileDiscoveryService {
         var existing = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey());
         var subject = existing.orElseGet(() -> new MediaSubjectEntity(
                 UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
+        boolean metadataChanged = subject.applyMetadata(new MediaSubjectEntity.SubjectMetadata(
+                event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames()));
         boolean assetAdded = event.role() != null && !subject.hasAssetLocator(event.storageKey(), event.relativePath());
         if (assetAdded) {
             subject.addAsset(new MediaAssetEntity(
@@ -63,7 +65,7 @@ public class CatalogFileDiscoveryService {
                     event.storageKey(),
                     Instant.now()));
         }
-        if (existing.isEmpty() || assetAdded) {
+        if (existing.isEmpty() || assetAdded || metadataChanged) {
             subjects.saveAndFlush(subject);
             outbox.enqueue(subject);
         }

@@ -14,12 +14,19 @@ public record QuerySubjectCacheEntry(
         Region region,
         String identityKey,
         String displayTitle,
+        String baseCode,
+        String part,
+        String studioCode,
+        List<String> actressNames,
+        List<String> tagNames,
         Instant createdAt,
         Instant projectedAt,
         List<AssetEntry> assets) {
 
     public QuerySubjectCacheEntry {
-        assets = List.copyOf(assets);
+        assets = assets == null ? List.of() : List.copyOf(assets);
+        actressNames = actressNames == null ? List.of() : List.copyOf(actressNames);
+        tagNames = tagNames == null ? List.of() : List.copyOf(tagNames);
     }
 
     public static QuerySubjectCacheEntry from(QuerySubjectDetail detail) {
@@ -30,10 +37,16 @@ public record QuerySubjectCacheEntry(
                 detail.region(),
                 detail.identityKey(),
                 detail.displayTitle(),
+                detail.baseCode(),
+                detail.part(),
+                detail.studioCode(),
+                detail.actressNames(),
+                detail.tagNames(),
                 detail.createdAt(),
                 detail.projectedAt(),
                 detail.assets().stream()
-                        .map(asset -> new AssetEntry(asset.id(), asset.role(), asset.relativePath()))
+                        .map(asset ->
+                                new AssetEntry(asset.id(), asset.role(), asset.relativePath(), asset.storageKey()))
                         .toList());
     }
 
@@ -45,13 +58,18 @@ public record QuerySubjectCacheEntry(
                 region,
                 identityKey,
                 displayTitle,
+                baseCode,
+                part,
+                studioCode,
+                actressNames,
+                tagNames,
                 createdAt,
                 projectedAt,
                 assets.stream()
-                        .map(asset ->
-                                new QuerySubjectDetail.AssetDetail(asset.id(), asset.role(), asset.relativePath()))
+                        .map(asset -> new QuerySubjectDetail.AssetDetail(
+                                asset.id(), asset.role(), asset.relativePath(), asset.storageKey()))
                         .toList());
     }
 
-    public record AssetEntry(UUID id, String role, String relativePath) {}
+    public record AssetEntry(UUID id, String role, String relativePath, String storageKey) {}
 }

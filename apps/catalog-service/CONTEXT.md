@@ -14,6 +14,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   canonical và subject identity; implementation FT-034 có Flyway V8, nhưng direct verification còn deferred.
 - Event `media.subject.changed.v1`, `media.metadata.changed.v1`.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
+- Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
+  `media.subject.changed.v1` phát các field này dạng additive cho Query.
 
 ## Invariants
 

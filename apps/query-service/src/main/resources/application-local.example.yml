@@ -1,0 +1,4 @@
+query:
+  media:
+    # Semicolon-separated storageKey=/files/<drive>:/<root> mappings.
+    root-paths: "fixture-joke-video=/files/G:/Media/JOKE;fixture-use-video=/files/D:/Media/USE"

@@ -3,17 +3,22 @@ package com.filemngt.v2.catalog.adapter.out.persistence;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -36,6 +41,20 @@ public class MediaSubjectEntity {
 
     @Column(name = "display_title")
     private String displayTitle;
+
+    private String baseCode;
+    private String part;
+    private String studioCode;
+
+    @ElementCollection
+    @CollectionTable(name = "media_subject_actress", joinColumns = @JoinColumn(name = "subject_id"))
+    @Column(name = "display_name", nullable = false)
+    private Set<String> actressNames = new LinkedHashSet<>();
+
+    @ElementCollection
+    @CollectionTable(name = "media_subject_tag", joinColumns = @JoinColumn(name = "subject_id"))
+    @Column(name = "display_name", nullable = false)
+    private Set<String> tagNames = new LinkedHashSet<>();
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -74,6 +93,26 @@ public class MediaSubjectEntity {
         updatedAt = Instant.now();
     }
 
+    public boolean applyMetadata(SubjectMetadata metadata) {
+        var nextActresses = new LinkedHashSet<>(metadata.actressNames());
+        var nextTags = new LinkedHashSet<>(metadata.tagNames());
+        var changed = !java.util.Objects.equals(baseCode, metadata.baseCode())
+                || !java.util.Objects.equals(part, metadata.part())
+                || !java.util.Objects.equals(studioCode, metadata.studioCode())
+                || !actressNames.equals(nextActresses)
+                || !tagNames.equals(nextTags);
+        if (!changed) return false;
+        baseCode = metadata.baseCode();
+        part = metadata.part();
+        studioCode = metadata.studioCode();
+        actressNames.clear();
+        actressNames.addAll(nextActresses);
+        tagNames.clear();
+        tagNames.addAll(nextTags);
+        updatedAt = Instant.now();
+        return true;
+    }
+
     public boolean hasAssetLocator(String storageKey, String relativePath) {
         return assets.stream()
                 .anyMatch(asset -> java.util.Objects.equals(asset.storageKey(), storageKey)
@@ -100,6 +139,26 @@ public class MediaSubjectEntity {
         return displayTitle;
     }
 
+    public String baseCode() {
+        return baseCode;
+    }
+
+    public String part() {
+        return part;
+    }
+
+    public String studioCode() {
+        return studioCode;
+    }
+
+    public Set<String> actressNames() {
+        return Set.copyOf(actressNames);
+    }
+
+    public Set<String> tagNames() {
+        return Set.copyOf(tagNames);
+    }
+
     public Instant createdAt() {
         return createdAt;
     }
@@ -114,5 +173,13 @@ public class MediaSubjectEntity {
 
     public List<MediaAssetEntity> assets() {
         return List.copyOf(assets);
+    }
+
+    public record SubjectMetadata(
+            String baseCode, String part, String studioCode, List<String> actressNames, List<String> tagNames) {
+        public SubjectMetadata {
+            actressNames = actressNames == null ? List.of() : List.copyOf(actressNames);
+            tagNames = tagNames == null ? List.of() : List.copyOf(tagNames);
+        }
     }
 }

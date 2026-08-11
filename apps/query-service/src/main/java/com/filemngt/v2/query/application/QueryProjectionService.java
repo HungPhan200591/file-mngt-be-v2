@@ -51,16 +51,25 @@ public class QueryProjectionService {
         var subject = existingSubject.orElseGet(() -> new QuerySubjectEntity(event.subjectId()));
         if (existingSubject.isEmpty() || subject.projectionVersion() < event.subjectVersion()) {
             subject.apply(
-                    event.subjectVersion(),
-                    SubjectType.valueOf(event.subjectType()),
-                    Region.valueOf(event.region()),
-                    event.identityKey(),
-                    event.displayTitle(),
-                    event.createdAt(),
-                    event.occurredAt(),
+                    new QuerySubjectEntity.ProjectionSnapshot(
+                            event.subjectVersion(),
+                            SubjectType.valueOf(event.subjectType()),
+                            Region.valueOf(event.region()),
+                            event.identityKey(),
+                            event.displayTitle(),
+                            event.baseCode(),
+                            event.part(),
+                            event.studioCode(),
+                            event.actressNames(),
+                            event.tagNames(),
+                            event.createdAt(),
+                            event.occurredAt()),
                     event.assets().stream()
                             .map(asset -> new QueryAssetEntity(
-                                    asset.assetId(), MediaAssetRole.valueOf(asset.role()), asset.relativePath()))
+                                    asset.assetId(),
+                                    MediaAssetRole.valueOf(asset.role()),
+                                    asset.relativePath(),
+                                    asset.storageKey()))
                             .toList());
             subjects.save(subject);
             searchOutbox.save(new QuerySearchOutboxEntity(subject.id(), subject.projectionVersion(), Instant.now()));
@@ -83,10 +92,23 @@ public class QueryProjectionService {
     }
 
     @Transactional(readOnly = true)
-    public Page<QuerySubjectEntity> list(Region region, SubjectType type, String search, Pageable pageable) {
+    public Page<QuerySubjectEntity> list(QuerySubjectFilter filter, String search, Pageable pageable) {
         var subjectPage = search == null
-                ? subjects.filter(region, type, pageable)
-                : subjects.search(region, type, search, pageable);
+                ? subjects.filter(
+                        filter.region(),
+                        filter.subjectType(),
+                        filter.studio(),
+                        filter.actress(),
+                        filter.tag(),
+                        pageable)
+                : subjects.search(
+                        filter.region(),
+                        filter.subjectType(),
+                        filter.studio(),
+                        filter.actress(),
+                        filter.tag(),
+                        search,
+                        pageable);
         if (subjectPage.isEmpty()) return subjectPage;
 
         var subjectsWithAssets =
@@ -100,6 +122,14 @@ public class QueryProjectionService {
                 .toList();
         return new PageImpl<>(orderedContent, subjectPage.getPageable(), subjectPage.getTotalElements());
     }
+
+    @Transactional(readOnly = true)
+    public QueryFacets facets() {
+        return new QueryFacets(subjects.listStudios(), subjects.listActresses(), subjects.listTags());
+    }
+
+    public record QueryFacets(
+            java.util.List<String> studios, java.util.List<String> actresses, java.util.List<String> tags) {}
 
     public static class ProjectionNotFoundException extends RuntimeException {
         public ProjectionNotFoundException(UUID id) {

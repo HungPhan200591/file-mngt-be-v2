@@ -9,6 +9,8 @@ Read model tối ưu cho Gallery Web, Media Library, filter, card và search.
 - Database `query_db`: projection và processed-event Query.
 - Kafka consumer dựng lại projection từ Catalog/Worker events.
 - REST API search, filter, order, pagination và detail read model.
+- Gallery facet theo studio/actress/tag và `mediaUrl` Nginx được resolve từ locator + deployment root map;
+  response trả `null` khi projection/root mapping chưa đủ, không suy diễn filesystem path.
 - Elasticsearch media search index; hỗ trợ full-text, fuzzy match và autocomplete.
 - Redis key/TTL/cache invalidation policy cho query.
 

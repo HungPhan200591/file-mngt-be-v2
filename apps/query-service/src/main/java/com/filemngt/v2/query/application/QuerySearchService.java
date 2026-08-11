@@ -46,15 +46,18 @@ public class QuerySearchService {
     }
 
     @Transactional(readOnly = true)
-    public SearchPage list(Region region, SubjectType type, String text, String order, Pageable page) {
-        if (text == null) return postgres(region, type, null, page, "POSTGRESQL", false);
+    public SearchPage list(QuerySubjectFilter filter, String text, String order, Pageable page) {
+        if (text == null || filter.hasMetadataFilter()) {
+            return postgres(filter, text, page, "POSTGRESQL", false);
+        }
         if (!enabled) {
             fallbackCounter.increment();
-            return postgres(region, type, text, page, "POSTGRESQL_FALLBACK", true);
+            return postgres(filter, text, page, "POSTGRESQL_FALLBACK", true);
         }
         var timer = Timer.start();
         try {
-            var result = search.search(text, region, type, order, page.getPageNumber(), page.getPageSize());
+            var result = search.search(
+                    text, filter.region(), filter.subjectType(), order, page.getPageNumber(), page.getPageSize());
             var indexedSubjects = subjects.findAllWithAssetsByIdIn(result.subjectIds()).stream()
                     .collect(Collectors.toMap(QuerySubjectEntity::id, Function.identity()));
             var content = result.subjectIds().stream()
@@ -66,7 +69,7 @@ public class QuerySearchService {
             log.warn("Elasticsearch search failed; using PostgreSQL fallback", exception);
             failureCounter.increment();
             fallbackCounter.increment();
-            return postgres(region, type, text, page, "POSTGRESQL_FALLBACK", true);
+            return postgres(filter, text, page, "POSTGRESQL_FALLBACK", true);
         } finally {
             timer.stop(searchTimer);
         }
@@ -84,8 +87,8 @@ public class QuerySearchService {
     }
 
     private SearchPage postgres(
-            Region region, SubjectType type, String text, Pageable page, String backend, boolean degraded) {
-        return new SearchPage(projections.list(region, type, text, page), backend, degraded);
+            QuerySubjectFilter filter, String text, Pageable page, String backend, boolean degraded) {
+        return new SearchPage(projections.list(filter, text, page), backend, degraded);
     }
 
     public record SearchPage(Page<QuerySubjectEntity> subjects, String backend, boolean degraded) {}

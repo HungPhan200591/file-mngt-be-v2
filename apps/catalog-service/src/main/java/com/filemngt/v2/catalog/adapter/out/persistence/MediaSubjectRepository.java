@@ -11,9 +11,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MediaSubjectRepository extends JpaRepository<MediaSubjectEntity, UUID> {
 
+    @Override
+    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
+    Optional<MediaSubjectEntity> findById(UUID id);
+
     boolean existsByRegionAndSubjectTypeAndIdentityKey(Region region, SubjectType subjectType, String identityKey);
 
-    @EntityGraph(attributePaths = "assets")
+    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
     Optional<MediaSubjectEntity> findByRegionAndSubjectTypeAndIdentityKey(
             Region region, SubjectType subjectType, String identityKey);
 

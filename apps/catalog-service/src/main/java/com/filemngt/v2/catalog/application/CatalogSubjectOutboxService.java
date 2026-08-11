@@ -36,10 +36,15 @@ public class CatalogSubjectOutboxService {
                 subject.subjectType().name(),
                 subject.identityKey(),
                 subject.displayTitle(),
+                subject.baseCode(),
+                subject.part(),
+                subject.studioCode(),
+                subject.actressNames().stream().sorted().toList(),
+                subject.tagNames().stream().sorted().toList(),
                 subject.createdAt(),
                 subject.assets().stream()
                         .map(asset -> new MediaSubjectChangedV1.AssetSnapshot(
-                                asset.id(), asset.role().name(), asset.relativePath()))
+                                asset.id(), asset.role().name(), asset.relativePath(), asset.storageKey()))
                         .toList());
         events.save(new CatalogOutboxEventEntity(
                 event.eventId(),

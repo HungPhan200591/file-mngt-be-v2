@@ -37,6 +37,9 @@ spring:
       timeout: ${QUERY_DETAIL_CACHE_COMMAND_TIMEOUT:500ms}
 
 query:
+  media:
+    public-base-url: ${QUERY_MEDIA_PUBLIC_BASE_URL:http://localhost:18119}
+    root-paths: ${QUERY_MEDIA_ROOT_PATHS:}
   detail-cache:
     enabled: ${QUERY_DETAIL_CACHE_ENABLED:true}
     ttl: ${QUERY_DETAIL_CACHE_TTL:10m}
