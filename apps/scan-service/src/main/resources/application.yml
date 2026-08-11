@@ -37,8 +37,8 @@ spring:
 scan:
   outbox:
     enabled: ${SCAN_OUTBOX_ENABLED:true}
-    fixed-delay-ms: ${SCAN_OUTBOX_FIXED_DELAY_MS:1000}
-    batch-size: ${SCAN_OUTBOX_BATCH_SIZE:20}
+    fixed-delay-ms: ${SCAN_OUTBOX_FIXED_DELAY_MS:50}
+    batch-size: ${SCAN_OUTBOX_BATCH_SIZE:500}
     instance-id: ${SCAN_OUTBOX_INSTANCE_ID:${HOSTNAME:scan-publisher}}
   lease-duration-seconds: ${SCAN_LEASE_DURATION_SECONDS:60}
   reconciliation-statement-timeout-seconds: ${SCAN_RECONCILIATION_STATEMENT_TIMEOUT_SECONDS:30}
