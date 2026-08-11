@@ -45,14 +45,16 @@ function requireContainer(service) {
   if (containerIds.length === 0) {
     throw new Error('Không tìm thấy container Docker nào đang chạy. Vui lòng bật PostgreSQL container bằng: npm run docker:up');
   }
-  const composeFile = normalizePath(path.resolve('infra', 'compose', 'compose.yaml'));
   const containers = JSON.parse(docker(['inspect', ...containerIds]));
   const matchingContainers = containers.filter((container) => {
     const labels = container.Config.Labels ?? {};
     const configFiles = (labels['com.docker.compose.project.config_files'] ?? '')
       .split(',')
       .map(normalizePath);
-    return labels['com.docker.compose.service'] === service && configFiles.includes(composeFile);
+    return (
+      labels['com.docker.compose.service'] === service &&
+      configFiles.some((file) => file.endsWith('infra/compose/compose.yaml'))
+    );
   });
 
   if (matchingContainers.length !== 1) {

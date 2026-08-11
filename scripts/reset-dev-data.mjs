@@ -40,14 +40,16 @@ function requireContainer(service) {
     .split(/\r?\n/)
     .map((value) => value.trim())
     .filter(Boolean);
-  const composeFile = normalizePath(path.resolve('infra', 'compose', 'compose.yaml'));
   const containers = containerIds.length === 0 ? [] : JSON.parse(docker(['inspect', ...containerIds]));
   const matchingContainers = containers.filter((container) => {
     const labels = container.Config.Labels ?? {};
     const configFiles = (labels['com.docker.compose.project.config_files'] ?? '')
       .split(',')
       .map(normalizePath);
-    return labels['com.docker.compose.service'] === service && configFiles.includes(composeFile);
+    return (
+      labels['com.docker.compose.service'] === service &&
+      configFiles.some((file) => file.endsWith('infra/compose/compose.yaml'))
+    );
   });
 
   if (matchingContainers.length !== 1) {
