@@ -1,6 +1,6 @@
 # FT-034 — Catalog batch existence API — Plan
 
-Status: READY
+Status: IMPLEMENTED — verification deferred
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -39,7 +39,17 @@ Design: [02-design.md](./02-design.md)
    `apps/catalog-service/CONTEXT.md`, chuyển Plan `DONE`, cập nhật SC-01 evidence/summary và distill
    `docs/STATUS.md`; chưa mở BT-05 trong cùng implementation.
 
-## Kiểm tra
+## Trạng thái implementation
+
+- Đã có Catalog Flyway V8 cho unique partial index locator toàn cục, internal controller/validation,
+  transaction `REPEATABLE_READ`, read-store set-based, classifier bốn classification, metric/log aggregate
+  và integration coverage cho conflict, locator legacy, batch boundary, duplicate `clientRef` và read-only.
+- Theo ưu tiên thông luồng của người dùng, không chạy thêm build/test/migration sau implementation. Lần
+  Testcontainers đã thử trước đó bị chặn vì Docker Desktop Linux engine không khả dụng, không phải failure
+  assertion của feature.
+- Chưa có Scan client, Gateway route hoặc mapping FE. BT-05 chỉ được mở sau direct verification FT-034.
+
+## Kiểm tra cần hoàn tất
 
 - Review contract ↔ DTO/controller/classification theo từng field/status/error; response không thiếu hoặc
   duplicate `clientRef`.
@@ -68,8 +78,8 @@ Design: [02-design.md](./02-design.md)
 - Đã chốt trong bước tạo feature: Brief, Design, Plan,
   [OpenAPI](../../contracts/openapi/catalog-scan-existence-v1.yaml), OpenAPI README, SC-01 BT-04 owner và
   `docs/STATUS.md`.
-- Khi implementation hoàn tất: cập nhật Catalog context để ghi endpoint đang tồn tại, thêm evidence vào
-  SC-01 summary/question chain nếu đã kiểm chứng và distill trạng thái `DONE`.
+- Khi direct verification hoàn tất: thêm evidence vào SC-01 summary/question chain và chuyển feature sang
+  `DONE`; không được coi migration/runtime behavior đã chứng minh chỉ từ source review.
 - Không cần ADR: database ownership và synchronous direct REST boundary Scan–Catalog không đổi.
 - Không cập nhật architecture tổng thể, event contract hay `docs/TECHNICAL_DEBT.md`: feature chưa đổi các
   source of truth đó và không trả debt đang đăng ký.

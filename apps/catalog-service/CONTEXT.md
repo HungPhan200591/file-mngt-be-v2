@@ -10,6 +10,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Các bảng master data: `studio`, `studio_code`, `tag`, `actress`, `master_data_registry`, `master_data_import`.
 - Command tạo/sửa subject và metadata, CRUD/Import Master Data Registry.
 - Internal API `GET /api/v2/master-data/scan-registry` cung cấp snapshot cho `scan-service`.
+- Internal read-only API `POST /internal/v2/catalog/scan-existence` phân loại batch candidate theo locator
+  canonical và subject identity; implementation FT-034 có Flyway V8, nhưng direct verification còn deferred.
 - Event `media.subject.changed.v1`, `media.metadata.changed.v1`.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 

@@ -23,6 +23,8 @@ import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -219,6 +221,106 @@ class CatalogIntegrationTest {
                         .param("failedOnly", "true"))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/v2/catalog/operations/dead-letters")).andExpect(status().isOk());
+    }
+
+    @Test
+    void classifiesBatchAgainstCanonicalLocatorAndSubjectWithoutMutation() throws Exception {
+        String exactIdentity = "EXIST-" + UUID.randomUUID();
+        String legacyIdentity = "LEGACY-" + UUID.randomUUID();
+        UUID exactSubject = createSubject(exactIdentity, "PRIMARY_VIDEO", "Root/exact.mp4", "fixture");
+        UUID legacySubject = createSubject(legacyIdentity, "IMAGE", "Root/legacy.jpg", null);
+        long subjectsBefore = subjects.count();
+        long outboxBefore = outbox.count();
+        UUID scanRunId = UUID.randomUUID();
+        UUID exactRef = UUID.randomUUID();
+        UUID locatorSubjectConflictRef = UUID.randomUUID();
+        UUID locatorRoleConflictRef = UUID.randomUUID();
+        UUID existingSubjectRef = UUID.randomUUID();
+        UUID primaryConflictRef = UUID.randomUUID();
+        UUID newSubjectRef = UUID.randomUUID();
+        UUID legacyRef = UUID.randomUUID();
+        String body = """
+                {"scanRunId":"%s","items":[
+                  %s,%s,%s,%s,%s,%s,%s
+                ]}
+                """.formatted(
+                scanRunId,
+                candidate(exactRef, exactIdentity, "PRIMARY_VIDEO", "Root/exact.mp4"),
+                candidate(locatorSubjectConflictRef, "OTHER-" + UUID.randomUUID(), "PRIMARY_VIDEO", "Root/exact.mp4"),
+                candidate(locatorRoleConflictRef, exactIdentity, "VIDEO", "Root/exact.mp4"),
+                candidate(existingSubjectRef, exactIdentity, "IMAGE", "Root/new.jpg"),
+                candidate(primaryConflictRef, exactIdentity, "PRIMARY_VIDEO", "Root/other.mp4"),
+                candidate(newSubjectRef, "NEW-" + UUID.randomUUID(), "VIDEO", "Root/new.mp4"),
+                candidate(legacyRef, legacyIdentity, "VIDEO", "Root/legacy.jpg"));
+
+        mockMvc.perform(post("/internal/v2/catalog/scan-existence")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scanRunId").value(scanRunId.toString()))
+                .andExpect(jsonPath("$.items[0].clientRef").value(exactRef.toString()))
+                .andExpect(jsonPath("$.items[0].classification").value("EXACT_ASSET_EXISTS"))
+                .andExpect(jsonPath("$.items[0].matchedSubjectId").value(exactSubject.toString()))
+                .andExpect(jsonPath("$.items[1].classification").value("CONFLICT"))
+                .andExpect(jsonPath("$.items[1].conflictCode").value("LOCATOR_SUBJECT_MISMATCH"))
+                .andExpect(jsonPath("$.items[2].classification").value("CONFLICT"))
+                .andExpect(jsonPath("$.items[2].conflictCode").value("LOCATOR_ROLE_MISMATCH"))
+                .andExpect(jsonPath("$.items[3].classification").value("EXISTING_SUBJECT_NEW_ASSET"))
+                .andExpect(jsonPath("$.items[4].classification").value("CONFLICT"))
+                .andExpect(jsonPath("$.items[4].conflictCode").value("SUBJECT_PRIMARY_ASSET_EXISTS"))
+                .andExpect(jsonPath("$.items[5].classification").value("NEW_SUBJECT"))
+                .andExpect(jsonPath("$.items[6].classification").value("EXISTING_SUBJECT_NEW_ASSET"))
+                .andExpect(jsonPath("$.items[6].matchedSubjectId").value(legacySubject.toString()));
+        assertThat(subjects.count()).isEqualTo(subjectsBefore);
+        assertThat(outbox.count()).isEqualTo(outboxBefore);
+    }
+
+    @Test
+    void rejectsInvalidBatchBeforeAnyLookup() throws Exception {
+        UUID duplicateRef = UUID.randomUUID();
+        String duplicate = """
+                {"scanRunId":"%s","items":[%s,%s]}
+                """.formatted(
+                        UUID.randomUUID(),
+                        candidate(duplicateRef, "DUPLICATE-1", "VIDEO", "Root/a.mp4"),
+                        candidate(duplicateRef, "DUPLICATE-2", "VIDEO", "Root/b.mp4"));
+        mockMvc.perform(post("/internal/v2/catalog/scan-existence")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(duplicate))
+                .andExpect(status().isBadRequest());
+
+        String oversizedItems = IntStream.range(0, 501)
+                .mapToObj(index -> candidate(UUID.randomUUID(), "LIMIT-" + index, "VIDEO", "Root/" + index + ".mp4"))
+                .collect(Collectors.joining(","));
+        mockMvc.perform(post("/internal/v2/catalog/scan-existence")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"scanRunId\":\"" + UUID.randomUUID() + "\",\"items\":[" + oversizedItems + "]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private UUID createSubject(String identityKey, String role, String relativePath, String storageKey)
+            throws Exception {
+        String storageKeyField = storageKey == null ? "" : ",\"storageKey\":\"" + storageKey + "\"";
+        String body = """
+                {"subjectType":"VIDEO","region":"JOKE","identityKey":"%s","assets":[
+                  {"role":"%s","relativePath":"%s"%s}
+                ]}
+                """.formatted(identityKey, role, relativePath, storageKeyField);
+        MvcResult created = mockMvc.perform(post("/api/v2/catalog/subjects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return UUID.fromString(json.readTree(created.getResponse().getContentAsString())
+                .get("id")
+                .asText());
+    }
+
+    private String candidate(UUID clientRef, String identityKey, String role, String relativePath) {
+        return """
+                {"clientRef":"%s","storageKey":"fixture","relativePath":"%s","region":"JOKE",
+                 "subjectType":"VIDEO","identityKey":"%s","assetRole":"%s"}
+                """.formatted(clientRef, relativePath, identityKey, role);
     }
 
     private MediaFileDiscoveredV1 event(String region, String identityKey, String role, String path) {
