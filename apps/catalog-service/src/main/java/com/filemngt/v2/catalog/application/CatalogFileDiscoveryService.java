@@ -56,11 +56,15 @@ public class CatalogFileDiscoveryService {
                 UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
         boolean metadataChanged = subject.applyMetadata(new MediaSubjectEntity.SubjectMetadata(
                 event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames()));
-        boolean assetAdded = event.role() != null && !subject.hasAssetLocator(event.storageKey(), event.relativePath());
+        MediaAssetRole role = event.role() != null ? MediaAssetRole.valueOf(event.role()) : null;
+        boolean isDuplicatePrimaryVideo = role == MediaAssetRole.PRIMARY_VIDEO && subject.hasPrimaryVideo();
+        boolean assetAdded = role != null
+                && !subject.hasAssetLocator(event.storageKey(), event.relativePath())
+                && !isDuplicatePrimaryVideo;
         if (assetAdded) {
             subject.addAsset(new MediaAssetEntity(
                     UUID.randomUUID(),
-                    MediaAssetRole.valueOf(event.role()),
+                    role,
                     event.relativePath(),
                     event.storageKey(),
                     Instant.now()));

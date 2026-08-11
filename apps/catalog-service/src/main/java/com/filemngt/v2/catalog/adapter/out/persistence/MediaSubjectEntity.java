@@ -119,6 +119,10 @@ public class MediaSubjectEntity {
                         && asset.relativePath().equals(relativePath));
     }
 
+    public boolean hasPrimaryVideo() {
+        return assets.stream().anyMatch(asset -> asset.role() == com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO);
+    }
+
     public UUID id() {
         return id;
     }
