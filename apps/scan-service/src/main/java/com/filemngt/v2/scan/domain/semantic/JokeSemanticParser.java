@@ -29,8 +29,8 @@ final class JokeSemanticParser {
         String identityKey = "JOKE:BESTOF:" + actressName.toUpperCase(Locale.ROOT) + ":" + (part != null ? part : "_");
 
         List<String> recognized = new ArrayList<>(tags.recognized());
-        if (!recognized.contains("BESTOF")) {
-            recognized.add("BESTOF");
+        if (!recognized.contains("Best of") && !recognized.contains("BEST OF")) {
+            recognized.add("Best of");
         }
         var updatedTags = new SemanticParserSupport.TagClassification(recognized, tags.unrecognized());
 
