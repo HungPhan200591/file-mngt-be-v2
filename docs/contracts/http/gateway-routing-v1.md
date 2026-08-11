@@ -9,6 +9,11 @@ Base URL local: `http://localhost:18100`
 | --- | --- | --- |
 | `/api/v2/catalog/subjects`, `/api/v2/catalog/subjects/**` | Catalog | Không đổi |
 | `/api/v2/scans/**` | Scan | Không đổi |
+
+SC-01 dùng cùng route Scan wildcard cho các endpoint bất đồng bộ mới:
+`POST /api/v2/scans/review-queue/decision-jobs`, `POST /api/v2/scans/review-queue/reopen-jobs` và
+`POST /api/v2/scans/issues/{issueId}/recheck`. Gateway không unwrap `jobId`; giữ nguyên `202` và response body
+để FE đọc theo contract của Scan.
 | `/api/v2/query/subjects`, `/api/v2/query/subjects/**` | Query | Không đổi |
 | `/api/v2/media/subjects/**` | Media Worker | Legacy FT011; deprecated theo ADR-005, chờ feature migration gỡ code |
 

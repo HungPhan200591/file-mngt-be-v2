@@ -21,8 +21,9 @@ Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
   batch tối đa 500, exact skip proposal và giữ evidence cho các classification còn lại.
 - Có Flyway unique partial index locator non-null; migration phải fail nếu data conflict, không tự
   cleanup/import dữ liệu.
-- Không mở Gateway route hay mapping FE trong lát này. Direct Catalog/Scan integration, migration, timeout,
-  protocol mismatch và E2E verification được deferred theo ưu tiên thông luồng.
+- Gateway route `/api/v2/scans/**` đã bao phủ các endpoint SC-01 mới; contract routing và integration coverage
+  cho bulk decision/recheck đã được cập nhật. FE V2 đã chuyển bulk action sang durable job và thêm recheck issue.
+  Runtime E2E/verification vẫn deferred theo ưu tiên thông luồng.
 - BT-08A ghi contract v2, explicit event dispatch và quan sát cả v1/v2 DLT. BT-08B claim outbox bounded có
   lease/`SKIP LOCKED` cho cả Scan và Catalog, publish ngoài transaction và metrics backlog.
 - BT-06C hỗ trợ enqueue targeted recheck theo `issueId`, worker lease và observation mới; BT-07 hỗ trợ
@@ -63,5 +64,5 @@ liên kết snapshot; chi tiết remediation nằm ở debt/feature owner.
 
 1. Khi người dùng ưu tiên hardening, chạy direct verification toàn SC-01: Flyway/index, Catalog/Scan
    Testcontainers, Kafka contract/DLT, `SKIP LOCKED`, lease reclaim, job status và duplicate evidence.
-2. Mở feature Gateway/FE mapping riêng sau khi behavior backend có evidence; không gộp vào internal API.
+2. Hardening Gateway/FE mapping: chạy E2E qua `18100`, kiểm tra job lifecycle/status và refresh projection.
 3. Khi ưu tiên verification, chạy FT-033 Testcontainers/benchmark đã deferred.
