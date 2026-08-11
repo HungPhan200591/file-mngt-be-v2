@@ -1,7 +1,7 @@
 # FT-032 — Thiết kế Scan review queue
 
 Owner: `scan-service` / `scan_db`; consumer: module `scan` của FE V2
-`D:\Pesonal\file-management\v2\file-mngt-fe-v2` qua `gateway-service`.
+`D:\Personal\file-management\v2\file-mngt-fe-v2` qua `gateway-service`.
 Brief: [01-brief.md](./01-brief.md)
 
 ## High Level Design
@@ -87,7 +87,7 @@ thái, không tạo outbox/Kafka event và không đổi hot write path.
 
 ## FE handoff
 
-- Owner FE: [FT-005 Scan review queue](D:\Pesonal\file-management\v2\file-mngt-fe-v2\docs\features\005-scan-review-queue\03-plan.md).
+- Owner FE: [FT-005 Scan review queue](D:\Personal\file-management\v2\file-mngt-fe-v2\docs\features\005-scan-review-queue\03-plan.md).
 - Tab chính: `Chờ duyệt`; mặc định gọi queue `state=PENDING` và có filter root tùy
   chọn. Đây không phải màn hình History.
 - Tab/filter phụ: `Đã bỏ qua`; gọi `state=REJECTED`, mỗi item có hành động `Đưa lại

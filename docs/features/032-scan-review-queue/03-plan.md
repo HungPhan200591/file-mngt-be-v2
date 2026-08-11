@@ -6,10 +6,10 @@ Design: [02-design.md](./02-design.md)
 ## Execution capsule
 
 - Owner: `scan-service` / `scan_db`; consumer FE là module `scan` ở
-  `D:\Pesonal\file-management\v2\file-mngt-fe-v2` qua Gateway.
+  `D:\Personal\file-management\v2\file-mngt-fe-v2` qua Gateway.
 - Scope/files: Scan OpenAPI, controller/query/decision/repository/DTO/test, có thể
   thêm Flyway index sau khi có evidence; FE queue page/API client/state/test theo
-  `D:\Pesonal\file-management\v2\file-mngt-fe-v2\docs\features\005-scan-review-queue`;
+  `D:\Personal\file-management\v2\file-mngt-fe-v2\docs\features\005-scan-review-queue`;
   `docs/STATUS.md` khi implementation hoàn tất.
 - Must preserve: incremental reconciliation hot path, `RUNNING` SSE policy,
   proposal ownership, immutable `APPROVE`, transaction decision + outbox, không
@@ -34,7 +34,7 @@ Design: [02-design.md](./02-design.md)
 
 ## Bước triển khai FE
 
-1. Đọc `D:\Pesonal\file-management\v2\file-mngt-fe-v2\AGENTS.md` và
+1. Đọc `D:\Personal\file-management\v2\file-mngt-fe-v2\AGENTS.md` và
    `scan/CONTEXT_SCAN.md` trước khi code; FE V1 không thuộc scope trừ khi người
    dùng yêu cầu rõ.
 2. Tạo tab `Chờ duyệt`, paging và filter `rootKey`; dùng `state=PENDING` mặc định.

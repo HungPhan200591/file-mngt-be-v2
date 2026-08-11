@@ -1,7 +1,7 @@
 # FT-032 — Scan review queue
 
 Owner: `scan-service` (`scan_db`); FE consumer là module `scan` của FE V2
-`D:\Pesonal\file-management\v2\file-mngt-fe-v2`, gọi Scan REST qua Gateway.
+`D:\Personal\file-management\v2\file-mngt-fe-v2`, gọi Scan REST qua Gateway.
 
 ## Vấn đề
 
@@ -34,7 +34,7 @@ có thể muốn xem xét nó lần nữa.
 - Không undo dữ liệu canonical ở Catalog, không có compensation Kafka event.
 - Không đổi batch approve/reject hiện có và không tạo status/bảng nghiệp vụ mới.
 - Không sửa source FE trong feature Backend này; FT FE companion là
-  `D:\Pesonal\file-management\v2\file-mngt-fe-v2\docs\features\005-scan-review-queue`.
+  `D:\Personal\file-management\v2\file-mngt-fe-v2\docs\features\005-scan-review-queue`.
 
 ## Quy tắc nghiệp vụ đã chốt
 

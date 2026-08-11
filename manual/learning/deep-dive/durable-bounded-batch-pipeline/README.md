@@ -191,7 +191,7 @@ WAL/replica lag; chỉ tăng batch khi các budget vẫn an toàn.
 
 ## Domain transfer — Dự án LiveStream
 
-Local project reference: `D:\Pesonal\live-stream-backend`.
+Local project reference: `D:\Personal\live-stream-backend`.
 
 Current evidence của project này chỉ gồm modular monolith, PostgreSQL, Redis session/stream state,
 RTMP start/end webhook và HyperLogLog unique viewers. RabbitMQ mới có connectivity/test publish;
@@ -351,6 +351,6 @@ retention cleanup, không phụ thuộc framework.
 - [SC-01 issue/solution summary](../../use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/summary/01-issues-and-solutions.md)
 - [SC-01 deep-dive](../../use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/01-deep-dive.md)
 - [SC-01 question chain](../../use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/question-bank/01-question-chain.md)
-- LiveStream local project: `D:\Pesonal\live-stream-backend` — current baseline phải đọc trước
+- LiveStream local project: `D:\Personal\live-stream-backend` — current baseline phải đọc trước
   khi biến transfer design thành implementation claim.
 - Tài chính: chưa có local project owner; hiện chỉ là hypothetical domain mapping.
