@@ -39,10 +39,22 @@ class ScanSemanticParserTest {
                 registry);
 
         assertThat(result.parseStatus()).isEqualTo(ScanParseStatus.COMPLETED);
+        assertThat(result.baseCode()).isEqualTo("BESTOF");
         assertThat(result.studioCode()).isEqualTo("BESTOF");
         assertThat(result.part()).isEqualTo("1");
         assertThat(result.actressNames()).containsExactly("Actress Name");
         assertThat(result.tagNames()).containsExactly("4K");
+    }
+
+    @Test
+    void rejectsJokeVideoWithSpaceBracketCodeStudio() {
+        var result = ScanSemanticParser.parse(
+                ScanProfile.JOKE_VIDEO,
+                "Yui Hatano - [Heyzo 0474].MP4",
+                "Yui Hatano - [Heyzo 0474].MP4",
+                registry);
+
+        assertThat(result.studioCode()).isNull();
     }
 
     @Test

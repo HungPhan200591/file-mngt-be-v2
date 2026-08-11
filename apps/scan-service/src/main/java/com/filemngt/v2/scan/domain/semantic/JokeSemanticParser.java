@@ -28,7 +28,7 @@ final class JokeSemanticParser {
         String actressName = hasPart ? remainder.substring(0, matcher.start()).trim() : remainder;
         String identityKey = "JOKE:BESTOF:" + actressName.toUpperCase(Locale.ROOT) + ":" + (part != null ? part : "_");
 
-        return result(profile, identityKey, null, part, "BESTOF", "Best of " + actressName, actressName, tags);
+        return result(profile, identityKey, "BESTOF", part, "BESTOF", "Best of " + actressName, actressName, tags);
     }
 
     private static ScanSemanticResult parseStandard(
