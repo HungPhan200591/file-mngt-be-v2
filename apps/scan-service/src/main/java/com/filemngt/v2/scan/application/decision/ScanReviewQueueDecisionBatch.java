@@ -10,6 +10,7 @@ import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
