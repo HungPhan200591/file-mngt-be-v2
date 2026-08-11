@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Package: com.filemngt.tools.sc01_scan_one_million
  */
 public class CleanOneMillionJokeVideoFixtures {
-    private static final String DEFAULT_TARGET_DIR = "D:/Pesonal/file-management/v2/file-mngt-fixtures/one_million_joke_video";
+    private static final String DEFAULT_TARGET_DIR = "D:/Personal/file-management/v2/file-mngt-fixtures/one_million_joke_video";
 
     public static void main(String[] args) throws Exception {
         System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));

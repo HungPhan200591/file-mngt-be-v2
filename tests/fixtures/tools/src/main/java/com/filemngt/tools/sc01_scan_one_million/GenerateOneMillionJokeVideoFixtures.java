@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * In log liên tục mỗi 10 thư mục (10,000 files / 1% tiến độ) để người dùng theo dõi ngay từ giây đầu tiên.
  */
 public class GenerateOneMillionJokeVideoFixtures {
-    private static final String DEFAULT_TARGET_DIR = "D:/Pesonal/file-management/v2/file-mngt-fixtures/one_million_joke_video";
+    private static final String DEFAULT_TARGET_DIR = "D:/Personal/file-management/v2/file-mngt-fixtures/one_million_joke_video";
     private static final int DEFAULT_TOTAL_FILES = 1_000_000;
     private static final int DEFAULT_SUB_DIRS = 1_000;
 

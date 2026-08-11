@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Đo pipeline walkFileTree và một phiên PostgreSQL COPY mà không giữ toàn bộ fixture trong RAM. */
 public final class BenchmarkFullCopy {
     private static final String DEFAULT_TARGET_DIR =
-            "D:/Pesonal/file-management/v2/file-mngt-fixtures/one_million_joke_video";
+            "D:/Personal/file-management/v2/file-mngt-fixtures/one_million_joke_video";
     private static final long DEFAULT_EXPECTED_FILES = 1_000_000L;
     private static final long PROGRESS_INTERVAL = 100_000L;
     private static final String READY_MARKER = "SC01_COPY_READY";

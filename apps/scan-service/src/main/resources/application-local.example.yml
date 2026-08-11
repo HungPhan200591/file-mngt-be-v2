@@ -1,13 +1,13 @@
 scan:
   roots:
     - key: one-million-joke-video
-      path: D:/Pesonal/file-management/v2/file-mngt-fixtures/one_million_joke_video
+      path: D:/Personal/file-management/v2/file-mngt-fixtures/one_million_joke_video
       profile: JOKE_VIDEO
     - key: fixture-media-delivery
-      path: D:/Pesonal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/media-delivery
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/media-delivery
       profile: JOKE_VIDEO
     - key: fixture-joke-video
-      path: D:/Pesonal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/joke-video
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/joke-video
       profile: JOKE_VIDEO
     - key: root
       path: G:/System/Root

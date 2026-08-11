@@ -1,9 +1,9 @@
 media:
   roots:
     - key: fixture-media-delivery
-      path: D:/Pesonal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/media-delivery
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/media-delivery
     - key: fixture-joke-video
-      path: D:/Pesonal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/joke-video
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/joke-video
     - key: root
       path: G:/System/Root
     - key: syncdroid
