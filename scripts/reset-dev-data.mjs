@@ -90,6 +90,36 @@ function tableCount(containerId, user, database, table) {
   return Number.parseInt(output, 10);
 }
 
+function listTables(containerId, user, database, predicate) {
+  const output = dockerExec(containerId, [
+    'psql',
+    '-At',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-U',
+    user,
+    '-d',
+    database,
+    '-c',
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND (${predicate}) ORDER BY table_name;`,
+  ]);
+  return output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+}
+
+function truncateTables(containerId, user, database, predicate) {
+  const tables = listTables(containerId, user, database, predicate);
+  if (tables.length === 0) {
+    throw new Error(`No resettable tables found in ${database}.`);
+  }
+  runPsql(
+    containerId,
+    user,
+    database,
+    `TRUNCATE TABLE ${tables.map((table) => `"${table.replaceAll('"', '""')}"`).join(', ')} RESTART IDENTITY CASCADE;`,
+  );
+  return tables;
+}
+
 function verifyDatabaseEmpty(containerId, user, database, tables) {
   const remaining = tables
     .map((table) => [table, tableCount(containerId, user, database, table)])
@@ -249,51 +279,17 @@ async function main() {
   await assertApplicationsStopped();
 
   log('[1/5] Truncate PostgreSQL business data (giữ Catalog master data)...', COLORS.yellow);
-  runPsql(
-    postgres,
-    'scan_user',
-    'scan_db',
-    'TRUNCATE TABLE scan_review_issue, scan_review_proposal, scan_review_projection_task, scan_review_projection_root, scan_inventory_diff_stage, scan_inventory_stage, scan_outbox_event, scan_decision, scan_issue, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
-  );
-  runPsql(
+  const scanTables = truncateTables(postgres, 'scan_user', 'scan_db', "table_name LIKE 'scan_%'");
+  const catalogTables = truncateTables(
     postgres,
     'catalog_user',
     'catalog_db',
-    'TRUNCATE TABLE catalog_dead_letter_event, catalog_outbox_event, catalog_processed_event, media_asset, media_subject RESTART IDENTITY CASCADE;',
+    "table_name NOT IN ('flyway_schema_history', 'studio', 'studio_code', 'tag', 'actress', 'master_data_registry', 'master_data_import')",
   );
-  runPsql(
-    postgres,
-    'query_user',
-    'query_db',
-    'TRUNCATE TABLE query_search_outbox, query_processed_event, query_media_asset, query_media_subject RESTART IDENTITY CASCADE;',
-  );
-  verifyDatabaseEmpty(postgres, 'scan_user', 'scan_db', [
-    'scan_issue',
-    'scan_inventory_diff_stage',
-    'scan_inventory_stage',
-    'scan_outbox_event',
-    'scan_decision',
-    'scan_proposal',
-    'scan_run',
-    'scan_file_inventory',
-    'scan_review_projection_root',
-    'scan_review_projection_task',
-    'scan_review_proposal',
-    'scan_review_issue',
-  ]);
-  verifyDatabaseEmpty(postgres, 'catalog_user', 'catalog_db', [
-    'catalog_dead_letter_event',
-    'catalog_outbox_event',
-    'catalog_processed_event',
-    'media_asset',
-    'media_subject',
-  ]);
-  verifyDatabaseEmpty(postgres, 'query_user', 'query_db', [
-    'query_search_outbox',
-    'query_processed_event',
-    'query_media_asset',
-    'query_media_subject',
-  ]);
+  const queryTables = truncateTables(postgres, 'query_user', 'query_db', "table_name LIKE 'query_%'");
+  verifyDatabaseEmpty(postgres, 'scan_user', 'scan_db', scanTables);
+  verifyDatabaseEmpty(postgres, 'catalog_user', 'catalog_db', catalogTables);
+  verifyDatabaseEmpty(postgres, 'query_user', 'query_db', queryTables);
   log(' ✓ PostgreSQL business data đã được xóa và xác minh.', COLORS.green);
 
   log('\n[2/5] Reset Kafka application topics và consumer groups...', COLORS.yellow);

@@ -91,6 +91,36 @@ function tableCount(containerId, user, database, table) {
   return Number.parseInt(output, 10);
 }
 
+function listTables(containerId, user, database, predicate) {
+  const output = dockerExec(containerId, [
+    'psql',
+    '-At',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-U',
+    user,
+    '-d',
+    database,
+    '-c',
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND (${predicate}) ORDER BY table_name;`,
+  ]);
+  return output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+}
+
+function truncateTables(containerId, user, database, predicate) {
+  const tables = listTables(containerId, user, database, predicate);
+  if (tables.length === 0) {
+    throw new Error(`Không tìm thấy bảng phù hợp để reset trong ${database}.`);
+  }
+  runPsql(
+    containerId,
+    user,
+    database,
+    `TRUNCATE TABLE ${tables.map((table) => `"${table.replaceAll('"', '""')}"`).join(', ')} RESTART IDENTITY CASCADE;`,
+  );
+  return tables;
+}
+
 function verifyTablesEmpty(containerId, user, database, tables) {
   const remaining = tables
     .map((table) => [table, tableCount(containerId, user, database, table)])
@@ -113,28 +143,10 @@ async function main() {
   const postgres = requireContainer('postgres');
 
   log('[1/2] Truncate dữ liệu nghiệp vụ, staging và projection của Scan Service trong scan_db...', COLORS.yellow);
-  runPsql(
-    postgres,
-    'scan_user',
-    'scan_db',
-    'TRUNCATE TABLE scan_review_issue, scan_review_proposal, scan_review_projection_task, scan_review_projection_root, scan_inventory_diff_stage, scan_inventory_stage, scan_outbox_event, scan_decision, scan_issue, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
-  );
+  const scanTables = truncateTables(postgres, 'scan_user', 'scan_db', "table_name LIKE 'scan_%'");
 
   log('[2/2] Xác minh các bảng đã trống...', COLORS.yellow);
-  verifyTablesEmpty(postgres, 'scan_user', 'scan_db', [
-    'scan_issue',
-    'scan_inventory_diff_stage',
-    'scan_inventory_stage',
-    'scan_outbox_event',
-    'scan_decision',
-    'scan_proposal',
-    'scan_run',
-    'scan_file_inventory',
-    'scan_review_projection_root',
-    'scan_review_projection_task',
-    'scan_review_proposal',
-    'scan_review_issue',
-  ]);
+  verifyTablesEmpty(postgres, 'scan_user', 'scan_db', scanTables);
 
   log('\n ✓ Reset thành công dữ liệu nghiệp vụ và staging của Scan Service!', COLORS.green);
   console.log('==========================================================');
