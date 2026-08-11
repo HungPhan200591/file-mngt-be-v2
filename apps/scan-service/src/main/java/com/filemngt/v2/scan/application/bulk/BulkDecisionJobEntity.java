@@ -37,6 +37,11 @@ class BulkDecisionJobEntity {
     UUID scanRunId() { return scanRunId; }
     String decision() { return decision; }
     long processedCount() { return processedCount; }
+    String status() { return status; }
+    Instant createdAt() { return createdAt; }
+    Instant startedAt() { return startedAt; }
+    Instant finishedAt() { return finishedAt; }
+    String lastError() { return lastError; }
     void claim(String owner) { status = "RUNNING"; leaseOwner = owner; leaseUntil = Instant.now().plusSeconds(90); startedAt = startedAt == null ? Instant.now() : startedAt; attemptCount++; }
     void progress(long count) { processedCount += count; status = "PENDING"; leaseOwner = null; leaseUntil = null; }
     void complete() { status = "COMPLETED"; finishedAt = Instant.now(); leaseOwner = null; leaseUntil = null; }

@@ -300,6 +300,18 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BulkDecisionAccepted' }
+  /api/v2/scans/review-queue/decision-jobs/{jobId}:
+    get:
+      operationId: getScanBulkDecisionJob
+      summary: Get durable bulk decision job status
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Durable job state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanAsyncJobStatus' }
   /api/v2/scans/issues/{issueId}/recheck:
     post:
       operationId: requestScanIssueRecheck
@@ -320,6 +332,18 @@ paths:
                 $ref: '#/components/schemas/IssueRecheckAccepted'
         '404':
           $ref: '#/components/responses/NotFoundProblem'
+  /api/v2/scans/issues/recheck-jobs/{jobId}:
+    get:
+      operationId: getScanIssueRecheckJob
+      summary: Get durable issue recheck job status
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Durable job state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanAsyncJobStatus' }
         '404':
           $ref: '#/components/responses/NotFoundProblem'
         '409':
@@ -579,6 +603,19 @@ components:
       required: [jobId]
       properties:
         jobId: { type: string, format: uuid }
+    ScanAsyncJobStatus:
+      type: object
+      required: [jobId, jobType, status, createdAt]
+      properties:
+        jobId: { type: string, format: uuid }
+        jobType: { type: string, enum: [BULK_DECISION, ISSUE_RECHECK] }
+        status: { type: string, enum: [PENDING, RUNNING, COMPLETED, FAILED] }
+        processedCount: { type: [integer, 'null'], format: int64 }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [string, 'null'], format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        lastError: { type: [string, 'null'] }
+        observationScanRunId: { type: [string, 'null'], format: uuid }
     ScanProposalPage:
       $ref: '#/components/schemas/PageScanProposal'
     ReviewQueueProposalPage:

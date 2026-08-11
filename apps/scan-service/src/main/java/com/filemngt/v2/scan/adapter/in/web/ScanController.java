@@ -10,6 +10,7 @@ import com.filemngt.v2.scan.adapter.in.web.sse.ScanRunSseStreamAdapter;
 import com.filemngt.v2.scan.application.decision.ScanDecisionService;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
+import com.filemngt.v2.scan.application.dto.ScanAsyncJobStatus;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
@@ -130,6 +131,11 @@ public class ScanController {
         return new IssueRecheckAccepted(rechecks.enqueue(issueId));
     }
 
+    @GetMapping("/issues/recheck-jobs/{jobId}")
+    public ScanAsyncJobStatus recheckJob(@PathVariable UUID jobId) {
+        return rechecks.status(jobId);
+    }
+
     @PostMapping("/review-queue/decision-jobs")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public BulkDecisionAccepted enqueueBulkDecision(
@@ -138,6 +144,11 @@ public class ScanController {
             @RequestParam(required = false) UUID scanId,
             @Valid @RequestBody DecisionRequest request) {
         return new BulkDecisionAccepted(bulkJobs.enqueue(rootKey, search, scanId, request.decision()));
+    }
+
+    @GetMapping("/review-queue/decision-jobs/{jobId}")
+    public ScanAsyncJobStatus bulkDecisionJob(@PathVariable UUID jobId) {
+        return bulkJobs.status(jobId);
     }
 
     @PostMapping("/review-queue/reopen-jobs")

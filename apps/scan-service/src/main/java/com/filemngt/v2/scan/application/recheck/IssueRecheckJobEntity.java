@@ -32,6 +32,12 @@ class IssueRecheckJobEntity {
 
     UUID id() { return id; }
     UUID issueId() { return issueId; }
+    String status() { return status; }
+    Instant createdAt() { return createdAt; }
+    Instant startedAt() { return startedAt; }
+    Instant finishedAt() { return finishedAt; }
+    UUID observationScanRunId() { return observationScanRunId; }
+    String lastError() { return lastError; }
 
     void claim(String owner, Instant until) {
         status = "RUNNING";
