@@ -1,7 +1,6 @@
 package com.filemngt.v2.catalog.adapter.in.event;
 
 import com.filemngt.v2.catalog.application.CatalogFileDiscoveryService;
-import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -21,18 +20,17 @@ public class MediaFileDiscoveredConsumer {
     }
 
     @KafkaListener(
-            topics = {"media.file.discovered.v1", "media.file.discovered.v2"},
+            topics = "media.file.discovered.v2",
             groupId = "catalog-service",
             autoStartup = "${catalog.kafka.consumer.enabled:true}")
     public void consume(ConsumerRecord<String, String> record) throws JacksonException {
         try (var ignored = KafkaTracingHeaderPropagation.extractAndSetMdc(record)) {
             String payload = record.value();
             var eventType = json.readTree(payload).path("eventType").asText(null);
-            switch (eventType) {
-                case "media.file.discovered.v1" -> service.handle(json.readValue(payload, MediaFileDiscoveredV1.class));
-                case "media.file.discovered.v2" -> service.handleV2(json.readValue(payload, MediaFileDiscoveredV2.class));
-                default -> throw new IllegalArgumentException("Unsupported media discovery eventType: " + eventType);
+            if (!"media.file.discovered.v2".equals(eventType)) {
+                throw new IllegalArgumentException("Unsupported media discovery eventType: " + eventType);
             }
+            service.handleV2(json.readValue(payload, MediaFileDiscoveredV2.class));
         }
     }
 }

@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 public class CatalogDeadLetterObserver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogDeadLetterObserver.class);
-    private static final String[] DLT_TOPICS = {"media.file.discovered.v1.DLT", "media.file.discovered.v2.DLT"};
 
     private final CatalogDeadLetterService service;
     private final CatalogOutboxMetrics metrics;
@@ -29,7 +28,7 @@ public class CatalogDeadLetterObserver {
     }
 
     @KafkaListener(
-            topics = DLT_TOPICS,
+            topics = "media.file.discovered.v2.DLT",
             groupId = "catalog-dlt-observer",
             autoStartup = "${catalog.kafka.dlt-observer.enabled:true}")
     public void observe(ConsumerRecord<String, String> record) {

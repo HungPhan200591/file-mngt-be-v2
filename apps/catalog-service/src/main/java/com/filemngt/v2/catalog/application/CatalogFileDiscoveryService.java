@@ -12,7 +12,6 @@ import com.filemngt.v2.catalog.masterdata.adapter.out.persistence.ActressEntity;
 import com.filemngt.v2.catalog.masterdata.adapter.out.persistence.ActressRepository;
 import com.filemngt.v2.catalog.masterdata.application.MasterDataVersionService;
 import com.filemngt.v2.catalog.masterdata.domain.MasterDataNormalizer;
-import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import java.time.Instant;
 import java.util.UUID;
@@ -42,40 +41,6 @@ public class CatalogFileDiscoveryService {
         this.outbox = outbox;
         this.actressRepository = actressRepository;
         this.versionService = versionService;
-    }
-
-    @Transactional
-    public void handle(MediaFileDiscoveredV1 event) {
-        if (processed.existsById(event.eventId())) {
-            LOGGER.debug("Ignored duplicate media discovery eventId={}", event.eventId());
-            return;
-        }
-        var region = Region.valueOf(event.region());
-        var type = SubjectType.valueOf(event.subjectType());
-        var existing = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey());
-        var subject = existing.orElseGet(() -> new MediaSubjectEntity(
-                UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
-        boolean assetAdded = event.assetRole() != null
-                && !subject.hasAssetLocator(event.sourceRootKey(), event.sourceRelativePath());
-        if (assetAdded) {
-            subject.addAsset(new MediaAssetEntity(
-                    UUID.randomUUID(),
-                    MediaAssetRole.valueOf(event.assetRole()),
-                    event.sourceRelativePath(),
-                    event.sourceRootKey(),
-                    Instant.now()));
-        }
-        if (existing.isEmpty() || assetAdded) {
-            subjects.saveAndFlush(subject);
-            outbox.enqueue(subject);
-        }
-        processed.save(new ProcessedEventEntity(event.eventId(), Instant.now()));
-        LOGGER.info(
-                "Processed media discovery eventId={} subjectId={} identityKey={} relativePath={}",
-                event.eventId(),
-                subject.id(),
-                event.identityKey(),
-                event.sourceRelativePath());
     }
 
     @Transactional

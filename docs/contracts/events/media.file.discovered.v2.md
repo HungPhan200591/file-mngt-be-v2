@@ -37,8 +37,8 @@ as canonical state changes.
 
 ## Compatibility and failure
 
-- v1 remains supported without payload mutation. v2 is additive and is consumed by an explicit `eventType` dispatch.
+- v2 là contract runtime duy nhất của SC-01 sau khi reset dữ liệu/E2E; event type khác v2 bị reject và đưa vào DLT.
 - Delivery is at-least-once. Kafka retry is two retries after one second; unrecoverable records go to
-  `<source-topic>.DLT`, so both `media.file.discovered.v1.DLT` and `.v2.DLT` are observed.
+  `<source-topic>.DLT`; SC-01 observer theo dõi `media.file.discovered.v2.DLT`.
 - Correlation/trace context is carried in Kafka headers, not JSON. Unknown event versions fail and are retained
   in the corresponding DLT for operator action.

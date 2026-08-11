@@ -24,7 +24,7 @@ Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
 - Gateway route `/api/v2/scans/**` đã bao phủ các endpoint SC-01 mới; contract routing và integration coverage
   cho bulk decision/recheck đã được cập nhật. FE V2 đã chuyển bulk action sang durable job và thêm recheck issue.
   Runtime E2E/verification vẫn deferred theo ưu tiên thông luồng.
-- BT-08A ghi contract v2, explicit event dispatch và quan sát cả v1/v2 DLT. BT-08B claim outbox bounded có
+- BT-08A ghi contract v2, explicit event validation và quan sát v2 DLT. BT-08B claim outbox bounded có
   lease/`SKIP LOCKED` cho cả Scan và Catalog, publish ngoài transaction và metrics backlog.
 - BT-06C hỗ trợ enqueue targeted recheck theo `issueId`, worker lease và observation mới; BT-07 hỗ trợ
   decision/reopen bulk dạng durable job, bounded batch và progress.

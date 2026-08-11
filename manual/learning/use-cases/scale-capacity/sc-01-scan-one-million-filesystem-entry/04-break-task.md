@@ -35,7 +35,7 @@
 | BT-06B — Review read model | [FT-033](../../../../../docs/features/033-scan-review-read-model/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Generation projection, durable worker, fallback read và decision synchronization đã có code; migration/runtime evidence deferred. |
 | BT-06C — Targeted issue recheck | [FT-038](../../../../../docs/features/038-targeted-issue-recheck/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Durable one-issue job, server-side root/path resolve, observation run và projection refresh; runtime verification deferred. |
 | BT-07 — Durable bulk decision | [FT-039](../../../../../docs/features/039-durable-bulk-decision/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Async job filter/action, lease claim và bounded projection batch; selection cutoff/E2E verification deferred. |
-| BT-08A — Event contract/DLT alignment | [FT-036](../../../../../docs/features/036-event-contract-dlt-alignment/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Contract v2, explicit consumer dispatch và DLT observer cho cả v1/v2; Kafka verification deferred. |
+| BT-08A — Event contract/DLT alignment | [FT-036](../../../../../docs/features/036-event-contract-dlt-alignment/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Contract v2 duy nhất, explicit event validation và DLT observer v2; Kafka verification deferred. |
 | BT-08B — Outbox backlog capacity | [FT-037](../../../../../docs/features/037-outbox-backlog-capacity/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Bounded lease claim/`SKIP LOCKED`, conditional publish state và backlog metrics cho Scan/Catalog; runtime verification deferred. |
 
 Dependency hiện hành:
@@ -224,8 +224,8 @@ Không gộp tuning publisher vào BT-07; backlog sinh ra là input đo cho BT-0
 
 ### BT-08A — Đồng bộ event contract và DLT — FT-036 `IMPLEMENTED — VERIFY PENDING`
 
-FT-036 bổ sung source of truth `media.file.discovered.v2.md`, Catalog dispatch theo `eventType` và DLT
-observer theo dõi hai topic version. v1 không đổi payload; unknown version fail vào DLT thay vì bị đoán là v1.
+FT-036 bổ sung source of truth `media.file.discovered.v2.md`, Catalog validation theo `eventType` và DLT
+observer chỉ theo dõi topic v2. Event type khác v2 fail vào DLT thay vì bị đoán hoặc deserialize theo v1.
 Kafka retry/DLT/duplicate evidence còn deferred.
 
 ### BT-08B — Outbox backlog capacity — FT-037 `IMPLEMENTED — VERIFY PENDING`

@@ -17,7 +17,7 @@ import com.filemngt.v2.catalog.application.CatalogOutboxPublisher;
 import com.filemngt.v2.catalog.domain.MediaAssetRole;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
-import com.filemngt.v2.contracts.events.MediaFileDiscoveredV1;
+import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import com.filemngt.v2.observability.CorrelationId;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
@@ -140,9 +140,9 @@ class CatalogIntegrationTest {
         var event = event("JOKE", "EVENT-001", "PRIMARY_VIDEO", "Root/event.mp4");
         String payload = json.writeValueAsString(event);
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-                "media.file.discovered.v1", 0, 0L, "key", payload));
+                "media.file.discovered.v2", 0, 0L, "key", payload));
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-                "media.file.discovered.v1", 0, 0L, "key", payload));
+                "media.file.discovered.v2", 0, 0L, "key", payload));
         assertThat(processed.count()).isEqualTo(processedBefore + 1);
         assertThat(outbox.count()).isEqualTo(discoveryOutboxBefore + 1);
         var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, "EVENT-001")
@@ -155,15 +155,15 @@ class CatalogIntegrationTest {
     void convergesAssetBeforeVideoAndDeduplicatesRedelivery() throws Exception {
         long processedBefore = processed.count();
         long outboxBefore = outbox.count();
-        MediaFileDiscoveredV1 image = event("USE", "use-title-studio", "IMAGE", "FullPics/sample (1).jpg");
-        MediaFileDiscoveredV1 video = event("USE", "use-title-studio", "PRIMARY_VIDEO", "Syncdroid/sample.mp4");
+        MediaFileDiscoveredV2 image = event("USE", "use-title-studio", "IMAGE", "FullPics/sample (1).jpg");
+        MediaFileDiscoveredV2 video = event("USE", "use-title-studio", "PRIMARY_VIDEO", "Syncdroid/sample.mp4");
 
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-                "media.file.discovered.v1", 0, 0L, "key", json.writeValueAsString(image)));
+                "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(image)));
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-                "media.file.discovered.v1", 0, 0L, "key", json.writeValueAsString(image)));
+                "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(image)));
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-                "media.file.discovered.v1", 0, 0L, "key", json.writeValueAsString(video)));
+                "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(video)));
 
         var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(
                         Region.USE, SubjectType.VIDEO, "use-title-studio")
@@ -209,7 +209,7 @@ class CatalogIntegrationTest {
         assertThat(outbox.findById(event.id()).orElseThrow().publishedAt()).isNotNull();
 
         var deadLetter = new CatalogDeadLetterService.DeadLetterCommand(
-                "media.file.discovered.v1", 1, 42L, "key", "payload", "invalid payload");
+                "media.file.discovered.v2", 1, 42L, "key", "payload", "invalid payload");
         assertThat(deadLetterService.record(deadLetter)).isTrue();
         assertThat(deadLetterService.record(deadLetter)).isFalse();
         assertThat(deadLetters.count()).isEqualTo(1);
@@ -323,17 +323,22 @@ class CatalogIntegrationTest {
                 """.formatted(clientRef, relativePath, identityKey, role);
     }
 
-    private MediaFileDiscoveredV1 event(String region, String identityKey, String role, String path) {
-        return new MediaFileDiscoveredV1(
+    private MediaFileDiscoveredV2 event(String region, String identityKey, String role, String path) {
+        return new MediaFileDiscoveredV2(
                 UUID.randomUUID(),
-                "media.file.discovered.v1",
+                "media.file.discovered.v2",
                 Instant.now(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 region,
                 "VIDEO",
                 identityKey,
+                identityKey,
+                null,
+                null,
                 "Event sample",
+                java.util.List.of(),
+                java.util.List.of(),
                 role,
                 "fixture",
                 path);

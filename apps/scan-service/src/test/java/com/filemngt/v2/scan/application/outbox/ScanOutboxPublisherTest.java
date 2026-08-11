@@ -55,7 +55,7 @@ class ScanOutboxPublisherTest {
         return new ScanOutboxEventEntity(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                "media.file.discovered.v1",
+                "media.file.discovered.v2",
                 "JOKE:VIDEO:JOKE-001",
                 "{}",
                 "correlation-123",

@@ -12,7 +12,7 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 - Tích hợp `CatalogRegistryClient` gọi `catalog-service` lấy immutable `RegistrySnapshot` trước khi bắt đầu `scan_run`.
 - Tích hợp `CatalogExistenceClient` gọi internal Catalog API sau parse changed candidate và trước persistence proposal.
 - API preview, review, approve/reject scan item.
-- Event `media.file.discovered.v1` sau approval.
+- Event `media.file.discovered.v2` sau approval.
 
 ## Invariants
 
