@@ -267,6 +267,34 @@ paths:
                 $ref: '#/components/schemas/ScanProposalDecision'
         '400':
           $ref: '#/components/responses/ValidationProblem'
+  /api/v2/scans/review-queue/decision-jobs:
+    post:
+      operationId: enqueueScanBulkDecision
+      summary: Enqueue a durable bounded bulk decision job
+      parameters:
+        - { name: rootKey, in: query, required: false, schema: { type: string } }
+        - { name: search, in: query, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecisionRequest' }
+      responses:
+        '202':
+          description: Durable job accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkDecisionAccepted' }
+  /api/v2/scans/review-queue/reopen-jobs:
+    post:
+      operationId: enqueueScanBulkReopen
+      summary: Enqueue a durable bounded bulk reopen job
+      responses:
+        '202':
+          description: Durable job accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkDecisionAccepted' }
   /api/v2/scans/issues/{issueId}/recheck:
     post:
       operationId: requestScanIssueRecheck
@@ -529,6 +557,11 @@ components:
         decision: { type: string, enum: [APPROVE, REJECT] }
         processedCount: { type: integer }
     IssueRecheckAccepted:
+      type: object
+      required: [jobId]
+      properties:
+        jobId: { type: string, format: uuid }
+    BulkDecisionAccepted:
       type: object
       required: [jobId]
       properties:

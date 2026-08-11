@@ -34,7 +34,7 @@
 | BT-06A — Review queue baseline | [FT-032](../../../../../docs/features/032-scan-review-queue/03-plan.md) | `DONE` code tối thiểu, verification/review còn chờ | Global queue/history hiện dùng offset và query anti-join lịch sử; chưa có index evidence. |
 | BT-06B — Review read model | [FT-033](../../../../../docs/features/033-scan-review-read-model/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Generation projection, durable worker, fallback read và decision synchronization đã có code; migration/runtime evidence deferred. |
 | BT-06C — Targeted issue recheck | [FT-038](../../../../../docs/features/038-targeted-issue-recheck/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Durable one-issue job, server-side root/path resolve, observation run và projection refresh; runtime verification deferred. |
-| BT-07 — Durable bulk decision | Chưa mở FT | `WAITING` | Thay bulk một transaction/materialize-all bằng job persisted, chunk bounded và restart-safe. |
+| BT-07 — Durable bulk decision | [FT-039](../../../../../docs/features/039-durable-bulk-decision/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Async job filter/action, lease claim và bounded projection batch; selection cutoff/E2E verification deferred. |
 | BT-08A — Event contract/DLT alignment | [FT-036](../../../../../docs/features/036-event-contract-dlt-alignment/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Contract v2, explicit consumer dispatch và DLT observer cho cả v1/v2; Kafka verification deferred. |
 | BT-08B — Outbox backlog capacity | [FT-037](../../../../../docs/features/037-outbox-backlog-capacity/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Bounded lease claim/`SKIP LOCKED`, conditional publish state và backlog metrics cho Scan/Catalog; runtime verification deferred. |
 
@@ -203,13 +203,12 @@ FT trả [TD-006](../../../../../docs/TECHNICAL_DEBT.md) phải:
 
 BT-06C phụ thuộc FT-033 current-item/projection merge; evidence race và path safety vẫn deferred.
 
-### BT-07 — Durable bulk decision job — chưa mở FT
+### BT-07 — Durable bulk decision job — FT-039 `IMPLEMENTED — VERIFY PENDING`
 
-Baseline cần thay: `decideReviewQueue`/`reopenReviewQueue` hiện lấy toàn bộ candidate thành `List`, dựng
-decision/outbox trong memory và ghi trong một transaction. Với queue lớn, đây là unbounded transaction,
-rollback và heap risk.
+FT-039 bổ sung `decision-jobs`/`reopen-jobs`: filter/action được persist, worker claim lease và xử lý
+`ScanReviewQueueDecisionBatch` từng bounded transaction. API bulk cũ giữ tương thích trong giai đoạn chuyển tiếp.
 
-FT tương lai phải:
+Các gate còn lại:
 
 - Tạo persisted job với filter/scope snapshot hoặc selection rule versioned; trả `202 + jobId` nếu REST
   contract đổi sang async.

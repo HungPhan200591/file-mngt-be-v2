@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.adapter.in.web;
 
 import com.filemngt.v2.scan.adapter.in.web.dto.BatchDecisionResponse;
+import com.filemngt.v2.scan.adapter.in.web.dto.BulkDecisionAccepted;
 import com.filemngt.v2.scan.adapter.in.web.dto.DecisionRequest;
 import com.filemngt.v2.scan.adapter.in.web.dto.IssueRecheckAccepted;
 import com.filemngt.v2.scan.adapter.in.web.dto.StartScanRequest;
@@ -16,6 +17,7 @@ import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.query.ScanQueryService;
+import com.filemngt.v2.scan.application.bulk.BulkDecisionJobService;
 import com.filemngt.v2.scan.application.recheck.IssueRecheckService;
 import com.filemngt.v2.scan.application.scan.ScanService;
 import jakarta.validation.Valid;
@@ -48,6 +50,7 @@ public class ScanController {
     private final ScanQueryService queries;
     private final ScanDecisionService decisions;
     private final IssueRecheckService rechecks;
+    private final BulkDecisionJobService bulkJobs;
     private final ScanRunSseStreamAdapter streams;
 
     public ScanController(
@@ -55,11 +58,13 @@ public class ScanController {
             ScanQueryService queries,
             ScanDecisionService decisions,
             IssueRecheckService rechecks,
+            BulkDecisionJobService bulkJobs,
             ScanRunSseStreamAdapter streams) {
         this.service = service;
         this.queries = queries;
         this.decisions = decisions;
         this.rechecks = rechecks;
+        this.bulkJobs = bulkJobs;
         this.streams = streams;
     }
 
@@ -123,6 +128,22 @@ public class ScanController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public IssueRecheckAccepted recheckIssue(@PathVariable UUID issueId) {
         return new IssueRecheckAccepted(rechecks.enqueue(issueId));
+    }
+
+    @PostMapping("/review-queue/decision-jobs")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public BulkDecisionAccepted enqueueBulkDecision(
+            @RequestParam(required = false) String rootKey,
+            @RequestParam(required = false) String search,
+            @Valid @RequestBody DecisionRequest request) {
+        return new BulkDecisionAccepted(bulkJobs.enqueue(rootKey, search, request.decision()));
+    }
+
+    @PostMapping("/review-queue/reopen-jobs")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public BulkDecisionAccepted enqueueBulkReopen(
+            @RequestParam(required = false) String rootKey, @RequestParam(required = false) String search) {
+        return new BulkDecisionAccepted(bulkJobs.enqueue(rootKey, search, "REOPEN"));
     }
 
     /**

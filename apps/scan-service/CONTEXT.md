@@ -64,6 +64,14 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   dùng lease + root generation fence và atomic pointer swap. Decision/reopen khóa cùng root watermark để giữ
   read-after-commit. Khi root/global projection chưa READY hoặc feature flag tắt, API fallback về historical
   query; projection không là source of truth.
+- Targeted issue recheck (FT-038) là durable job theo `issueId`: worker claim lease ngắn bằng `SKIP LOCKED`,
+  resolve lại path dưới configured root, phân tích một file và tạo observation/run mới. Không nhận absolute
+  path, không walk toàn root; file mất được ghi nhận `MISSING`/`FILE_NOT_FOUND`. Status API, idempotency và
+  lease-owner fencing của các state update vẫn là hardening debt.
+- Bulk decision/reopen (FT-039) là durable job lưu `rootKey/search/action`, worker xử lý bounded batch qua
+  `ScanReviewQueueDecisionBatch` trong transaction riêng, requeue khi còn candidate và hoàn tất khi batch rỗng.
+  Claim dùng lease + `SKIP LOCKED`; selection hiện chưa snapshot cutoff nên candidate mới có thể lọt vào các batch
+  sau, và status API/concurrent verification còn deferred.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không dùng root/path/file name làm metric label.
 - ECS JSON log không được ghi absolute scan root; ELK lỗi không được chặn preview/approval.
