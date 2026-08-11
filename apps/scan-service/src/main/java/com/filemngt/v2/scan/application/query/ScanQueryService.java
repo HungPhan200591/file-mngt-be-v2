@@ -9,8 +9,8 @@ import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
-import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueSummaryView;
 import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
@@ -35,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Cung cấp các truy vấn chỉ đọc cho màn hình scan.
  * Khi trả proposal, class tải quyết định theo tập ID để không tạo truy vấn N+1.
+ * Giữ façade trên 250 dòng tạm thời vì nó là owner duy nhất của historical fallback trong rollout FT-033;
+ * projection mapping đã được tách riêng và façade vẫn dưới ngưỡng tuyệt đối 500 dòng.
  */
 public class ScanQueryService {
     private static final String STARTED_AT = "startedAt";
@@ -49,6 +51,7 @@ public class ScanQueryService {
     private final ScanIssueRepository issues;
     private final ScanDecisionRepository decisions;
     private final ScanEvidenceCodec evidenceCodec;
+    private final ScanReviewProjectionQueryService reviewProjection;
 
     public ScanQueryService(
             ScanProperties properties,
@@ -56,13 +59,15 @@ public class ScanQueryService {
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
             ScanDecisionRepository decisions,
-            ScanEvidenceCodec evidenceCodec) {
+            ScanEvidenceCodec evidenceCodec,
+            ScanReviewProjectionQueryService reviewProjection) {
         this.properties = properties;
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
         this.decisions = decisions;
         this.evidenceCodec = evidenceCodec;
+        this.reviewProjection = reviewProjection;
     }
 
     @Transactional(readOnly = true)
@@ -87,7 +92,9 @@ public class ScanQueryService {
         return ScanViewMapper.run(run, reviewSummary(run.rootKey()));
     }
 
-    /** SSE chỉ cần số liệu durable của run; không được chạy aggregate worklist trên worker path. */
+    /**
+     * SSE chỉ cần số liệu durable của run; không được chạy aggregate worklist trên worker path.
+     */
     public ScanRunView getForStream(UUID runId) {
         return ScanViewMapper.run(runs.findById(runId).orElseThrow(() -> new ScanRunNotFoundException(runId)));
     }
@@ -114,17 +121,26 @@ public class ScanQueryService {
             String state, String rootKey, String search, int page, int size) {
         String normalizedState = normalizeQueueState(state);
         String normalizedRootKey = normalizeRootKey(rootKey);
-        var result = proposals.findReviewQueue(normalizedState, normalizedRootKey, normalizeSearch(search), PageRequest.of(page, size));
-        var runsById = runs.findAllById(result.getContent().stream()
-                        .map(ScanProposalEntity::scanRunId)
-                        .toList())
-                .stream()
-                .collect(Collectors.toMap(run -> run.id(), Function.identity()));
-        var decisionsByProposal = decisions.findAllById(result.getContent().stream()
-                        .map(ScanProposalEntity::id)
-                        .toList())
-                .stream()
-                .collect(Collectors.toMap(ScanDecisionEntity::proposalId, Function.identity()));
+        String normalizedSearch = normalizeSearch(search);
+        if (projectionCanServe(normalizedRootKey)) {
+            return reviewProjection.proposals(normalizedState, normalizedRootKey, normalizedSearch, page, size);
+        }
+        var result = proposals.findReviewQueue(
+                normalizedState, normalizedRootKey, normalizeSearch(search), PageRequest.of(page, size));
+        var runsById =
+                runs
+                        .findAllById(result.getContent().stream()
+                                .map(ScanProposalEntity::scanRunId)
+                                .toList())
+                        .stream()
+                        .collect(Collectors.toMap(run -> run.id(), Function.identity()));
+        var decisionsByProposal =
+                decisions
+                        .findAllById(result.getContent().stream()
+                                .map(ScanProposalEntity::id)
+                                .toList())
+                        .stream()
+                        .collect(Collectors.toMap(ScanDecisionEntity::proposalId, Function.identity()));
         return ScanViewMapper.page(result.map(proposal -> reviewQueueView(
                 proposal,
                 runsById.get(proposal.scanRunId()),
@@ -132,19 +148,27 @@ public class ScanQueryService {
                 normalizedState)));
     }
 
-    /** Trả lịch sử issue của các run đã hoàn tất để lỗi cũ không bị che bởi lần scan sau. */
+    /**
+     * Trả lịch sử issue của các run đã hoàn tất để lỗi cũ không bị che bởi lần scan sau.
+     */
     @Transactional(readOnly = true)
     public ScanPageView<ReviewQueueIssueView> reviewQueueIssues(
             String rootKey, String code, String search, int page, int size) {
+        String normalizedRootKey = normalizeRootKey(rootKey);
+        String normalizedCode = normalizeOptional(code);
+        String normalizedSearch = normalizeSearch(search);
+        if (projectionCanServe(normalizedRootKey)) {
+            return reviewProjection.issues(normalizedRootKey, normalizedCode, normalizedSearch, page, size);
+        }
         var result = issues.findCompletedRunIssueHistory(
-                normalizeRootKey(rootKey), normalizeOptional(code), normalizeSearch(search), PageRequest.of(page, size));
-        var runsById = runs.findAllById(result.getContent().stream()
+                normalizedRootKey, normalizedCode, normalizedSearch, PageRequest.of(page, size));
+        var runsById = runs
+                .findAllById(result.getContent().stream()
                         .map(ScanIssueEntity::scanRunId)
                         .toList())
                 .stream()
                 .collect(Collectors.toMap(run -> run.id(), Function.identity()));
-        return ScanViewMapper.page(result.map(issue -> reviewQueueIssueView(
-                issue, runsById.get(issue.scanRunId()))));
+        return ScanViewMapper.page(result.map(issue -> reviewQueueIssueView(issue, runsById.get(issue.scanRunId()))));
     }
 
     @Transactional(readOnly = true)
@@ -156,7 +180,9 @@ public class ScanQueryService {
         return ScanViewMapper.page(result.map(this::issueView));
     }
 
-    /** Chọn đúng query repository theo tổ hợp filter mà không materialize toàn bộ issue trong memory. */
+    /**
+     * Chọn đúng query repository theo tổ hợp filter mà không materialize toàn bộ issue trong memory.
+     */
     private Page<ScanIssueEntity> findIssues(UUID runId, String code, String search, PageRequest pageable) {
         boolean hasCode = code != null && !code.isBlank();
         boolean hasSearch = search != null && !search.isBlank();
@@ -174,7 +200,9 @@ public class ScanQueryService {
         return issues.findByScanRunId(runId, pageable);
     }
 
-    /** Ghép proposal với quyết định đã bulk-load trước đó để dựng view không tạo N+1. */
+    /**
+     * Ghép proposal với quyết định đã bulk-load trước đó để dựng view không tạo N+1.
+     */
     private ScanProposalView proposalView(ScanProposalEntity proposal, ScanDecisionEntity decision) {
         return new ScanProposalView(
                 proposal.id(),
@@ -224,7 +252,8 @@ public class ScanQueryService {
 
     private String normalizeRootKey(String rootKey) {
         if (rootKey == null || rootKey.isBlank()) return null;
-        boolean knownRoot = properties.getRoots().stream().anyMatch(root -> root.key().equals(rootKey));
+        boolean knownRoot =
+                properties.getRoots().stream().anyMatch(root -> root.key().equals(rootKey));
         if (!knownRoot) throw new InvalidRequestException("Unknown root key: " + rootKey);
         return rootKey;
     }
@@ -238,6 +267,9 @@ public class ScanQueryService {
     }
 
     private ReviewQueueSummaryView reviewSummary(String rootKey) {
+        if (projectionCanServe(rootKey)) {
+            return reviewProjection.summary(rootKey);
+        }
         Object[] proposalCounts = proposals.countCurrentByState(rootKey).getFirst();
         return new ReviewQueueSummaryView(
                 ((Number) proposalCounts[0]).longValue(),
@@ -250,7 +282,13 @@ public class ScanQueryService {
         return new ScanIssueView(issue.id(), issue.sourceRelativePath(), issue.code(), issue.detail());
     }
 
-    /** Phân biệt scan không tồn tại với scan hợp lệ nhưng chưa có proposal/issue. */
+    private boolean projectionCanServe(String rootKey) {
+        return reviewProjection.canServe(rootKey);
+    }
+
+    /**
+     * Phân biệt scan không tồn tại với scan hợp lệ nhưng chưa có proposal/issue.
+     */
     private void ensureRunExists(UUID runId) {
         if (!runs.existsById(runId)) {
             throw new ScanRunNotFoundException(runId);

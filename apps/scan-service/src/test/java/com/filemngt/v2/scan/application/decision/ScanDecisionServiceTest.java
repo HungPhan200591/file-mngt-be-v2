@@ -39,13 +39,16 @@ class ScanDecisionServiceTest {
         var decisions = mock(ScanDecisionRepository.class);
         var outbox = mock(ScanOutboxEventRepository.class);
         var eventFactory = mock(ScanOutboxEventFactory.class);
+        var projection = mock(ScanReviewDecisionProjection.class);
+        var queueBatches = mock(ScanReviewQueueDecisionBatch.class);
         var outboxEvent = mock(ScanOutboxEventEntity.class);
         when(runs.findById(scanId)).thenReturn(Optional.of(run));
         when(proposals.findByScanRunId(scanId)).thenReturn(List.of(first, second));
         when(decisions.findAllById(anyList())).thenReturn(List.of());
         when(eventFactory.create(any(UUID.class), eq(scanId), any(ScanProposalEntity.class), eq(run)))
                 .thenReturn(outboxEvent);
-        var service = new ScanDecisionService(runs, proposals, decisions, outbox, eventFactory);
+        var service =
+                new ScanDecisionService(runs, proposals, decisions, outbox, eventFactory, projection, queueBatches);
 
         int processed = service.decideAll(scanId, "APPROVE");
 
@@ -57,6 +60,8 @@ class ScanDecisionServiceTest {
         verify(eventFactory, times(2)).create(any(UUID.class), eq(scanId), any(ScanProposalEntity.class), eq(run));
         verify(decisions).saveAll(argThat(values -> size(values) == 2));
         verify(outbox).saveAll(argThat(values -> size(values) == 2));
+        verify(projection).lock("fixture");
+        verify(projection, times(2)).apply(any(UUID.class), eq("fixture"), eq("APPROVE"), any(Instant.class));
     }
 
     private ScanProposalEntity proposal(UUID scanId, String key) {

@@ -23,7 +23,7 @@ counter worklist và phân trang vì vậy chậm và cạnh tranh tài nguyên 
   row/index write theo từng proposal/issue vào COPY chunk, không đổi lease/checkpoint hay
   latency hot path.
 - Projection bắt kịp theo batch, idempotent và có thể replay/rebuild một root; trong lúc
-  đồng bộ, API trả trạng thái đồng bộ rõ ràng thay vì số liệu giả.
+  đồng bộ, API fallback về query authority hiện tại thay vì trả số liệu projection stale.
 - Contract REST giữ path và pagination hiện có. Bổ sung field trạng thái projection chỉ
   theo kiểu additive nếu FE cần hiển thị đồng bộ.
 
@@ -34,10 +34,8 @@ counter worklist và phân trang vì vậy chậm và cạnh tranh tài nguyên 
   semantics `APPROVE` bất biến.
 - Không triển khai recheck từng issue; hạng mục đó vẫn là `TD-006`.
 
-## Câu hỏi/rủi ro mở
+## Rủi ro cần kiểm chứng
 
-- Cần chốt durable delta cho projector sau terminal: giữ một snapshot delta tối thiểu hay
-  rebuild root set-based. `scan_inventory_diff_stage` là `UNLOGGED` scratch và bị dọn nên
-  không được dùng làm nguồn replay.
-- Cần benchmark fixture 1M file: thời gian catch-up, queue depth, lock contention và
-  read-after-decision; quyết định SLA trước khi chọn polling job hay consumer outbox nội bộ.
+- Đã chọn root rebuild set-based với database polling task; `scan_inventory_diff_stage` không là replay source.
+- Cần benchmark fixture 1M để kiểm chứng catch-up, queue depth, lock contention, resource isolation và
+  read-after-decision trước cutover production.

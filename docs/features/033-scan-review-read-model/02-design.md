@@ -7,90 +7,83 @@ Brief: [01-brief.md](./01-brief.md)
 
 ```mermaid
 flowchart TB
-    SCAN["<font color='white'>Scan reconciliation<br/>write model</font>"]
-    WRITE[("<font color='white'>scan_proposal / issue<br/>inventory / decision</font>")]
-    TASK[("<font color='white'>projection task<br/>durable delta reference</font>")]
-    PROJECTOR["<font color='white'>Review projector<br/>batch + idempotent</font>"]
-    READ[("<font color='white'>scan_review_item<br/>scan_review_summary</font>")]
-    API["<font color='white'>Scan REST API<br/>queue + counters</font>"]
-    DECIDE["<font color='white'>Approve / reject<br/>reopen transaction</font>"]
+    SCAN["<font color='white'>Scan finalize<br/>write authority</font>"]
+    TASK[("<font color='white'>Projection task<br/>root generation</font>")]
+    WORKER["<font color='white'>Root projector<br/>lease + retry</font>"]
+    STAGED[("<font color='white'>Generation snapshot<br/>proposal + issue</font>")]
+    ROOT[("<font color='white'>Root watermark<br/>atomic pointer</font>")]
+    API["<font color='white'>Review API<br/>projection or fallback</font>"]
+    DECIDE["<font color='white'>Decision use case<br/>write + projection</font>"]
 
-    SCAN -->|"terminal commit"| WRITE
-    SCAN -->|"O(1) task"| TASK
-    TASK -->|"replay batch"| PROJECTOR
-    WRITE -->|"source observations"| PROJECTOR
-    PROJECTOR -->|"upsert current item"| READ
-    API -->|"read only"| READ
-    DECIDE -->|"write decision"| WRITE
-    DECIDE -->|"same transaction"| READ
+    SCAN -->|"Terminal transaction"| TASK
+    TASK -->|"Claim with lease"| WORKER
+    WORKER -->|"Build next generation"| STAGED
+    STAGED -->|"Fence and swap"| ROOT
+    ROOT -->|"Select visible generation"| API
+    DECIDE -->|"Lock root and update"| ROOT
 
     style SCAN fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style WRITE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style TASK fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style PROJECTOR fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style READ fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style TASK fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style WORKER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style STAGED fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style ROOT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style API fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style DECIDE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ## Quyết định
 
-- Áp dụng CQRS-lite trong cùng `scan_db`: write model vẫn là authority; read model chỉ là
-  projection có thể replay. Chưa tách physical read database để tránh replica lag sau
-  approve/reject/reopen.
-- Read API chỉ đọc projection sau cutover. Không dùng `scan_proposal`/`scan_issue` history
-  để suy diễn current state trong request path.
-- Projection của terminal scan chạy bất đồng bộ theo batch. Terminal transaction chỉ ghi
-  task nhỏ, nên COPY/reconciliation không chờ projection viết hàng loạt.
-- Decision người dùng cập nhật projection đồng bộ trong transaction quyết định. Điều này
-  bảo đảm read-after-commit cho một action mà không ảnh hưởng scan worker.
-- `V14__add_review_queue_read_indexes.sql` là biện pháp chuyển tiếp cho query lịch sử; khi
-  projection phục vụ toàn bộ read path, benchmark quyết định giữ hay bỏ các index này.
+- Dùng CQRS-lite trong cùng `scan_db`; write model vẫn là authority và projection có thể rebuild.
+- Chọn **async root rebuild set-based**, không lưu durable delta theo từng chunk. Terminal finalize chỉ enqueue
+  một task O(1) trong cùng transaction với `markMissing` và `scan_run.COMPLETED`.
+- Mỗi task nhận `generation` tăng đơn điệu theo root. Worker dựng generation mới bên cạnh generation đang
+  phục vụ, sau đó conditional swap watermark; reader không thấy snapshot nửa cũ nửa mới.
+- Task nội bộ dùng polling database, không thêm Kafka/event contract. Claim dùng lease, retry bounded và stale
+  reclaim; worker cũ chỉ được swap khi còn lease và generation chưa bị task mới hơn vượt qua.
+- Decision transaction khóa root watermark, ghi `scan_decision`/approval outbox và cập nhật generation đang
+  hiển thị. Projector cũng khóa cùng root trước khi merge decision cuối và swap, tránh lost update.
+- Khi projection của phạm vi query chưa `READY`, API dùng query lịch sử hiện tại làm authoritative fallback.
+  Contract REST không đổi và không trả số liệu projection stale như thể đã đồng bộ.
+- Bulk action chọn ID từ projection theo batch 500; write authority vẫn là proposal/decision/outbox. Fallback
+  lịch sử chỉ tồn tại trong giai đoạn projection chưa READY.
 
 ## Domain và data ownership
 
-`scan-service` sở hữu toàn bộ bảng mới trong `scan_db`:
+`scan-service` sở hữu các bảng mới trong `scan_db`:
 
-| Thành phần | Dữ liệu chính | Mục đích |
-| --- | --- | --- |
-| `scan_review_item` | `root_key`, `source_relative_path`, kind proposal/issue, source ID/run, state, payload view, observed/updated time | Một item review hiện hành, khóa duy nhất theo root/path. |
-| `scan_review_summary` | `root_key`, pending/rejected/approved/issue count, projection watermark | Counter O(1) theo root. |
-| `scan_review_projection_task` | task ID, root/run, delta reference, status, attempts, checkpoint, error | Điều phối replay idempotent và theo dõi lag. |
+| Bảng | Trách nhiệm |
+| --- | --- |
+| `scan_review_projection_root` | Cấp generation, giữ visible generation, source run, status và lỗi gần nhất theo root. |
+| `scan_review_projection_task` | Durable task, lease owner/deadline, retry budget và terminal state. |
+| `scan_review_proposal` | Snapshot proposal theo `root_key + generation`, gồm decision state phục vụ queue. |
+| `scan_review_issue` | Snapshot issue theo `root_key + generation` phục vụ filter/pagination. |
 
-`scan_proposal`, `scan_issue`, `scan_decision` và inventory không bị thay thế. Projection
-không chứa absolute path, không là source of truth và phải tái tạo được từ write model cùng
-durable delta đã chốt.
+Không bảng mới nào là source of truth. `scan_proposal`, `scan_issue`, `scan_decision`, inventory và approval
+outbox không bị thay thế. Không có cross-database join/write và không lưu absolute filesystem path.
 
-## REST/event contract
+## Transaction và ordering
 
-- Giữ nguyên `GET /api/v2/scans/review-queue`, `.../issues`, `GET /{scanId}` và decision
-  endpoints. Response item/pagination tương thích ngược.
-- Có thể bổ sung `projectionStatus` và `projectionUpdatedAt` vào scan summary theo kiểu
-  additive; không dùng SSE để phát individual item.
-- Không publish Kafka contract liên service trong pha đầu. Task/projector là cơ chế nội bộ
-  `scan-service`; nếu sau này dùng outbox/Kafka phải version hóa event và dedupe theo task ID.
+1. `finalizeRun`: validate Scan lease, mark missing, xóa staging, complete run và enqueue task duy nhất theo
+   `scan_run_id` trong cùng `REQUIRES_NEW` transaction.
+2. Worker claim tối đa một task qua `FOR UPDATE SKIP LOCKED`; lease dài hơn statement timeout.
+3. Worker insert snapshot proposal/issue set-based cho generation mới. Generation cũ vẫn phục vụ request.
+4. Trước swap, worker khóa root, đồng bộ decision authority lần cuối và kiểm tra task lease/fence.
+5. Generation cũ chỉ được dọn sau khi pointer mới commit. Task cũ hơn generation hiện tại trở thành no-op.
+6. Worker crash làm transaction build rollback; task được reclaim sau lease. Quá retry/deadline chuyển `FAILED`.
 
-## Luồng lỗi, idempotency và consistency
+## REST và compatibility
 
-1. Terminal scan commit write model và tạo task chỉ một lần theo `scanRunId`; retry cùng run
-   không tạo task duplicate.
-2. Projector lease task, xử lý batch, checkpoint và upsert theo unique root/path. Worker
-   crash giữ task retryable; task stale được reclaim an toàn.
-3. Projector phải xóa item khi inventory xác nhận `MISSING` hoặc khi changed path không còn
-   observation review. Durable delta phải biểu diễn được cả hai trường hợp này.
-4. Nếu projection lag, API trả watermark/status; queue có thể trả dữ liệu đến watermark nhưng
-   không được báo số liệu đã đồng bộ hoàn toàn. Action decision vẫn đọc/ghi write model rồi
-   cập nhật projection cùng transaction.
-5. Rebuild root tạo task đặc biệt, chặn hai projector cùng root hoặc fence theo version; chỉ
-   swap/read projection sau khi rebuild hoàn tất để tránh danh sách nửa cũ nửa mới.
+- Giữ nguyên endpoint, request/response và pagination của Scan v1; không cần đổi OpenAPI.
+- Root-specific request dùng projection khi root `READY`. Global request chỉ dùng projection khi mọi root đã
+  materialize xong; nếu không thì fallback toàn bộ sang query lịch sử để giữ ordering/count nhất quán.
+- Không đổi SSE, Catalog event, Gateway route hay FE trong FT-033.
 
-## Hiệu năng, quan sát và bảo mật tối thiểu
+## Resource budget và operability
 
-- Projector dùng set-based SQL/batch bounded; không JPA loop trên hàng triệu item, không đọc
-  lại full root cho từng trang REST.
-- Index của read table phục vụ đúng query: primary key `(root_key, source_relative_path)`,
-  state/page ordering và root summary. Các index này nằm ngoài COPY hot tables.
-- Metric: backlog task, age watermark, item processed/s, retry/failure và read query latency;
-  không dùng root/path làm metric label.
-- Log chỉ task/run ID, root key và checkpoint; không log absolute filesystem path hoặc payload
-  evidence đầy đủ.
+- Một worker mỗi service instance, một task mỗi lần; batch decision 500 item.
+- Projection statement timeout 45 giây, lease 90 giây, tối đa 5 lần thử, total task deadline 30 phút.
+- Scheduler không nhận task mới khi shutdown; không release lease trong callback shutdown. Instance khác chỉ
+  reclaim sau deadline để worker cũ không commit chồng.
+- Log/metric chỉ dùng task/run ID, generation và aggregate; không dùng path làm label hay log evidence payload.
+- Benchmark bắt buộc so sánh Scan 1M khi projector có tải, projection lag và `EXPLAIN (ANALYZE, BUFFERS)`
+  trước cutover production.

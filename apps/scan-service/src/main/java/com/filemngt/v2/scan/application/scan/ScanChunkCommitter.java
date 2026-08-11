@@ -3,8 +3,8 @@ package com.filemngt.v2.scan.application.scan;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventorySetWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
-import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueCopyWriter;
+import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalCopyWriter;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
@@ -127,7 +127,7 @@ public class ScanChunkCommitter {
         validateLease(loadRun(lease), lease);
         inventorySetWriter.markMissingFromStage(rootKey, runId);
         stageWriter.deleteRun(runId);
-        completeRun(runId, workerId, progress);
+        completeRun(runId, workerId, rootKey, progress);
         LOGGER.info(
                 "Đã finalize scan runId={}: files={}, proposals={}, issues={}",
                 runId,
@@ -182,10 +182,10 @@ public class ScanChunkCommitter {
         }
     }
 
-    private void completeRun(UUID runId, String workerId, ChunkProgress progress) {
+    private void completeRun(UUID runId, String workerId, String rootKey, ChunkProgress progress) {
         Instant finishedAt = Instant.now();
         var completion = new Completion(
-                runId, workerId, progress.files(), progress.proposals(), progress.issues(), finishedAt);
+                runId, workerId, rootKey, progress.files(), progress.proposals(), progress.issues(), finishedAt);
         if (!runProgressWriter.complete(completion)) {
             throw new ScanLeaseExpiredException(runId, workerId);
         }

@@ -41,6 +41,14 @@ scan:
   lock-timeout-seconds: ${SCAN_LOCK_TIMEOUT_SECONDS:5}
   business-chunk-size: ${SCAN_BUSINESS_CHUNK_SIZE:100000}
   reconciliation-parallelism: ${SCAN_RECONCILIATION_PARALLELISM:8}
+  review-projection:
+    enabled: ${SCAN_REVIEW_PROJECTION_ENABLED:true}
+    fixed-delay-ms: ${SCAN_REVIEW_PROJECTION_FIXED_DELAY_MS:1000}
+    statement-timeout-seconds: ${SCAN_REVIEW_PROJECTION_STATEMENT_TIMEOUT_SECONDS:45}
+    lease-seconds: ${SCAN_REVIEW_PROJECTION_LEASE_SECONDS:90}
+    max-attempts: ${SCAN_REVIEW_PROJECTION_MAX_ATTEMPTS:5}
+    total-deadline-seconds: ${SCAN_REVIEW_PROJECTION_TOTAL_DEADLINE_SECONDS:1800}
+    decision-batch-size: ${SCAN_REVIEW_PROJECTION_DECISION_BATCH_SIZE:500}
   sse:
     heartbeat-seconds: ${SCAN_SSE_HEARTBEAT_SECONDS:15}
     connection-lifetime-seconds: ${SCAN_SSE_CONNECTION_LIFETIME_SECONDS:300}

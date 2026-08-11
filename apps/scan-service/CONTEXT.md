@@ -6,7 +6,8 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 
 ## Owns
 
-- Database `scan_db`: job, item, proposal, issue, inventory, staging reconciliation và outbox. Staging là scratch state `UNLOGGED`, không là source of truth.
+- Database `scan_db`: job, item, proposal, issue, inventory, staging reconciliation, outbox và review projection.
+  Staging là scratch state `UNLOGGED`, không là source of truth.
 - Strategy/registry parser theo root và region.
 - Tích hợp `CatalogRegistryClient` gọi `catalog-service` lấy immutable `RegistrySnapshot` trước khi bắt đầu `scan_run`.
 - API preview, review, approve/reject scan item.
@@ -53,6 +54,11 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   query lẫn insert; không tạo thêm index đơn cột hoặc composite trùng leading columns
   của unique constraint vì gây write amplification nghiêm trọng khi bulk insert.
 - Approval ghi item và outbox cùng transaction.
+- Review queue CQRS-lite dùng `scan_review_projection_root`, durable task và proposal/issue snapshot theo
+  generation. Terminal finalize chỉ enqueue task O(1); projector root rebuild set-based ngoài Scan hot path,
+  dùng lease + root generation fence và atomic pointer swap. Decision/reopen khóa cùng root watermark để giữ
+  read-after-commit. Khi root/global projection chưa READY hoặc feature flag tắt, API fallback về historical
+  query; projection không là source of truth.
 - Dùng `platform/observability` cho direct-request correlation MDC; expose Prometheus chỉ trên direct
   service port và không dùng root/path/file name làm metric label.
 - ECS JSON log không được ghi absolute scan root; ELK lỗi không được chặn preview/approval.

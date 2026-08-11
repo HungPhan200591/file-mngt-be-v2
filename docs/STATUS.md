@@ -23,16 +23,18 @@ Phạm vi chỉ là Catalog provider cho SC-01 BT-04:
   terminal timeline và chunk persistence theo `runId`.
 - [FT-031 persistence optimization](./features/031-scan-reconciliation-persistence-optimization/03-plan.md)
   đã benchmark run 1M file dưới 30 giây; không tuning lại chunk size nếu chưa có hypothesis/evidence mới.
-- [FT-032 Scan review queue](./features/032-scan-review-queue/03-plan.md) có code tối thiểu ở trạng thái
-  `DONE`, nhưng còn chờ architecture review; FT-033 là hướng xử lý nền tảng cho read path tiếp theo.
+- [FT-032 Scan review queue](./features/032-scan-review-queue/03-plan.md) có code tối thiểu ở trạng thái `DONE`.
+- [FT-033 Scan review read model](./features/033-scan-review-read-model/03-plan.md) đã hoàn tất code cho
+  generation projection, durable worker, fallback read và decision synchronization. Implementation review
+  `CONDITIONAL`: compile/Testcontainers/migration/runtime evidence được deferred theo yêu cầu người dùng.
 - [FT-013 Media Worker processing foundation](./features/013-media-worker-processing-foundation/03-plan.md)
   vẫn `READY`, nhưng không phải trọng tâm của session hiện tại.
 
 ## Deferred và gate rộng hơn
 
-- [FT-033 Scan review read model](./features/033-scan-review-read-model/03-plan.md) vẫn `DRAFT` và
-  **NOT READY**; các quyết định durable delta/rebuild, handoff/fence, projector liveness, freshness và
-  rollout vẫn theo [architecture review](./features/033-scan-review-read-model/05-architecture-review.md).
+- FT-033 còn gate verification trước production cutover: migration/Testcontainers, decision race, stale lease,
+  query plan và benchmark 1M dưới projector load; xem
+  [implementation review](./features/033-scan-review-read-model/06-implementation-review.md).
 - Verification deferred: FT-025 semantics Testcontainers, FT-026 timeout/lease-loss, FT-027 E2E
   Gateway/SSE; thực hiện theo Plan owner khi có scope hardening phù hợp.
 - Phase 4 còn thiếu Media Worker processing pipeline; Phase 7 còn thiếu importer/backfill V1.
@@ -48,4 +50,5 @@ liên kết snapshot; chi tiết remediation nằm ở debt/feature owner.
 1. Review/chấp thuận contract và decision table của FT-034; chưa cần sửa code nếu chỉ đang chốt feature.
 2. Khi người dùng yêu cầu, triển khai riêng Catalog provider FT-034 và direct integration test; không kéo
    Scan client vào cùng scope.
-3. Chỉ sau evidence FT-034 mới mở BT-05 Scan–Catalog filtering; FT-033 tiếp tục chờ các gate kiến trúc.
+3. Khi ưu tiên verification, chạy FT-033 Testcontainers/benchmark đã deferred; chỉ sau evidence FT-034 mới
+   mở BT-05 Scan–Catalog filtering.

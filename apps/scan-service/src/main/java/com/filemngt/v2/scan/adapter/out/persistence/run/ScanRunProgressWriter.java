@@ -1,44 +1,49 @@
 package com.filemngt.v2.scan.adapter.out.persistence.run;
 
+import com.filemngt.v2.scan.adapter.out.persistence.review.ScanReviewProjectionTaskStore;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-/** Ghi checkpoint/finalize conditional để worker mất lease không thể ghi đè terminal state. */
+/**
+ * Ghi checkpoint/finalize conditional và tạo projection handoff cùng terminal transaction.
+ */
 @Component
 public class ScanRunProgressWriter {
     private static final String ADVANCE_CHECKPOINT_SQL = """
-            UPDATE scan_run
-            SET checkpoint_chunk = ?,
-                scanned_file_count = ?,
-                proposal_count = ?,
-                issue_count = ?,
-                checkpoint_at = ?,
-                lease_until = ?
-            WHERE id = ?
-              AND status = 'RUNNING'
-              AND worker_id = ?
-              AND lease_until > ?
-            """;
+        UPDATE scan_run
+        SET checkpoint_chunk = ?,
+            scanned_file_count = ?,
+            proposal_count = ?,
+            issue_count = ?,
+            checkpoint_at = ?,
+            lease_until = ?
+        WHERE id = ?
+          AND status = 'RUNNING'
+          AND worker_id = ?
+          AND lease_until > ?
+        """;
     private static final String COMPLETE_SQL = """
-            UPDATE scan_run
-            SET scanned_file_count = ?,
-                proposal_count = ?,
-                issue_count = ?,
-                finished_at = ?,
-                status = 'COMPLETED'
-            WHERE id = ?
-              AND status = 'RUNNING'
-              AND worker_id = ?
-              AND lease_until > ?
-            """;
+        UPDATE scan_run
+        SET scanned_file_count = ?,
+            proposal_count = ?,
+            issue_count = ?,
+            finished_at = ?,
+            status = 'COMPLETED'
+        WHERE id = ?
+          AND status = 'RUNNING'
+          AND worker_id = ?
+          AND lease_until > ?
+        """;
 
     private final JdbcTemplate jdbcTemplate;
+    private final ScanReviewProjectionTaskStore projectionTasks;
 
-    public ScanRunProgressWriter(JdbcTemplate jdbcTemplate) {
+    public ScanRunProgressWriter(JdbcTemplate jdbcTemplate, ScanReviewProjectionTaskStore projectionTasks) {
         this.jdbcTemplate = jdbcTemplate;
+        this.projectionTasks = projectionTasks;
     }
 
     public boolean advanceCheckpoint(Checkpoint checkpoint) {
@@ -66,6 +71,9 @@ public class ScanRunProgressWriter {
                 completion.runId(),
                 completion.workerId(),
                 Timestamp.from(completion.finishedAt()));
+        if (updated == 1) {
+            projectionTasks.enqueue(completion.runId(), completion.rootKey());
+        }
         return updated == 1;
     }
 
@@ -82,6 +90,7 @@ public class ScanRunProgressWriter {
     public record Completion(
             UUID runId,
             String workerId,
+            String rootKey,
             long scannedFiles,
             long proposals,
             long issues,
