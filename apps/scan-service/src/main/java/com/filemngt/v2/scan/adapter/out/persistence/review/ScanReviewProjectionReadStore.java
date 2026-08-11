@@ -20,9 +20,9 @@ public class ScanReviewProjectionReadStore {
          AND root.current_generation = item.generation
          AND root.status = 'READY'
         WHERE item.decision_state = ?
-          AND (? IS NULL OR item.root_key = ?)
-          AND (? IS NULL OR item.scan_run_id = ?)
-          AND (? IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?, '%'))
+          AND (?::text IS NULL OR item.root_key = ?)
+          AND (?::uuid IS NULL OR item.scan_run_id = ?)
+          AND (?::text IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?, '%'))
                OR lower(coalesce(item.display_title, '')) LIKE lower(concat('%', ?, '%'))
                OR lower(item.identity_key) LIKE lower(concat('%', ?, '%')))
         """;
@@ -32,9 +32,9 @@ public class ScanReviewProjectionReadStore {
           ON root.root_key = item.root_key
          AND root.current_generation = item.generation
          AND root.status = 'READY'
-        WHERE (? IS NULL OR item.root_key = ?)
-          AND (? IS NULL OR item.code = ?)
-          AND (? IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?, '%'))
+        WHERE (?::text IS NULL OR item.root_key = ?)
+          AND (?::text IS NULL OR item.code = ?)
+          AND (?::text IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?, '%'))
                OR lower(item.detail) LIKE lower(concat('%', ?, '%')))
         """;
 
