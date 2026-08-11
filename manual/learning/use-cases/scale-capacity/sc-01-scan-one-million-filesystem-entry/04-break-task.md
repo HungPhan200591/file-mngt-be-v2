@@ -33,7 +33,7 @@
 | BT-05 — Scan–Catalog filtering | [FT-035](../../../../../docs/features/035-scan-catalog-filtering/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Scan gọi Catalog ngoài transaction, micro-batch ≤500, exact skip và evidence cho các classification còn lại; runtime verification deferred. |
 | BT-06A — Review queue baseline | [FT-032](../../../../../docs/features/032-scan-review-queue/03-plan.md) | `DONE` code tối thiểu, verification/review còn chờ | Global queue/history hiện dùng offset và query anti-join lịch sử; chưa có index evidence. |
 | BT-06B — Review read model | [FT-033](../../../../../docs/features/033-scan-review-read-model/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Generation projection, durable worker, fallback read và decision synchronization đã có code; migration/runtime evidence deferred. |
-| BT-06C — Targeted issue recheck | [TD-006](../../../../../docs/TECHNICAL_DEBT.md) | `WAITING` | Job recheck theo issue/list sau khi sửa file; không dùng full-root scan trá hình hoặc phá inventory/lease. |
+| BT-06C — Targeted issue recheck | [FT-038](../../../../../docs/features/038-targeted-issue-recheck/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Durable one-issue job, server-side root/path resolve, observation run và projection refresh; runtime verification deferred. |
 | BT-07 — Durable bulk decision | Chưa mở FT | `WAITING` | Thay bulk một transaction/materialize-all bằng job persisted, chunk bounded và restart-safe. |
 | BT-08A — Event contract/DLT alignment | [FT-036](../../../../../docs/features/036-event-contract-dlt-alignment/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Contract v2, explicit consumer dispatch và DLT observer cho cả v1/v2; Kafka verification deferred. |
 | BT-08B — Outbox backlog capacity | [FT-037](../../../../../docs/features/037-outbox-backlog-capacity/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Bounded lease claim/`SKIP LOCKED`, conditional publish state và backlog metrics cho Scan/Catalog; runtime verification deferred. |
@@ -183,10 +183,10 @@ nhiều run/root và sort theo current-item semantics. Keyset/cursor chỉ đư�
 model, global ordering, filter và freshness contract. Cho tới lúc đó offset là baseline có giới hạn, chưa
 được tuyên bố scale-ready.
 
-#### BT-06C — Targeted issue recheck — TD-006, chưa mở FT
+#### BT-06C — Targeted issue recheck — FT-038 `IMPLEMENTED — VERIFY PENDING`
 
-Current behavior chỉ có full-root incremental scan. Khi người dùng sửa thủ công filename/nội dung của
-một item trong issue worklist, chưa có cách recheck đúng item đó mà không walk lại toàn root.
+FT-038 bổ sung `POST /api/v2/scans/issues/{issueId}/recheck`, không nhận absolute path và không walk lại toàn root.
+Worker tạo observation run mới để current-item projection có thể hội tụ sau khi file được sửa.
 
 FT trả [TD-006](../../../../../docs/TECHNICAL_DEBT.md) phải:
 
@@ -201,9 +201,7 @@ FT trả [TD-006](../../../../../docs/TECHNICAL_DEBT.md) phải:
 - Không gọi full-root scan bên trong mỗi issue hoặc tái sử dụng scan lease theo cách làm hỏng run đang
   `RUNNING`.
 
-BT-06C phụ thuộc ít nhất vào quyết định current-item/projection merge của BT-06B. Nếu mở trước FT-033,
-Design phải chứng minh rõ write-model authority và handoff tương thích, không tự giả định issue đã có
-resolved state.
+BT-06C phụ thuộc FT-033 current-item/projection merge; evidence race và path safety vẫn deferred.
 
 ### BT-07 — Durable bulk decision job — chưa mở FT
 

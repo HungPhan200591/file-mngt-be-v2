@@ -2,6 +2,7 @@ package com.filemngt.v2.scan.adapter.in.web;
 
 import com.filemngt.v2.scan.adapter.in.web.dto.BatchDecisionResponse;
 import com.filemngt.v2.scan.adapter.in.web.dto.DecisionRequest;
+import com.filemngt.v2.scan.adapter.in.web.dto.IssueRecheckAccepted;
 import com.filemngt.v2.scan.adapter.in.web.dto.StartScanRequest;
 import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.adapter.in.web.sse.ScanRunSseStreamAdapter;
@@ -15,6 +16,7 @@ import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.query.ScanQueryService;
+import com.filemngt.v2.scan.application.recheck.IssueRecheckService;
 import com.filemngt.v2.scan.application.scan.ScanService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -45,16 +47,19 @@ public class ScanController {
     private final ScanService service;
     private final ScanQueryService queries;
     private final ScanDecisionService decisions;
+    private final IssueRecheckService rechecks;
     private final ScanRunSseStreamAdapter streams;
 
     public ScanController(
             ScanService service,
             ScanQueryService queries,
             ScanDecisionService decisions,
+            IssueRecheckService rechecks,
             ScanRunSseStreamAdapter streams) {
         this.service = service;
         this.queries = queries;
         this.decisions = decisions;
+        this.rechecks = rechecks;
         this.streams = streams;
     }
 
@@ -112,6 +117,12 @@ public class ScanController {
     public BatchDecisionResponse reopenReviewQueue(
             @RequestParam(required = false) String rootKey, @RequestParam(required = false) String search) {
         return new BatchDecisionResponse(null, "REOPEN", decisions.reopenReviewQueue(rootKey, search));
+    }
+
+    @PostMapping("/issues/{issueId}/recheck")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public IssueRecheckAccepted recheckIssue(@PathVariable UUID issueId) {
+        return new IssueRecheckAccepted(rechecks.enqueue(issueId));
     }
 
     /**

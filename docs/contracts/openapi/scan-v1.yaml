@@ -267,6 +267,26 @@ paths:
                 $ref: '#/components/schemas/ScanProposalDecision'
         '400':
           $ref: '#/components/responses/ValidationProblem'
+  /api/v2/scans/issues/{issueId}/recheck:
+    post:
+      operationId: requestScanIssueRecheck
+      summary: Request an asynchronous targeted recheck for one historical issue
+      parameters:
+        - name: issueId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Durable recheck job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueRecheckAccepted'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
         '404':
           $ref: '#/components/responses/NotFoundProblem'
         '409':
@@ -508,6 +528,11 @@ components:
         scanId: { type: [string, 'null'], format: uuid }
         decision: { type: string, enum: [APPROVE, REJECT] }
         processedCount: { type: integer }
+    IssueRecheckAccepted:
+      type: object
+      required: [jobId]
+      properties:
+        jobId: { type: string, format: uuid }
     ScanProposalPage:
       $ref: '#/components/schemas/PageScanProposal'
     ReviewQueueProposalPage:
