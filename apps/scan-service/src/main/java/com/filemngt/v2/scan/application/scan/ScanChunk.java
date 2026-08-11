@@ -24,6 +24,11 @@ final class ScanChunk {
         issues.add(issue);
     }
 
+    void replaceProposals(List<ScanProposalEntity> filtered) {
+        proposals.clear();
+        proposals.addAll(filtered);
+    }
+
     List<ScanInventoryItem> changedInventoryItems() {
         return changedInventoryItems;
     }

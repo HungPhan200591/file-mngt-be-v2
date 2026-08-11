@@ -2,20 +2,22 @@
 
 Updated: 2026-08-11
 
-## Trọng tâm hiện tại — FT-034
+## Trọng tâm hiện tại — FT-035
 
-[FT-034 — Catalog batch existence API](./features/034-catalog-batch-existence-api/01-brief.md) đã có code
-Catalog provider, nhưng ở trạng thái **`IMPLEMENTED — verification deferred`**.
+[FT-034 — Catalog batch existence API](./features/034-catalog-batch-existence-api/01-brief.md) và
+[FT-035 — Scan–Catalog filtering](./features/035-scan-catalog-filtering/01-brief.md) đã thông luồng
+BT-04 → BT-05 của SC-01, đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
 
-Phạm vi chỉ là Catalog provider cho SC-01 BT-04:
+Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
 
 - Internal read-only `POST /internal/v2/catalog/scan-existence`, batch từ 1 đến 500 candidate.
 - Lookup set-based locator `storageKey + relativePath` và canonical subject identity trong `catalog_db`.
-- Trả bốn classification; không tạo subject/asset/outbox và chưa thêm Scan client.
+- Trả bốn classification; không tạo subject/asset/outbox. Scan gọi ngoài transaction persistence, split
+  batch tối đa 500, exact skip proposal và giữ evidence cho các classification còn lại.
 - Có Flyway unique partial index locator non-null; migration phải fail nếu data conflict, không tự
   cleanup/import dữ liệu.
-- Chưa có Scan client, Gateway route hay mapping FE. Direct Catalog integration test/migration verification
-  được deferred theo ưu tiên thông luồng; BT-05 không được mở trước evidence này.
+- Không mở Gateway route hay mapping FE trong lát này. Direct Catalog/Scan integration, migration, timeout,
+  protocol mismatch và E2E verification được deferred theo ưu tiên thông luồng.
 
 ## Trạng thái đã ổn định
 
@@ -49,8 +51,7 @@ liên kết snapshot; chi tiết remediation nằm ở debt/feature owner.
 
 ## Việc tiếp theo theo thứ tự ưu tiên
 
-1. Khi người dùng ưu tiên hardening, chạy direct verification FT-034: Flyway/index, Catalog Testcontainers,
-   snapshot/conflict/read-only và query-count evidence.
-2. Chỉ sau evidence FT-034 mới mở BT-05 Scan–Catalog filtering; mapping FE vẫn thuộc feature consumer,
-   không thuộc internal Catalog provider.
+1. Khi người dùng ưu tiên hardening, chạy direct verification FT-034/FT-035: Flyway/index, Catalog/Scan
+   Testcontainers, snapshot/conflict/read-only, timeout/protocol mismatch và transaction boundary evidence.
+2. Mở feature Gateway/FE mapping riêng sau khi behavior backend có evidence; không gộp vào internal API.
 3. Khi ưu tiên verification, chạy FT-033 Testcontainers/benchmark đã deferred.

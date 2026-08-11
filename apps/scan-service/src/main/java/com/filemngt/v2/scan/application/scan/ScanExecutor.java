@@ -34,6 +34,7 @@ public class ScanExecutor {
     private final ScanRunRepository runs;
     private final ScanChunkCommitter chunkCommitter;
     private final ScanParallelAnalyzer parallelAnalyzer;
+    private final ScanCatalogExistenceFilter catalogExistenceFilter;
     private final ScanReconciliationPageReader reconciliationPageReader;
     private final ScanProperties properties;
     private final ScanExecutionFailureHandler failureHandler;
@@ -43,6 +44,7 @@ public class ScanExecutor {
             ScanRunRepository runs,
             ScanChunkCommitter chunkCommitter,
             ScanParallelAnalyzer parallelAnalyzer,
+            ScanCatalogExistenceFilter catalogExistenceFilter,
             ScanReconciliationPageReader reconciliationPageReader,
             ScanProperties properties,
             ScanExecutionFailureHandler failureHandler,
@@ -50,6 +52,7 @@ public class ScanExecutor {
         this.runs = runs;
         this.chunkCommitter = chunkCommitter;
         this.parallelAnalyzer = parallelAnalyzer;
+        this.catalogExistenceFilter = catalogExistenceFilter;
         this.reconciliationPageReader = reconciliationPageReader;
         this.properties = properties;
         this.failureHandler = failureHandler;
@@ -189,6 +192,7 @@ public class ScanExecutor {
             int end = Math.min(start + properties.getBusinessChunkSize(), changed.size());
             ScanChunk chunk = parallelAnalyzer.analyzeParallel(
                     context, changed.subList(start, end), properties.getReconciliationParallelism());
+            state.progress().recordSkipped(catalogExistenceFilter.filter(context, chunk));
             recordChunkProgress(chunk, state.progress());
             chunkIndex++;
             commitChangedChunk(context, chunkIndex, chunk, state);

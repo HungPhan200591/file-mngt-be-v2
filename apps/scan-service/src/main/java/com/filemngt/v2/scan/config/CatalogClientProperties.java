@@ -8,6 +8,7 @@ public class CatalogClientProperties {
 
     private String baseUrl = "http://localhost:18101";
     private int timeoutMs = 3000;
+    private int existenceTimeoutMs = 3000;
 
     public String getBaseUrl() {
         return baseUrl;
@@ -23,5 +24,13 @@ public class CatalogClientProperties {
 
     public void setTimeoutMs(int timeoutMs) {
         this.timeoutMs = timeoutMs;
+    }
+
+    public int getExistenceTimeoutMs() {
+        return existenceTimeoutMs;
+    }
+
+    public void setExistenceTimeoutMs(int existenceTimeoutMs) {
+        this.existenceTimeoutMs = existenceTimeoutMs;
     }
 }

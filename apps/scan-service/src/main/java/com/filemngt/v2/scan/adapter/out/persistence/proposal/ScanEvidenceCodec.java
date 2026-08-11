@@ -42,6 +42,7 @@ public class ScanEvidenceCodec {
     private static final String BRACKET_CODE = "bracketCode";
     private static final String NORMALIZED_BASENAME = "normalizedBasename";
     private static final String ALBUM_RELATIVE_PATH = "albumRelativePath";
+    private static final String CATALOG_EXISTENCE = "catalogExistence";
 
     private final ObjectMapper objectMapper;
 
@@ -122,6 +123,23 @@ public class ScanEvidenceCodec {
                 text(semantic.get(STUDIO_CODE)),
                 textList(semantic.get(ACTRESS_NAMES)),
                 textList(semantic.get(TAG_NAMES)));
+    }
+
+    /** Gắn snapshot Catalog bounded vào evidence proposal để review hiểu lý do candidate còn được giữ lại. */
+    public String withCatalogExistence(
+            String rawEvidence,
+            String classification,
+            String matchedSubjectId,
+            String matchedAssetId,
+            String conflictCode) {
+        Map<String, Object> evidence = new LinkedHashMap<>(read(rawEvidence));
+        Map<String, Object> existence = new LinkedHashMap<>();
+        existence.put("classification", classification);
+        if (matchedSubjectId != null) existence.put("matchedSubjectId", matchedSubjectId);
+        if (matchedAssetId != null) existence.put("matchedAssetId", matchedAssetId);
+        if (conflictCode != null) existence.put("conflictCode", conflictCode);
+        evidence.put(CATALOG_EXISTENCE, existence);
+        return write(evidence);
     }
 
     private void addProfileEvidence(

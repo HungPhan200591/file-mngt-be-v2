@@ -29,8 +29,8 @@
 | BT-03H3 — Reconciliation throughput | [FT-028](../../../../../docs/features/028-parallel-reconciliation-pipeline/03-plan.md) | `DONE`, failure-mode verification deferred | Parallel analyze, direct `COPY`, set-based inventory, UUIDv7/PostgreSQL 18; đã có runtime evidence 1M. |
 | BT-03H4 — Logging/telemetry | [FT-029](../../../../../docs/features/029-async-non-blocking-logging-foundation/03-plan.md), [FT-030](../../../../../docs/features/030-scan-performance-telemetry/03-plan.md) | FT-029 implemented/pending runtime; FT-030 `DONE — runtime verified` | Bỏ log hot-loop, async structured logging và timeline theo `runId` để đo phase/commit thật. |
 | BT-03H5 — Persistence optimization | [FT-031](../../../../../docs/features/031-scan-reconciliation-persistence-optimization/03-plan.md) | `DONE` | Buffered COPY đã revert vì không có lợi; cold inventory fast path đạt 1M dưới 30 giây trên fixture đã ghi nhận. |
-| BT-04 — Catalog existence provider | [FT-034](../../../../../docs/features/034-catalog-batch-existence-api/03-plan.md) | `READY`, chưa code | OpenAPI/internal decision table đã chốt; chỉ triển khai Catalog provider và direct integration test. |
-| BT-05 — Scan–Catalog filtering | Chưa mở FT | `WAITING` | Chờ FT-034 implementation/evidence; phải chốt fail-closed, timeout/retry và vị trí HTTP ngoài DB transaction. |
+| BT-04 — Catalog existence provider | [FT-034](../../../../../docs/features/034-catalog-batch-existence-api/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Catalog read-only API, set-based lookup và Flyway locator uniqueness đã có code; direct integration/migration evidence deferred. |
+| BT-05 — Scan–Catalog filtering | [FT-035](../../../../../docs/features/035-scan-catalog-filtering/03-plan.md) | `IMPLEMENTED — VERIFY PENDING` | Scan gọi Catalog ngoài transaction, micro-batch ≤500, exact skip và evidence cho các classification còn lại; runtime verification deferred. |
 | BT-06A — Review queue baseline | [FT-032](../../../../../docs/features/032-scan-review-queue/03-plan.md) | `DONE` code tối thiểu, verification/review còn chờ | Global queue/history hiện dùng offset và query anti-join lịch sử; chưa có index evidence. |
 | BT-06B — Review read model | [FT-033](../../../../../docs/features/033-scan-review-read-model/03-plan.md) | `DRAFT — NOT READY` | Chưa chốt durable source/rebuild, handoff/fence, freshness, worker liveness và global cutover. |
 | BT-06C — Targeted issue recheck | [TD-006](../../../../../docs/TECHNICAL_DEBT.md) | `WAITING` | Job recheck theo issue/list sau khi sửa file; không dùng full-root scan trá hình hoặc phá inventory/lease. |
@@ -48,8 +48,8 @@ BT-01 → BT-02 → BT-03 → BT-03F/H1/H2/H3/H4/H5
                                       └→ BT-08A ─────────────────────┴→ BT-08B
 ```
 
-BT-04 có thể triển khai độc lập với FT-033 vì chỉ cung cấp read-only Catalog provider. BT-05 không được
-gộp vào FT-034. BT-07 phải theo sau quyết định read model/bulk candidate selection của BT-06B để không
+BT-04 đã được triển khai độc lập với FT-033 vì chỉ cung cấp read-only Catalog provider. BT-05 là feature
+riêng, đã tích hợp consumer Scan nhưng vẫn còn verification deferred. BT-07 phải theo sau quyết định read model/bulk candidate selection của BT-06B để không
 đóng cứng thêm query anti-join hiện tại. BT-08A là corrective gate độc lập có thể mở ngay; BT-08B chờ cả
 contract/DLT alignment và workload backlog từ bulk path.
 
@@ -121,7 +121,7 @@ contract/DLT alignment và workload backlog từ bulk path.
 
 ## Lộ trình hiện hành từ BT-04
 
-### BT-04 — Catalog batch existence provider — FT-034 `READY`, chưa code
+### BT-04 — Catalog batch existence provider — FT-034 `IMPLEMENTED — VERIFY PENDING`
 
 - Contract owner:
   [catalog-scan-existence-v1.yaml](../../../../../docs/contracts/openapi/catalog-scan-existence-v1.yaml),
@@ -131,14 +131,12 @@ contract/DLT alignment và workload backlog từ bulk path.
   `EXISTING_SUBJECT_NEW_ASSET`, `NEW_SUBJECT` hoặc `CONFLICT` theo `clientRef`.
 - Endpoint read-only: không tạo subject/asset/outbox, không đọc `scan_db`, không route Gateway. Unique
   partial index locator non-null được thêm khi code; migration fail nếu có conflict, không tự cleanup.
-- Điểm dừng: direct Catalog integration test đủ decision table/batch/error và chứng minh không N+1,
-  không mutation. Chưa có Scan client.
+- Code Catalog provider, Flyway unique locator và contract đã có. Direct Catalog integration test đủ
+  decision table/batch/error, migration và query-count evidence vẫn deferred theo ưu tiên thông luồng.
 
-### BT-05 — Scan–Catalog filtering — chưa mở FT
+### BT-05 — Scan–Catalog filtering — FT-035 `IMPLEMENTED — VERIFY PENDING`
 
-Dependency: FT-034 phải được implement và direct-test trước khi tạo Brief/Design/Plan BT-05.
-
-Lát cần chốt trong FT tương lai:
+Decision đã được ghi trong [FT-035 Design](../../../../../docs/features/035-scan-catalog-filtering/02-design.md):
 
 1. Parse/analyze changed candidates từ materialized diff hiện hành; chia HTTP batch tối đa 500 độc lập
    với `scan.business-chunk-size`.

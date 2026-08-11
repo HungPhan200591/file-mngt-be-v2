@@ -57,6 +57,12 @@ scan:
     progress-interval-millis: ${SCAN_SSE_PROGRESS_INTERVAL_MILLIS:1000}
   roots: []
 
+catalog:
+  registry:
+    base-url: ${CATALOG_BASE_URL:http://localhost:18101}
+    timeout-ms: ${CATALOG_REGISTRY_TIMEOUT_MS:3000}
+    existence-timeout-ms: ${CATALOG_EXISTENCE_TIMEOUT_MS:3000}
+
 p6spy:
   enabled: ${P6SPY_ENABLED:false}
 
