@@ -112,12 +112,12 @@ async function main() {
 
   const postgres = requireContainer('postgres');
 
-  log('[1/2] Truncate dữ liệu nghiệp vụ và staging của Scan Service trong scan_db...', COLORS.yellow);
+  log('[1/2] Truncate dữ liệu nghiệp vụ, staging và projection của Scan Service trong scan_db...', COLORS.yellow);
   runPsql(
     postgres,
     'scan_user',
     'scan_db',
-    'TRUNCATE TABLE scan_inventory_diff_stage, scan_inventory_stage, scan_issue, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
+    'TRUNCATE TABLE scan_review_issue, scan_review_proposal, scan_review_projection_task, scan_review_projection_root, scan_inventory_diff_stage, scan_inventory_stage, scan_outbox_event, scan_decision, scan_issue, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
   );
 
   log('[2/2] Xác minh các bảng đã trống...', COLORS.yellow);
@@ -125,9 +125,15 @@ async function main() {
     'scan_issue',
     'scan_inventory_diff_stage',
     'scan_inventory_stage',
+    'scan_outbox_event',
+    'scan_decision',
     'scan_proposal',
     'scan_run',
     'scan_file_inventory',
+    'scan_review_projection_root',
+    'scan_review_projection_task',
+    'scan_review_proposal',
+    'scan_review_issue',
   ]);
 
   log('\n ✓ Reset thành công dữ liệu nghiệp vụ và staging của Scan Service!', COLORS.green);

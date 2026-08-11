@@ -253,7 +253,7 @@ async function main() {
     postgres,
     'scan_user',
     'scan_db',
-    'TRUNCATE TABLE scan_inventory_diff_stage, scan_inventory_stage, scan_issue, scan_outbox_event, scan_decision, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
+    'TRUNCATE TABLE scan_review_issue, scan_review_proposal, scan_review_projection_task, scan_review_projection_root, scan_inventory_diff_stage, scan_inventory_stage, scan_outbox_event, scan_decision, scan_issue, scan_proposal, scan_run, scan_file_inventory RESTART IDENTITY CASCADE;',
   );
   runPsql(
     postgres,
@@ -276,6 +276,10 @@ async function main() {
     'scan_proposal',
     'scan_run',
     'scan_file_inventory',
+    'scan_review_projection_root',
+    'scan_review_projection_task',
+    'scan_review_proposal',
+    'scan_review_issue',
   ]);
   verifyDatabaseEmpty(postgres, 'catalog_user', 'catalog_db', [
     'catalog_dead_letter_event',
