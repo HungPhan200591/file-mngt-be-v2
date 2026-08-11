@@ -21,6 +21,10 @@ paths:
           in: query
           schema:
             $ref: '#/components/schemas/SubjectType'
+        - name: rootKey
+          in: query
+          description: Logical asset root; subjects are included when they contain an asset from this root.
+          schema: { type: string, minLength: 1, maxLength: 512 }
         - name: search
           in: query
           description: Fuzzy full-text search on identity key and display title; falls back to case-insensitive PostgreSQL contains search when Elasticsearch is unavailable.
@@ -252,8 +256,11 @@ components:
           items: { type: string }
     QueryFacets:
       type: object
-      required: [studios, actresses, tags]
+      required: [roots, studios, actresses, tags]
       properties:
+        roots:
+          type: array
+          items: { type: string }
         studios:
           type: array
           items: { type: string }

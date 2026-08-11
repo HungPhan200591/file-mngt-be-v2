@@ -104,6 +104,7 @@ public class QueryProjectionService {
                 ? subjects.filter(
                         filter.region(),
                         filter.subjectType(),
+                        filter.rootKey(),
                         filter.studio(),
                         filter.actress(),
                         filter.tag(),
@@ -111,6 +112,7 @@ public class QueryProjectionService {
                 : subjects.search(
                         filter.region(),
                         filter.subjectType(),
+                        filter.rootKey(),
                         filter.studio(),
                         filter.actress(),
                         filter.tag(),
@@ -132,11 +134,15 @@ public class QueryProjectionService {
 
     @Transactional(readOnly = true)
     public QueryFacets facets() {
-        return new QueryFacets(subjects.listStudios(), subjects.listActresses(), subjects.listTags());
+        return new QueryFacets(
+                subjects.listRootKeys(), subjects.listStudios(), subjects.listActresses(), subjects.listTags());
     }
 
     public record QueryFacets(
-            java.util.List<String> studios, java.util.List<String> actresses, java.util.List<String> tags) {}
+            java.util.List<String> roots,
+            java.util.List<String> studios,
+            java.util.List<String> actresses,
+            java.util.List<String> tags) {}
 
     public static class ProjectionNotFoundException extends RuntimeException {
         public ProjectionNotFoundException(UUID id) {

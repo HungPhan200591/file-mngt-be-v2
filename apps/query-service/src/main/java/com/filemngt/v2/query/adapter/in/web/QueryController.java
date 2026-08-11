@@ -47,6 +47,7 @@ public class QueryController {
     public SubjectPage list(
             @RequestParam(required = false) Region region,
             @RequestParam(required = false) SubjectType subjectType,
+            @RequestParam(required = false) String rootKey,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String studio,
             @RequestParam(required = false) String actress,
@@ -63,7 +64,12 @@ public class QueryController {
             throw new InvalidQueryRequestException("page and size must not exceed 10000 search results");
         var sort = sort(order);
         var filter = new QuerySubjectFilter(
-                region, subjectType, normalizeExact(studio), normalizeExact(actress), normalizeExact(tag));
+                region,
+                subjectType,
+                normalizeExact(rootKey),
+                normalizeExact(studio),
+                normalizeExact(actress),
+                normalizeExact(tag));
         var result = searchService.list(filter, normalizedSearch, order.name(), PageRequest.of(page, size, sort));
         return new SubjectPage(
                 result.subjects().map(this::detail).getContent(),
@@ -78,7 +84,7 @@ public class QueryController {
     @GetMapping("/facets")
     public Facets facets() {
         var facets = service.facets();
-        return new Facets(facets.studios(), facets.actresses(), facets.tags());
+        return new Facets(facets.roots(), facets.studios(), facets.actresses(), facets.tags());
     }
 
     @GetMapping("/suggestions")
@@ -211,7 +217,7 @@ public class QueryController {
 
     public record Suggestions(List<String> content) {}
 
-    public record Facets(List<String> studios, List<String> actresses, List<String> tags) {}
+    public record Facets(List<String> roots, List<String> studios, List<String> actresses, List<String> tags) {}
 
     public static class InvalidQueryRequestException extends RuntimeException {
         public InvalidQueryRequestException(String detail) {
