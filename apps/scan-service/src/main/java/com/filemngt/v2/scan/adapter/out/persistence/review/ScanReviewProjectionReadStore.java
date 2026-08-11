@@ -21,6 +21,7 @@ public class ScanReviewProjectionReadStore {
          AND root.status = 'READY'
         WHERE item.decision_state = ?
           AND (? IS NULL OR item.root_key = ?)
+          AND (? IS NULL OR item.scan_run_id = ?)
           AND (? IS NULL OR lower(item.source_relative_path) LIKE lower(concat('%', ?, '%'))
                OR lower(coalesce(item.display_title, '')) LIKE lower(concat('%', ?, '%'))
                OR lower(item.identity_key) LIKE lower(concat('%', ?, '%')))
@@ -114,8 +115,8 @@ public class ScanReviewProjectionReadStore {
                 rootKey);
     }
 
-    public List<Candidate> decisionCandidates(String state, String rootKey, String search, int limit) {
-        List<Object> parameters = proposalFilters(state, rootKey, search);
+    public List<Candidate> decisionCandidates(String state, String rootKey, String search, UUID scanRunId, int limit) {
+        List<Object> parameters = proposalFilters(state, rootKey, search, scanRunId);
         parameters.add(limit);
         return jdbcTemplate.query(
                 """
@@ -137,7 +138,12 @@ public class ScanReviewProjectionReadStore {
     }
 
     private List<Object> proposalFilters(String state, String rootKey, String search) {
-        return new ArrayList<>(Arrays.asList(state, rootKey, rootKey, search, search, search, search));
+        return proposalFilters(state, rootKey, search, null);
+    }
+
+    private List<Object> proposalFilters(String state, String rootKey, String search, UUID scanRunId) {
+        return new ArrayList<>(Arrays.asList(
+                state, rootKey, rootKey, search, search, search, search, scanRunId, scanRunId));
     }
 
     private List<Object> issueFilters(String rootKey, String code, String search) {

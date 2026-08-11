@@ -274,6 +274,7 @@ paths:
       parameters:
         - { name: rootKey, in: query, required: false, schema: { type: string } }
         - { name: search, in: query, required: false, schema: { type: string } }
+        - { name: scanId, in: query, required: false, schema: { type: string, format: uuid } }
       requestBody:
         required: true
         content:
@@ -289,6 +290,10 @@ paths:
     post:
       operationId: enqueueScanBulkReopen
       summary: Enqueue a durable bounded bulk reopen job
+      parameters:
+        - { name: rootKey, in: query, required: false, schema: { type: string } }
+        - { name: search, in: query, required: false, schema: { type: string } }
+        - { name: scanId, in: query, required: false, schema: { type: string, format: uuid } }
       responses:
         '202':
           description: Durable job accepted

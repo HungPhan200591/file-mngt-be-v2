@@ -28,7 +28,11 @@ public class ScanReviewDecisionProjection {
     }
 
     public List<Candidate> candidates(String state, String rootKey, String search) {
-        return reads.decisionCandidates(state, rootKey, search, properties.getDecisionBatchSize());
+        return candidates(state, rootKey, search, null);
+    }
+
+    public List<Candidate> candidates(String state, String rootKey, String search, UUID scanRunId) {
+        return reads.decisionCandidates(state, rootKey, search, scanRunId, properties.getDecisionBatchSize());
     }
 
     public void lock(String rootKey) {

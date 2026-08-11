@@ -135,15 +135,18 @@ public class ScanController {
     public BulkDecisionAccepted enqueueBulkDecision(
             @RequestParam(required = false) String rootKey,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID scanId,
             @Valid @RequestBody DecisionRequest request) {
-        return new BulkDecisionAccepted(bulkJobs.enqueue(rootKey, search, request.decision()));
+        return new BulkDecisionAccepted(bulkJobs.enqueue(rootKey, search, scanId, request.decision()));
     }
 
     @PostMapping("/review-queue/reopen-jobs")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public BulkDecisionAccepted enqueueBulkReopen(
-            @RequestParam(required = false) String rootKey, @RequestParam(required = false) String search) {
-        return new BulkDecisionAccepted(bulkJobs.enqueue(rootKey, search, "REOPEN"));
+            @RequestParam(required = false) String rootKey,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID scanId) {
+        return new BulkDecisionAccepted(bulkJobs.enqueue(rootKey, search, scanId, "REOPEN"));
     }
 
     /**

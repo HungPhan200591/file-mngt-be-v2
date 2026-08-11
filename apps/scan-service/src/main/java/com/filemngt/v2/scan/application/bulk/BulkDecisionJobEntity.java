@@ -12,6 +12,7 @@ class BulkDecisionJobEntity {
     @Id private UUID id;
     private String rootKey;
     private String search;
+    private UUID scanRunId;
     private String decision;
     private String status;
     private String leaseOwner;
@@ -25,13 +26,15 @@ class BulkDecisionJobEntity {
 
     protected BulkDecisionJobEntity() {}
 
-    BulkDecisionJobEntity(UUID id, String rootKey, String search, String decision) {
-        this.id = id; this.rootKey = rootKey; this.search = search; this.decision = decision; status = "PENDING"; createdAt = Instant.now();
+    BulkDecisionJobEntity(UUID id, String rootKey, String search, UUID scanRunId, String decision) {
+        this.id = id; this.rootKey = rootKey; this.search = search; this.scanRunId = scanRunId;
+        this.decision = decision; status = "PENDING"; createdAt = Instant.now();
     }
 
     UUID id() { return id; }
     String rootKey() { return rootKey; }
     String search() { return search; }
+    UUID scanRunId() { return scanRunId; }
     String decision() { return decision; }
     long processedCount() { return processedCount; }
     void claim(String owner) { status = "RUNNING"; leaseOwner = owner; leaseUntil = Instant.now().plusSeconds(90); startedAt = startedAt == null ? Instant.now() : startedAt; attemptCount++; }

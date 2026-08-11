@@ -236,7 +236,7 @@ public class ScanDecisionService {
         int total = 0;
         int processed;
         do {
-            processed = queueBatches.decide(rootKey, search, decision);
+            processed = queueBatches.decide(rootKey, search, null, decision);
             total += processed;
         } while (processed > 0);
         return total;
@@ -246,7 +246,7 @@ public class ScanDecisionService {
         int total = 0;
         int processed;
         do {
-            processed = queueBatches.reopen(rootKey, search);
+            processed = queueBatches.reopen(rootKey, search, null);
             total += processed;
         } while (processed > 0);
         return total;

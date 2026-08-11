@@ -23,7 +23,9 @@ class BulkDecisionJobWorker {
     private void process(BulkDecisionJobEntity job) {
         job.claim(workerId);
         try {
-            int count = job.decision().equals("REOPEN") ? batches.reopen(job.rootKey(), job.search()) : batches.decide(job.rootKey(), job.search(), job.decision());
+            int count = job.decision().equals("REOPEN")
+                    ? batches.reopen(job.rootKey(), job.search(), job.scanRunId())
+                    : batches.decide(job.rootKey(), job.search(), job.scanRunId(), job.decision());
             if (count == 0) complete(job.id()); else progress(job.id(), count);
         } catch (RuntimeException exception) { fail(job.id(), exception.getMessage()); }
     }

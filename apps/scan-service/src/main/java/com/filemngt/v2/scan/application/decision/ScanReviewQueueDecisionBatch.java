@@ -43,8 +43,8 @@ public class ScanReviewQueueDecisionBatch {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public int decide(String rootKey, String search, String decision) {
-        var candidates = projection.candidates("PENDING", rootKey, search);
+    public int decide(String rootKey, String search, UUID scanRunId, String decision) {
+        var candidates = projection.candidates("PENDING", rootKey, search, scanRunId);
         if (candidates.isEmpty()) return 0;
         var rootKeys = candidates.stream()
                 .map(candidate -> candidate.rootKey())
@@ -93,8 +93,8 @@ public class ScanReviewQueueDecisionBatch {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public int reopen(String rootKey, String search) {
-        var candidates = projection.candidates("REJECTED", rootKey, search);
+    public int reopen(String rootKey, String search, UUID scanRunId) {
+        var candidates = projection.candidates("REJECTED", rootKey, search, scanRunId);
         if (candidates.isEmpty()) return 0;
         candidates.stream()
                 .map(candidate -> candidate.rootKey())

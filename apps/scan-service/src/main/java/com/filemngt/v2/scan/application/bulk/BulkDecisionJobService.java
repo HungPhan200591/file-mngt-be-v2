@@ -12,10 +12,10 @@ public class BulkDecisionJobService {
     BulkDecisionJobService(BulkDecisionJobRepository jobs) { this.jobs = jobs; }
 
     @Transactional
-    public UUID enqueue(String rootKey, String search, String decision) {
+    public UUID enqueue(String rootKey, String search, UUID scanRunId, String decision) {
         if (!decision.equals("APPROVE") && !decision.equals("REJECT") && !decision.equals("REOPEN")) {
             throw new IllegalArgumentException("Unsupported bulk decision: " + decision);
         }
-        return jobs.save(new BulkDecisionJobEntity(UuidV7.next(), rootKey, search, decision)).id();
+        return jobs.save(new BulkDecisionJobEntity(UuidV7.next(), rootKey, search, scanRunId, decision)).id();
     }
 }
