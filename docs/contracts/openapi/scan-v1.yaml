@@ -430,6 +430,14 @@ components:
         scannedFileCount: { type: integer, format: int64 }
         proposalCount: { type: integer, format: int64 }
         issueCount: { type: integer, format: int64 }
+        changedFileCount:
+          type: [integer, 'null']
+          format: int64
+          description: Exact changed-file workload persisted after staging diff.
+        reconciledFileCount:
+          type: [integer, 'null']
+          format: int64
+          description: Changed files whose reconciliation checkpoint has committed.
         lastError: { type: [string, 'null'] }
         reviewSummary:
           oneOf:

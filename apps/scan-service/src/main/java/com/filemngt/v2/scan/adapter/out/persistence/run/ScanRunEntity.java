@@ -30,6 +30,8 @@ public class ScanRunEntity {
     private long scannedFileCount;
     private long proposalCount;
     private long issueCount;
+    private Long changedFileCount;
+    private Long reconciledFileCount;
     private String lastError;
     private Long registryVersion;
     private String workerId;
@@ -127,6 +129,14 @@ public class ScanRunEntity {
 
     public long issueCount() {
         return issueCount;
+    }
+
+    public Long changedFileCount() {
+        return changedFileCount;
+    }
+
+    public Long reconciledFileCount() {
+        return reconciledFileCount;
     }
 
     public String lastError() {

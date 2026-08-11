@@ -156,6 +156,8 @@ public class ScanChunkCommitter {
                 segment.previouslyScannedFiles() + copied,
                 0,
                 0,
+                null,
+                0,
                 checkpointAt,
                 leaseUntil);
         advanceCheckpoint(checkpoint, segment.lease());
@@ -171,6 +173,8 @@ public class ScanChunkCommitter {
                 progress.files(),
                 progress.proposals(),
                 progress.issues(),
+                progress.changedFiles(),
+                progress.reconciledFiles(),
                 checkpointAt,
                 lease.nextLeaseUntil());
         advanceCheckpoint(checkpoint, lease);
@@ -185,7 +189,15 @@ public class ScanChunkCommitter {
     private void completeRun(UUID runId, String workerId, String rootKey, ChunkProgress progress) {
         Instant finishedAt = Instant.now();
         var completion = new Completion(
-                runId, workerId, rootKey, progress.files(), progress.proposals(), progress.issues(), finishedAt);
+                runId,
+                workerId,
+                rootKey,
+                progress.files(),
+                progress.proposals(),
+                progress.issues(),
+                progress.changedFiles(),
+                progress.reconciledFiles(),
+                finishedAt);
         if (!runProgressWriter.complete(completion)) {
             throw new ScanLeaseExpiredException(runId, workerId);
         }
@@ -262,7 +274,7 @@ public class ScanChunkCommitter {
             List<ScanProposalEntity> proposals,
             List<ScanIssueEntity> issues) {}
 
-    public record ChunkProgress(long files, long proposals, long issues) {}
+    public record ChunkProgress(long files, long proposals, long issues, Long changedFiles, long reconciledFiles) {}
 
     public enum InventoryWriteMode {
         COLD_INSERT,

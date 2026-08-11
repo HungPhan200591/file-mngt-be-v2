@@ -6,7 +6,7 @@ final class ScanProgress {
     private long proposals;
     private long issues;
     private long skipped;
-    private long changedFiles;
+    private Long changedFiles;
     private long reconciledFiles;
 
     void recordFiles(long count) {
@@ -48,7 +48,7 @@ final class ScanProgress {
         return skipped;
     }
 
-    long changedFiles() {
+    Long changedFiles() {
         return changedFiles;
     }
 

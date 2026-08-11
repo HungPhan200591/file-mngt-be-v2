@@ -18,6 +18,8 @@ public class ScanRunProgressWriter {
             scanned_file_count = ?,
             proposal_count = ?,
             issue_count = ?,
+            changed_file_count = ?,
+            reconciled_file_count = ?,
             checkpoint_at = ?,
             lease_until = ?
         WHERE id = ?
@@ -30,6 +32,8 @@ public class ScanRunProgressWriter {
         SET scanned_file_count = ?,
             proposal_count = ?,
             issue_count = ?,
+            changed_file_count = ?,
+            reconciled_file_count = ?,
             finished_at = ?,
             status = 'COMPLETED'
         WHERE id = ?
@@ -53,6 +57,8 @@ public class ScanRunProgressWriter {
                 checkpoint.scannedFiles(),
                 checkpoint.proposals(),
                 checkpoint.issues(),
+                checkpoint.changedFiles(),
+                checkpoint.reconciledFiles(),
                 Timestamp.from(checkpoint.checkpointAt()),
                 Timestamp.from(checkpoint.nextLeaseUntil()),
                 checkpoint.runId(),
@@ -67,6 +73,8 @@ public class ScanRunProgressWriter {
                 completion.scannedFiles(),
                 completion.proposals(),
                 completion.issues(),
+                completion.changedFiles(),
+                completion.reconciledFiles(),
                 Timestamp.from(completion.finishedAt()),
                 completion.runId(),
                 completion.workerId(),
@@ -84,6 +92,8 @@ public class ScanRunProgressWriter {
             long scannedFiles,
             long proposals,
             long issues,
+            Long changedFiles,
+            long reconciledFiles,
             Instant checkpointAt,
             Instant nextLeaseUntil) {}
 
@@ -94,5 +104,7 @@ public class ScanRunProgressWriter {
             long scannedFiles,
             long proposals,
             long issues,
+            Long changedFiles,
+            long reconciledFiles,
             Instant finishedAt) {}
 }

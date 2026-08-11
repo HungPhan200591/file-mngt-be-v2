@@ -241,7 +241,8 @@ public class ScanExecutor {
     }
 
     private ScanChunkCommitter.ChunkProgress progressSnapshot(ScanProgress progress) {
-        return new ScanChunkCommitter.ChunkProgress(progress.files(), progress.proposals(), progress.issues());
+        return new ScanChunkCommitter.ChunkProgress(
+                progress.files(), progress.proposals(), progress.issues(), progress.changedFiles(), progress.reconciledFiles());
     }
 
     private void publishProgress(

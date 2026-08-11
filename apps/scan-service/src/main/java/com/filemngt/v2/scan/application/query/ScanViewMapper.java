@@ -27,6 +27,8 @@ public final class ScanViewMapper {
                 value.scannedFileCount(),
                 value.proposalCount(),
                 value.issueCount(),
+                value.changedFileCount(),
+                value.reconciledFileCount(),
                 value.lastError(),
                 value.registryVersion(),
                 reviewSummary);

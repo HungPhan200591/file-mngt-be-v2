@@ -56,6 +56,8 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   query lẫn insert; không tạo thêm index đơn cột hoặc composite trùng leading columns
   của unique constraint vì gây write amplification nghiêm trọng khi bulk insert.
 - Approval ghi item và outbox cùng transaction.
+- `scan_run` lưu durable `changedFileCount` sau staging diff và `reconciledFileCount` sau từng checkpoint;
+  history REST và SSE dùng chung hai counter này. Run cũ chưa có giá trị sẽ trả `null` cho tới khi chạy lại.
 - Outbox publisher claim tối đa 20 record bằng `SKIP LOCKED` + lease 30 giây, publish ngoài transaction và
   conditional mark theo instance owner; duplicate sau crash được consumer dedupe theo `eventId`. Metrics
   backlog chỉ gồm count/oldest age/success/failure, không dùng path hoặc identity làm label.

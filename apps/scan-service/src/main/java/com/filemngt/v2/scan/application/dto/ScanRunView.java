@@ -16,6 +16,8 @@ public record ScanRunView(
         long scannedFileCount,
         long proposalCount,
         long issueCount,
+        Long changedFileCount,
+        Long reconciledFileCount,
         String lastError,
         Long registryVersion,
         ReviewQueueSummaryView reviewSummary) {}
