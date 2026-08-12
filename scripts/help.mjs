@@ -13,6 +13,10 @@ const categories = {
       { cmd: 'npm run docker:down:all', desc: 'Hạ TOÀN BỘ container infra' },
       { cmd: 'npm run docker:ps', desc: 'Xem danh sách & trạng thái các container đang chạy' },
       { cmd: 'npm run docker:logs', desc: 'Theo dõi log realtime (tail -f) của container' },
+      { cmd: 'npm run docker:apps:up', desc: 'Khởi động TOÀN BỘ 5 BE microservices + FE V2 trong Docker' },
+      { cmd: 'npm run docker:apps:build', desc: 'Rebuild & khởi động lại TOÀN BỘ 5 BE microservices + FE V2 trong Docker' },
+      { cmd: 'npm run docker:apps:down', desc: 'Hạ toàn bộ container ứng dụng (BE + FE)' },
+      { cmd: 'npm run docker:stop <service>', desc: 'Tắt 1 service cụ thể trong Docker (ví dụ: scan-service) để nhả port cho Local IDE Debug' },
     ]
   },
   test: {

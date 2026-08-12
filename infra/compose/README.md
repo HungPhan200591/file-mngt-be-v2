@@ -4,6 +4,18 @@
 [ADR-004](../../docs/adr/ADR-004-local-port-allocation.md); version image phải được pin, không dùng
 `latest`. Sao chép `.env.example` thành `.env` ở root để override local và không commit secret thật.
 
+Tệp ứng dụng BE & FE V2 nằm tại `compose.apps.yaml`. Xem chi tiết hướng dẫn vận hành 3 chế độ (Local Dev, Hybrid Debug, Full Docker) tại [Runbook Vận Hành Docker](../../manual/operations/docker-and-dev-modes.md).
+
+## Application containers (BE Microservices & FE V2)
+
+```powershell
+# Bật toàn bộ 5 BE microservices + FE V2 trong Docker
+docker compose --env-file .env -f infra/compose/compose.yaml -f infra/compose/compose.apps.yaml up -d --build
+
+# Dừng 1 service để giải phóng port cho Local IDE Debug (ví dụ: scan-service)
+npm run docker:stop scan-service
+```
+
 ## All profiles (Toàn bộ container)
 
 Lệnh chạy toàn bộ container của dự án (Core, Search và Observability):

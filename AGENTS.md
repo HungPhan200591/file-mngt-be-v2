@@ -8,6 +8,7 @@
 - Với Java mới/sửa, Agent bắt buộc khảo sát owner/package bị chạm trước khi code và tự audit/refactor ngay sau khi code theo `docs/architecture/03-CODING_RULES.md`; không bàn giao code vượt ngưỡng mà không tách hoặc ghi ngoại lệ.
 - Service chỉ truy cập database của chính nó. Redis không là source of truth; Kafka không thay thế mọi HTTP call.
 - Port local V2 bắt buộc theo `docs/adr/ADR-004-local-port-allocation.md`; không tự chọn port chuẩn hoặc port mới trước khi kiểm tra ADR và port đang listen.
+- Docker Compose hạ tầng dùng `infra/compose/compose.yaml`, ứng dụng BE+FE dùng `infra/compose/compose.apps.yaml`. Sử dụng các lệnh `npm run docker:up`, `npm run docker:apps:up`, `npm run docker:stop <service>` để chuyển đổi 3 chế độ (Local Dev, Hybrid Debug, Full Docker) theo `manual/operations/docker-and-dev-modes.md`.
 - Mặc định mọi nhắc đến **FE/frontend** là **FE V2** tại sibling repo `../file-mngt-fe-v2`; đọc `AGENTS.md` và đúng context module của repo đó trước khi khảo sát, lập feature hoặc code FE. Chỉ khi người dùng chỉ định rõ cần đối chiếu V1 mới dùng repo chỉ đọc: **BE V1** `../../v1/file-mngt-be-v1`; **FE V1** `../../v1/file-mngt-fe-v1`.
 - Khi gợi ý câu lệnh CLI cho người dùng, luôn viết từ thư mục gốc dự án (dùng cờ prefix hoặc đường dẫn từ root); không bắt người dùng gõ lệnh `cd` chuyển thư mục.
 - Context hygiene: `docs/STATUS.md` và `docs/TECHNICAL_DEBT.md` chỉ là snapshot hiện tại; khi task hoàn tất, xóa debt đã trả và nội dung stale/trùng lặp, giữ bằng chứng chi tiết ở Plan/commit và link thay vì sao chép.

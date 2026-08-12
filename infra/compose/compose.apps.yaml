@@ -1,0 +1,147 @@
+name: filemngt-apps
+
+networks:
+  default:
+    name: filemngt-infra_default
+    external: true
+
+services:
+  catalog-service:
+    build:
+      context: ../..
+      dockerfile: apps/catalog-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${CATALOG_SERVER_PORT:-18101}:18101"
+    environment:
+      CATALOG_SERVER_PORT: 18101
+      CATALOG_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${CATALOG_DB:-catalog_db}
+      CATALOG_DATASOURCE_USERNAME: ${CATALOG_DB_USER:-catalog_user}
+      CATALOG_DATASOURCE_PASSWORD: ${CATALOG_DB_PASSWORD:-change-me-catalog}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:18101/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  scan-service:
+    build:
+      context: ../..
+      dockerfile: apps/scan-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+    ports:
+      - "${SCAN_SERVER_PORT:-18102}:18102"
+    environment:
+      SCAN_SERVER_PORT: 18102
+      SCAN_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${SCAN_DB:-scan_db}?reWriteBatchedInserts=true
+      SCAN_DATASOURCE_USERNAME: ${SCAN_DB_USER:-scan_user}
+      SCAN_DATASOURCE_PASSWORD: ${SCAN_DB_PASSWORD:-change-me-scan}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CATALOG_BASE_URL: http://catalog-service:18101
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:18102/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  query-service:
+    build:
+      context: ../..
+      dockerfile: apps/query-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${QUERY_SERVER_PORT:-18103}:18103"
+    environment:
+      QUERY_SERVER_PORT: 18103
+      QUERY_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${QUERY_DB:-query_db}
+      QUERY_DATASOURCE_USERNAME: ${QUERY_DB_USER:-query_user}
+      QUERY_DATASOURCE_PASSWORD: ${QUERY_DB_PASSWORD:-change-me-query}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ELASTICSEARCH_URIS: http://elasticsearch:9200
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:18103/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  media-worker:
+    build:
+      context: ../..
+      dockerfile: apps/media-worker/Dockerfile
+    depends_on:
+      catalog-service:
+        condition: service_healthy
+    ports:
+      - "${MEDIA_WORKER_SERVER_PORT:-18104}:18104"
+    environment:
+      MEDIA_WORKER_SERVER_PORT: 18104
+      CATALOG_SERVICE_URL: http://catalog-service:18101
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:18104/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  gateway-service:
+    build:
+      context: ../..
+      dockerfile: apps/gateway-service/Dockerfile
+    depends_on:
+      catalog-service:
+        condition: service_healthy
+      scan-service:
+        condition: service_healthy
+      query-service:
+        condition: service_healthy
+    ports:
+      - "${GATEWAY_SERVER_PORT:-18100}:18100"
+    environment:
+      GATEWAY_SERVER_PORT: 18100
+      CATALOG_SERVICE_URL: http://catalog-service:18101
+      SCAN_SERVICE_URL: http://scan-service:18102
+      QUERY_SERVICE_URL: http://query-service:18103
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:18100/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web-fe-v2:
+    build:
+      context: ../../../file-mngt-fe-v2
+      dockerfile: Dockerfile
+    depends_on:
+      gateway-service:
+        condition: service_healthy
+    ports:
+      - "${FE_V2_PORT:-18120}:18120"
+    restart: unless-stopped

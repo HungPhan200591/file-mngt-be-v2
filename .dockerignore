@@ -1,0 +1,14 @@
+.git
+.gitignore
+.idea
+.codex
+.gemini
+.agents
+.docsify
+logs
+**/logs
+manual
+node_modules
+*.log
+!apps/*/target/*.jar
+!**/target/*.jar

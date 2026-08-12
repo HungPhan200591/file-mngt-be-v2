@@ -4,8 +4,8 @@ Tài liệu này dành cho người vận hành project bằng IntelliJ và Dock
 
 ## Mục tiêu runtime
 
-- Năm app Spring Boot chạy từ IntelliJ.
-- PostgreSQL, Kafka KRaft và Redis chạy bằng Docker Compose; Elasticsearch chạy khi bật profile `search`.
+- Năm app Spring Boot và FE V2 có thể chạy từ IntelliJ/VSCode hoặc đóng gói bằng Docker.
+- PostgreSQL, Kafka KRaft và Redis chạy bằng Docker Compose (`compose.yaml`); các app services đóng gói ở `compose.apps.yaml`. Xem chi tiết tại [Runbook Vận hành Docker & Switch Mode](./docker-and-dev-modes.md).
 - Port host V2 luôn theo [ADR-004](../../docs/adr/ADR-004-local-port-allocation.md). Không dùng lại port V1.
 
 ## Chuẩn bị lần đầu
