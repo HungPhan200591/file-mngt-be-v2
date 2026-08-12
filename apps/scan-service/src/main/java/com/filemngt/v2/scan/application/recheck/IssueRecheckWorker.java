@@ -11,7 +11,10 @@ class IssueRecheckWorker {
     private final IssueRecheckPersistence persistence;
     private final String workerId = "issue-recheck-" + UuidV7.next();
 
-    IssueRecheckWorker(IssueRecheckClaimService claims, IssueRecheckObservationResolver resolver, IssueRecheckPersistence persistence) {
+    IssueRecheckWorker(
+            IssueRecheckClaimService claims,
+            IssueRecheckObservationResolver resolver,
+            IssueRecheckPersistence persistence) {
         this.claims = claims;
         this.resolver = resolver;
         this.persistence = persistence;

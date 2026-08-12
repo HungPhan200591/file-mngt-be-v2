@@ -14,14 +14,12 @@ import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -47,13 +45,13 @@ public class ScanDecisionService {
     private final ScanReviewQueueDecisionBatch queueBatches;
 
     public ScanDecisionService(
-        ScanRunRepository runs,
-        ScanProposalRepository proposals,
-        ScanDecisionRepository decisions,
-        ScanOutboxEventRepository outbox,
-        ScanOutboxEventFactory eventFactory,
-        ScanReviewDecisionProjection projection,
-        ScanReviewQueueDecisionBatch queueBatches) {
+            ScanRunRepository runs,
+            ScanProposalRepository proposals,
+            ScanDecisionRepository decisions,
+            ScanOutboxEventRepository outbox,
+            ScanOutboxEventFactory eventFactory,
+            ScanReviewDecisionProjection projection,
+            ScanReviewQueueDecisionBatch queueBatches) {
         this.runs = runs;
         this.proposals = proposals;
         this.decisions = decisions;
@@ -83,11 +81,11 @@ public class ScanDecisionService {
         }
         projection.apply(proposalId, run.rootKey(), decision, decidedAt);
         LOGGER.info(
-            "Đã ghi nhận scan decision: scanId={}, proposalId={}, decision={}, eventId={}",
-            scanId,
-            proposalId,
-            decision,
-            eventId);
+                "Đã ghi nhận scan decision: scanId={}, proposalId={}, decision={}, eventId={}",
+                scanId,
+                proposalId,
+                decision,
+                eventId);
         return view(saved);
     }
 
@@ -115,7 +113,7 @@ public class ScanDecisionService {
         decisions.saveAll(newDecisions);
         outbox.saveAll(newOutboxEvents);
         newDecisions.forEach(
-            saved -> projection.apply(saved.proposalId(), run.rootKey(), saved.decision(), saved.decidedAt()));
+                saved -> projection.apply(saved.proposalId(), run.rootKey(), saved.decision(), saved.decidedAt()));
         return newDecisions.size();
     }
 
@@ -130,15 +128,15 @@ public class ScanDecisionService {
         }
         var candidates = proposals.findReviewQueueForDecision(state, rootKey, search);
         var decided = decisions
-            .findAllById(candidates.stream().map(ScanProposalEntity::id).toList())
-            .stream()
-            .map(ScanDecisionEntity::proposalId)
-            .collect(Collectors.toSet());
+                .findAllById(candidates.stream().map(ScanProposalEntity::id).toList())
+                .stream()
+                .map(ScanDecisionEntity::proposalId)
+                .collect(Collectors.toSet());
         var runsById = runs
-            .findAllById(
-                candidates.stream().map(ScanProposalEntity::scanRunId).toList())
-            .stream()
-            .collect(Collectors.toMap(run -> run.id(), run -> run));
+                .findAllById(
+                        candidates.stream().map(ScanProposalEntity::scanRunId).toList())
+                .stream()
+                .collect(Collectors.toMap(run -> run.id(), run -> run));
         var newDecisions = new ArrayList<ScanDecisionEntity>();
         var newEvents = new ArrayList<ScanOutboxEventEntity>();
         var now = Instant.now();
@@ -149,7 +147,7 @@ public class ScanDecisionService {
             newDecisions.add(new ScanDecisionEntity(proposal.id(), decision, eventId, now));
             if (eventId != null)
                 newEvents.add(eventFactory.create(
-                    eventId, proposal.scanRunId(), proposal, runsById.get(proposal.scanRunId())));
+                        eventId, proposal.scanRunId(), proposal, runsById.get(proposal.scanRunId())));
             projection.apply(proposal.id(), runsById.get(proposal.scanRunId()).rootKey(), decision, now);
         }
         decisions.saveAll(newDecisions);
@@ -165,23 +163,23 @@ public class ScanDecisionService {
         }
         var candidates = proposals.findReviewQueueForDecision("REJECTED", rootKey, search);
         var runsById = runs
-            .findAllById(
-                candidates.stream().map(ScanProposalEntity::scanRunId).toList())
-            .stream()
-            .collect(Collectors.toMap(run -> run.id(), run -> run));
+                .findAllById(
+                        candidates.stream().map(ScanProposalEntity::scanRunId).toList())
+                .stream()
+                .collect(Collectors.toMap(run -> run.id(), run -> run));
         runsById.values().stream().map(run -> run.rootKey()).distinct().sorted().forEach(projection::lock);
         var rejectedDecisions = decisions
-            .findAllById(candidates.stream().map(ScanProposalEntity::id).toList())
-            .stream()
-            .filter(decision -> "REJECT".equals(decision.decision()))
-            .toList();
+                .findAllById(candidates.stream().map(ScanProposalEntity::id).toList())
+                .stream()
+                .filter(decision -> "REJECT".equals(decision.decision()))
+                .toList();
         decisions.deleteAll(rejectedDecisions);
         var rejectedIds =
-            rejectedDecisions.stream().map(ScanDecisionEntity::proposalId).collect(Collectors.toSet());
+                rejectedDecisions.stream().map(ScanDecisionEntity::proposalId).collect(Collectors.toSet());
         candidates.stream()
-            .filter(candidate -> rejectedIds.contains(candidate.id()))
-            .forEach(candidate -> projection.reopen(
-                candidate.id(), runsById.get(candidate.scanRunId()).rootKey()));
+                .filter(candidate -> rejectedIds.contains(candidate.id()))
+                .forEach(candidate -> projection.reopen(
+                        candidate.id(), runsById.get(candidate.scanRunId()).rootKey()));
         return rejectedDecisions.size();
     }
 
@@ -195,8 +193,7 @@ public class ScanDecisionService {
         projection.lock(run.rootKey());
         var existing = decisions.findById(proposalId);
         if (existing.isEmpty()) return;
-        if (APPROVE.equals(existing.get().decision()))
-            throw new DecisionConflictException();
+        if (APPROVE.equals(existing.get().decision())) throw new DecisionConflictException();
         decisions.delete(existing.get());
         projection.reopen(proposalId, run.rootKey());
     }
@@ -207,8 +204,8 @@ public class ScanDecisionService {
     private Set<UUID> findDecidedProposalIds(List<ScanProposalEntity> scanProposals) {
         var proposalIds = scanProposals.stream().map(ScanProposalEntity::id).toList();
         return decisions.findAllById(proposalIds).stream()
-            .map(ScanDecisionEntity::proposalId)
-            .collect(Collectors.toSet());
+                .map(ScanDecisionEntity::proposalId)
+                .collect(Collectors.toSet());
     }
 
     /**

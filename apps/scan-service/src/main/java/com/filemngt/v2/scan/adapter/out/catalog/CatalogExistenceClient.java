@@ -24,12 +24,16 @@ public class CatalogExistenceClient {
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(properties.getExistenceTimeoutMs()));
         factory.setReadTimeout(Duration.ofMillis(properties.getExistenceTimeoutMs()));
-        restClient = RestClient.builder().baseUrl(properties.getBaseUrl()).requestFactory(factory).build();
+        restClient = RestClient.builder()
+                .baseUrl(properties.getBaseUrl())
+                .requestFactory(factory)
+                .build();
     }
 
     public Map<UUID, Result> classify(UUID scanRunId, List<Candidate> candidates) {
         try {
-            var response = restClient.post()
+            var response = restClient
+                    .post()
                     .uri(EXISTENCE_PATH)
                     .body(new Request(scanRunId, candidates))
                     .retrieve()
@@ -51,8 +55,11 @@ public class CatalogExistenceClient {
         }
         Map<UUID, Result> results = new HashMap<>();
         for (var result : response.items()) {
-            if (result == null || result.clientRef() == null || result.classification() == null
-                    || !expected.contains(result.clientRef()) || results.putIfAbsent(result.clientRef(), result) != null) {
+            if (result == null
+                    || result.clientRef() == null
+                    || result.classification() == null
+                    || !expected.contains(result.clientRef())
+                    || results.putIfAbsent(result.clientRef(), result) != null) {
                 throw new CatalogExistenceUnavailableException("Catalog existence response cannot be correlated");
             }
             validateSemantics(result);
@@ -64,20 +71,25 @@ public class CatalogExistenceClient {
     }
 
     private void validateSemantics(Result result) {
-        boolean valid = switch (result.classification()) {
-            case EXACT_ASSET_EXISTS -> result.matchedSubjectId() != null
-                    && result.matchedAssetId() != null
-                    && result.conflictCode() == null;
-            case EXISTING_SUBJECT_NEW_ASSET -> result.matchedSubjectId() != null
-                    && result.matchedAssetId() == null
-                    && result.conflictCode() == null;
-            case NEW_SUBJECT -> result.matchedSubjectId() == null
-                    && result.matchedAssetId() == null
-                    && result.conflictCode() == null;
-            case CONFLICT -> result.conflictCode() != null;
-        };
+        boolean valid =
+                switch (result.classification()) {
+                    case EXACT_ASSET_EXISTS ->
+                        result.matchedSubjectId() != null
+                                && result.matchedAssetId() != null
+                                && result.conflictCode() == null;
+                    case EXISTING_SUBJECT_NEW_ASSET ->
+                        result.matchedSubjectId() != null
+                                && result.matchedAssetId() == null
+                                && result.conflictCode() == null;
+                    case NEW_SUBJECT ->
+                        result.matchedSubjectId() == null
+                                && result.matchedAssetId() == null
+                                && result.conflictCode() == null;
+                    case CONFLICT -> result.conflictCode() != null;
+                };
         if (!valid) {
-            throw new CatalogExistenceUnavailableException("Catalog existence response has invalid classification evidence");
+            throw new CatalogExistenceUnavailableException(
+                    "Catalog existence response has invalid classification evidence");
         }
     }
 

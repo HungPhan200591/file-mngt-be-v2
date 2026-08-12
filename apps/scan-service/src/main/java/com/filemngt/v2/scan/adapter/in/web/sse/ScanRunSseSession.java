@@ -110,7 +110,9 @@ final class ScanRunSseSession implements ScanRunStreamSubscriber {
         try {
             sender.execute(this::drain);
         } catch (RuntimeException exception) {
-            LOGGER.debug("Không thể schedule SSE sender do executor đã dừng: failureType={}", exception.getClass().getSimpleName());
+            LOGGER.debug(
+                    "Không thể schedule SSE sender do executor đã dừng: failureType={}",
+                    exception.getClass().getSimpleName());
             close();
         }
     }
@@ -160,10 +162,13 @@ final class ScanRunSseSession implements ScanRunStreamSubscriber {
             if (message.heartbeat()) {
                 emitter.send(SseEmitter.event().comment("keepalive"));
             } else {
-                emitter.send(SseEmitter.event().name(message.event().eventName()).data(message.event()));
+                emitter.send(
+                        SseEmitter.event().name(message.event().eventName()).data(message.event()));
             }
         } catch (IOException exception) {
-            LOGGER.debug("SSE client đã ngắt kết nối: failureType={}", exception.getClass().getSimpleName());
+            LOGGER.debug(
+                    "SSE client đã ngắt kết nối: failureType={}",
+                    exception.getClass().getSimpleName());
             close();
         }
     }

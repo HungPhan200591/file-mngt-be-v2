@@ -5,20 +5,20 @@ import com.filemngt.v2.scan.adapter.in.web.dto.BulkDecisionAccepted;
 import com.filemngt.v2.scan.adapter.in.web.dto.DecisionRequest;
 import com.filemngt.v2.scan.adapter.in.web.dto.IssueRecheckAccepted;
 import com.filemngt.v2.scan.adapter.in.web.dto.StartScanRequest;
-import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.adapter.in.web.sse.ScanRunSseStreamAdapter;
+import com.filemngt.v2.scan.application.bulk.BulkDecisionJobService;
 import com.filemngt.v2.scan.application.decision.ScanDecisionService;
 import com.filemngt.v2.scan.application.dto.DecisionView;
-import com.filemngt.v2.scan.application.dto.ScanIssueView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
+import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
 import com.filemngt.v2.scan.application.dto.ScanAsyncJobStatus;
+import com.filemngt.v2.scan.application.dto.ScanIssueView;
 import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanProposalView;
-import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
-import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
 import com.filemngt.v2.scan.application.dto.ScanRootView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
+import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.application.query.ScanQueryService;
-import com.filemngt.v2.scan.application.bulk.BulkDecisionJobService;
 import com.filemngt.v2.scan.application.recheck.IssueRecheckService;
 import com.filemngt.v2.scan.application.scan.ScanService;
 import jakarta.validation.Valid;
@@ -105,7 +105,8 @@ public class ScanController {
             @RequestParam(required = false) String rootKey,
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
         return queries.reviewQueueIssues(rootKey, code, search, valid(page, size), size);
     }
 
@@ -115,8 +116,8 @@ public class ScanController {
             @RequestParam(required = false) String rootKey,
             @RequestParam(required = false) String search,
             @Valid @RequestBody DecisionRequest request) {
-        return new BatchDecisionResponse(null, request.decision(), decisions.decideReviewQueue(
-                state, rootKey, search, request.decision()));
+        return new BatchDecisionResponse(
+                null, request.decision(), decisions.decideReviewQueue(state, rootKey, search, request.decision()));
     }
 
     @PostMapping("/review-queue/reopen")
@@ -184,9 +185,7 @@ public class ScanController {
     /** Stream snapshot/progress/terminal của run; proposal và issue vẫn dùng REST phân trang. */
     @GetMapping(value = "/{scanId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<SseEmitter> events(@PathVariable UUID scanId) {
-        return ResponseEntity.ok()
-                .header("Cache-Control", "no-cache")
-                .body(streams.open(scanId));
+        return ResponseEntity.ok().header("Cache-Control", "no-cache").body(streams.open(scanId));
     }
 
     /**

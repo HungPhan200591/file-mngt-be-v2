@@ -14,13 +14,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public final class PostgresCsvCopy {
     private PostgresCsvCopy() {}
 
-    public static <T> long write(
-            JdbcTemplate jdbcTemplate, String copySql, List<T> rows, Function<T, String> encoder) {
+    public static <T> long write(JdbcTemplate jdbcTemplate, String copySql, List<T> rows, Function<T, String> encoder) {
         if (rows.isEmpty()) {
             return 0L;
         }
-        Long copied = jdbcTemplate.execute(
-                (ConnectionCallback<Long>) connection -> copy(connection, copySql, rows, encoder));
+        Long copied =
+                jdbcTemplate.execute((ConnectionCallback<Long>) connection -> copy(connection, copySql, rows, encoder));
         return copied == null ? 0L : copied;
     }
 
@@ -29,8 +28,7 @@ public final class PostgresCsvCopy {
         return value == null ? "" : '"' + value.replace("\"", "\"\"") + '"';
     }
 
-    private static <T> long copy(
-            Connection connection, String copySql, List<T> rows, Function<T, String> encoder)
+    private static <T> long copy(Connection connection, String copySql, List<T> rows, Function<T, String> encoder)
             throws SQLException {
         CopyIn copy = connection.unwrap(PGConnection.class).getCopyAPI().copyIn(copySql);
         try {

@@ -53,8 +53,7 @@ public class ScanParallelAnalyzer {
         return mergeChunks(partialChunks);
     }
 
-    private List<ScanChunk> executePartitions(
-            ScanExecutionContext context, List<List<ScanInventoryItem>> partitions) {
+    private List<ScanChunk> executePartitions(ScanExecutionContext context, List<List<ScanInventoryItem>> partitions) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<ScanChunk>> futures = submitPartitions(executor, context, partitions);
             return collectResults(futures);
@@ -64,9 +63,7 @@ public class ScanParallelAnalyzer {
     }
 
     private List<Future<ScanChunk>> submitPartitions(
-            ExecutorService executor,
-            ScanExecutionContext context,
-            List<List<ScanInventoryItem>> partitions) {
+            ExecutorService executor, ScanExecutionContext context, List<List<ScanInventoryItem>> partitions) {
         List<Future<ScanChunk>> futures = new ArrayList<>(partitions.size());
         for (List<ScanInventoryItem> partition : partitions) {
             futures.add(executor.submit(() -> analyzePartitionWork(context, partition)));

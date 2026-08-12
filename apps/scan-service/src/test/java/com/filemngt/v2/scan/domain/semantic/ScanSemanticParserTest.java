@@ -49,10 +49,7 @@ class ScanSemanticParserTest {
     @Test
     void rejectsJokeVideoWithSpaceBracketCodeStudio() {
         var result = ScanSemanticParser.parse(
-                ScanProfile.JOKE_VIDEO,
-                "Yui Hatano - [Heyzo 0474].MP4",
-                "Yui Hatano - [Heyzo 0474].MP4",
-                registry);
+                ScanProfile.JOKE_VIDEO, "Yui Hatano - [Heyzo 0474].MP4", "Yui Hatano - [Heyzo 0474].MP4", registry);
 
         assertThat(result.studioCode()).isNull();
     }

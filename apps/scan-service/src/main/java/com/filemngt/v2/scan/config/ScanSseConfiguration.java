@@ -11,7 +11,8 @@ import org.springframework.context.annotation.Configuration;
 public class ScanSseConfiguration {
     @Bean(name = "scanSseHeartbeatScheduler", destroyMethod = "shutdown")
     ScheduledExecutorService scanSseHeartbeatScheduler() {
-        return Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().name("scan-sse-heartbeat-", 0).factory());
+        return Executors.newSingleThreadScheduledExecutor(
+                Thread.ofPlatform().name("scan-sse-heartbeat-", 0).factory());
     }
 
     @Bean(name = "scanSseSenderExecutor", destroyMethod = "shutdown")

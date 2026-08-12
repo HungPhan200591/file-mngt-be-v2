@@ -25,8 +25,17 @@ public class IssueRecheckService {
 
     @Transactional(readOnly = true)
     public ScanAsyncJobStatus status(UUID jobId) {
-        var job = jobs.findById(jobId).orElseThrow(() -> new IllegalArgumentException("Unknown issue recheck job: " + jobId));
-        return new ScanAsyncJobStatus(job.id(), "ISSUE_RECHECK", job.status(), null, job.createdAt(), job.startedAt(),
-                job.finishedAt(), job.lastError(), job.observationScanRunId());
+        var job = jobs.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown issue recheck job: " + jobId));
+        return new ScanAsyncJobStatus(
+                job.id(),
+                "ISSUE_RECHECK",
+                job.status(),
+                null,
+                job.createdAt(),
+                job.startedAt(),
+                job.finishedAt(),
+                job.lastError(),
+                job.observationScanRunId());
     }
 }

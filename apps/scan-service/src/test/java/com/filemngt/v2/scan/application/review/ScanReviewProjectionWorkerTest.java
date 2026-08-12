@@ -9,10 +9,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.filemngt.v2.scan.adapter.out.persistence.review.ScanReviewProjectionTaskStore.Task;
-
 import java.util.Optional;
 import java.util.UUID;
-
 import org.junit.jupiter.api.Test;
 
 class ScanReviewProjectionWorkerTest {

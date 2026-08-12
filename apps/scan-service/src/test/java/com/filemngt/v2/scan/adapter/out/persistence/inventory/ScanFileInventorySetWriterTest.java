@@ -16,11 +16,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class ScanFileInventorySetWriterTest {
-    @Mock private JdbcTemplate jdbcTemplate;
+    @Mock
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void classifiesRootWithExistingInventoryAsWarm() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Boolean.class), eq("joke-root"))).thenReturn(true);
+        when(jdbcTemplate.queryForObject(anyString(), eq(Boolean.class), eq("joke-root")))
+                .thenReturn(true);
         var writer = new ScanFileInventorySetWriter(jdbcTemplate);
 
         assertThat(writer.hasInventoryForRoot("joke-root")).isTrue();
@@ -28,7 +30,8 @@ class ScanFileInventorySetWriterTest {
 
     @Test
     void classifiesRootWithoutInventoryAsCold() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Boolean.class), eq("joke-root"))).thenReturn(false);
+        when(jdbcTemplate.queryForObject(anyString(), eq(Boolean.class), eq("joke-root")))
+                .thenReturn(false);
         var writer = new ScanFileInventorySetWriter(jdbcTemplate);
 
         assertThat(writer.hasInventoryForRoot("joke-root")).isFalse();

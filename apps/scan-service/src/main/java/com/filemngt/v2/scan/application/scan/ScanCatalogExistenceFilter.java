@@ -32,7 +32,9 @@ class ScanCatalogExistenceFilter {
         for (int start = 0; start < proposals.size(); start += MAX_BATCH_SIZE) {
             int end = Math.min(start + MAX_BATCH_SIZE, proposals.size());
             var batch = proposals.subList(start, end);
-            var results = catalog.classify(context.runId(), batch.stream().map(p -> candidate(context, p)).toList());
+            var results = catalog.classify(
+                    context.runId(),
+                    batch.stream().map(p -> candidate(context, p)).toList());
             for (var proposal : batch) {
                 var result = requireResult(results, proposal.id());
                 if (result.classification() == CatalogExistenceClient.Classification.EXACT_ASSET_EXISTS) {

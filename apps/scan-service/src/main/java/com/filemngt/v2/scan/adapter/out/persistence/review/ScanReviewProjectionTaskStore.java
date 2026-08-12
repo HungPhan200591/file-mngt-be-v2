@@ -1,12 +1,10 @@
 package com.filemngt.v2.scan.adapter.out.persistence.review;
 
 import com.filemngt.v2.scan.config.ScanProperties;
-
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -109,21 +107,21 @@ public class ScanReviewProjectionTaskStore {
         Instant leaseUntil = now.plusSeconds(properties.getLeaseSeconds());
         Instant oldestAllowed = now.minusSeconds(properties.getTotalDeadlineSeconds());
         var tasks = jdbcTemplate.query(
-            CLAIM_SQL,
-            (row, index) -> new Task(
-                row.getObject("id", UUID.class),
-                row.getObject("scan_run_id", UUID.class),
-                row.getString("root_key"),
-                row.getLong("generation"),
-                row.getInt("attempt_count")),
-            Timestamp.from(now),
-            Timestamp.from(now),
-            properties.getMaxAttempts(),
-            Timestamp.from(oldestAllowed),
-            Timestamp.from(now),
-            workerId,
-            Timestamp.from(leaseUntil),
-            Timestamp.from(now));
+                CLAIM_SQL,
+                (row, index) -> new Task(
+                        row.getObject("id", UUID.class),
+                        row.getObject("scan_run_id", UUID.class),
+                        row.getString("root_key"),
+                        row.getLong("generation"),
+                        row.getInt("attempt_count")),
+                Timestamp.from(now),
+                Timestamp.from(now),
+                properties.getMaxAttempts(),
+                Timestamp.from(oldestAllowed),
+                Timestamp.from(now),
+                workerId,
+                Timestamp.from(leaseUntil),
+                Timestamp.from(now));
         var claimed = tasks.stream().findFirst();
         claimed.ifPresent(task -> syncRootStatus(task.id()));
         return claimed;
@@ -132,26 +130,26 @@ public class ScanReviewProjectionTaskStore {
     public void recordFailure(Task task, String workerId, Instant now, Throwable failure) {
         Instant deadline = now.minusSeconds(properties.getTotalDeadlineSeconds());
         jdbcTemplate.update(
-            RECORD_FAILURE_SQL,
-            properties.getMaxAttempts(),
-            Timestamp.from(deadline),
-            Timestamp.from(now),
-            properties.getMaxAttempts(),
-            Timestamp.from(deadline),
-            Timestamp.from(now),
-            failureMessage(failure),
-            task.id(),
-            workerId);
+                RECORD_FAILURE_SQL,
+                properties.getMaxAttempts(),
+                Timestamp.from(deadline),
+                Timestamp.from(now),
+                properties.getMaxAttempts(),
+                Timestamp.from(deadline),
+                Timestamp.from(now),
+                failureMessage(failure),
+                task.id(),
+                workerId);
         syncRootStatus(task.id());
     }
 
     public void failExhausted(Instant now) {
         jdbcTemplate.update(
-            FAIL_EXHAUSTED_SQL,
-            Timestamp.from(now),
-            Timestamp.from(now),
-            properties.getMaxAttempts(),
-            Timestamp.from(now.minusSeconds(properties.getTotalDeadlineSeconds())));
+                FAIL_EXHAUSTED_SQL,
+                Timestamp.from(now),
+                Timestamp.from(now),
+                properties.getMaxAttempts(),
+                Timestamp.from(now.minusSeconds(properties.getTotalDeadlineSeconds())));
         jdbcTemplate.update(SYNC_FAILED_ROOTS_SQL);
     }
 
@@ -164,7 +162,5 @@ public class ScanReviewProjectionTaskStore {
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
-    public record Task(UUID id, UUID scanRunId, String rootKey, long generation,
-                       int attemptCount) {
-    }
+    public record Task(UUID id, UUID scanRunId, String rootKey, long generation, int attemptCount) {}
 }

@@ -22,9 +22,13 @@ public class ScanOutboxMetrics {
                 .register(registry);
     }
 
-    public void published() { published.increment(); }
+    public void published() {
+        published.increment();
+    }
 
-    public void failed() { failed.increment(); }
+    public void failed() {
+        failed.increment();
+    }
 
     private double oldestPendingAgeSeconds(ScanOutboxEventRepository events) {
         return events.findFirstByPublishedAtIsNullOrderByCreatedAtAsc()

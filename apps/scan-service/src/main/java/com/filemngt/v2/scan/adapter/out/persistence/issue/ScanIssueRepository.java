@@ -10,8 +10,7 @@ import org.springframework.data.repository.query.Param;
 /** Repository ownership của issue được tạo trong quá trình scan. */
 public interface ScanIssueRepository extends JpaRepository<ScanIssueEntity, UUID> {
 
-    @Query(
-            value = """
+    @Query(value = """
                     SELECT issue.*
                     FROM scan_issue issue
                     JOIN scan_run run ON run.id = issue.scan_run_id
@@ -34,8 +33,7 @@ public interface ScanIssueRepository extends JpaRepository<ScanIssueEntity, UUID
                             AND newer_run.started_at > run.started_at
                             AND newer_issue.source_relative_path = issue.source_relative_path)
                     ORDER BY run.finished_at DESC, issue.source_relative_path, issue.id
-                    """,
-            countQuery = """
+                    """, countQuery = """
                     SELECT count(*)
                     FROM scan_issue issue
                     JOIN scan_run run ON run.id = issue.scan_run_id
@@ -57,8 +55,7 @@ public interface ScanIssueRepository extends JpaRepository<ScanIssueEntity, UUID
                           WHERE newer_run.status = 'COMPLETED' AND newer_run.root_key = run.root_key
                             AND newer_run.started_at > run.started_at
                             AND newer_issue.source_relative_path = issue.source_relative_path)
-                    """,
-            nativeQuery = true)
+                    """, nativeQuery = true)
     Page<ScanIssueEntity> findCompletedRunIssueHistory(
             @Param("rootKey") String rootKey,
             @Param("code") String code,

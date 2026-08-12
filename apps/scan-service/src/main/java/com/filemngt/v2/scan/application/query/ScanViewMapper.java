@@ -1,8 +1,8 @@
 package com.filemngt.v2.scan.application.query;
 
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
-import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueSummaryView;
+import com.filemngt.v2.scan.application.dto.ScanPageView;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import org.springframework.data.domain.Page;
 

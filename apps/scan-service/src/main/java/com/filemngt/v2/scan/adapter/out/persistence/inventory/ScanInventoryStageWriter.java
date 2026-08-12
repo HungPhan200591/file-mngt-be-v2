@@ -21,8 +21,7 @@ public class ScanInventoryStageWriter {
             FROM STDIN WITH (FORMAT CSV)
             """;
     private static final String DELETE_RUN_SQL = "DELETE FROM scan_inventory_stage WHERE scan_run_id = ?";
-    private static final String DELETE_DIFF_RUN_SQL =
-            "DELETE FROM scan_inventory_diff_stage WHERE scan_run_id = ?";
+    private static final String DELETE_DIFF_RUN_SQL = "DELETE FROM scan_inventory_diff_stage WHERE scan_run_id = ?";
     private static final String ANALYZE_SQL = "ANALYZE scan_inventory_stage";
     private static final String ANALYZE_DIFF_SQL = "ANALYZE scan_inventory_diff_stage";
     private static final String MATERIALIZE_DIFF_SQL = """

@@ -42,8 +42,7 @@ public class ScanRunStreamService {
         hub.heartbeat();
     }
 
-    private ScanRunStreamEvent event(
-            ScanRunStreamEventType type, ScanRunStreamPhase phase, ScanRunView run) {
+    private ScanRunStreamEvent event(ScanRunStreamEventType type, ScanRunStreamPhase phase, ScanRunView run) {
         return new ScanRunStreamEvent(
                 SCHEMA_VERSION,
                 type,

@@ -128,16 +128,12 @@ class SetBasedReconciliationWriteBenchmark {
     }
 
     private void seedDiffStage(UUID runId) {
-        jdbcTemplate.update(
-                """
+        jdbcTemplate.update("""
                 INSERT INTO scan_run (id, root_key, profile, status, started_at)
                 VALUES (?, ?, 'JOKE_VIDEO', 'RUNNING', now())
-                """,
-                runId,
-                ROOT_KEY);
+                """, runId, ROOT_KEY);
         long started = System.nanoTime();
-        int seeded = jdbcTemplate.update(
-                """
+        int seeded = jdbcTemplate.update("""
                 INSERT INTO scan_inventory_diff_stage
                     (scan_run_id, root_key, source_relative_path, file_size, file_modified_at)
                 SELECT ?, ?,
@@ -145,10 +141,7 @@ class SetBasedReconciliationWriteBenchmark {
                            || lpad(value::text, 10, '0') || '.mp4',
                        value, now()
                 FROM generate_series(1, ?) value
-                """,
-                runId,
-                ROOT_KEY,
-                ROW_COUNT);
+                """, runId, ROOT_KEY, ROW_COUNT);
         LOGGER.info("Đã seed diff stage: rows={}, durationMs={}", seeded, elapsedMillis(started));
     }
 
@@ -172,13 +165,11 @@ class SetBasedReconciliationWriteBenchmark {
     private void prepareProposalConstraints(boolean addForeignKey) {
         jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT IF EXISTS " + PROPOSAL_FK);
         jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT IF EXISTS " + PROPOSAL_UNIQUE);
-        jdbcTemplate.execute(
-                "ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_UNIQUE
-                        + " UNIQUE (scan_run_id, source_relative_path)");
+        jdbcTemplate.execute("ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_UNIQUE
+                + " UNIQUE (scan_run_id, source_relative_path)");
         if (addForeignKey) {
-            jdbcTemplate.execute(
-                    "ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_FK
-                            + " FOREIGN KEY (scan_run_id) REFERENCES scan_run(id) ON DELETE CASCADE");
+            jdbcTemplate.execute("ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_FK
+                    + " FOREIGN KEY (scan_run_id) REFERENCES scan_run(id) ON DELETE CASCADE");
         }
     }
 

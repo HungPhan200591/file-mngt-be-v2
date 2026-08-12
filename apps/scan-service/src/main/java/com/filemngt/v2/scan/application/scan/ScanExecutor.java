@@ -106,8 +106,8 @@ public class ScanExecutor {
         timeline.diffStarted();
         progress.setChangedFiles(chunkCommitter.prepareReconciliation(context.runId(), context.workerId()));
         timeline.diffCompleted();
-        var inventoryWriteMode =
-                chunkCommitter.inventoryWriteMode(context.runId(), context.workerId(), context.root().key());
+        var inventoryWriteMode = chunkCommitter.inventoryWriteMode(
+                context.runId(), context.workerId(), context.root().key());
         nextChunkIndex++;
         heartbeatReconciliation(context, nextChunkIndex, progress);
         timeline.reconciliationStarted();
@@ -116,7 +116,8 @@ public class ScanExecutor {
     }
 
     private int discover(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
-        Path rootPath = com.filemngt.v2.scan.adapter.out.filesystem.PathUtils.resolvePath(context.root().path());
+        Path rootPath = com.filemngt.v2.scan.adapter.out.filesystem.PathUtils.resolvePath(
+                context.root().path());
         try (var cursor = new ScanFileInventoryCursor(rootPath, context.root().key())) {
             ScanInventoryItem firstItem = cursor.next();
             while (firstItem != null) {
@@ -137,11 +138,7 @@ public class ScanExecutor {
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
         var source = discoverySource(request);
         var segment = new ScanChunkCommitter.DiscoverySegment(
-                lease,
-                request.chunkIndex(),
-                request.previouslyScanned(),
-                properties.getLeaseDurationSeconds(),
-                source);
+                lease, request.chunkIndex(), request.previouslyScanned(), properties.getLeaseDurationSeconds(), source);
         var commit = chunkCommitter.commitDiscoverySegment(segment);
         liveness.arm(context.runId(), context.workerId(), commit.leaseUntil());
         return commit;
@@ -149,10 +146,7 @@ public class ScanExecutor {
 
     private StageRowSource discoverySource(DiscoveryRequest request) {
         var reporter = new ScanDiscoveryProgressReporter(
-                liveness,
-                liveness.progressIntervalMillis(),
-                request.context().runId(),
-                request.previouslyScanned());
+                liveness, liveness.progressIntervalMillis(), request.context().runId(), request.previouslyScanned());
         return sink -> {
             sink.write(request.firstItem());
             reporter.recordFile();
@@ -167,16 +161,15 @@ public class ScanExecutor {
         };
     }
 
-    private int reconcileChanged(
-            ScanExecutionContext context,
-            int chunkIndex,
-            ReconciliationState state) {
+    private int reconcileChanged(ScanExecutionContext context, int chunkIndex, ReconciliationState state) {
         String afterPath = "";
         while (true) {
             var page = reconciliationPageReader.findChangedPage(context.runId(), afterPath, DIFF_PAGE_SIZE);
             chunkIndex = commitChangedPage(context, page.items(), chunkIndex, state);
             if (!page.hasMore()) {
-                state.progress().recordSkipped(state.progress().files() - state.progress().changedFiles());
+                state.progress()
+                        .recordSkipped(
+                                state.progress().files() - state.progress().changedFiles());
                 return chunkIndex;
             }
             afterPath = page.nextCursor();
@@ -184,10 +177,7 @@ public class ScanExecutor {
     }
 
     private int commitChangedPage(
-            ScanExecutionContext context,
-            List<ScanInventoryItem> changed,
-            int chunkIndex,
-            ReconciliationState state) {
+            ScanExecutionContext context, List<ScanInventoryItem> changed, int chunkIndex, ReconciliationState state) {
         for (int start = 0; start < changed.size(); start += properties.getBusinessChunkSize()) {
             int end = Math.min(start + properties.getBusinessChunkSize(), changed.size());
             ScanChunk chunk = parallelAnalyzer.analyzeParallel(
@@ -212,10 +202,7 @@ public class ScanExecutor {
     }
 
     private void commitChangedChunk(
-            ScanExecutionContext context,
-            int chunkIndex,
-            ScanChunk chunk,
-            ReconciliationState state) {
+            ScanExecutionContext context, int chunkIndex, ScanChunk chunk, ReconciliationState state) {
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
         var changedItems = chunk.changedInventoryItems();
         var batch = new ScanChunkCommitter.ChunkBatch(
@@ -225,16 +212,14 @@ public class ScanExecutor {
                 state.inventoryWriteMode(),
                 List.copyOf(chunk.proposals()),
                 List.copyOf(chunk.issues()));
-        Instant leaseUntil = chunkCommitter.commitChangedChunk(
-                lease, batch, progressSnapshot(state.progress()), state.timeline());
+        Instant leaseUntil =
+                chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(state.progress()), state.timeline());
         liveness.arm(context.runId(), context.workerId(), leaseUntil);
     }
 
-    private void heartbeatReconciliation(
-            ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
+    private void heartbeatReconciliation(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
         var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
-        var heartbeat = new ScanChunkCommitter.ReconciliationHeartbeat(
-                lease, chunkIndex, progressSnapshot(progress));
+        var heartbeat = new ScanChunkCommitter.ReconciliationHeartbeat(lease, chunkIndex, progressSnapshot(progress));
         Instant leaseUntil = chunkCommitter.heartbeatReconciliation(heartbeat);
         liveness.arm(context.runId(), context.workerId(), leaseUntil);
         publishProgress(context.runId(), ScanRunStreamPhase.RECONCILIATION, progressSnapshot(progress), progress);
@@ -242,14 +227,15 @@ public class ScanExecutor {
 
     private ScanChunkCommitter.ChunkProgress progressSnapshot(ScanProgress progress) {
         return new ScanChunkCommitter.ChunkProgress(
-                progress.files(), progress.proposals(), progress.issues(), progress.changedFiles(), progress.reconciledFiles());
+                progress.files(),
+                progress.proposals(),
+                progress.issues(),
+                progress.changedFiles(),
+                progress.reconciledFiles());
     }
 
     private void publishProgress(
-            UUID runId,
-            ScanRunStreamPhase phase,
-            ScanChunkCommitter.ChunkProgress checkpoint,
-            ScanProgress progress) {
+            UUID runId, ScanRunStreamPhase phase, ScanChunkCommitter.ChunkProgress checkpoint, ScanProgress progress) {
         Long changedFileCount = phase == ScanRunStreamPhase.DISCOVERY ? null : progress.changedFiles();
         liveness.publishDurable(runId, phase, checkpoint, changedFileCount, progress.reconciledFiles());
     }
@@ -271,6 +257,7 @@ public class ScanExecutor {
                 progress.issues(),
                 progress.skipped());
     }
+
     private record DiscoveryRequest(
             ScanExecutionContext context,
             ScanFileInventoryCursor cursor,

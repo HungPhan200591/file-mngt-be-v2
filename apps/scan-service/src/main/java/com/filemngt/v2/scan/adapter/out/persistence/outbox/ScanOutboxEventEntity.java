@@ -90,7 +90,9 @@ public class ScanOutboxEventEntity implements Persistable<UUID> {
         return lastError;
     }
 
-    public Instant createdAt() { return createdAt; }
+    public Instant createdAt() {
+        return createdAt;
+    }
 
     public void claim(String owner, Instant until) {
         leaseOwner = owner;

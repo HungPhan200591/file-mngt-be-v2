@@ -7,12 +7,12 @@ import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStage
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
-import com.filemngt.v2.scan.application.scan.deadline.ScanLeaseDeadlineGuard;
 import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.InvalidScanRootException;
 import com.filemngt.v2.scan.application.exception.ScanRootUnavailableException;
 import com.filemngt.v2.scan.application.exception.ScanRunAlreadyRunningException;
 import com.filemngt.v2.scan.application.query.ScanViewMapper;
+import com.filemngt.v2.scan.application.scan.deadline.ScanLeaseDeadlineGuard;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
 import com.filemngt.v2.scan.domain.registry.ScanRegion;

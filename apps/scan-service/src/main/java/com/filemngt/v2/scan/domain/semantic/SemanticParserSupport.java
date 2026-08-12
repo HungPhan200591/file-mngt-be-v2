@@ -24,7 +24,8 @@ final class SemanticParserSupport {
     }
 
     static TagClassification classifyTags(String cleanName, ScanRegistrySnapshot registry) {
-        Set<String> activeTags = new HashSet<>(Set.of("BEST", "BEST OF", "UNCENSORED", "COLLECTION", "SHARPNESS", "4K", "COVER"));
+        Set<String> activeTags =
+                new HashSet<>(Set.of("BEST", "BEST OF", "UNCENSORED", "COLLECTION", "SHARPNESS", "4K", "COVER"));
         if (registry != null && registry.tags() != null) {
             registry.tags().stream().map(tag -> tag.toUpperCase(Locale.ROOT)).forEach(activeTags::add);
         }

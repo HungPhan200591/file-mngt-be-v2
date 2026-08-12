@@ -45,8 +45,7 @@ public class ScanLeaseDeadlineGuard {
         }
     }
 
-    private ScheduledFuture<?> schedule(
-            UUID runId, String workerId, Instant leaseUntil, ScheduledFuture<?> existing) {
+    private ScheduledFuture<?> schedule(UUID runId, String workerId, Instant leaseUntil, ScheduledFuture<?> existing) {
         if (existing != null) {
             existing.cancel(false);
         }

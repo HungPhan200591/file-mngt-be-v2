@@ -1,30 +1,30 @@
-//package com.filemngt.v2.scan.application.scan;
+// package com.filemngt.v2.scan.application.scan;
 //
-//import static org.assertj.core.api.Assertions.assertThat;
-//import static org.assertj.core.api.Assertions.assertThatThrownBy;
-//import static org.mockito.ArgumentMatchers.any;
-//import static org.mockito.Mockito.mock;
-//import static org.mockito.Mockito.never;
-//import static org.mockito.Mockito.verify;
-//import static org.mockito.Mockito.verifyNoInteractions;
-//import static org.mockito.Mockito.when;
+// import static org.assertj.core.api.Assertions.assertThat;
+// import static org.assertj.core.api.Assertions.assertThatThrownBy;
+// import static org.mockito.ArgumentMatchers.any;
+// import static org.mockito.Mockito.mock;
+// import static org.mockito.Mockito.never;
+// import static org.mockito.Mockito.verify;
+// import static org.mockito.Mockito.verifyNoInteractions;
+// import static org.mockito.Mockito.when;
 //
-//import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryBatchWriter;
-//import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
-//import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
-//import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
-//import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
-//import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter;
-//import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
-//import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
-//import com.filemngt.v2.scan.domain.scan.ScanProfile;
-//import com.filemngt.v2.scan.domain.scan.ScanRunStatus;
-//import java.time.Instant;
-//import java.util.Optional;
-//import java.util.UUID;
-//import org.junit.jupiter.api.Test;
+// import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryBatchWriter;
+// import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter;
+// import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
+// import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
+// import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
+// import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter;
+// import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+// import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
+// import com.filemngt.v2.scan.domain.scan.ScanProfile;
+// import com.filemngt.v2.scan.domain.scan.ScanRunStatus;
+// import java.time.Instant;
+// import java.util.Optional;
+// import java.util.UUID;
+// import org.junit.jupiter.api.Test;
 //
-//class ScanChunkCommitterTest {
+// class ScanChunkCommitterTest {
 //
 //    @Test
 //    void finalizesMissingReconciliationAndStageCleanupTogether() {
@@ -85,4 +85,4 @@
 //        verifyNoInteractions(stageWriter);
 //        verify(runs, never()).saveAndFlush(run);
 //    }
-//}
+// }

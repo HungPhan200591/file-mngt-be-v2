@@ -9,12 +9,17 @@ import org.springframework.transaction.annotation.Transactional;
 class BulkDecisionClaimService {
     private final BulkDecisionJobRepository jobs;
 
-    BulkDecisionClaimService(BulkDecisionJobRepository jobs) { this.jobs = jobs; }
+    BulkDecisionClaimService(BulkDecisionJobRepository jobs) {
+        this.jobs = jobs;
+    }
 
     @Transactional
     Optional<BulkDecisionJobEntity> claim(String workerId) {
         var job = jobs.lockNext(Instant.now()).stream().findFirst();
-        job.ifPresent(value -> { value.claim(workerId); jobs.save(value); });
+        job.ifPresent(value -> {
+            value.claim(workerId);
+            jobs.save(value);
+        });
         return job;
     }
 }

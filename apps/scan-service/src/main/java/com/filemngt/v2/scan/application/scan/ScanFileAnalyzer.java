@@ -34,11 +34,7 @@ public class ScanFileAnalyzer {
 
         if (!evaluation.isProposal()) {
             return new Issue(new ScanIssueEntity(
-                    UuidV7.next(),
-                    runId,
-                    relativePath,
-                    evaluation.issueCode().name(),
-                    evaluation.issueDetail()));
+                    UuidV7.next(), runId, relativePath, evaluation.issueCode().name(), evaluation.issueDetail()));
         }
         return new Proposal(new ScanProposalEntity(
                 UuidV7.next(),

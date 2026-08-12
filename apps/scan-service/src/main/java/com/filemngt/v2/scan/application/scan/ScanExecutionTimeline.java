@@ -44,8 +44,9 @@ final class ScanExecutionTimeline {
     }
 
     static ScanExecutionTimeline received(String correlationId) {
-        String resolvedCorrelationId =
-                correlationId == null || correlationId.isBlank() ? UUID.randomUUID().toString() : correlationId;
+        String resolvedCorrelationId = correlationId == null || correlationId.isBlank()
+                ? UUID.randomUUID().toString()
+                : correlationId;
         return new ScanExecutionTimeline(resolvedCorrelationId, System.nanoTime(), System::nanoTime);
     }
 

@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 /** Đồng bộ inventory theo tập dữ liệu đã materialize trong scan_inventory_diff_stage. */
 @Component
 public class ScanFileInventorySetWriter {
-    private static final String EXISTS_BY_ROOT_SQL = "SELECT EXISTS (SELECT 1 FROM scan_file_inventory WHERE root_key = ?)";
+    private static final String EXISTS_BY_ROOT_SQL =
+            "SELECT EXISTS (SELECT 1 FROM scan_file_inventory WHERE root_key = ?)";
     private static final String UPDATE_CHANGED_SQL = """
             UPDATE scan_file_inventory inventory
             SET file_size = diff.file_size,

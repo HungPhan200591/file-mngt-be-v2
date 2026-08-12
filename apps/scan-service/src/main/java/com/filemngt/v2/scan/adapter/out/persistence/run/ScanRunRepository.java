@@ -17,8 +17,7 @@ public interface ScanRunRepository extends JpaRepository<ScanRunEntity, UUID> {
     List<ScanRunEntity> findByStatus(ScanRunStatus status);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query(
-            value = """
+    @Query(value = """
                     UPDATE scan_run
                     SET status = 'FAILED',
                         finished_at = now(),
@@ -27,23 +26,20 @@ public interface ScanRunRepository extends JpaRepository<ScanRunEntity, UUID> {
                       AND status = 'RUNNING'
                       AND worker_id = :workerId
                       AND lease_until <= now()
-                    """,
-            nativeQuery = true)
+                    """, nativeQuery = true)
     int failIfLeaseExpired(
             @Param("runId") UUID runId,
             @Param("workerId") String workerId,
             @Param("failureDetail") String failureDetail);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query(
-            value = """
+    @Query(value = """
                     UPDATE scan_run
                     SET status = 'FAILED',
                         finished_at = now(),
                         last_error = :failureDetail
                     WHERE id = :runId
                       AND status = 'RUNNING'
-                    """,
-            nativeQuery = true)
+                    """, nativeQuery = true)
     int failIfRunning(@Param("runId") UUID runId, @Param("failureDetail") String failureDetail);
 }

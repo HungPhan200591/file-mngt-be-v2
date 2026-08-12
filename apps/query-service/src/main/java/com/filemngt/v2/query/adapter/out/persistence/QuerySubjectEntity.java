@@ -15,7 +15,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -57,7 +56,7 @@ public class QuerySubjectEntity {
     private Instant projectedAt;
 
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<QueryAssetEntity> assets = new ArrayList<>();
+    private Set<QueryAssetEntity> assets = new LinkedHashSet<>();
 
     protected QuerySubjectEntity() {}
 

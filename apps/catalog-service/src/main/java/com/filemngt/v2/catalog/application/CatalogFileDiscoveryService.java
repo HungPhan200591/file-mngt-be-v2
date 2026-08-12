@@ -63,11 +63,7 @@ public class CatalogFileDiscoveryService {
                 && !isDuplicatePrimaryVideo;
         if (assetAdded) {
             subject.addAsset(new MediaAssetEntity(
-                    UUID.randomUUID(),
-                    role,
-                    event.relativePath(),
-                    event.storageKey(),
-                    Instant.now()));
+                    UUID.randomUUID(), role, event.relativePath(), event.storageKey(), Instant.now()));
         }
         if (existing.isEmpty() || assetAdded || metadataChanged) {
             subjects.saveAndFlush(subject);

@@ -29,10 +29,10 @@ public class ScanInventoryDiffReader {
         List<ScanInventoryItem> rows = jdbcTemplate.query(
                 FIND_CHANGED_PAGE_SQL,
                 (resultSet, rowNumber) -> new ScanInventoryItem(
-                            resultSet.getString("root_key"),
-                            resultSet.getString("source_relative_path"),
-                            resultSet.getLong("file_size"),
-                            resultSet.getTimestamp("file_modified_at").toInstant()),
+                        resultSet.getString("root_key"),
+                        resultSet.getString("source_relative_path"),
+                        resultSet.getLong("file_size"),
+                        resultSet.getTimestamp("file_modified_at").toInstant()),
                 runId,
                 afterPath,
                 limit + 1);

@@ -34,7 +34,8 @@ final class JokeSemanticParser {
         }
         var updatedTags = new SemanticParserSupport.TagClassification(recognized, tags.unrecognized());
 
-        return result(profile, identityKey, "BESTOF", part, "BESTOF", "Best of " + actressName, actressName, updatedTags);
+        return result(
+                profile, identityKey, "BESTOF", part, "BESTOF", "Best of " + actressName, actressName, updatedTags);
     }
 
     private static ScanSemanticResult parseStandard(

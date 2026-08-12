@@ -9,7 +9,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "scan_bulk_decision_job")
 class BulkDecisionJobEntity {
-    @Id private UUID id;
+    @Id
+    private UUID id;
+
     private String rootKey;
     private String search;
     private UUID scanRunId;
@@ -27,23 +29,86 @@ class BulkDecisionJobEntity {
     protected BulkDecisionJobEntity() {}
 
     BulkDecisionJobEntity(UUID id, String rootKey, String search, UUID scanRunId, String decision) {
-        this.id = id; this.rootKey = rootKey; this.search = search; this.scanRunId = scanRunId;
-        this.decision = decision; status = "PENDING"; createdAt = Instant.now();
+        this.id = id;
+        this.rootKey = rootKey;
+        this.search = search;
+        this.scanRunId = scanRunId;
+        this.decision = decision;
+        status = "PENDING";
+        createdAt = Instant.now();
     }
 
-    UUID id() { return id; }
-    String rootKey() { return rootKey; }
-    String search() { return search; }
-    UUID scanRunId() { return scanRunId; }
-    String decision() { return decision; }
-    long processedCount() { return processedCount; }
-    String status() { return status; }
-    Instant createdAt() { return createdAt; }
-    Instant startedAt() { return startedAt; }
-    Instant finishedAt() { return finishedAt; }
-    String lastError() { return lastError; }
-    void claim(String owner) { status = "RUNNING"; leaseOwner = owner; leaseUntil = Instant.now().plusSeconds(90); startedAt = startedAt == null ? Instant.now() : startedAt; attemptCount++; }
-    void progress(long count) { processedCount += count; status = "PENDING"; leaseOwner = null; leaseUntil = null; }
-    void complete() { status = "COMPLETED"; finishedAt = Instant.now(); leaseOwner = null; leaseUntil = null; }
-    void fail(String detail) { status = "FAILED"; lastError = detail; finishedAt = Instant.now(); leaseOwner = null; leaseUntil = null; }
+    UUID id() {
+        return id;
+    }
+
+    String rootKey() {
+        return rootKey;
+    }
+
+    String search() {
+        return search;
+    }
+
+    UUID scanRunId() {
+        return scanRunId;
+    }
+
+    String decision() {
+        return decision;
+    }
+
+    long processedCount() {
+        return processedCount;
+    }
+
+    String status() {
+        return status;
+    }
+
+    Instant createdAt() {
+        return createdAt;
+    }
+
+    Instant startedAt() {
+        return startedAt;
+    }
+
+    Instant finishedAt() {
+        return finishedAt;
+    }
+
+    String lastError() {
+        return lastError;
+    }
+
+    void claim(String owner) {
+        status = "RUNNING";
+        leaseOwner = owner;
+        leaseUntil = Instant.now().plusSeconds(90);
+        startedAt = startedAt == null ? Instant.now() : startedAt;
+        attemptCount++;
+    }
+
+    void progress(long count) {
+        processedCount += count;
+        status = "PENDING";
+        leaseOwner = null;
+        leaseUntil = null;
+    }
+
+    void complete() {
+        status = "COMPLETED";
+        finishedAt = Instant.now();
+        leaseOwner = null;
+        leaseUntil = null;
+    }
+
+    void fail(String detail) {
+        status = "FAILED";
+        lastError = detail;
+        finishedAt = Instant.now();
+        leaseOwner = null;
+        leaseUntil = null;
+    }
 }

@@ -17,9 +17,7 @@ final class ScanExecutionLiveness {
     private final ScanSseProperties sseProperties;
 
     ScanExecutionLiveness(
-            ScanLeaseDeadlineGuard deadlineGuard,
-            ScanRunStreamService streamService,
-            ScanSseProperties sseProperties) {
+            ScanLeaseDeadlineGuard deadlineGuard, ScanRunStreamService streamService, ScanSseProperties sseProperties) {
         this.deadlineGuard = deadlineGuard;
         this.streamService = streamService;
         this.sseProperties = sseProperties;

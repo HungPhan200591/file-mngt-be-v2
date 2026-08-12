@@ -40,5 +40,4 @@ final class ScanChunk {
     List<ScanIssueEntity> issues() {
         return issues;
     }
-
 }

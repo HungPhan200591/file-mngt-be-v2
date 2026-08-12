@@ -24,5 +24,4 @@ public class ScanReconciliationPageReader {
         timeouts.applyReconciliationTimeout();
         return diffReader.findChangedPage(runId, afterPath, limit);
     }
-
 }

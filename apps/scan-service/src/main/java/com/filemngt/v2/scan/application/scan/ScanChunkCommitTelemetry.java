@@ -9,8 +9,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 final class ScanChunkCommitTelemetry {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanChunkCommitTelemetry.class);
 
-    Measurement begin(
-            ScanExecutionTimeline timeline, ScanChunkCommitter.ChunkLease lease, int chunkIndex) {
+    Measurement begin(ScanExecutionTimeline timeline, ScanChunkCommitter.ChunkLease lease, int chunkIndex) {
         var measurement = new Measurement(timeline, chunkIndex);
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             LOGGER.warn(

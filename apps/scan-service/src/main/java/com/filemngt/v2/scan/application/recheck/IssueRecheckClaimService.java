@@ -10,7 +10,9 @@ class IssueRecheckClaimService {
     private static final long LEASE_SECONDS = 60;
     private final IssueRecheckJobRepository jobs;
 
-    IssueRecheckClaimService(IssueRecheckJobRepository jobs) { this.jobs = jobs; }
+    IssueRecheckClaimService(IssueRecheckJobRepository jobs) {
+        this.jobs = jobs;
+    }
 
     @Transactional
     Optional<IssueRecheckJobEntity> claim(String workerId) {

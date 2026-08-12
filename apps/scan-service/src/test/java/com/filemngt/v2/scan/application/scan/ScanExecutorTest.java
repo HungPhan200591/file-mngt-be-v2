@@ -1,21 +1,21 @@
-//package com.filemngt.v2.scan.application.scan;
+// package com.filemngt.v2.scan.application.scan;
 //
-//import static org.mockito.Mockito.mock;
-//import static org.mockito.Mockito.verify;
-//import static org.mockito.Mockito.when;
+// import static org.mockito.Mockito.mock;
+// import static org.mockito.Mockito.verify;
+// import static org.mockito.Mockito.when;
 //
-//import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
-//import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
-//import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
-//import com.filemngt.v2.scan.config.ScanProperties;
-//import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
-//import com.filemngt.v2.scan.domain.scan.ScanProfile;
-//import java.util.List;
-//import java.util.Optional;
-//import java.util.UUID;
-//import org.junit.jupiter.api.Test;
+// import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
+// import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+// import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
+// import com.filemngt.v2.scan.config.ScanProperties;
+// import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
+// import com.filemngt.v2.scan.domain.scan.ScanProfile;
+// import java.util.List;
+// import java.util.Optional;
+// import java.util.UUID;
+// import org.junit.jupiter.api.Test;
 //
-//class ScanExecutorTest {
+// class ScanExecutorTest {
 //    @Test
 //    void storesSafeFailureWhenRootDisappearsBeforeFilesystemWalk() {
 //        var runs = mock(ScanRunRepository.class);
@@ -43,4 +43,4 @@
 //        verify(runs).saveAndFlush(run);
 //        verify(committer).cleanupStage(runId);
 //    }
-//}
+// }

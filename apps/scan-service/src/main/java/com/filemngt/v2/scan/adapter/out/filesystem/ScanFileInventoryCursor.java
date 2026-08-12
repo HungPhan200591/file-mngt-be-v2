@@ -96,7 +96,11 @@ public final class ScanFileInventoryCursor implements AutoCloseable {
 
         private ScanInventoryItem toInventoryItem(Path file, BasicFileAttributes attributes) {
             String relativePath = rootPath.relativize(file).toString().replace('\\', '/');
-            return new ScanInventoryItem(rootKey, relativePath, attributes.size(), attributes.lastModifiedTime().toInstant());
+            return new ScanInventoryItem(
+                    rootKey,
+                    relativePath,
+                    attributes.size(),
+                    attributes.lastModifiedTime().toInstant());
         }
     }
 

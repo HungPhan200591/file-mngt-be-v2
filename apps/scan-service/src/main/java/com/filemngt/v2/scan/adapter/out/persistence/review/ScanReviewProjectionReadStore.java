@@ -142,8 +142,8 @@ public class ScanReviewProjectionReadStore {
     }
 
     private List<Object> proposalFilters(String state, String rootKey, String search, UUID scanRunId) {
-        return new ArrayList<>(Arrays.asList(
-                state, rootKey, rootKey, scanRunId, scanRunId, search, search, search, search));
+        return new ArrayList<>(
+                Arrays.asList(state, rootKey, rootKey, scanRunId, scanRunId, search, search, search, search));
     }
 
     private List<Object> issueFilters(String rootKey, String code, String search) {

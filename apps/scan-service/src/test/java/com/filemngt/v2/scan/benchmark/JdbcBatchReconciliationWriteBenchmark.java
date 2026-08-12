@@ -85,10 +85,7 @@ class JdbcBatchReconciliationWriteBenchmark {
         assertThat(count("scan_file_inventory")).isEqualTo(ROW_COUNT);
         assertThat(count("scan_proposal")).isEqualTo(900_000);
         assertThat(count("scan_issue")).isEqualTo(100_000);
-        LOGGER.info(
-                "JDBC batch benchmark hoàn tất: rows={}, totalWriteMs={}",
-                ROW_COUNT,
-                totalWriteMillis);
+        LOGGER.info("JDBC batch benchmark hoàn tất: rows={}, totalWriteMs={}", ROW_COUNT, totalWriteMillis);
     }
 
     private void resetTables() {
@@ -101,16 +98,12 @@ class JdbcBatchReconciliationWriteBenchmark {
     }
 
     private void seedDiffStage(UUID runId) {
-        jdbcTemplate.update(
-                """
+        jdbcTemplate.update("""
                 INSERT INTO scan_run (id, root_key, profile, status, started_at)
                 VALUES (?, ?, 'JOKE_VIDEO', 'RUNNING', now())
-                """,
-                runId,
-                ROOT_KEY);
+                """, runId, ROOT_KEY);
         long started = System.nanoTime();
-        int seeded = jdbcTemplate.update(
-                """
+        int seeded = jdbcTemplate.update("""
                 INSERT INTO scan_inventory_diff_stage
                     (scan_run_id, root_key, source_relative_path, file_size, file_modified_at)
                 SELECT ?, ?,
@@ -119,10 +112,7 @@ class JdbcBatchReconciliationWriteBenchmark {
                        value,
                        now()
                 FROM generate_series(1, ?) value
-                """,
-                runId,
-                ROOT_KEY,
-                ROW_COUNT);
+                """, runId, ROOT_KEY, ROW_COUNT);
         LOGGER.info("Đã seed diff stage: rows={}, durationMs={}", seeded, elapsedMillis(started));
     }
 
@@ -241,7 +231,9 @@ class JdbcBatchReconciliationWriteBenchmark {
     }
 
     private record DiffRow(String sourceRelativePath, long fileSize, Instant fileModifiedAt) {}
+
     private record ClassifiedRows(List<DiffRow> proposals, List<DiffRow> issues) {}
+
     private record BatchTiming(long inventoryMillis, long proposalMillis, long issueMillis, long transactionMillis) {
         BatchTiming withTransaction(long millis) {
             return new BatchTiming(inventoryMillis, proposalMillis, issueMillis, millis);

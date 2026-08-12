@@ -16,8 +16,7 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
     /** Lấy toàn bộ proposal của run cho batch decision. */
     List<ScanProposalEntity> findByScanRunId(UUID scanRunId);
 
-    @Query(
-            value = """
+    @Query(value = """
                     SELECT proposal.*
                     FROM scan_proposal proposal
                     JOIN scan_run run ON run.id = proposal.scan_run_id
@@ -44,8 +43,7 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
                            OR (:state = 'REJECTED' AND decision.decision = 'REJECT')
                            OR (:state = 'APPROVED' AND decision.decision = 'APPROVE'))
                     ORDER BY run.started_at DESC, proposal.source_relative_path, proposal.id
-                    """,
-            countQuery = """
+                    """, countQuery = """
                     SELECT count(*)
                     FROM scan_proposal proposal
                     JOIN scan_run run ON run.id = proposal.scan_run_id
@@ -71,11 +69,12 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
                       AND ((:state = 'PENDING' AND decision.proposal_id IS NULL)
                            OR (:state = 'REJECTED' AND decision.decision = 'REJECT')
                            OR (:state = 'APPROVED' AND decision.decision = 'APPROVE'))
-                    """,
-            nativeQuery = true)
+                    """, nativeQuery = true)
     Page<ScanProposalEntity> findReviewQueue(
-            @Param("state") String state, @Param("rootKey") String rootKey,
-            @Param("search") String search, Pageable pageable);
+            @Param("state") String state,
+            @Param("rootKey") String rootKey,
+            @Param("search") String search,
+            Pageable pageable);
 
     @Query(value = """
             SELECT count(*) FILTER (WHERE decision.proposal_id IS NULL),
