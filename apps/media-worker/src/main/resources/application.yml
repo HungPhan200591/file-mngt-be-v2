@@ -15,7 +15,33 @@ media:
     base-url: ${CATALOG_SERVICE_URL:http://localhost:18101}
     connect-timeout: ${MEDIA_CATALOG_CONNECT_TIMEOUT:1s}
     read-timeout: ${MEDIA_CATALOG_READ_TIMEOUT:5s}
-  roots: []
+  roots:
+    - key: fixture-media-delivery
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/media-delivery
+    - key: fixture-joke-video
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/joke-video
+    - key: root
+      path: G:/System/Root
+    - key: syncdroid
+      path: G:/System/Syncdroid
+    - key: album
+      path: G:/System/Album
+    - key: honeyview
+      path: G:/System/Honeyview
+    - key: landscape
+      path: G:/System/Honeyview/Landscape
+    - key: portrait
+      path: G:/System/Honeyview/Portrait
+    - key: fullpics
+      path: G:/System/FullPics
+    - key: cover-pics
+      path: G:/System/Cover/Pics
+    - key: gif-joke
+      path: G:/System/Gif/Joke
+    - key: gif-use
+      path: G:/System/Gif/Use
+    - key: manhwa
+      path: G:/System/ComicEd/Manhwa
 
 p6spy:
   enabled: ${P6SPY_ENABLED:true}

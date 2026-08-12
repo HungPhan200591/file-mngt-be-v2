@@ -39,7 +39,7 @@ spring:
 query:
   media:
     public-base-url: ${QUERY_MEDIA_PUBLIC_BASE_URL:http://localhost:18119}
-    root-paths: ${QUERY_MEDIA_ROOT_PATHS:}
+    root-paths: ${QUERY_MEDIA_ROOT_PATHS:root=/files/G:/System/Root;cover-pics=/files/G:/System/Cover/Pics;syncdroid=/files/G:/System/Syncdroid;album=/files/G:/System/Album;honeyview=/files/G:/System/Honeyview;landscape=/files/G:/System/Honeyview/Landscape;portrait=/files/G:/System/Honeyview/Portrait;fullpics=/files/G:/System/FullPics;gif-joke=/files/G:/System/Gif/Joke;gif-use=/files/G:/System/Gif/Use;manhwa=/files/G:/System/ComicEd/Manhwa;fixture-media-delivery=/files/D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/media-delivery;fixture-joke-video=/files/D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/joke-video}
   detail-cache:
     enabled: ${QUERY_DETAIL_CACHE_ENABLED:true}
     ttl: ${QUERY_DETAIL_CACHE_TTL:10m}

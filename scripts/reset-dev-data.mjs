@@ -164,23 +164,6 @@ function isPortOpen(port) {
   });
 }
 
-async function assertApplicationsStopped() {
-  const services = [
-    ['gateway-service', 18100],
-    ['catalog-service', 18101],
-    ['scan-service', 18102],
-    ['query-service', 18103],
-    ['media-worker', 18104],
-  ];
-  const running = (await Promise.all(
-    services.map(async ([service, port]) => ((await isPortOpen(port)) ? `${service}:${port}` : null)),
-  )).filter(Boolean);
-
-  if (running.length > 0) {
-    throw new Error(`Stop V2 application services before reset: ${running.join(', ')}.`);
-  }
-}
-
 async function waitForTopicsDeletion(containerId) {
   for (let attempt = 1; attempt <= 20; attempt += 1) {
     const topics = listKafkaItems(containerId, [
@@ -272,13 +255,34 @@ function clearLogsDirectory(directory) {
 async function main() {
   console.log('==========================================================');
   log('BẮT ĐẦU RESET DỮ LIỆU LOCAL BACKEND V2', COLORS.cyan);
-  log('Yêu cầu: dừng các service ứng dụng trước khi chạy.', COLORS.yellow);
   console.log('==========================================================\n');
 
   const postgres = requireContainer('postgres');
   const redis = requireContainer('redis');
   const kafka = requireContainer('kafka');
-  await assertApplicationsStopped();
+
+  const services = [
+    ['gateway-service', 18100],
+    ['catalog-service', 18101],
+    ['scan-service', 18102],
+    ['query-service', 18103],
+    ['media-worker', 18104],
+  ];
+  const running = (await Promise.all(
+    services.map(async ([service, port]) => ((await isPortOpen(port)) ? `${service}:${port}` : null)),
+  )).filter(Boolean);
+
+  let wasAppsRunningInDocker = false;
+  if (running.length > 0) {
+    log(`Phát hiện ứng dụng đang chạy (${running.join(', ')}). Tự động dừng để reset...`, COLORS.yellow);
+    try {
+      execFileSync('docker', ['compose', '--env-file', '.env', '-f', 'infra/compose/compose.apps.yaml', 'stop'], { stdio: 'inherit' });
+      wasAppsRunningInDocker = true;
+      await sleep(1000);
+    } catch (e) {
+      log('Lưu ý: Tiếp tục reset dữ liệu...', COLORS.gray);
+    }
+  }
 
   log('[1/5] Truncate PostgreSQL business data (giữ Catalog master data)...', COLORS.yellow);
   const scanTables = truncateTables(postgres, 'scan_user', 'scan_db', "table_name LIKE 'scan_%'");
@@ -310,6 +314,16 @@ async function main() {
   clearLogsDirectory('logs');
   clearLogsDirectory('apps');
   log(' ✓ Local log files đã được xóa.', COLORS.green);
+
+  if (wasAppsRunningInDocker) {
+    log('\n[Khởi chạy lại Ứng dụng]', COLORS.cyan);
+    try {
+      execFileSync('docker', ['compose', '--env-file', '.env', '-f', 'infra/compose/compose.apps.yaml', 'start'], { stdio: 'inherit' });
+      log(' ✓ Đã tự động khởi chạy lại tất cả ứng dụng trong Docker!', COLORS.green);
+    } catch (e) {
+      log('Gợi ý: Bật lại ứng dụng bằng lệnh `npm run docker:apps:up`.', COLORS.yellow);
+    }
+  }
 
   console.log('\n==========================================================');
   log('RESET HOÀN TẤT: business data đã sạch, Catalog master data được giữ lại.', COLORS.green);

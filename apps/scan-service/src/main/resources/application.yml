@@ -60,7 +60,46 @@ scan:
     max-connections-per-run: ${SCAN_SSE_MAX_CONNECTIONS_PER_RUN:5}
     max-connections: ${SCAN_SSE_MAX_CONNECTIONS:100}
     progress-interval-millis: ${SCAN_SSE_PROGRESS_INTERVAL_MILLIS:1000}
-  roots: []
+  roots:
+    - key: fixture-media-delivery
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/media-delivery
+      profile: JOKE_VIDEO
+    - key: fixture-joke-video
+      path: D:/Personal/file-management/v2/file-mngt-be-v2/tests/fixtures/scan/joke-video
+      profile: JOKE_VIDEO
+    - key: root
+      path: G:/System/Root
+      profile: JOKE_VIDEO
+    - key: syncdroid
+      path: G:/System/Syncdroid
+      profile: USE_VIDEO
+    - key: album
+      path: G:/System/Album
+      profile: USE_ALBUM
+    - key: honeyview
+      path: G:/System/Honeyview
+      profile: USE_ASSET
+    - key: landscape
+      path: G:/System/Honeyview/Landscape
+      profile: USE_ASSET
+    - key: portrait
+      path: G:/System/Honeyview/Portrait
+      profile: USE_ASSET
+    - key: fullpics
+      path: G:/System/FullPics
+      profile: USE_ASSET
+    - key: cover-pics
+      path: G:/System/Cover/Pics
+      profile: JOKE_ASSET
+    - key: gif-joke
+      path: G:/System/Gif/Joke
+      profile: JOKE_ASSET
+    - key: gif-use
+      path: G:/System/Gif/Use
+      profile: USE_ASSET
+    - key: manhwa
+      path: G:/System/ComicEd/Manhwa
+      profile: USE_ALBUM
 
 catalog:
   registry:
