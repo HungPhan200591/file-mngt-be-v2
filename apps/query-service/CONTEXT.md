@@ -16,6 +16,9 @@ Read model tối ưu cho Gallery Web, Media Library, filter, card và search.
 
 ## Invariants
 
+- `media.subject.deleted.v1` xóa PostgreSQL projection, evict Redis sau commit và enqueue durable Elasticsearch delete trong cùng transaction.
+- Subject tombstone theo version chặn snapshot cũ đến đảo thứ tự làm projection đã xóa sống lại.
+
 - Không ghi ngược Catalog.
 - Projection eventual consistent; response phải có metadata cần thiết để UI hiểu trạng thái.
 - Elasticsearch là search projection, không phải canonical data. UI chỉ gọi Query API, không gọi Elasticsearch trực tiếp.

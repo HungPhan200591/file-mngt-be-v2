@@ -6,8 +6,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.filemngt.v2.contracts.events.MediaSubjectChangedV1;
+import com.filemngt.v2.contracts.events.MediaSubjectDeletedV1;
 import com.filemngt.v2.query.adapter.out.persistence.QueryProcessedEventRepository;
+import com.filemngt.v2.query.adapter.out.persistence.QuerySearchOutboxRepository;
 import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectRepository;
+import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectTombstoneRepository;
 import com.filemngt.v2.query.application.QueryProjectionService;
 import java.time.Instant;
 import java.util.List;
@@ -46,6 +49,12 @@ class QueryIntegrationTest {
 
     @Autowired
     QueryProcessedEventRepository processedEvents;
+
+    @Autowired
+    QuerySearchOutboxRepository searchOutbox;
+
+    @Autowired
+    QuerySubjectTombstoneRepository tombstones;
 
     @Autowired
     MockMvc mockMvc;
@@ -144,6 +153,30 @@ class QueryIntegrationTest {
                 .isEqualTo("org.apache.kafka.common.serialization.StringSerializer");
         assertThat(environment.getProperty("spring.kafka.producer.value-serializer"))
                 .isEqualTo("org.apache.kafka.common.serialization.StringSerializer");
+    }
+
+    @Test
+    void deletesProjectionAndRejectsStaleSnapshotAfterTombstone() {
+        var subjectId = UUID.randomUUID();
+        var createdAt = Instant.parse("2026-08-01T00:00:00Z");
+        var snapshot = event(
+                UUID.randomUUID(),
+                subjectId,
+                3,
+                "DELETE-003",
+                "Delete me",
+                createdAt,
+                List.of(asset(UUID.randomUUID(), "PRIMARY_VIDEO", "DELETE-003.mp4")));
+        service.handle(snapshot);
+
+        service.handle(
+                new MediaSubjectDeletedV1(UUID.randomUUID(), "media.subject.deleted.v1", Instant.now(), subjectId, 4));
+        service.handle(snapshot);
+
+        assertThat(subjects.findById(subjectId)).isEmpty();
+        assertThat(tombstones.findById(subjectId).orElseThrow().subjectVersion())
+                .isEqualTo(4);
+        assertThat(searchOutbox.findAll()).anyMatch(entry -> entry.isDelete());
     }
 
     private MediaSubjectChangedV1 event(

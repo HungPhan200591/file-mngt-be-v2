@@ -25,23 +25,45 @@ public class ScanQueryViewFactory {
     }
 
     public ScanProposalView proposal(ScanProposalEntity proposal, ScanDecisionEntity decision) {
-        return new ScanProposalView(proposal.id(), proposal.sourceRelativePath(), proposal.profile(),
-                proposal.candidateType(), proposal.identityKey(), proposal.displayTitle(), proposal.assetRole(),
-                evidenceCodec.read(proposal.evidence()), decision == null ? null : decision.decision(),
+        return new ScanProposalView(
+                proposal.id(),
+                proposal.sourceRelativePath(),
+                proposal.profile(),
+                proposal.candidateType(),
+                proposal.identityKey(),
+                proposal.displayTitle(),
+                proposal.assetRole(),
+                evidenceCodec.read(proposal.evidence()),
+                decision == null ? null : decision.decision(),
                 decision == null ? null : decision.decidedAt());
     }
 
-    public ReviewQueueProposalView reviewQueueProposal(ScanProposalEntity proposal, ScanRunEntity run,
-            ScanDecisionEntity decision, String state) {
-        return new ReviewQueueProposalView(proposal.id(), proposal.scanRunId(), run.rootKey(),
-                proposal.sourceRelativePath(), proposal.profile(), proposal.candidateType(), proposal.identityKey(),
-                proposal.displayTitle(), proposal.assetRole(), evidenceCodec.read(proposal.evidence()), state,
+    public ReviewQueueProposalView reviewQueueProposal(
+            ScanProposalEntity proposal, ScanRunEntity run, ScanDecisionEntity decision, String state) {
+        return new ReviewQueueProposalView(
+                proposal.id(),
+                proposal.scanRunId(),
+                run.rootKey(),
+                proposal.sourceRelativePath(),
+                proposal.profile(),
+                proposal.candidateType(),
+                proposal.identityKey(),
+                proposal.displayTitle(),
+                proposal.assetRole(),
+                evidenceCodec.read(proposal.evidence()),
+                state,
                 decision == null ? null : decision.decidedAt());
     }
 
     public ReviewQueueIssueView reviewQueueIssue(ScanIssueEntity issue, ScanRunEntity run) {
-        return new ReviewQueueIssueView(issue.id(), issue.scanRunId(), run.rootKey(), issue.sourceRelativePath(),
-                issue.code(), issue.detail(), run.finishedAt());
+        return new ReviewQueueIssueView(
+                issue.id(),
+                issue.scanRunId(),
+                run.rootKey(),
+                issue.sourceRelativePath(),
+                issue.code(),
+                issue.detail(),
+                run.finishedAt());
     }
 
     public ScanIssueView issue(ScanIssueEntity issue) {

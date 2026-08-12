@@ -8,8 +8,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface MediaSubjectRepository extends JpaRepository<MediaSubjectEntity, UUID> {
+
+    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
+    @Query("select distinct subject from MediaSubjectEntity subject join subject.assets asset "
+            + "where asset.storageKey = :storageKey and asset.relativePath = :relativePath")
+    Optional<MediaSubjectEntity> findByAssetLocator(
+            @Param("storageKey") String storageKey, @Param("relativePath") String relativePath);
 
     @Override
     @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})

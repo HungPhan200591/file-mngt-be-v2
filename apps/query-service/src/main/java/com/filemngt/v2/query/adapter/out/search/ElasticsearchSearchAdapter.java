@@ -38,6 +38,15 @@ public class ElasticsearchSearchAdapter {
         indexAll(ALIAS, subjects);
     }
 
+    public void delete(UUID subjectId, long projectionVersion) throws IOException {
+        if (!client.indices().existsAlias(request -> request.name(ALIAS)).value()) return;
+        client.delete(request -> request.index(ALIAS)
+                .id(subjectId.toString())
+                .version(projectionVersion + 1)
+                .versionType(VersionType.ExternalGte));
+        client.indices().refresh(request -> request.index(ALIAS));
+    }
+
     public SearchResult search(String search, Region region, SubjectType type, String order, int page, int size)
             throws IOException {
         var filters = filters(region, type);

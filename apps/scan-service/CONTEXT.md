@@ -16,6 +16,9 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 
 ## Invariants
 
+- Chỉ rerun với `overwriteExisting=true` mới đối soát file biến mất và tạo `DELETE_ASSET`; normal scan không đánh dấu inventory `MISSING`.
+- `DELETE_ASSET` luôn qua review/approve; Scan phát locator bằng `media.file.removed.v1`, không sở hữu hay suy đoán `subjectId`.
+
 - Bắt buộc fetch thành công `RegistrySnapshot` từ Catalog trước khi tạo `scan_run`; nếu Catalog unavailable, trả 503 Service Unavailable.
 - Existence lookup chia micro-batch tối đa 500, chạy ngoài transaction persistence và fail closed khi Catalog timeout/lỗi/protocol sai. `EXACT_ASSET_EXISTS` không ghi proposal; các classification khác giữ proposal cùng `catalogExistence` evidence. Không retry tự động; verification runtime còn deferred.
 - Start preview hỗ trợ `overwriteExisting=true` cho rerun có chủ đích: materialize toàn bộ file

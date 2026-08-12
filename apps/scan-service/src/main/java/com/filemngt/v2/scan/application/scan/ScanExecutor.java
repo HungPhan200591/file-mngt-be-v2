@@ -91,7 +91,7 @@ public class ScanExecutor {
             var finalProgress = progressSnapshot(progress);
             publishProgress(runId, ScanRunStreamPhase.FINALIZING, finalProgress, progress);
             timeline.finalizingStarted();
-            chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), finalProgress);
+            chunkCommitter.finalizeRun(runId, run.workerId(), root.key(), overwriteExisting, finalProgress);
             liveness.publishTerminal(runId);
             logCompletion(runId, progress);
             timeline.completed(progress);
@@ -117,8 +117,8 @@ public class ScanExecutor {
         int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
         timeline.discoveryCompleted();
         timeline.diffStarted();
-        progress.setChangedFiles(chunkCommitter.prepareReconciliation(
-                context.runId(), context.workerId(), context.overwriteExisting()));
+        progress.setChangedFiles(
+                chunkCommitter.prepareReconciliation(context.runId(), context.workerId(), context.overwriteExisting()));
         timeline.diffCompleted();
         var inventoryWriteMode = chunkCommitter.inventoryWriteMode(
                 context.runId(), context.workerId(), context.root().key());

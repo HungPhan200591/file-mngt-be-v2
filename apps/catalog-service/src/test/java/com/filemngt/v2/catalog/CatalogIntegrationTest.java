@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.filemngt.v2.catalog.adapter.in.event.MediaFileDiscoveredConsumer;
+import com.filemngt.v2.catalog.adapter.in.event.MediaFileRemovedConsumer;
 import com.filemngt.v2.catalog.adapter.out.persistence.CatalogDeadLetterRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.MediaAssetEntity;
@@ -19,6 +20,7 @@ import com.filemngt.v2.catalog.domain.MediaAssetRole;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
+import com.filemngt.v2.contracts.events.MediaFileRemovedV1;
 import com.filemngt.v2.observability.CorrelationId;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
@@ -67,6 +69,9 @@ class CatalogIntegrationTest {
 
     @Autowired
     private MediaFileDiscoveredConsumer consumer;
+
+    @Autowired
+    private MediaFileRemovedConsumer removalConsumer;
 
     @Autowired
     private ProcessedEventRepository processed;
@@ -179,21 +184,21 @@ class CatalogIntegrationTest {
     @Test
     void onlyPrimaryVideoTagsAreMaterializedOnSubject() throws Exception {
         String identityKey = "PRIMARY-TAGS-" + UUID.randomUUID();
-        MediaFileDiscoveredV2 primary = eventWithTags(
-                "JOKE", identityKey, "PRIMARY_VIDEO", "Root/primary.mp4", java.util.List.of("BEST"));
-        MediaFileDiscoveredV2 image = eventWithTags(
-                "JOKE", identityKey, "IMAGE", "Root/primary (2).jpg", java.util.List.of());
+        MediaFileDiscoveredV2 primary =
+                eventWithTags("JOKE", identityKey, "PRIMARY_VIDEO", "Root/primary.mp4", java.util.List.of("BEST"));
+        MediaFileDiscoveredV2 image =
+                eventWithTags("JOKE", identityKey, "IMAGE", "Root/primary (2).jpg", java.util.List.of());
 
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
                 "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(primary)));
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
                 "media.file.discovered.v2", 0, 1L, "key", json.writeValueAsString(image)));
 
-        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(
-                        Region.JOKE, SubjectType.VIDEO, identityKey)
+        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, identityKey)
                 .orElseThrow();
         assertThat(subject.tagNames()).containsExactly("BEST");
-        assertThat(subject.assets()).extracting(MediaAssetEntity::role)
+        assertThat(subject.assets())
+                .extracting(MediaAssetEntity::role)
                 .containsExactlyInAnyOrder(MediaAssetRole.PRIMARY_VIDEO, MediaAssetRole.IMAGE);
 
         MediaFileDiscoveredV2 rerunPrimary = eventWithTags(
@@ -220,6 +225,32 @@ class CatalogIntegrationTest {
                         Region.JOKE, SubjectType.VIDEO, reverseIdentityKey)
                 .orElseThrow();
         assertThat(reverseSubject.tagNames()).containsExactly("BEST");
+    }
+
+    @Test
+    void removesAssetAndDeletesSubjectWhenLastAssetDisappears() throws Exception {
+        String identityKey = "REMOVE-" + UUID.randomUUID();
+        MediaFileDiscoveredV2 discovery =
+                eventWithTags("JOKE", identityKey, "PRIMARY_VIDEO", "Root/remove.mp4", java.util.List.of("BEST"));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(discovery)));
+        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, identityKey)
+                .orElseThrow();
+
+        var removal = new MediaFileRemovedV1(
+                UUID.randomUUID(),
+                "media.file.removed.v1",
+                Instant.now().plusSeconds(1),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "fixture",
+                "Root/remove.mp4");
+        removalConsumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.removed.v1", 0, 0L, "fixture:Root/remove.mp4", json.writeValueAsString(removal)));
+
+        assertThat(subjects.findById(subject.id())).isEmpty();
+        assertThat(outbox.findBySubjectId(subject.id()))
+                .anyMatch(event -> event.eventType().equals("media.subject.deleted.v1"));
     }
 
     @Test

@@ -19,6 +19,9 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 
 ## Invariants
 
+- Catalog là owner resolve asset locator và xóa canonical asset. Subject không còn asset phải bị xóa và phát `media.subject.deleted.v1` bằng transactional outbox.
+- Locator tombstone chặn discovery event cũ đến đảo thứ tự làm asset đã xóa sống lại.
+
 - Subject identity dùng key chuẩn hóa theo region/kind.
 - Khi feature có business event, mọi thay đổi publish qua transactional outbox.
 - Consumer Kafka idempotent; không ghi projection Query trực tiếp.

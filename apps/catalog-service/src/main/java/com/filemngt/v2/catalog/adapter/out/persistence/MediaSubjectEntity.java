@@ -96,9 +96,7 @@ public class MediaSubjectEntity {
     /** Cập nhật metadata subject; chỉ primary video mới có quyền thay thế tags. */
     public boolean applyMetadata(SubjectMetadata metadata, boolean tagsAuthoritative) {
         var nextActresses = new LinkedHashSet<>(metadata.actressNames());
-        var nextTags = tagsAuthoritative
-                ? new LinkedHashSet<>(metadata.tagNames())
-                : new LinkedHashSet<>(tagNames);
+        var nextTags = tagsAuthoritative ? new LinkedHashSet<>(metadata.tagNames()) : new LinkedHashSet<>(tagNames);
         var changed = !java.util.Objects.equals(baseCode, metadata.baseCode())
                 || !java.util.Objects.equals(part, metadata.part())
                 || !java.util.Objects.equals(studioCode, metadata.studioCode())
@@ -125,6 +123,24 @@ public class MediaSubjectEntity {
     public boolean hasPrimaryVideo() {
         return assets.stream()
                 .anyMatch(asset -> asset.role() == com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO);
+    }
+
+    public boolean removeAssetLocator(String storageKey, String relativePath) {
+        var removedAsset = assets.stream()
+                .filter(asset -> java.util.Objects.equals(asset.storageKey(), storageKey)
+                        && asset.relativePath().equals(relativePath))
+                .findFirst();
+        if (removedAsset.isEmpty()) return false;
+        assets.remove(removedAsset.get());
+        if (removedAsset.get().role() == com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO) {
+            tagNames.clear();
+        }
+        updatedAt = Instant.now();
+        return true;
+    }
+
+    public boolean hasAssets() {
+        return !assets.isEmpty();
     }
 
     public UUID id() {

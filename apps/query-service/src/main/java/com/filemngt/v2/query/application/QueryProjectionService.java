@@ -1,6 +1,7 @@
 package com.filemngt.v2.query.application;
 
 import com.filemngt.v2.contracts.events.MediaSubjectChangedV1;
+import com.filemngt.v2.contracts.events.MediaSubjectDeletedV1;
 import com.filemngt.v2.query.adapter.out.persistence.QueryAssetEntity;
 import com.filemngt.v2.query.adapter.out.persistence.QueryProcessedEventEntity;
 import com.filemngt.v2.query.adapter.out.persistence.QueryProcessedEventRepository;
@@ -8,6 +9,8 @@ import com.filemngt.v2.query.adapter.out.persistence.QuerySearchOutboxEntity;
 import com.filemngt.v2.query.adapter.out.persistence.QuerySearchOutboxRepository;
 import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectEntity;
 import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectRepository;
+import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectTombstoneEntity;
+import com.filemngt.v2.query.adapter.out.persistence.QuerySubjectTombstoneRepository;
 import com.filemngt.v2.query.domain.MediaAssetRole;
 import com.filemngt.v2.query.domain.Region;
 import com.filemngt.v2.query.domain.SubjectType;
@@ -32,21 +35,29 @@ public class QueryProjectionService {
     private final QueryProcessedEventRepository processed;
     private final QuerySearchOutboxRepository searchOutbox;
     private final ApplicationEventPublisher events;
+    private final QuerySubjectTombstoneRepository tombstones;
 
     public QueryProjectionService(
             QuerySubjectRepository subjects,
             QueryProcessedEventRepository processed,
             QuerySearchOutboxRepository searchOutbox,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            QuerySubjectTombstoneRepository tombstones) {
         this.subjects = subjects;
         this.processed = processed;
         this.searchOutbox = searchOutbox;
         this.events = events;
+        this.tombstones = tombstones;
     }
 
     @Transactional
     public void handle(MediaSubjectChangedV1 event) {
         if (processed.existsById(event.eventId())) return;
+        var tombstone = tombstones.findById(event.subjectId());
+        if (tombstone.isPresent() && tombstone.get().subjectVersion() >= event.subjectVersion()) {
+            processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
+            return;
+        }
         var existingSubject = subjects.findById(event.subjectId());
         var subject = existingSubject.orElseGet(() -> new QuerySubjectEntity(event.subjectId()));
         var versionAdvanced = existingSubject.isEmpty() || subject.projectionVersion() < event.subjectVersion();
@@ -83,11 +94,38 @@ public class QueryProjectionService {
             }
         }
         processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
+        tombstone.ifPresent(tombstones::delete);
         LOGGER.info(
                 "Processed query subject projection eventId={} subjectId={} identityKey={} version={}",
                 event.eventId(),
                 event.subjectId(),
                 event.identityKey(),
+                event.subjectVersion());
+    }
+
+    @Transactional
+    public void handle(MediaSubjectDeletedV1 event) {
+        if (processed.existsById(event.eventId())) return;
+        var tombstone = tombstones.findById(event.subjectId());
+        if (tombstone.isPresent() && tombstone.get().subjectVersion() >= event.subjectVersion()) {
+            processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
+            return;
+        }
+        var subject = subjects.findById(event.subjectId());
+        boolean tombstoneAdvanced = subject.isEmpty() || subject.get().projectionVersion() < event.subjectVersion();
+        if (tombstoneAdvanced) {
+            subject.ifPresent(subjects::delete);
+            tombstones.save(
+                    new QuerySubjectTombstoneEntity(event.subjectId(), event.subjectVersion(), event.occurredAt()));
+            searchOutbox.save(
+                    new QuerySearchOutboxEntity(event.subjectId(), event.subjectVersion(), "DELETE", Instant.now()));
+            events.publishEvent(new QuerySubjectProjectionChanged(event.subjectId()));
+        }
+        processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
+        LOGGER.info(
+                "Processed query subject tombstone eventId={} subjectId={} version={}",
+                event.eventId(),
+                event.subjectId(),
                 event.subjectVersion());
     }
 

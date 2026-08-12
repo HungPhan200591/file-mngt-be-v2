@@ -20,6 +20,7 @@ public class QuerySearchOutboxEntity {
 
     private UUID subjectId;
     private long projectionVersion;
+    private String operation;
     private Instant createdAt;
     private Instant nextAttemptAt;
     private Instant indexedAt;
@@ -29,9 +30,14 @@ public class QuerySearchOutboxEntity {
     protected QuerySearchOutboxEntity() {}
 
     public QuerySearchOutboxEntity(UUID subjectId, long projectionVersion, Instant createdAt) {
+        this(subjectId, projectionVersion, "UPSERT", createdAt);
+    }
+
+    public QuerySearchOutboxEntity(UUID subjectId, long projectionVersion, String operation, Instant createdAt) {
         id = UUID.randomUUID();
         this.subjectId = subjectId;
         this.projectionVersion = projectionVersion;
+        this.operation = operation;
         this.createdAt = createdAt;
         nextAttemptAt = createdAt;
     }
@@ -53,5 +59,13 @@ public class QuerySearchOutboxEntity {
 
     public int attemptCount() {
         return attemptCount;
+    }
+
+    public long projectionVersion() {
+        return projectionVersion;
+    }
+
+    public boolean isDelete() {
+        return "DELETE".equals(operation);
     }
 }

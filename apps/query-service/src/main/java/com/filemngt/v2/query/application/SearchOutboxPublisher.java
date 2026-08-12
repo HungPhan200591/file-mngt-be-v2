@@ -8,7 +8,6 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -66,28 +65,32 @@ public class SearchOutboxPublisher {
         var now = Instant.now();
         var pending = outbox.findTop100ByIndexedAtIsNullAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(now);
         if (pending.isEmpty()) return;
-        try {
-            var pendingSubjects = new ArrayList<com.filemngt.v2.query.adapter.out.persistence.QuerySubjectEntity>();
-            for (var entry : pending)
-                pendingSubjects.add(subjects.findById(entry.subjectId()).orElseThrow());
-            search.indexAll(pendingSubjects);
-            for (var entry : pending) {
+        for (var entry : pending) {
+            try {
+                if (entry.isDelete()) {
+                    var current = subjects.findById(entry.subjectId());
+                    if (current.isEmpty() || current.get().projectionVersion() < entry.projectionVersion()) {
+                        search.delete(entry.subjectId(), entry.projectionVersion());
+                    }
+                } else {
+                    var subject = subjects.findById(entry.subjectId());
+                    if (subject.isPresent() && subject.get().projectionVersion() <= entry.projectionVersion()) {
+                        search.index(subject.get());
+                    }
+                }
                 entry.markIndexed(now);
-            }
-            indexedCounter.increment(pending.size());
-        } catch (Exception exception) {
-            var firstRetryDelay = retryDelay(pending.getFirst().attemptCount());
-            log.warn(
-                    "Elasticsearch indexing failed for {} outbox entries; first retry in {}: {}",
-                    pending.size(),
-                    firstRetryDelay,
-                    exception.toString());
-            log.debug("Elasticsearch indexing failure detail", exception);
-            for (var entry : pending) {
+                indexedCounter.increment();
+            } catch (Exception exception) {
                 var retryAt = now.plus(retryDelay(entry.attemptCount()));
                 entry.markFailed(errorMessage(exception), retryAt);
+                log.warn(
+                        "Elasticsearch projection failed for subjectId={}; retryAt={}: {}",
+                        entry.subjectId(),
+                        retryAt,
+                        exception.toString());
+                log.debug("Elasticsearch projection failure detail", exception);
+                failureCounter.increment();
             }
-            failureCounter.increment(pending.size());
         }
     }
 

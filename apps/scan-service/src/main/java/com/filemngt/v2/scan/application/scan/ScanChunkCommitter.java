@@ -121,19 +121,28 @@ public class ScanChunkCommitter {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void finalizeRun(UUID runId, String workerId, String rootKey, ChunkProgress progress) {
+    public ChunkProgress finalizeRun(
+            UUID runId, String workerId, String rootKey, boolean overwriteExisting, ChunkProgress progress) {
         timeouts.applyMutationTimeout();
         var lease = new ChunkLease(runId, workerId, null);
         validateLease(loadRun(lease), lease);
-        inventorySetWriter.markMissingFromStage(rootKey, runId);
+        int removalProposals = overwriteExisting ? inventorySetWriter.insertRemovalProposals(rootKey, runId) : 0;
+        if (overwriteExisting) inventorySetWriter.markMissingFromStage(rootKey, runId);
         stageWriter.deleteRun(runId);
-        completeRun(runId, workerId, rootKey, progress);
+        var completedProgress = new ChunkProgress(
+                progress.files(),
+                progress.proposals() + removalProposals,
+                progress.issues(),
+                progress.changedFiles(),
+                progress.reconciledFiles());
+        completeRun(runId, workerId, rootKey, completedProgress);
         LOGGER.info(
                 "Đã finalize scan runId={}: files={}, proposals={}, issues={}",
                 runId,
                 progress.files(),
-                progress.proposals(),
-                progress.issues());
+                completedProgress.proposals(),
+                completedProgress.issues());
+        return completedProgress;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

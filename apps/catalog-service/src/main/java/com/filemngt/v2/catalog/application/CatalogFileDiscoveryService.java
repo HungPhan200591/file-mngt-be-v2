@@ -5,6 +5,8 @@ import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectEntity;
 import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventEntity;
 import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventRepository;
+import com.filemngt.v2.catalog.adapter.out.persistence.RemovedAssetLocatorEntity;
+import com.filemngt.v2.catalog.adapter.out.persistence.RemovedAssetLocatorRepository;
 import com.filemngt.v2.catalog.domain.MediaAssetRole;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
@@ -29,18 +31,21 @@ public class CatalogFileDiscoveryService {
     private final CatalogSubjectOutboxService outbox;
     private final ActressRepository actressRepository;
     private final MasterDataVersionService versionService;
+    private final RemovedAssetLocatorRepository removedLocators;
 
     public CatalogFileDiscoveryService(
             ProcessedEventRepository processed,
             MediaSubjectRepository subjects,
             CatalogSubjectOutboxService outbox,
             ActressRepository actressRepository,
-            MasterDataVersionService versionService) {
+            MasterDataVersionService versionService,
+            RemovedAssetLocatorRepository removedLocators) {
         this.processed = processed;
         this.subjects = subjects;
         this.outbox = outbox;
         this.actressRepository = actressRepository;
         this.versionService = versionService;
+        this.removedLocators = removedLocators;
     }
 
     @Transactional
@@ -49,14 +54,21 @@ public class CatalogFileDiscoveryService {
             LOGGER.debug("Ignored duplicate media discovery v2 eventId={}", event.eventId());
             return;
         }
+        var locatorKey = new RemovedAssetLocatorEntity.Key(event.storageKey(), event.relativePath());
+        var tombstone = removedLocators.findById(locatorKey);
+        if (tombstone.isPresent() && !tombstone.get().removedAt().isBefore(event.timestamp())) {
+            processed.save(new ProcessedEventEntity(event.eventId(), Instant.now()));
+            return;
+        }
         var region = Region.valueOf(event.region());
         var type = SubjectType.valueOf(event.subjectType());
         var existing = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey());
         var subject = existing.orElseGet(() -> new MediaSubjectEntity(
                 UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
         MediaAssetRole role = event.role() != null ? MediaAssetRole.valueOf(event.role()) : null;
-        boolean metadataChanged = subject.applyMetadata(new MediaSubjectEntity.SubjectMetadata(
-                event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames()),
+        boolean metadataChanged = subject.applyMetadata(
+                new MediaSubjectEntity.SubjectMetadata(
+                        event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames()),
                 role == MediaAssetRole.PRIMARY_VIDEO);
         boolean isDuplicatePrimaryVideo = role == MediaAssetRole.PRIMARY_VIDEO && subject.hasPrimaryVideo();
         boolean assetAdded = role != null
@@ -94,6 +106,7 @@ public class CatalogFileDiscoveryService {
         }
 
         processed.save(new ProcessedEventEntity(event.eventId(), Instant.now()));
+        tombstone.ifPresent(removedLocators::delete);
         LOGGER.info(
                 "Processed media discovery v2 eventId={} subjectId={} identityKey={} relativePath={} baseCode={} part={}",
                 event.eventId(),

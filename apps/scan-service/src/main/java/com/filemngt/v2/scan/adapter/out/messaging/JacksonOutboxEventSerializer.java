@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.adapter.out.messaging;
 
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
+import com.filemngt.v2.contracts.events.MediaFileRemovedV1;
 import com.filemngt.v2.scan.application.outbox.OutboxEventSerializer;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -18,10 +19,19 @@ public class JacksonOutboxEventSerializer implements OutboxEventSerializer {
     @Override
     /** Serialize event đã hoàn chỉnh trước khi lưu cùng transaction quyết định. */
     public String serialize(MediaFileDiscoveredV2 event) {
+        return serializeEvent(event);
+    }
+
+    @Override
+    public String serialize(MediaFileRemovedV1 event) {
+        return serializeEvent(event);
+    }
+
+    private String serializeEvent(Object event) {
         try {
             return objectMapper.writeValueAsString(event);
         } catch (JacksonException exception) {
-            throw new IllegalStateException("Cannot serialize discovered media event", exception);
+            throw new IllegalStateException("Cannot serialize scan outbox event", exception);
         }
     }
 }

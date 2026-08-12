@@ -29,7 +29,8 @@ public class ScanReviewProjectionWriter {
         JOIN scan_file_inventory inventory
           ON inventory.root_key = run.root_key
          AND inventory.source_relative_path = proposal.source_relative_path
-         AND inventory.state = 'PRESENT'
+         AND ((proposal.candidate_type = 'DELETE_ASSET' AND inventory.state = 'MISSING')
+              OR (proposal.candidate_type <> 'DELETE_ASSET' AND inventory.state = 'PRESENT'))
         LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
         WHERE run.status = 'COMPLETED' AND run.root_key = ?
           AND NOT EXISTS (

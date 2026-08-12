@@ -166,7 +166,8 @@ public class ScanQueryService {
                         .toList())
                 .stream()
                 .collect(Collectors.toMap(run -> run.id(), Function.identity()));
-        return ScanViewMapper.page(result.map(issue -> viewFactory.reviewQueueIssue(issue, runsById.get(issue.scanRunId()))));
+        return ScanViewMapper.page(
+                result.map(issue -> viewFactory.reviewQueueIssue(issue, runsById.get(issue.scanRunId()))));
     }
 
     @Transactional(readOnly = true)

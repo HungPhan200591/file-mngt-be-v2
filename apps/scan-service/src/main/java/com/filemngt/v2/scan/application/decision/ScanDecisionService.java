@@ -2,8 +2,8 @@ package com.filemngt.v2.scan.application.decision;
 
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
@@ -13,12 +13,11 @@ import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.application.exception.ProposalNotFoundException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
+import com.filemngt.v2.scan.domain.identity.UuidV7;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
-import com.filemngt.v2.scan.domain.identity.UuidV7;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

@@ -22,7 +22,8 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
                     JOIN scan_run run ON run.id = proposal.scan_run_id
                     JOIN scan_file_inventory inventory ON inventory.root_key = run.root_key
                         AND inventory.source_relative_path = proposal.source_relative_path
-                        AND inventory.state = 'PRESENT'
+                        AND ((proposal.candidate_type = 'DELETE_ASSET' AND inventory.state = 'MISSING')
+                             OR (proposal.candidate_type <> 'DELETE_ASSET' AND inventory.state = 'PRESENT'))
                     LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
                     WHERE run.status = 'COMPLETED'
                       AND (:rootKey IS NULL OR run.root_key = :rootKey)
@@ -49,7 +50,8 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
                     JOIN scan_run run ON run.id = proposal.scan_run_id
                     JOIN scan_file_inventory inventory ON inventory.root_key = run.root_key
                         AND inventory.source_relative_path = proposal.source_relative_path
-                        AND inventory.state = 'PRESENT'
+                        AND ((proposal.candidate_type = 'DELETE_ASSET' AND inventory.state = 'MISSING')
+                             OR (proposal.candidate_type <> 'DELETE_ASSET' AND inventory.state = 'PRESENT'))
                     LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
                     WHERE run.status = 'COMPLETED'
                       AND (:rootKey IS NULL OR run.root_key = :rootKey)
@@ -83,7 +85,9 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
             FROM scan_proposal proposal
             JOIN scan_run run ON run.id = proposal.scan_run_id
             JOIN scan_file_inventory inventory ON inventory.root_key = run.root_key
-                AND inventory.source_relative_path = proposal.source_relative_path AND inventory.state = 'PRESENT'
+                AND inventory.source_relative_path = proposal.source_relative_path
+                AND ((proposal.candidate_type = 'DELETE_ASSET' AND inventory.state = 'MISSING')
+                     OR (proposal.candidate_type <> 'DELETE_ASSET' AND inventory.state = 'PRESENT'))
             LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
             WHERE run.status = 'COMPLETED' AND run.root_key = :rootKey
               AND NOT EXISTS (SELECT 1 FROM scan_proposal newer_proposal JOIN scan_run newer_run ON newer_run.id = newer_proposal.scan_run_id
@@ -100,7 +104,8 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
             JOIN scan_run run ON run.id = proposal.scan_run_id
             JOIN scan_file_inventory inventory ON inventory.root_key = run.root_key
                 AND inventory.source_relative_path = proposal.source_relative_path
-                AND inventory.state = 'PRESENT'
+                AND ((proposal.candidate_type = 'DELETE_ASSET' AND inventory.state = 'MISSING')
+                     OR (proposal.candidate_type <> 'DELETE_ASSET' AND inventory.state = 'PRESENT'))
             LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
             WHERE run.status = 'COMPLETED'
               AND (:rootKey IS NULL OR run.root_key = :rootKey)

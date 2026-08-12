@@ -6,14 +6,12 @@ import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
@@ -36,9 +34,13 @@ public class ScanRunDecisionBatch {
     private final ScanOutboxEventFactory eventFactory;
     private final ScanReviewDecisionProjection projection;
 
-    public ScanRunDecisionBatch(ScanRunRepository runs, ScanProposalRepository proposals,
-            ScanDecisionRepository decisions, ScanOutboxEventRepository outbox,
-            ScanOutboxEventFactory eventFactory, ScanReviewDecisionProjection projection) {
+    public ScanRunDecisionBatch(
+            ScanRunRepository runs,
+            ScanProposalRepository proposals,
+            ScanDecisionRepository decisions,
+            ScanOutboxEventRepository outbox,
+            ScanOutboxEventFactory eventFactory,
+            ScanReviewDecisionProjection projection) {
         this.runs = runs;
         this.proposals = proposals;
         this.decisions = decisions;
@@ -51,8 +53,11 @@ public class ScanRunDecisionBatch {
         var run = runs.findById(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
         projection.lock(run.rootKey());
         var scanProposals = proposals.findByScanRunId(scanId);
-        var decidedIds = decisions.findAllById(scanProposals.stream().map(ScanProposalEntity::id).toList())
-                .stream().map(ScanDecisionEntity::proposalId).collect(Collectors.toSet());
+        var decidedIds = decisions
+                .findAllById(scanProposals.stream().map(ScanProposalEntity::id).toList())
+                .stream()
+                .map(ScanDecisionEntity::proposalId)
+                .collect(Collectors.toSet());
         var newDecisions = new ArrayList<ScanDecisionEntity>();
         var newEvents = new ArrayList<ScanOutboxEventEntity>();
         var decidedAt = Instant.now();
@@ -64,8 +69,8 @@ public class ScanRunDecisionBatch {
         }
         decisions.saveAll(newDecisions);
         outbox.saveAll(newEvents);
-        newDecisions.forEach(saved -> projection.apply(
-                saved.proposalId(), run.rootKey(), saved.decision(), saved.decidedAt()));
+        newDecisions.forEach(
+                saved -> projection.apply(saved.proposalId(), run.rootKey(), saved.decision(), saved.decidedAt()));
         return newDecisions.size();
     }
 }

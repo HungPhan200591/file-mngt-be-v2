@@ -4,6 +4,7 @@ import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventEntity;
 import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectEntity;
 import com.filemngt.v2.contracts.events.MediaSubjectChangedV1;
+import com.filemngt.v2.contracts.events.MediaSubjectDeletedV1;
 import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import java.time.Instant;
 import java.util.UUID;
@@ -15,6 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 public class CatalogSubjectOutboxService {
 
     private static final String EVENT_TYPE = "media.subject.changed.v1";
+    private static final String DELETED_EVENT_TYPE = "media.subject.deleted.v1";
 
     private final CatalogOutboxEventRepository events;
     private final ObjectMapper json;
@@ -58,7 +60,31 @@ public class CatalogSubjectOutboxService {
                 event.occurredAt()));
     }
 
+    public void enqueueDeleted(UUID subjectId, long subjectVersion) {
+        var traceContext = KafkaTracingHeaderPropagation.captureOutboxTraceContext();
+        var event = new MediaSubjectDeletedV1(
+                UUID.randomUUID(), DELETED_EVENT_TYPE, Instant.now(), subjectId, subjectVersion);
+        events.save(new CatalogOutboxEventEntity(
+                event.eventId(),
+                subjectId,
+                subjectVersion,
+                event.eventType(),
+                subjectId.toString(),
+                serialize(event),
+                traceContext.correlationId(),
+                traceContext.traceparent(),
+                event.occurredAt()));
+    }
+
     private String serialize(MediaSubjectChangedV1 event) {
+        return serializeEvent(event);
+    }
+
+    private String serialize(MediaSubjectDeletedV1 event) {
+        return serializeEvent(event);
+    }
+
+    private String serializeEvent(Object event) {
         try {
             return json.writeValueAsString(event);
         } catch (JacksonException exception) {

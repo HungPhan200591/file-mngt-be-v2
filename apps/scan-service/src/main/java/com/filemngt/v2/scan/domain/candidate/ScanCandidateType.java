@@ -4,5 +4,6 @@ package com.filemngt.v2.scan.domain.candidate;
 public enum ScanCandidateType {
     VIDEO,
     ASSET,
-    ALBUM
+    ALBUM,
+    DELETE_ASSET
 }

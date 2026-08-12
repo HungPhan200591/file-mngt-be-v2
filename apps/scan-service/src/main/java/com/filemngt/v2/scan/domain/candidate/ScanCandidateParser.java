@@ -26,7 +26,7 @@ public final class ScanCandidateParser {
                         relativePath.toLowerCase(Locale.ROOT).endsWith(".gif")
                                 ? ScanAssetRole.GIF
                                 : ScanAssetRole.IMAGE;
-                    case ALBUM -> null;
+                    case ALBUM, DELETE_ASSET -> null;
                 };
         String title = profile == ScanProfile.JOKE_VIDEO || profile == ScanProfile.JOKE_ASSET
                 ? name.replaceFirst("\\s*-?\\s*\\[[^]]+]\\s*$", "").trim()

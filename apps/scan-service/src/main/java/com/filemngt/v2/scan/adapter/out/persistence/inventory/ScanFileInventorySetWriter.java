@@ -76,6 +76,24 @@ public class ScanFileInventorySetWriter {
                     AND stage.source_relative_path = inventory.source_relative_path
               )
             """;
+    private static final String INSERT_REMOVAL_PROPOSALS_SQL = """
+            INSERT INTO scan_proposal
+                (id, scan_run_id, source_relative_path, profile, candidate_type,
+                 identity_key, display_title, asset_role, evidence)
+            SELECT uuidv7(), ?, inventory.source_relative_path, run.profile, 'DELETE_ASSET',
+                   inventory.root_key || ':' || md5(inventory.source_relative_path),
+                   inventory.source_relative_path, NULL, '{}'
+            FROM scan_file_inventory inventory
+            JOIN scan_run run ON run.id = ?
+            WHERE inventory.root_key = ?
+              AND inventory.state = 'PRESENT'
+              AND NOT EXISTS (
+                  SELECT 1 FROM scan_inventory_stage stage
+                  WHERE stage.scan_run_id = ?
+                    AND stage.root_key = inventory.root_key
+                    AND stage.source_relative_path = inventory.source_relative_path)
+            ON CONFLICT (scan_run_id, source_relative_path) DO NOTHING
+            """;
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -102,6 +120,11 @@ public class ScanFileInventorySetWriter {
 
     public void markMissingFromStage(String rootKey, UUID runId) {
         jdbcTemplate.update(MARK_MISSING_FROM_STAGE_SQL, Timestamp.from(Instant.now()), rootKey, runId);
+    }
+
+    /** Tạo review proposal trước khi chuyển PRESENT -> MISSING trong cùng transaction finalize. */
+    public int insertRemovalProposals(String rootKey, UUID runId) {
+        return jdbcTemplate.update(INSERT_REMOVAL_PROPOSALS_SQL, runId, runId, rootKey, runId);
     }
 
     public record InventoryWriteResult(int updated, int inserted) {
