@@ -54,9 +54,10 @@ public class CatalogFileDiscoveryService {
         var existing = subjects.findByRegionAndSubjectTypeAndIdentityKey(region, type, event.identityKey());
         var subject = existing.orElseGet(() -> new MediaSubjectEntity(
                 UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
-        boolean metadataChanged = subject.applyMetadata(new MediaSubjectEntity.SubjectMetadata(
-                event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames()));
         MediaAssetRole role = event.role() != null ? MediaAssetRole.valueOf(event.role()) : null;
+        boolean metadataChanged = subject.applyMetadata(new MediaSubjectEntity.SubjectMetadata(
+                event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames()),
+                role == MediaAssetRole.PRIMARY_VIDEO);
         boolean isDuplicatePrimaryVideo = role == MediaAssetRole.PRIMARY_VIDEO && subject.hasPrimaryVideo();
         boolean assetAdded = role != null
                 && !subject.hasAssetLocator(event.storageKey(), event.relativePath())

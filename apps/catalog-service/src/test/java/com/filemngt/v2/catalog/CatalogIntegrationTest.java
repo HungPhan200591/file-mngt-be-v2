@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.filemngt.v2.catalog.adapter.in.event.MediaFileDiscoveredConsumer;
 import com.filemngt.v2.catalog.adapter.out.persistence.CatalogDeadLetterRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventRepository;
+import com.filemngt.v2.catalog.adapter.out.persistence.MediaAssetEntity;
 import com.filemngt.v2.catalog.adapter.out.persistence.MediaSubjectRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventRepository;
 import com.filemngt.v2.catalog.application.CatalogDeadLetterService;
@@ -176,6 +177,42 @@ class CatalogIntegrationTest {
     }
 
     @Test
+    void onlyPrimaryVideoTagsAreMaterializedOnSubject() throws Exception {
+        String identityKey = "PRIMARY-TAGS-" + UUID.randomUUID();
+        MediaFileDiscoveredV2 primary = eventWithTags(
+                "JOKE", identityKey, "PRIMARY_VIDEO", "Root/primary.mp4", java.util.List.of("BEST"));
+        MediaFileDiscoveredV2 image = eventWithTags(
+                "JOKE", identityKey, "IMAGE", "Root/primary (2).jpg", java.util.List.of());
+
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(primary)));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 1L, "key", json.writeValueAsString(image)));
+
+        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(
+                        Region.JOKE, SubjectType.VIDEO, identityKey)
+                .orElseThrow();
+        assertThat(subject.tagNames()).containsExactly("BEST");
+        assertThat(subject.assets()).extracting(MediaAssetEntity::role)
+                .containsExactlyInAnyOrder(MediaAssetRole.PRIMARY_VIDEO, MediaAssetRole.IMAGE);
+
+        String reverseIdentityKey = "PRIMARY-TAGS-REVERSE-" + UUID.randomUUID();
+        MediaFileDiscoveredV2 reverseImage = eventWithTags(
+                "JOKE", reverseIdentityKey, "IMAGE", "Root/reverse (2).jpg", java.util.List.of("AUXILIARY"));
+        MediaFileDiscoveredV2 reversePrimary = eventWithTags(
+                "JOKE", reverseIdentityKey, "PRIMARY_VIDEO", "Root/reverse.mp4", java.util.List.of("BEST"));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 2L, "key", json.writeValueAsString(reverseImage)));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 3L, "key", json.writeValueAsString(reversePrimary)));
+
+        var reverseSubject = subjects.findByRegionAndSubjectTypeAndIdentityKey(
+                        Region.JOKE, SubjectType.VIDEO, reverseIdentityKey)
+                .orElseThrow();
+        assertThat(reverseSubject.tagNames()).containsExactly("BEST");
+    }
+
+    @Test
     void retriesOutboxPublishingAndRecordsDeadLettersIdempotently() throws Exception {
         String identityKey = "PUBLISH-" + UUID.randomUUID();
         String body = """
@@ -324,6 +361,11 @@ class CatalogIntegrationTest {
     }
 
     private MediaFileDiscoveredV2 event(String region, String identityKey, String role, String path) {
+        return eventWithTags(region, identityKey, role, path, java.util.List.of());
+    }
+
+    private MediaFileDiscoveredV2 eventWithTags(
+            String region, String identityKey, String role, String path, java.util.List<String> tagNames) {
         return new MediaFileDiscoveredV2(
                 UUID.randomUUID(),
                 "media.file.discovered.v2",
@@ -338,7 +380,7 @@ class CatalogIntegrationTest {
                 null,
                 "Event sample",
                 java.util.List.of(),
-                java.util.List.of(),
+                tagNames,
                 role,
                 "fixture",
                 path);

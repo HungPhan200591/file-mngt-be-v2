@@ -93,9 +93,12 @@ public class MediaSubjectEntity {
         updatedAt = Instant.now();
     }
 
-    public boolean applyMetadata(SubjectMetadata metadata) {
+    /** Cập nhật metadata subject; chỉ primary video mới có quyền thay thế tags. */
+    public boolean applyMetadata(SubjectMetadata metadata, boolean tagsAuthoritative) {
         var nextActresses = new LinkedHashSet<>(metadata.actressNames());
-        var nextTags = new LinkedHashSet<>(metadata.tagNames());
+        var nextTags = tagsAuthoritative
+                ? new LinkedHashSet<>(metadata.tagNames())
+                : new LinkedHashSet<>(tagNames);
         var changed = !java.util.Objects.equals(baseCode, metadata.baseCode())
                 || !java.util.Objects.equals(part, metadata.part())
                 || !java.util.Objects.equals(studioCode, metadata.studioCode())

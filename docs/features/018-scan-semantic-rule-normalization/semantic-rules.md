@@ -23,6 +23,7 @@ Status: CHỐT — Source of truth duy nhất cho rule semantic và parser norma
 | CHỐT | Nếu token trong `(...)` khớp với `Tag.normalized_name` trong Registry snapshot (case-insensitive) → Parse thành `semantic.tagNames`. |
 | CHỐT | Nếu token trong `(...)` chưa có trong Catalog Tag Registry → Đưa vào `evidence.unrecognizedTags` để User review và khởi tạo Tag mới tại FE `metadata-admin`. **Không tự động biến token lạ thành Tag mới**. |
 | CHỐT | Tag `Best`: Hệ thống hỗ trợ candidate asset link để gộp asset `Best` (cover/image/video phụ) vào `PRIMARY_VIDEO` tương ứng, mặc dù bản thân file `Best` vẫn có thể đứng độc lập như một primary video. |
+| CHỐT | Khi Catalog materialize nhiều file cùng subject, tag cấp subject chỉ lấy từ event có role `PRIMARY_VIDEO`; asset phụ không có tag không được xóa tag đã phát hiện từ video chính. |
 
 ---
 
