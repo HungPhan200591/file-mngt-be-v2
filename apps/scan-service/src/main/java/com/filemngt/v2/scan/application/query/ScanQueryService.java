@@ -99,9 +99,12 @@ public class ScanQueryService {
 
     @Transactional(readOnly = true)
     /** Trả proposal phân trang cùng quyết định hiện có của từng proposal. */
-    public ScanPageView<ScanProposalView> proposals(UUID runId, int page, int size) {
+    public ScanPageView<ScanProposalView> proposals(UUID runId, String search, String decision, int page, int size) {
         ensureRunExists(runId);
-        var result = proposals.findByScanRunId(runId, PageRequest.of(page, size, Sort.by(SOURCE_RELATIVE_PATH)));
+        String normalizedSearch = normalizeSearch(search);
+        String normalizedDecision = normalizeProposalDecision(decision);
+        var result = proposals.findByScanRunIdFiltered(
+                runId, normalizedSearch, normalizedDecision, PageRequest.of(page, size, Sort.by(SOURCE_RELATIVE_PATH)));
         Map<UUID, ScanDecisionEntity> decisionByProposal =
                 decisions
                         .findAllById(result.getContent().stream()
@@ -186,8 +189,7 @@ public class ScanQueryService {
         boolean hasCode = code != null && !code.isBlank();
         boolean hasSearch = search != null && !search.isBlank();
         if (hasCode && hasSearch) {
-            return issues.findByScanRunIdAndCodeAndSourceRelativePathContainingIgnoreCaseOrDetailContainingIgnoreCase(
-                    runId, code, search, search, pageable);
+            return issues.findByRunCodeAndSearch(runId, code, search, pageable);
         }
         if (hasCode) {
             return issues.findByScanRunIdAndCode(runId, code, pageable);
@@ -221,6 +223,15 @@ public class ScanQueryService {
 
     private String normalizeSearch(String search) {
         return normalizeOptional(search);
+    }
+
+    private String normalizeProposalDecision(String decision) {
+        String normalized = normalizeOptional(decision);
+        if (normalized == null) return null;
+        if ("PENDING".equals(normalized) || "APPROVE".equals(normalized) || "REJECT".equals(normalized)) {
+            return normalized;
+        }
+        throw new InvalidRequestException("decision must be PENDING, APPROVE or REJECT");
     }
 
     private ReviewQueueSummaryView reviewSummary(String rootKey) {

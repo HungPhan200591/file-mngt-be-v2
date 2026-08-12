@@ -217,6 +217,12 @@ paths:
       summary: List proposals of a scan run
       parameters:
         - $ref: '#/components/parameters/ScanId'
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: decision
+          in: query
+          schema: { type: string, enum: [PENDING, APPROVE, REJECT] }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:
@@ -234,6 +240,12 @@ paths:
       summary: List issues of a scan run
       parameters:
         - $ref: '#/components/parameters/ScanId'
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: code
+          in: query
+          schema: { type: string }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:

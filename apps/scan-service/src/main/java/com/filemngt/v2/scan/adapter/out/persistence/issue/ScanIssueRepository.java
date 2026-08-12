@@ -83,6 +83,16 @@ public interface ScanIssueRepository extends JpaRepository<ScanIssueEntity, UUID
     Page<ScanIssueEntity> findByScanRunIdAndSourceRelativePathContainingIgnoreCaseOrDetailContainingIgnoreCase(
             UUID scanRunId, String pathSearch, String detailSearch, Pageable pageable);
 
-    Page<ScanIssueEntity> findByScanRunIdAndCodeAndSourceRelativePathContainingIgnoreCaseOrDetailContainingIgnoreCase(
-            UUID scanRunId, String code, String pathSearch, String detailSearch, Pageable pageable);
+    @Query("""
+            SELECT issue FROM ScanIssueEntity issue
+            WHERE issue.scanRunId = :scanRunId
+              AND issue.code = :code
+              AND (lower(issue.sourceRelativePath) LIKE lower(concat('%', :search, '%'))
+                   OR lower(issue.detail) LIKE lower(concat('%', :search, '%')))
+            """)
+    Page<ScanIssueEntity> findByRunCodeAndSearch(
+            @Param("scanRunId") UUID scanRunId,
+            @Param("code") String code,
+            @Param("search") String search,
+            Pageable pageable);
 }

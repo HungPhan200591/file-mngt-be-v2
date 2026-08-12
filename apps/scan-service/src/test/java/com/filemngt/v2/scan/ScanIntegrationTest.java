@@ -122,6 +122,31 @@ class ScanIntegrationTest {
     }
 
     @Test
+    void filtersRunProposalsBySearchAndDecision() throws Exception {
+        ScanProposalRef proposal = scanAndGetProposal();
+        String proposalsPath = "/api/v2/scans/" + proposal.scanId() + "/proposals";
+
+        mockMvc.perform(get(proposalsPath).queryParam("search", "joke-001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mockMvc.perform(get(proposalsPath).queryParam("search", "does-not-exist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(get(proposalsPath).queryParam("decision", "PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        decide(decisionPath(proposal), "APPROVE");
+
+        mockMvc.perform(get(proposalsPath).queryParam("decision", "PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(get(proposalsPath).queryParam("decision", "APPROVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
     void scanSeedsFileInventoryIdempotently() throws Exception {
         scanAndGetProposal();
         long firstInventoryCount = inventories.count();

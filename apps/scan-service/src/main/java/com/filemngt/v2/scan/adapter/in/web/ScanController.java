@@ -198,11 +198,18 @@ public class ScanController {
     @GetMapping("/{scanId}/proposals")
     public ScanPageView<ScanProposalView> proposals(
             @PathVariable UUID scanId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String decision,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         LOGGER.info(
-                "HTTP GET /api/v2/scans/{}/proposals -> Lấy danh sách proposals: page={}, size={}", scanId, page, size);
-        return queries.proposals(scanId, valid(page, size), size);
+                "HTTP GET /api/v2/scans/{}/proposals -> Lấy danh sách proposals: search={}, decision={}, page={}, size={}",
+                scanId,
+                search,
+                decision,
+                page,
+                size);
+        return queries.proposals(scanId, search, decision, valid(page, size), size);
     }
 
     /**

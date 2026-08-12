@@ -13,6 +13,37 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
     /** Lấy proposal phân trang cho màn hình review. */
     Page<ScanProposalEntity> findByScanRunId(UUID scanRunId, Pageable pageable);
 
+    @Query(value = """
+                    SELECT proposal.*
+                    FROM scan_proposal proposal
+                    LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
+                    WHERE proposal.scan_run_id = :scanRunId
+                      AND (:search IS NULL
+                           OR lower(proposal.source_relative_path) LIKE lower(concat('%', :search, '%'))
+                           OR lower(coalesce(proposal.display_title, '')) LIKE lower(concat('%', :search, '%'))
+                           OR lower(proposal.identity_key) LIKE lower(concat('%', :search, '%')))
+                      AND (:decision IS NULL
+                           OR (:decision = 'PENDING' AND decision.proposal_id IS NULL)
+                           OR decision.decision = :decision)
+                    """, countQuery = """
+                    SELECT count(*)
+                    FROM scan_proposal proposal
+                    LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
+                    WHERE proposal.scan_run_id = :scanRunId
+                      AND (:search IS NULL
+                           OR lower(proposal.source_relative_path) LIKE lower(concat('%', :search, '%'))
+                           OR lower(coalesce(proposal.display_title, '')) LIKE lower(concat('%', :search, '%'))
+                           OR lower(proposal.identity_key) LIKE lower(concat('%', :search, '%')))
+                      AND (:decision IS NULL
+                           OR (:decision = 'PENDING' AND decision.proposal_id IS NULL)
+                           OR decision.decision = :decision)
+                    """, nativeQuery = true)
+    Page<ScanProposalEntity> findByScanRunIdFiltered(
+            @Param("scanRunId") UUID scanRunId,
+            @Param("search") String search,
+            @Param("decision") String decision,
+            Pageable pageable);
+
     /** Lấy toàn bộ proposal của run cho batch decision. */
     List<ScanProposalEntity> findByScanRunId(UUID scanRunId);
 
