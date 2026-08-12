@@ -28,6 +28,11 @@ Catalog/Query/Redis/Elasticsearch sau approve; đều ở trạng thái **`IMPLE
 `PRIMARY_VIDEO` về Catalog, lưu tag theo video asset và dùng comparator ưu tiên video không tag;
 implementation hiện **`DONE — static verification only`**.
 
+[FT-043 — Video Gallery và throughput event](./features/043-video-gallery-throughput/01-brief.md) đã chuyển Gallery
+sang card theo video asset/root, tag theo asset, detail theo subject; đồng thời batch hóa Kafka acknowledgement,
+bulk update outbox và cấu hình nhiều partition/consumer lane. Trạng thái **`IMPLEMENTED — static verification only`**;
+topic hiện hữu, migration, DLT replay và benchmark runtime chưa chạy.
+
 Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
 
 - Internal read-only `POST /internal/v2/catalog/scan-existence`, batch từ 1 đến 500 candidate.

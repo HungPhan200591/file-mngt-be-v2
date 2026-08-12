@@ -69,18 +69,21 @@ public class CatalogOutboxPublisher {
         var pendingEvents = claims == null
                 ? events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()
                 : claims.claim(owner, batchSize);
-        for (var event : pendingEvents) {
+        var dispatched = pendingEvents.stream().map(this::dispatch).toList();
+        var publishedIds = new java.util.ArrayList<java.util.UUID>(dispatched.size());
+        for (var item : dispatched) {
+            var event = item.event();
             try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
                     event.correlationId(), event.traceparent(), tracer, propagator)) {
-                messages.publish(event.eventType(), event.partitionKey(), event.payload());
+                item.acknowledgement().toCompletableFuture().join();
                 if (claims == null) {
                     event.published();
                     events.save(event);
                 } else {
-                    events.markPublished(event.id(), owner, java.time.Instant.now());
+                    publishedIds.add(event.id());
                 }
-                metrics.published();
-                LOGGER.info(
+                if (claims == null) metrics.published();
+                LOGGER.debug(
                         "Published catalog outbox event eventId={} subjectId={} version={} topic={}",
                         event.id(),
                         event.subjectId(),
@@ -103,7 +106,32 @@ public class CatalogOutboxPublisher {
                         exception.getMessage());
             }
         }
+        if (!publishedIds.isEmpty()) {
+            int persisted = events.markPublishedBatch(publishedIds, owner, java.time.Instant.now());
+            for (int index = 0; index < persisted; index++) metrics.published();
+        }
+        LOGGER.info("Published Catalog outbox batch claimed={} succeeded={}", dispatched.size(), publishedIds.size());
     }
+
+    private DispatchedEvent dispatch(com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventEntity event) {
+        try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
+                event.correlationId(), event.traceparent(), tracer, propagator)) {
+            java.util.concurrent.CompletionStage<Void> acknowledgement;
+            if (claims == null) {
+                messages.publish(event.eventType(), event.partitionKey(), event.payload());
+                acknowledgement = java.util.concurrent.CompletableFuture.completedFuture(null);
+            } else {
+                acknowledgement = messages.publishAsync(event.eventType(), event.partitionKey(), event.payload());
+            }
+            return new DispatchedEvent(event, acknowledgement);
+        } catch (Exception exception) {
+            return new DispatchedEvent(event, java.util.concurrent.CompletableFuture.failedFuture(exception));
+        }
+    }
+
+    private record DispatchedEvent(
+            com.filemngt.v2.catalog.adapter.out.persistence.CatalogOutboxEventEntity event,
+            java.util.concurrent.CompletionStage<Void> acknowledgement) {}
 
     private String errorMessage(Exception exception) {
         String message = exception.getMessage();

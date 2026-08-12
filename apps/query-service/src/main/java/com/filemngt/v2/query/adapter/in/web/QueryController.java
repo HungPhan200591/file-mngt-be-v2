@@ -9,6 +9,7 @@ import com.filemngt.v2.query.application.QuerySubjectFilter;
 import com.filemngt.v2.query.domain.Region;
 import com.filemngt.v2.query.domain.SubjectType;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -147,11 +148,13 @@ public class QueryController {
                 s.createdAt(),
                 s.projectedAt(),
                 s.assets().stream()
+                        .sorted(Comparator.comparingInt(a -> roleOrder(a.role().name())))
                         .map(a -> new Asset(
                                 a.id(),
                                 a.role().name(),
                                 a.relativePath(),
-                                mediaUrls.resolve(a.storageKey(), a.relativePath())))
+                                mediaUrls.resolve(a.storageKey(), a.relativePath()),
+                                a.tagNames().stream().sorted().toList()))
                         .toList());
     }
 
@@ -171,11 +174,13 @@ public class QueryController {
                 detail.createdAt(),
                 detail.projectedAt(),
                 detail.assets().stream()
+                        .sorted(Comparator.comparingInt(asset -> roleOrder(asset.role())))
                         .map(asset -> new Asset(
                                 asset.id(),
                                 asset.role(),
                                 asset.relativePath(),
-                                mediaUrls.resolve(asset.storageKey(), asset.relativePath())))
+                                mediaUrls.resolve(asset.storageKey(), asset.relativePath()),
+                                asset.tagNames()))
                         .toList());
     }
 
@@ -186,6 +191,16 @@ public class QueryController {
         TITLE_DESC,
         SHUFFLE,
         RELEVANCE
+    }
+
+    private int roleOrder(String role) {
+        return switch (role) {
+            case "PRIMARY_VIDEO" -> 0;
+            case "VIDEO" -> 1;
+            case "IMAGE" -> 2;
+            case "GIF" -> 3;
+            default -> 4;
+        };
     }
 
     public record SubjectDetail(
@@ -204,7 +219,7 @@ public class QueryController {
             Instant projectedAt,
             List<Asset> assets) {}
 
-    public record Asset(UUID id, String role, String relativePath, String mediaUrl) {}
+    public record Asset(UUID id, String role, String relativePath, String mediaUrl, List<String> tagNames) {}
 
     public record SubjectPage(
             List<SubjectDetail> content,

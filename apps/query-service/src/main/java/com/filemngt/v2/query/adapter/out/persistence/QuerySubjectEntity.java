@@ -88,7 +88,11 @@ public class QuerySubjectEntity {
                 asset.assignSubject(this);
                 assets.add(asset);
             } else {
-                existingAsset.update(asset.role(), asset.relativePath(), asset.storageKey());
+                existingAsset.update(
+                        asset.role(),
+                        asset.relativePath(),
+                        asset.storageKey(),
+                        asset.tagNames().stream().toList());
             }
         });
     }

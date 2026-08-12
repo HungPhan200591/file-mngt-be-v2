@@ -1,6 +1,9 @@
 package com.filemngt.v2.query.adapter.out.persistence;
 
 import com.filemngt.v2.query.domain.MediaAssetRole;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -8,6 +11,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -26,13 +32,23 @@ public class QueryAssetEntity {
     private String relativePath;
     private String storageKey;
 
+    @ElementCollection
+    @CollectionTable(name = "query_asset_tag", joinColumns = @JoinColumn(name = "asset_id"))
+    @Column(name = "display_name", nullable = false)
+    private Set<String> tagNames = new LinkedHashSet<>();
+
     protected QueryAssetEntity() {}
 
-    public QueryAssetEntity(UUID id, MediaAssetRole role, String path, String key) {
+    public QueryAssetEntity(UUID id, MediaAssetRole role, String path, String key, List<String> tags) {
         this.id = id;
         this.role = role;
         relativePath = path;
         storageKey = key;
+        tagNames.addAll(tags == null ? List.of() : tags);
+    }
+
+    public QueryAssetEntity(UUID id, MediaAssetRole role, String path, String key) {
+        this(id, role, path, key, List.of());
     }
 
     public QueryAssetEntity(UUID id, MediaAssetRole role, String path) {
@@ -43,10 +59,12 @@ public class QueryAssetEntity {
         subject = value;
     }
 
-    void update(MediaAssetRole nextRole, String nextPath, String nextStorageKey) {
+    void update(MediaAssetRole nextRole, String nextPath, String nextStorageKey, List<String> nextTags) {
         role = nextRole;
         relativePath = nextPath;
         storageKey = nextStorageKey;
+        tagNames.clear();
+        tagNames.addAll(nextTags == null ? List.of() : nextTags);
     }
 
     public UUID id() {
@@ -63,6 +81,14 @@ public class QueryAssetEntity {
 
     public String storageKey() {
         return storageKey;
+    }
+
+    public Set<String> tagNames() {
+        return Set.copyOf(tagNames);
+    }
+
+    public QuerySubjectEntity subject() {
+        return subject;
     }
 
     @Override

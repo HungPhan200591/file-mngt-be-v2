@@ -8,6 +8,34 @@ servers:
   - url: http://localhost:18103
     description: Local V2 Query Service
 paths:
+  /api/v2/query/videos:
+    get:
+      operationId: listQueryVideos
+      summary: List individual video assets for Gallery
+      parameters:
+        - { name: rootKey, in: query, schema: { type: string } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: studio, in: query, schema: { type: string } }
+        - { name: actress, in: query, schema: { type: string } }
+        - { name: tag, in: query, description: Filters tags of the video asset, schema: { type: string } }
+        - { name: order, in: query, schema: { type: string, enum: [CREATED_AT, CREATED_AT_ASC, TITLE, TITLE_DESC, SHUFFLE] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: One card per PRIMARY_VIDEO or VIDEO asset in the requested root
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueryVideoPage' }
+  /api/v2/query/videos/facets:
+    get:
+      operationId: getQueryVideoFacets
+      responses:
+        '200':
+          description: Gallery facets; tags are video-asset tags
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueryFacets' }
   /api/v2/query/subjects:
     get:
       operationId: listQuerySubjects
@@ -170,6 +198,43 @@ components:
           type: [string, 'null']
           format: uri
           description: Nginx URL resolved by Query; null when locator/root mapping is unavailable.
+        tagNames:
+          type: array
+          items: { type: string }
+    QueryVideoPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages, searchBackend, degraded]
+      properties:
+        content:
+          type: array
+          items: { $ref: '#/components/schemas/QueryVideo' }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        searchBackend: { type: string, enum: [POSTGRESQL] }
+        degraded: { type: boolean }
+    QueryVideo:
+      allOf:
+        - $ref: '#/components/schemas/QuerySubjectDetail'
+        - type: object
+          required: [subjectId, videoAssetId]
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Gallery card identity; equal to videoAssetId, not subjectId.
+            subjectId: { type: string, format: uuid }
+            videoAssetId: { type: string, format: uuid }
+            thumbnailAssetId: { type: [string, 'null'], format: uuid }
+            tagNames:
+              type: array
+              description: Tags of the Gallery video asset.
+              items: { type: string }
+            assets:
+              type: array
+              description: Compact card assets containing the selected video and at most one thumbnail.
+              items: { $ref: '#/components/schemas/QueryAsset' }
     QuerySubjectDetail:
       type: object
       required:

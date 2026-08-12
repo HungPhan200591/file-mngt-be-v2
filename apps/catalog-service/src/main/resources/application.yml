@@ -39,6 +39,7 @@ catalog:
   kafka:
     consumer:
       enabled: ${CATALOG_KAFKA_CONSUMER_ENABLED:true}
+      concurrency: ${CATALOG_KAFKA_CONSUMER_CONCURRENCY:8}
     dlt-observer:
       enabled: ${CATALOG_KAFKA_DLT_OBSERVER_ENABLED:true}
 

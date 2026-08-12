@@ -74,6 +74,10 @@ class GatewayRoutingIntegrationTest {
         assertThat(SCAN.lastRequest.pathAndQuery()).isEqualTo("/api/v2/scans/run-1");
         assertThat(QUERY.lastRequest.pathAndQuery()).isEqualTo("/api/v2/query/subjects?search=sample");
 
+        var videoResponse = exchange("GET", "/api/v2/query/videos?rootKey=root", "", List.of());
+        assertThat(videoResponse.statusCode()).isEqualTo(200);
+        assertThat(QUERY.lastRequest.pathAndQuery()).isEqualTo("/api/v2/query/videos?rootKey=root");
+
         var bulkJob = exchange(
                 "POST",
                 "/api/v2/scans/review-queue/decision-jobs?rootKey=JOKE&search=sample",

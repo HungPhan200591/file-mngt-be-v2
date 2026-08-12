@@ -22,6 +22,7 @@ public class MediaSubjectChangedConsumer {
     @KafkaListener(
             topics = "media.subject.changed.v1",
             groupId = "query-service",
+            concurrency = "${query.kafka.consumer.concurrency:8}",
             autoStartup = "${query.kafka.consumer.enabled:true}")
     public void consume(ConsumerRecord<String, String> record) throws JacksonException {
         try (var ignored = KafkaTracingHeaderPropagation.extractAndSetMdc(record)) {

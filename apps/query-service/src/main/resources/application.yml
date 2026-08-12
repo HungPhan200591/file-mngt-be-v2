@@ -53,6 +53,7 @@ query:
   kafka:
     consumer:
       enabled: ${QUERY_KAFKA_CONSUMER_ENABLED:true}
+      concurrency: ${QUERY_KAFKA_CONSUMER_CONCURRENCY:8}
 
 p6spy:
   enabled: ${P6SPY_ENABLED:true}

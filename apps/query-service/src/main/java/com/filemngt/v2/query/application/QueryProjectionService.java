@@ -84,7 +84,8 @@ public class QueryProjectionService {
                                     asset.assetId(),
                                     MediaAssetRole.valueOf(asset.role()),
                                     asset.relativePath(),
-                                    asset.storageKey()))
+                                    asset.storageKey(),
+                                    asset.tagNames()))
                             .toList());
             subjects.save(subject);
             if (versionAdvanced) {

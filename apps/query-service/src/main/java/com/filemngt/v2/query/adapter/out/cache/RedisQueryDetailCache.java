@@ -21,7 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class RedisQueryDetailCache implements QueryDetailCache {
     private static final Logger log = LoggerFactory.getLogger(RedisQueryDetailCache.class);
-    private static final String KEY_PREFIX = "query:subject-detail:v1:";
+    private static final String KEY_PREFIX = "query:subject-detail:v2:";
 
     private final StringRedisTemplate redis;
     private final ObjectMapper json;

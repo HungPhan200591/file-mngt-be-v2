@@ -22,6 +22,7 @@ public class MediaFileDiscoveredConsumer {
     @KafkaListener(
             topics = "media.file.discovered.v2",
             groupId = "catalog-service",
+            concurrency = "${catalog.kafka.consumer.concurrency:8}",
             autoStartup = "${catalog.kafka.consumer.enabled:true}")
     public void consume(ConsumerRecord<String, String> record) throws JacksonException {
         try (var ignored = KafkaTracingHeaderPropagation.extractAndSetMdc(record)) {

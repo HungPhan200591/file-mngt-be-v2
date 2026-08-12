@@ -46,7 +46,11 @@ public class CatalogSubjectOutboxService {
                 subject.createdAt(),
                 subject.assets().stream()
                         .map(asset -> new MediaSubjectChangedV1.AssetSnapshot(
-                                asset.id(), asset.role().name(), asset.relativePath(), asset.storageKey()))
+                                asset.id(),
+                                asset.role().name(),
+                                asset.relativePath(),
+                                asset.storageKey(),
+                                asset.tagNames().stream().sorted().toList()))
                         .toList());
         events.save(new CatalogOutboxEventEntity(
                 event.eventId(),

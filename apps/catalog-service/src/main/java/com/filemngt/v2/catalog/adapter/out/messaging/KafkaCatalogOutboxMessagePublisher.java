@@ -23,14 +23,19 @@ public class KafkaCatalogOutboxMessagePublisher implements CatalogOutboxMessageP
     @Override
     public void publish(String topic, String key, String payload) {
         try {
-            var record = new ProducerRecord<String, String>(topic, key, payload);
-            KafkaTracingHeaderPropagation.injectTracingHeaders(record);
-            kafka.send(record).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            publishAsync(topic, key, payload).toCompletableFuture().get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while publishing Catalog outbox event", exception);
         } catch (ExecutionException | TimeoutException exception) {
             throw new IllegalStateException("Could not publish Catalog outbox event", exception);
         }
+    }
+
+    @Override
+    public java.util.concurrent.CompletionStage<Void> publishAsync(String topic, String key, String payload) {
+        var record = new ProducerRecord<String, String>(topic, key, payload);
+        KafkaTracingHeaderPropagation.injectTracingHeaders(record);
+        return kafka.send(record).thenApply(result -> (Void) null).orTimeout(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 }

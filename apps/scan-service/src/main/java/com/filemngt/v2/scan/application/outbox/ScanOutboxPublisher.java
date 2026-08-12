@@ -73,20 +73,20 @@ public class ScanOutboxPublisher {
         if (pendingEvents.isEmpty()) {
             return;
         }
-        // Publish per event is intentional: broker acknowledgement decides each outbox state.
-        // The repository query bounds this loop to 20 events; persistence remains one bulk write.
-        for (var event : pendingEvents) {
+        var dispatched = pendingEvents.stream().map(this::dispatch).toList();
+        var publishedIds = new java.util.ArrayList<java.util.UUID>(dispatched.size());
+        for (var item : dispatched) {
+            var event = item.event();
             try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
                     event.correlationId(), event.traceparent(), tracer, propagator)) {
-                messages.publish(event.eventType(), event.partitionKey(), event.payload());
+                item.acknowledgement().toCompletableFuture().join();
                 if (claims == null) {
                     event.published();
                     events.save(event);
                 } else {
-                    events.markPublished(event.id(), owner, java.time.Instant.now());
-                    metrics.published();
+                    publishedIds.add(event.id());
                 }
-                LOGGER.info("Published outbox event eventId={} topic={}", event.id(), event.eventType());
+                LOGGER.debug("Published outbox event eventId={} topic={}", event.id(), event.eventType());
             } catch (Exception exception) {
                 if (claims == null) {
                     event.failed(exception);
@@ -102,7 +102,30 @@ public class ScanOutboxPublisher {
                         exception.getMessage());
             }
         }
+        if (!publishedIds.isEmpty()) {
+            int persisted = events.markPublishedBatch(publishedIds, owner, java.time.Instant.now());
+            for (int index = 0; index < persisted; index++) metrics.published();
+        }
+        LOGGER.info("Published Scan outbox batch claimed={} succeeded={}", dispatched.size(), publishedIds.size());
     }
+
+    private DispatchedEvent dispatch(com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity event) {
+        try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
+                event.correlationId(), event.traceparent(), tracer, propagator)) {
+            java.util.concurrent.CompletionStage<Void> acknowledgement;
+            if (claims == null) {
+                messages.publish(event.eventType(), event.partitionKey(), event.payload());
+                acknowledgement = java.util.concurrent.CompletableFuture.completedFuture(null);
+            } else {
+                acknowledgement = messages.publishAsync(event.eventType(), event.partitionKey(), event.payload());
+            }
+            return new DispatchedEvent(event, acknowledgement);
+        }
+    }
+
+    private record DispatchedEvent(
+            com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity event,
+            java.util.concurrent.CompletionStage<Void> acknowledgement) {}
 
     private String errorMessage(Exception exception) {
         String message = exception.getMessage();

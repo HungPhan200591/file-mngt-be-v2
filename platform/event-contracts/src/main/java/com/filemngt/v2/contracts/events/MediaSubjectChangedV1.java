@@ -59,9 +59,18 @@ public record MediaSubjectChangedV1(
                 assets);
     }
 
-    public record AssetSnapshot(UUID assetId, String role, String relativePath, String storageKey) {
+    public record AssetSnapshot(
+            UUID assetId, String role, String relativePath, String storageKey, List<String> tagNames) {
+        public AssetSnapshot {
+            tagNames = tagNames == null ? List.of() : List.copyOf(tagNames);
+        }
+
+        public AssetSnapshot(UUID assetId, String role, String relativePath, String storageKey) {
+            this(assetId, role, relativePath, storageKey, List.of());
+        }
+
         public AssetSnapshot(UUID assetId, String role, String relativePath) {
-            this(assetId, role, relativePath, null);
+            this(assetId, role, relativePath, null, List.of());
         }
     }
 }

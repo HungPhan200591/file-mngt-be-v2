@@ -34,6 +34,12 @@ public interface CatalogOutboxEventRepository extends JpaRepository<CatalogOutbo
     @Modifying
     @Transactional
     @Query(
+            "update CatalogOutboxEventEntity e set e.publishedAt = :now, e.lastError = null, e.leaseOwner = null, e.leaseUntil = null where e.id in :ids and e.leaseOwner = :owner and e.publishedAt is null")
+    int markPublishedBatch(@Param("ids") List<UUID> ids, @Param("owner") String owner, @Param("now") Instant now);
+
+    @Modifying
+    @Transactional
+    @Query(
             "update CatalogOutboxEventEntity e set e.attemptCount = e.attemptCount + 1, e.lastError = :error, e.leaseOwner = null, e.leaseUntil = null where e.id = :id and e.leaseOwner = :owner and e.publishedAt is null")
     int markFailed(@Param("id") UUID id, @Param("owner") String owner, @Param("error") String error);
 

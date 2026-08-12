@@ -116,6 +116,10 @@ public class MediaSubjectEntity {
         if (current != null) current.changeRole(com.filemngt.v2.catalog.domain.MediaAssetRole.VIDEO);
     }
 
+    public void markAssetChanged() {
+        updatedAt = Instant.now();
+    }
+
     public boolean promotePrimaryVideo(MediaAssetEntity candidate, SubjectMetadata metadata) {
         candidate.changeRole(com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO);
         if (metadata != null) return applyMetadata(metadata, true);
@@ -234,10 +238,6 @@ public class MediaSubjectEntity {
 
     public Instant createdAt() {
         return createdAt;
-    }
-
-    public Instant updatedAt() {
-        return updatedAt;
     }
 
     public long version() {

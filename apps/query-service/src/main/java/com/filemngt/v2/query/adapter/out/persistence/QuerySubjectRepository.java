@@ -15,7 +15,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface QuerySubjectRepository extends JpaRepository<QuerySubjectEntity, UUID> {
     @Override
-    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
+    @EntityGraph(attributePaths = {"assets", "assets.tagNames", "actressNames", "tagNames"})
     Optional<QuerySubjectEntity> findById(UUID id);
 
     @Query(
@@ -54,7 +54,7 @@ public interface QuerySubjectRepository extends JpaRepository<QuerySubjectEntity
     @Query("select distinct a.storageKey from QueryAssetEntity a where a.storageKey is not null order by a.storageKey")
     List<String> listRootKeys();
 
-    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
+    @EntityGraph(attributePaths = {"assets", "assets.tagNames", "actressNames", "tagNames"})
     @Query("select distinct s from QuerySubjectEntity s where s.id in :ids")
     List<QuerySubjectEntity> findAllWithAssetsByIdIn(@Param("ids") Collection<UUID> ids);
 }

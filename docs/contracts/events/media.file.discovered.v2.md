@@ -6,6 +6,8 @@
 - Consumer: `catalog-service`.
 - Topic: `media.file.discovered.v2`.
 - Partition key: `region:subjectType:identityKey`.
+- Topic cần nhiều partition để scale consumer; local fresh environment mặc định 12 partition và Catalog concurrency 8.
+  Tăng partition giữ ordering theo key từ thời điểm thay đổi nhưng không giữ mapping partition cũ, nên phải drain backlog trước rollout.
 
 ## Payload
 

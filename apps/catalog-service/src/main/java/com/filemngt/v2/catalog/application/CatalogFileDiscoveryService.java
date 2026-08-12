@@ -86,6 +86,7 @@ public class CatalogFileDiscoveryService {
         boolean metadataChanged = asset != null && isVideo(role)
                 ? electPrimary(subject, asset, metadata, existing.isPresent())
                 : subject.applyMetadata(metadata, false);
+        if (assetAdded || assetChanged) subject.markAssetChanged();
         if (existing.isEmpty() || assetAdded || assetChanged || metadataChanged) {
             subjects.saveAndFlush(subject);
             outbox.enqueue(subject);
@@ -138,6 +139,8 @@ public class CatalogFileDiscoveryService {
             subject.demotePrimaryVideo();
             subjects.saveAndFlush(subject);
         }
-        return subject.promotePrimaryVideo(preferred, preferred == candidate ? metadata : null);
+        var changed = subject.promotePrimaryVideo(preferred, preferred == candidate ? metadata : null);
+        subject.markAssetChanged();
+        return changed;
     }
 }

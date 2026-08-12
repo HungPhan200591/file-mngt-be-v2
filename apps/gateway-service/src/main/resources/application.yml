@@ -22,7 +22,7 @@ spring:
             - id: query-subjects
               uri: ${QUERY_SERVICE_URL:http://localhost:18103}
               predicates:
-                - Path=/api/v2/query/subjects,/api/v2/query/subjects/**
+                - Path=/api/v2/query/subjects,/api/v2/query/subjects/**,/api/v2/query/videos,/api/v2/query/videos/**
 
 gateway:
   http-client:

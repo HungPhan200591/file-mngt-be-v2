@@ -45,8 +45,8 @@ public record QuerySubjectCacheEntry(
                 detail.createdAt(),
                 detail.projectedAt(),
                 detail.assets().stream()
-                        .map(asset ->
-                                new AssetEntry(asset.id(), asset.role(), asset.relativePath(), asset.storageKey()))
+                        .map(asset -> new AssetEntry(
+                                asset.id(), asset.role(), asset.relativePath(), asset.storageKey(), asset.tagNames()))
                         .toList());
     }
 
@@ -67,9 +67,13 @@ public record QuerySubjectCacheEntry(
                 projectedAt,
                 assets.stream()
                         .map(asset -> new QuerySubjectDetail.AssetDetail(
-                                asset.id(), asset.role(), asset.relativePath(), asset.storageKey()))
+                                asset.id(), asset.role(), asset.relativePath(), asset.storageKey(), asset.tagNames()))
                         .toList());
     }
 
-    public record AssetEntry(UUID id, String role, String relativePath, String storageKey) {}
+    public record AssetEntry(UUID id, String role, String relativePath, String storageKey, List<String> tagNames) {
+        public AssetEntry {
+            tagNames = tagNames == null ? List.of() : List.copyOf(tagNames);
+        }
+    }
 }

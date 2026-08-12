@@ -46,9 +46,13 @@ public record QuerySubjectDetail(
                 subject.projectedAt(),
                 subject.assets().stream()
                         .map(asset -> new AssetDetail(
-                                asset.id(), asset.role().name(), asset.relativePath(), asset.storageKey()))
+                                asset.id(),
+                                asset.role().name(),
+                                asset.relativePath(),
+                                asset.storageKey(),
+                                asset.tagNames().stream().sorted().toList()))
                         .toList());
     }
 
-    public record AssetDetail(UUID id, String role, String relativePath, String storageKey) {}
+    public record AssetDetail(UUID id, String role, String relativePath, String storageKey, List<String> tagNames) {}
 }

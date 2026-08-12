@@ -37,7 +37,8 @@
 }
 ```
 
-`assets` là full snapshot tại `subjectVersion`, không phải delta. `displayTitle`, `baseCode`, `part`,
+`assets` là full snapshot tại `subjectVersion`, không phải delta. Mỗi asset có `tagNames`; field additive này
+mặc định là danh sách rỗng khi producer cũ không gửi. `displayTitle`, `baseCode`, `part`,
 `studioCode` và `storageKey` có thể là `null`; các list metadata có thể rỗng. Các field Gallery là additive
 và consumer v1 cũ được phép bỏ qua. Payload không chứa absolute filesystem path.
 
