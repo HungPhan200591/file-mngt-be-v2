@@ -48,6 +48,8 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
     /** Lấy toàn bộ proposal của run cho batch decision. */
     List<ScanProposalEntity> findByScanRunId(UUID scanRunId);
 
+    long countByScanRunIdAndCandidateType(UUID scanRunId, String candidateType);
+
     @Query(value = """
                     SELECT proposal.*
                     FROM scan_proposal proposal

@@ -87,7 +87,8 @@ public class ScanQueryService {
     /** Lấy chi tiết một scan run hoặc báo không tồn tại. */
     public ScanRunView get(UUID runId) {
         var run = runs.findById(runId).orElseThrow(() -> new ScanRunNotFoundException(runId));
-        return ScanViewMapper.run(run, reviewSummary(run.rootKey()));
+        long orphanCount = proposals.countByScanRunIdAndCandidateType(runId, "DELETE_ASSET");
+        return ScanViewMapper.run(run, orphanCount, reviewSummary(run.rootKey()));
     }
 
     /**

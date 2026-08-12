@@ -475,6 +475,7 @@ components:
         scannedFileCount: { type: integer, format: int64 }
         proposalCount: { type: integer, format: int64 }
         issueCount: { type: integer, format: int64 }
+        orphanCount: { type: integer, format: int64, description: Number of DELETE_ASSET proposals created by this run. }
         changedFileCount:
           type: [integer, 'null']
           format: int64

@@ -16,6 +16,7 @@ public record ScanRunView(
         long scannedFileCount,
         long proposalCount,
         long issueCount,
+        long orphanCount,
         Long changedFileCount,
         Long reconciledFileCount,
         String lastError,

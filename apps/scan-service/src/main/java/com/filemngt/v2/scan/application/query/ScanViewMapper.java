@@ -17,6 +17,10 @@ public final class ScanViewMapper {
 
     /** Gắn thêm worklist summary khi API đọc chi tiết một run. */
     public static ScanRunView run(ScanRunEntity value, ReviewQueueSummaryView reviewSummary) {
+        return run(value, 0, reviewSummary);
+    }
+
+    public static ScanRunView run(ScanRunEntity value, long orphanCount, ReviewQueueSummaryView reviewSummary) {
         return new ScanRunView(
                 value.id(),
                 value.rootKey(),
@@ -27,6 +31,7 @@ public final class ScanViewMapper {
                 value.scannedFileCount(),
                 value.proposalCount(),
                 value.issueCount(),
+                orphanCount,
                 value.changedFileCount(),
                 value.reconciledFileCount(),
                 value.lastError(),
