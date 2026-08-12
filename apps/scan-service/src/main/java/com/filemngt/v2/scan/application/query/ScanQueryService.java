@@ -104,7 +104,7 @@ public class ScanQueryService {
         String normalizedSearch = normalizeSearch(search);
         String normalizedDecision = normalizeProposalDecision(decision);
         var result = proposals.findByScanRunIdFiltered(
-                runId, normalizedSearch, normalizedDecision, PageRequest.of(page, size, Sort.by(SOURCE_RELATIVE_PATH)));
+                runId, normalizedSearch, normalizedDecision, PageRequest.of(page, size));
         Map<UUID, ScanDecisionEntity> decisionByProposal =
                 decisions
                         .findAllById(result.getContent().stream()

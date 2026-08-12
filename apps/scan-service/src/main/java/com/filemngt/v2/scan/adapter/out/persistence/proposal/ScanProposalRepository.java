@@ -25,6 +25,7 @@ public interface ScanProposalRepository extends JpaRepository<ScanProposalEntity
                       AND (:decision IS NULL
                            OR (:decision = 'PENDING' AND decision.proposal_id IS NULL)
                            OR decision.decision = :decision)
+                    ORDER BY proposal.source_relative_path, proposal.id
                     """, countQuery = """
                     SELECT count(*)
                     FROM scan_proposal proposal
