@@ -1,6 +1,7 @@
 # FT-036 — Event contract/DLT alignment — Plan
 
 Status: IMPLEMENTED — verification deferred
+Scale/cloud guide: [05-scale-and-cloud-rollout.md](./05-scale-and-cloud-rollout.md)
 
 1. Thêm contract tài liệu v2 khớp `MediaFileDiscoveredV2` runtime.
 2. Đổi Catalog consumer sang topic v2 và reject event type khác.

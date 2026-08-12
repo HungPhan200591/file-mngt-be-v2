@@ -1,6 +1,14 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-11
+Updated: 2026-08-12
+
+## Gate mới nhất — production readiness review
+
+Review tĩnh toàn backend tại commit `45adade8d67c` kết luận **`NOT READY` cho
+production/cutover**. Blocker hiện tại là security/network boundary, restart
+recovery của scan, blocking filesystem liveness, lease fencing của durable job,
+outbox lease/throughput và Query DLT observation/replay evidence. Xem [review đầy đủ](./reviews/2026-08-12-backend-quality-architecture-production-readiness.md)
+và [technical debt snapshot](./TECHNICAL_DEBT.md).
 
 ## Trọng tâm hiện tại — SC-01 thông luồng
 
@@ -56,13 +64,13 @@ Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
 
 ## Nợ kỹ thuật đang mở
 
-Xem [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md) — chi tiết verification/hardening của FT-033/034/035/036/037/038/039.
-STATUS chỉ giữ
-liên kết snapshot; chi tiết remediation nằm ở debt/feature owner.
+Xem [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md). Snapshot này chỉ giữ gate và
+work active; evidence/remediation chi tiết nằm ở review và Feature Plan owner.
 
 ## Việc tiếp theo theo thứ tự ưu tiên
 
-1. Khi người dùng ưu tiên hardening, chạy direct verification toàn SC-01: Flyway/index, Catalog/Scan
-   Testcontainers, Kafka contract/DLT, `SKIP LOCKED`, lease reclaim, job status và duplicate evidence.
-2. Hardening Gateway/FE mapping: chạy E2E qua `18100`, kiểm tra job lifecycle/status và refresh projection.
-3. Khi ưu tiên verification, chạy FT-033 Testcontainers/benchmark đã deferred.
+1. Ưu tiên P0: security boundary, scan restart/I/O liveness và durable-job fencing.
+2. Sau P0, chạy direct verification SC-01: Flyway/index, Testcontainers, Kafka
+   DLT, `SKIP LOCKED`, lease reclaim, duplicate và rolling restart.
+3. Sau verification, chốt E2E Gateway/FE qua `18100`, SLO/alert và benchmark
+   approve → Catalog → Query.

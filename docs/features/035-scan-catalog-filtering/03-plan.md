@@ -1,6 +1,7 @@
 # FT-035 — Scan–Catalog filtering — Plan
 
 Status: IMPLEMENTED — verification deferred
+Scale/cloud guide: [05-scale-and-cloud-rollout.md](./05-scale-and-cloud-rollout.md)
 
 1. Thêm HTTP adapter dùng contract FT-034, timeout bounded và validate response theo `clientRef`.
 2. Filter proposal trong Scan executor sau analyze, trước chunk persistence; split micro-batch 500.

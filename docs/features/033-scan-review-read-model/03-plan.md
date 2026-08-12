@@ -2,6 +2,7 @@
 
 Status: DONE — implementation complete; build/Testcontainers/runtime verification deferred by user
 Design: [02-design.md](./02-design.md)
+Scale/cloud guide: [08-scale-and-cloud-rollout.md](./08-scale-and-cloud-rollout.md)
 
 ## Execution capsule
 

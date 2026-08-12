@@ -1,6 +1,7 @@
 # FT-037 — Outbox backlog capacity — Plan
 
 Status: IMPLEMENTED — verification deferred
+Scale/cloud guide: [05-scale-and-cloud-rollout.md](./05-scale-and-cloud-rollout.md)
 
 1. Thêm lease columns/index và bounded claim cho Scan/Catalog outbox.
 2. Đổi publisher sang claim → publish ngoài transaction → conditional state update.

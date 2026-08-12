@@ -1,6 +1,7 @@
 # FT-039 — Durable bulk decision — Plan
 
 Status: IMPLEMENTED — verification deferred
+Scale/cloud guide: [05-scale-and-cloud-rollout.md](./05-scale-and-cloud-rollout.md)
 
 1. Thêm `scan_bulk_decision_job` và claim lease.
 2. Thêm async enqueue endpoints cho decision/reopen.

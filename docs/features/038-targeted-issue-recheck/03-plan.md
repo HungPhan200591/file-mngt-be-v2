@@ -1,6 +1,7 @@
 # FT-038 — Targeted issue recheck — Plan
 
 Status: IMPLEMENTED — verification deferred
+Scale/cloud guide: [05-scale-and-cloud-rollout.md](./05-scale-and-cloud-rollout.md)
 
 1. Thêm schema/job claim cho issue recheck và API `202`.
 2. Thêm resolver server-side root/path + single-file analyzer.

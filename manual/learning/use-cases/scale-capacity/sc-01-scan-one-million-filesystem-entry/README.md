@@ -13,7 +13,7 @@ Ghi chú khảo sát mới về performance và scale Kafka/cloud: [06-performan
 | Giải pháp Lọc trùng Xuyên Service | [03-cross-service-deduplication.md](./03-cross-service-deduplication.md) | Đã tạo |
 | Break task triển khai | [04-break-task.md](./04-break-task.md) | Đã tạo |
 | Phương án UI/UX Solution Behavior | [05-ui-ux-solution-behavior.md](./05-ui-ux-solution-behavior.md) | Đã tạo |
-| Java 25 Fixture Tool | [fixture-tools](../../../../tests/fixtures/tools/pom.xml) (package `com.filemngt.tools.sc01_scan_one_million`) | Đã tạo |
+| Java 25 Fixture Tool | [fixture-tools](../../../../../tests/fixtures/tools/pom.xml) (package `com.filemngt.tools.sc01_scan_one_million`) | Đã tạo |
 | Summary | [summary/01-issues-and-solutions.md](./summary/01-issues-and-solutions.md) | Đã tạo; distill từ issue/solution/evidence |
 | Question chain | [question-bank/01-question-chain.md](./question-bank/01-question-chain.md) | Đã tạo, bổ sung dần theo BT/deep-dive |
 

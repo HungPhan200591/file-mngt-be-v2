@@ -2,6 +2,7 @@
 
 Status: IMPLEMENTED — verification deferred
 Design: [02-design.md](./02-design.md)
+Scale/cloud guide: [05-scale-and-cloud-rollout.md](./05-scale-and-cloud-rollout.md)
 
 ## Execution capsule
 
