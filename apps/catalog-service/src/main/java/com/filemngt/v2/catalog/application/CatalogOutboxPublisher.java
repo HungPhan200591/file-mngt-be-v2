@@ -69,6 +69,7 @@ public class CatalogOutboxPublisher {
         var pendingEvents = claims == null
                 ? events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()
                 : claims.claim(owner, batchSize);
+        if (pendingEvents.isEmpty()) return;
         var dispatched = pendingEvents.stream().map(this::dispatch).toList();
         var publishedIds = new java.util.ArrayList<java.util.UUID>(dispatched.size());
         for (var item : dispatched) {
