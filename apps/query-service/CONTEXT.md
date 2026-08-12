@@ -11,8 +11,9 @@ Read model tối ưu cho Gallery Web, Media Library, filter, card và search.
 - REST API search, filter, order, pagination và detail read model.
 - Gallery filter theo asset root/studio/actress/tag và `mediaUrl` Nginx được resolve từ locator + deployment root map;
   response trả `null` khi projection/root mapping chưa đủ, không suy diễn filesystem path.
-- Gallery page dùng `/api/v2/query/videos`: mỗi card là một `PRIMARY_VIDEO` hoặc `VIDEO` trong root; tag filter
-  đọc tag của video asset. Thumbnail ưu tiên `IMAGE`, fallback `GIF` cùng subject; detail vẫn theo subject.
+- Gallery page dùng `/api/v2/query/videos`: mỗi video trong root là một card; subject không có video trong root dùng
+  đúng một `IMAGE`/`GIF` làm card đại diện. Tag filter đọc tag asset đại diện; card trả selected video nếu có cùng
+  toàn bộ `IMAGE`/`GIF` của subject để render carousel, còn detail vẫn theo subject.
 - Elasticsearch media search index; hỗ trợ full-text, fuzzy match và autocomplete.
 - Redis key/TTL/cache invalidation policy cho query.
 

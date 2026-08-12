@@ -17,6 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class QueryVideoGalleryService {
+    private static final Comparator<QueryAssetEntity> PREVIEW_ORDER = Comparator.comparingInt(
+                    QueryVideoGalleryService::previewPriority)
+            .thenComparing(QueryAssetEntity::relativePath)
+            .thenComparing(QueryAssetEntity::id);
+
     private final QueryAssetRepository assets;
     private final QuerySubjectRepository subjects;
 
@@ -27,7 +32,7 @@ public class QueryVideoGalleryService {
 
     @Transactional(readOnly = true)
     public Page<VideoCard> list(VideoFilter filter, Pageable pageable) {
-        var idPage = assets.findVideoIds(
+        var idPage = assets.findGalleryCardIds(
                 filter.rootKey(), filter.studio(), filter.actress(), filter.tag(), filter.search(), pageable);
         if (idPage.isEmpty()) return new PageImpl<>(List.of(), pageable, 0);
         var assetById = assets.findAllWithTagsByIdIn(idPage.getContent()).stream()
@@ -40,7 +45,8 @@ public class QueryVideoGalleryService {
                 .collect(Collectors.toMap(QuerySubjectEntity::id, Function.identity()));
         var cards = idPage.stream()
                 .map(assetById::get)
-                .map(asset -> toCard(asset, subjectById.get(asset.subject().id())))
+                .map(representative -> toCard(
+                        representative, subjectById.get(representative.subject().id())))
                 .toList();
         return new PageImpl<>(cards, pageable, idPage.getTotalElements());
     }
@@ -50,20 +56,34 @@ public class QueryVideoGalleryService {
         return assets.listVideoTags();
     }
 
-    private VideoCard toCard(QueryAssetEntity video, QuerySubjectEntity subject) {
-        var thumbnail = subject.assets().stream()
-                .filter(asset -> asset.role() == MediaAssetRole.IMAGE || asset.role() == MediaAssetRole.GIF)
-                .sorted(Comparator.comparingInt(this::thumbnailPriority).thenComparing(QueryAssetEntity::relativePath))
-                .findFirst()
-                .orElse(null);
-        return new VideoCard(video, subject, thumbnail);
+    private VideoCard toCard(QueryAssetEntity representative, QuerySubjectEntity subject) {
+        var previews = subject.assets().stream()
+                .filter(QueryVideoGalleryService::isPreview)
+                .sorted(PREVIEW_ORDER)
+                .toList();
+        var video = isVideo(representative) ? representative : null;
+        var thumbnail = previews.isEmpty() ? null : previews.getFirst();
+        return new VideoCard(representative, video, subject, thumbnail, previews);
     }
 
-    private int thumbnailPriority(QueryAssetEntity asset) {
+    private static boolean isVideo(QueryAssetEntity asset) {
+        return asset.role() == MediaAssetRole.PRIMARY_VIDEO || asset.role() == MediaAssetRole.VIDEO;
+    }
+
+    private static boolean isPreview(QueryAssetEntity asset) {
+        return asset.role() == MediaAssetRole.IMAGE || asset.role() == MediaAssetRole.GIF;
+    }
+
+    private static int previewPriority(QueryAssetEntity asset) {
         return asset.role() == MediaAssetRole.IMAGE ? 0 : 1;
     }
 
     public record VideoFilter(String rootKey, String studio, String actress, String tag, String search) {}
 
-    public record VideoCard(QueryAssetEntity video, QuerySubjectEntity subject, QueryAssetEntity thumbnail) {}
+    public record VideoCard(
+            QueryAssetEntity representative,
+            QueryAssetEntity video,
+            QuerySubjectEntity subject,
+            QueryAssetEntity thumbnail,
+            List<QueryAssetEntity> previews) {}
 }

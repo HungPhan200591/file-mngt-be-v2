@@ -61,7 +61,7 @@ public class QueryVideoController {
     private VideoResponse response(QueryVideoGalleryService.VideoCard card) {
         var subject = card.subject();
         return new VideoResponse(
-                card.video().id(),
+                card.representative().id(),
                 subject.id(),
                 subject.projectionVersion(),
                 subject.subjectType().name(),
@@ -72,18 +72,18 @@ public class QueryVideoController {
                 subject.part(),
                 subject.studioCode(),
                 subject.actressNames().stream().sorted().toList(),
-                card.video().tagNames().stream().sorted().toList(),
+                card.representative().tagNames().stream().sorted().toList(),
                 subject.createdAt(),
                 subject.projectedAt(),
-                card.video().id(),
+                card.video() == null ? null : card.video().id(),
                 card.thumbnail() == null ? null : card.thumbnail().id(),
                 cardAssets(card));
     }
 
     private List<Asset> cardAssets(QueryVideoGalleryService.VideoCard card) {
-        var result = new ArrayList<Asset>(2);
-        result.add(asset(card.video()));
-        if (card.thumbnail() != null) result.add(asset(card.thumbnail()));
+        var result = new ArrayList<Asset>(card.previews().size() + 1);
+        if (card.video() != null) result.add(asset(card.video()));
+        card.previews().forEach(preview -> result.add(asset(preview)));
         return List.copyOf(result);
     }
 

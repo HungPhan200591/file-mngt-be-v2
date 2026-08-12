@@ -160,7 +160,8 @@ public class QuerySubjectEntity {
             var snapshot = snapshotById.get(asset.id());
             if (snapshot == null) return false;
             boolean locatorMissing = asset.storageKey() == null && snapshot.storageKey() != null;
-            boolean tagsMissing = asset.tagNames().isEmpty() && !snapshot.tagNames().isEmpty();
+            boolean tagsMissing =
+                    asset.tagNames().isEmpty() && !snapshot.tagNames().isEmpty();
             return locatorMissing || tagsMissing;
         });
     }

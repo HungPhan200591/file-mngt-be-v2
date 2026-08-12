@@ -11,10 +11,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface QueryAssetRepository extends JpaRepository<QueryAssetEntity, UUID> {
+    String GALLERY_CARD_PREDICATE =
+            " from QueryAssetEntity a where (:rootKey is null or a.storageKey = :rootKey) and (a.role in (com.filemngt.v2.query.domain.MediaAssetRole.PRIMARY_VIDEO, com.filemngt.v2.query.domain.MediaAssetRole.VIDEO) or (a.role in (com.filemngt.v2.query.domain.MediaAssetRole.IMAGE, com.filemngt.v2.query.domain.MediaAssetRole.GIF) and not exists (select video.id from QueryAssetEntity video where video.subject = a.subject and (:rootKey is null or video.storageKey = :rootKey) and video.role in (com.filemngt.v2.query.domain.MediaAssetRole.PRIMARY_VIDEO, com.filemngt.v2.query.domain.MediaAssetRole.VIDEO)) and not exists (select preferred.id from QueryAssetEntity preferred where preferred.subject = a.subject and (:rootKey is null or preferred.storageKey = :rootKey) and preferred.role in (com.filemngt.v2.query.domain.MediaAssetRole.IMAGE, com.filemngt.v2.query.domain.MediaAssetRole.GIF) and ((a.role = com.filemngt.v2.query.domain.MediaAssetRole.GIF and preferred.role = com.filemngt.v2.query.domain.MediaAssetRole.IMAGE) or (preferred.role = a.role and preferred.relativePath < a.relativePath)))) and (:studio is null or a.subject.studioCode = :studio) and (:actress is null or :actress member of a.subject.actressNames) and (:tag is null or :tag member of a.tagNames) and (cast(:search as String) is null or lower(a.subject.identityKey) like lower(concat('%', cast(:search as String), '%')) or lower(coalesce(a.subject.displayTitle, '')) like lower(concat('%', cast(:search as String), '%')) or lower(a.relativePath) like lower(concat('%', cast(:search as String), '%')))) ";
 
-    @Query(
-            "select a.id from QueryAssetEntity a where a.role in (com.filemngt.v2.query.domain.MediaAssetRole.PRIMARY_VIDEO, com.filemngt.v2.query.domain.MediaAssetRole.VIDEO) and (:rootKey is null or a.storageKey = :rootKey) and (:studio is null or a.subject.studioCode = :studio) and (:actress is null or :actress member of a.subject.actressNames) and (:tag is null or :tag member of a.tagNames) and (cast(:search as String) is null or lower(a.subject.identityKey) like lower(concat('%', cast(:search as String), '%')) or lower(coalesce(a.subject.displayTitle, '')) like lower(concat('%', cast(:search as String), '%')) or lower(a.relativePath) like lower(concat('%', cast(:search as String), '%'))) ")
-    Page<UUID> findVideoIds(
+    @Query(value = "select a.id" + GALLERY_CARD_PREDICATE, countQuery = "select count(a.id)" + GALLERY_CARD_PREDICATE)
+    Page<UUID> findGalleryCardIds(
             @Param("rootKey") String rootKey,
             @Param("studio") String studio,
             @Param("actress") String actress,

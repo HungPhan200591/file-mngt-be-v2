@@ -1,11 +1,11 @@
 # FT-043 — Video Gallery và throughput event — Plan
 
-Status: IMPLEMENTED — static verification only
+Status: DONE — static verification only
 
 ## Execution capsule
 
 - Owner: Scan outbox, Catalog aggregate/event, Query projection/API, FE Gallery.
-- Scope: batch publish, subject version, asset tags, video page contract, Gallery card/detail.
+- Scope: batch publish, subject version, asset tags, Gallery page contract, card/detail và root chỉ có ảnh/GIF.
 - Must preserve: transactional outbox, eventId dedupe, Kafka ordering theo key, subject API compatibility.
 - Read on demand: FT-042, Query OpenAPI, Gallery context.
 
@@ -16,11 +16,15 @@ Status: IMPLEMENTED — static verification only
 3. Chuyển Scan/Catalog outbox adapter sang batch asynchronous acknowledgement.
 4. Chuyển FE Gallery sang video page; detail vẫn query theo subject.
 5. Audit source of truth, line cap, format và `git diff --check`.
+6. Mở rộng Gallery page: video card giữ nguyên, subject không có video trong root dùng asset ảnh/GIF đại diện; card
+   hydrate toàn bộ ảnh/GIF để FE bật carousel và toggle.
 
 ## Verify
 
 - Static contract/diff/line-cap audit, architecture review, formatter và `git diff --check`: hoàn tất.
-- Build/test/runtime/migration chỉ chạy khi người dùng cho phép.
+- Reactor test `-pl apps/query-service -am -Dtest=QueryVideoGalleryIntegrationTest test`: PASS ngày
+  2026-08-13; xác nhận Spring Data parse HQL, Hibernate tạo SQL và cả root video/ảnh đều trả 200.
+- Các test/runtime khác, migration, topic hiện hữu, DLT replay và benchmark chưa chạy.
 
 ## Rollback
 

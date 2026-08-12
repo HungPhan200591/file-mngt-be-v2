@@ -11,7 +11,7 @@ paths:
   /api/v2/query/videos:
     get:
       operationId: listQueryVideos
-      summary: List individual video assets for Gallery
+      summary: List Gallery cards selected from assets in a root
       parameters:
         - { name: rootKey, in: query, schema: { type: string } }
         - { name: search, in: query, schema: { type: string } }
@@ -23,7 +23,7 @@ paths:
         - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
       responses:
         '200':
-          description: One card per PRIMARY_VIDEO or VIDEO asset in the requested root
+          description: One card per video asset, or one fallback subject card when the requested root has only IMAGE/GIF assets
           content:
             application/json:
               schema: { $ref: '#/components/schemas/QueryVideoPage' }
@@ -218,22 +218,25 @@ components:
       allOf:
         - $ref: '#/components/schemas/QuerySubjectDetail'
         - type: object
-          required: [subjectId, videoAssetId]
+          required: [subjectId]
           properties:
             id:
               type: string
               format: uuid
-              description: Gallery card identity; equal to videoAssetId, not subjectId.
+              description: Gallery card identity; equal to the selected video or fallback representative asset ID.
             subjectId: { type: string, format: uuid }
-            videoAssetId: { type: string, format: uuid }
+            videoAssetId:
+              type: [string, 'null']
+              format: uuid
+              description: Selected video asset ID; null for an image/GIF fallback card.
             thumbnailAssetId: { type: [string, 'null'], format: uuid }
             tagNames:
               type: array
-              description: Tags of the Gallery video asset.
+              description: Tags of the selected video or fallback representative asset.
               items: { type: string }
             assets:
               type: array
-              description: Compact card assets containing the selected video and at most one thumbnail.
+              description: Selected video when present, followed by every IMAGE/GIF asset of the subject in deterministic order.
               items: { $ref: '#/components/schemas/QueryAsset' }
     QuerySubjectDetail:
       type: object
