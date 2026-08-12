@@ -116,7 +116,7 @@ public class ScanExecutor {
     }
 
     private int discover(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
-        Path rootPath = Path.of(context.root().path());
+        Path rootPath = com.filemngt.v2.scan.adapter.out.filesystem.PathUtils.resolvePath(context.root().path());
         try (var cursor = new ScanFileInventoryCursor(rootPath, context.root().key())) {
             ScanInventoryItem firstItem = cursor.next();
             while (firstItem != null) {

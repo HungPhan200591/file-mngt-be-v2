@@ -46,7 +46,7 @@ public class MediaRootResolver {
     }
 
     private Path path(MediaProperties.Root root) {
-        return Path.of(root.path()).toAbsolutePath().normalize();
+        return PathUtils.resolvePath(root.path()).toAbsolutePath().normalize();
     }
 
     private Path duplicateRoot(Path first, Path ignored) {

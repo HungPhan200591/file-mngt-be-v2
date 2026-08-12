@@ -4,19 +4,18 @@ const categories = {
   docker: {
     title: 'DOCKER INFRASTRUCTURE COMMANDS',
     commands: [
-      { cmd: 'npm run docker:rerun', desc: 'Recreate & khởi động lại Core infra (Postgres, Redis, Kafka, Nginx)' },
-      { cmd: 'npm run docker:up', desc: 'Khởi động Core infra ở background' },
-      { cmd: 'npm run docker:down', desc: 'Hạ toàn bộ container Core infra' },
-      { cmd: 'npm run docker:restart', desc: 'Restart các container Core infra' },
-      { cmd: 'npm run docker:rerun:all', desc: 'Recreate & khởi động lại TOÀN BỘ infra (Core + Search + Observability)' },
-      { cmd: 'npm run docker:up:all', desc: 'Khởi động TOÀN BỘ infra (Core + Search + Observability)' },
-      { cmd: 'npm run docker:down:all', desc: 'Hạ TOÀN BỘ container infra' },
+      { cmd: 'npm run docker:infra:up', desc: 'Khởi động Core infra (Postgres, Redis, Kafka, Nginx)' },
+      { cmd: 'npm run docker:infra:down', desc: 'Hạ toàn bộ container Core infra' },
+      { cmd: 'npm run docker:infra:restart', desc: 'Restart tất cả container Core infra' },
+      { cmd: 'npm run docker:infra:rerun', desc: 'Recreate & khởi động lại Core infra' },
       { cmd: 'npm run docker:ps', desc: 'Xem danh sách & trạng thái các container đang chạy' },
       { cmd: 'npm run docker:logs', desc: 'Theo dõi log realtime (tail -f) của container' },
-      { cmd: 'npm run docker:apps:up', desc: 'Khởi động TOÀN BỘ 5 BE microservices + FE V2 trong Docker' },
-      { cmd: 'npm run docker:apps:build', desc: 'Rebuild & khởi động lại TOÀN BỘ 5 BE microservices + FE V2 trong Docker' },
+      { cmd: 'npm run build:jars', desc: 'Biên dịch lại tất cả Backend JARs bằng JDK 25 (không chạy Docker)' },
+      { cmd: 'npm run docker:apps:up', desc: 'Khởi động/Áp dụng cấu hình TOÀN BỘ 5 BE microservices + FE V2 trong Docker' },
+      { cmd: 'npm run docker:apps:rebuild', desc: 'Biên dịch lại JARs ➔ Rebuild Docker images ➔ Khởi chạy 5 BE microservices + FE V2' },
       { cmd: 'npm run docker:apps:down', desc: 'Hạ toàn bộ container ứng dụng (BE + FE)' },
-      { cmd: 'npm run docker:stop <service>', desc: 'Tắt 1 service cụ thể trong Docker (ví dụ: scan-service) để nhả port cho Local IDE Debug' },
+      { cmd: 'npm run docker:restart <service>', desc: 'Restart 1 service duy nhất (Ví dụ: npm run docker:restart scan-service hoặc postgres)' },
+      { cmd: 'npm run docker:stop <service>', desc: 'Tắt 1 service cụ thể trong Docker (Ví dụ: scan-service) để nhả port cho Local IDE Debug' },
     ]
   },
   test: {

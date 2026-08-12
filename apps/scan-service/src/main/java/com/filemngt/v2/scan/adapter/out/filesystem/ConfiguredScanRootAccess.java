@@ -13,7 +13,7 @@ public class ConfiguredScanRootAccess {
             return false;
         }
         try {
-            Path path = Path.of(configuredPath);
+            Path path = PathUtils.resolvePath(configuredPath);
             return Files.isDirectory(path) && Files.isReadable(path);
         } catch (InvalidPathException ignored) {
             return false;

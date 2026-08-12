@@ -36,7 +36,7 @@ class IssueRecheckObservationResolver {
         var issue = issues.findById(issueId).orElseThrow();
         var sourceRun = runs.findById(issue.scanRunId()).orElseThrow();
         var root = properties.getRoots().stream().filter(value -> value.key().equals(sourceRun.rootKey())).findFirst().orElseThrow();
-        Path rootPath = Path.of(root.path()).normalize();
+        Path rootPath = com.filemngt.v2.scan.adapter.out.filesystem.PathUtils.resolvePath(root.path()).normalize();
         Path path = rootPath.resolve(issue.sourceRelativePath()).normalize();
         if (!path.startsWith(rootPath)) throw new IllegalStateException("Issue path escaped configured root");
         var snapshot = registry.fetch(ScanRegion.from(root.profile()).name()).orElseThrow(() -> new IllegalStateException("Catalog registry unavailable"));

@@ -43,6 +43,10 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       CATALOG_BASE_URL: http://catalog-service:18101
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    volumes:
+      - G:/:/mnt/g/:ro
+      - D:/:/mnt/d/:ro
+      - E:/:/mnt/e/:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:18102/actuator/health || exit 1"]
       interval: 10s
@@ -86,6 +90,10 @@ services:
       MEDIA_WORKER_SERVER_PORT: 18104
       CATALOG_SERVICE_URL: http://catalog-service:18101
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    volumes:
+      - G:/:/mnt/g/:ro
+      - D:/:/mnt/d/:ro
+      - E:/:/mnt/e/:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:18104/actuator/health || exit 1"]
       interval: 10s

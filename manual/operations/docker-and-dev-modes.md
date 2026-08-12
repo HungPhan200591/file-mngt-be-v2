@@ -64,12 +64,14 @@ Khi toàn bộ hệ thống đang chạy trong Docker nhưng bạn cần debug s
 
 ---
 
+---
+
 ### 🔵 Chế độ 3: Full Docker Mode (Vận Hành Staging / Test E2E)
 Khi muốn kiểm tra toàn bộ đóng gói đóng vai trò như môi trường Production:
 
 - **Build và khởi chạy toàn bộ**:
   ```powershell
-  npm run docker:apps:build
+  npm run docker:apps:rebuild
   ```
 
 - **Hạ toàn bộ container ứng dụng**:
@@ -81,6 +83,17 @@ Khi muốn kiểm tra toàn bộ đóng gói đóng vai trò như môi trường
   ```powershell
   npm run docker:down
   ```
+
+---
+
+## 3. Quy Trình Chạy Lại Sau Khi Thay Đổi (Workflow Matrix)
+
+| Loại Thay Đổi | Lệnh Cần Chạy | Giải Thích |
+| :--- | :--- | :--- |
+| **Sửa Source Code Java BE hoặc React FE** | `npm run docker:apps:rebuild` | Tự động biên dịch lại tất cả JARs bằng JDK 25 ➔ Rebuild Docker images ➔ Khởi chạy lại Group `filemngt-apps`. |
+| **Sửa File `.env`, `application.yml` hoặc `nginx.conf`** | `npm run docker:apps:up` *(Apps)*<br>`npm run docker:up` *(Infra)* | Chỉ apply / restart container với biến môi trường và file config mới mà **không cần** tốn thời gian biên dịch lại Java code. |
+| **Chỉ muốn Biên dịch JARs (Không đụng Docker)** | `npm run build:jars` | Biên dịch toàn bộ Java 25 JARs ra thư mục `target/` để phục vụ test hoặc chạy local. |
+| **Restart 1 service duy nhất** | `docker compose -f infra/compose/compose.apps.yaml restart <service-name>` | Restart 1 container ứng dụng cụ thể (ví dụ: `scan-service`). |
 
 ---
 
