@@ -61,10 +61,10 @@ public class QueryProjectionService {
         var existingSubject = subjects.findById(event.subjectId());
         var subject = existingSubject.orElseGet(() -> new QuerySubjectEntity(event.subjectId()));
         var versionAdvanced = existingSubject.isEmpty() || subject.projectionVersion() < event.subjectVersion();
-        var needsLocatorHydration = existingSubject.isPresent()
+        var needsAdditiveHydration = existingSubject.isPresent()
                 && subject.projectionVersion() == event.subjectVersion()
-                && subject.requiresLocatorHydration(event.assets());
-        if (versionAdvanced || needsLocatorHydration) {
+                && subject.requiresAdditiveHydration(event.assets());
+        if (versionAdvanced) {
             subject.apply(
                     new QuerySubjectEntity.ProjectionSnapshot(
                             event.subjectVersion(),
@@ -88,11 +88,12 @@ public class QueryProjectionService {
                                     asset.tagNames()))
                             .toList());
             subjects.save(subject);
-            if (versionAdvanced) {
-                searchOutbox.save(
-                        new QuerySearchOutboxEntity(subject.id(), subject.projectionVersion(), Instant.now()));
-                events.publishEvent(new QuerySubjectProjectionChanged(subject.id()));
-            }
+            searchOutbox.save(new QuerySearchOutboxEntity(subject.id(), subject.projectionVersion(), Instant.now()));
+            events.publishEvent(new QuerySubjectProjectionChanged(subject.id()));
+        } else if (needsAdditiveHydration) {
+            subject.hydrateAdditive(event.assets());
+            subjects.save(subject);
+            events.publishEvent(new QuerySubjectProjectionChanged(subject.id()));
         }
         processed.save(new QueryProcessedEventEntity(event.eventId(), Instant.now()));
         tombstone.ifPresent(tombstones::delete);

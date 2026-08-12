@@ -153,9 +153,25 @@ public class QuerySubjectEntity {
         return List.copyOf(assets);
     }
 
-    public boolean requiresLocatorHydration(List<MediaSubjectChangedV1.AssetSnapshot> snapshotAssets) {
-        return assets.stream().anyMatch(asset -> asset.storageKey() == null)
-                && snapshotAssets.stream().anyMatch(asset -> asset.storageKey() != null);
+    public boolean requiresAdditiveHydration(List<MediaSubjectChangedV1.AssetSnapshot> snapshotAssets) {
+        var snapshotById = snapshotAssets.stream()
+                .collect(Collectors.toMap(MediaSubjectChangedV1.AssetSnapshot::assetId, Function.identity()));
+        return assets.stream().anyMatch(asset -> {
+            var snapshot = snapshotById.get(asset.id());
+            if (snapshot == null) return false;
+            boolean locatorMissing = asset.storageKey() == null && snapshot.storageKey() != null;
+            boolean tagsMissing = asset.tagNames().isEmpty() && !snapshot.tagNames().isEmpty();
+            return locatorMissing || tagsMissing;
+        });
+    }
+
+    public void hydrateAdditive(List<MediaSubjectChangedV1.AssetSnapshot> snapshotAssets) {
+        var snapshotById = snapshotAssets.stream()
+                .collect(Collectors.toMap(MediaSubjectChangedV1.AssetSnapshot::assetId, Function.identity()));
+        assets.forEach(asset -> {
+            var snapshot = snapshotById.get(asset.id());
+            if (snapshot != null) asset.hydrateAdditive(snapshot.storageKey(), snapshot.tagNames());
+        });
     }
 
     public record ProjectionSnapshot(

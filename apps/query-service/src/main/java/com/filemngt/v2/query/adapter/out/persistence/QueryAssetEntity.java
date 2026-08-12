@@ -67,6 +67,11 @@ public class QueryAssetEntity {
         tagNames.addAll(nextTags == null ? List.of() : nextTags);
     }
 
+    void hydrateAdditive(String nextStorageKey, List<String> nextTags) {
+        if (storageKey == null && nextStorageKey != null) storageKey = nextStorageKey;
+        if (tagNames.isEmpty() && nextTags != null) tagNames.addAll(nextTags);
+    }
+
     public UUID id() {
         return id;
     }

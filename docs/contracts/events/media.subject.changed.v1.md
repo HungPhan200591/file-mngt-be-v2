@@ -44,8 +44,11 @@ và consumer v1 cũ được phép bỏ qua. Payload không chứa absolute file
 
 ## Semantics và idempotency
 
-- Một canonical mutation tạo đúng một `eventId`; retry publisher giữ nguyên `eventId` và payload.
-- Consumer dedupe theo `eventId`. Với cùng `subjectId`, consumer chỉ áp dụng event có `subjectVersion` lớn hơn version projection hiện tại; version bằng hoặc thấp hơn là no-op.
+- Một canonical mutation tạo đúng một `eventId`; retry publisher giữ nguyên `eventId` và payload. Operational projection replay
+  được phép tạo `eventId` mới cho snapshot canonical hiện tại với cùng `subjectVersion` và không làm tăng version Catalog.
+- Consumer dedupe theo `eventId`. Với cùng `subjectId`, event có `subjectVersion` lớn hơn thay thế projection; version thấp
+  hơn là no-op. Event cùng version chỉ được hydrate metadata additive còn thiếu từ producer cũ, như `storageKey` hoặc
+  `assets[].tagNames`; không được xóa hay ghi đè metadata đã có.
 - Consumer upsert subject và thay thế asset projection bằng full `assets` snapshot trong cùng transaction của read model.
 - Duplicate/no-op input ở Catalog không tạo event mới. Event không có `changeType`; việc thiếu asset trong snapshot chỉ mang nghĩa trạng thái hiện tại, chưa phải contract xóa canonical asset.
 

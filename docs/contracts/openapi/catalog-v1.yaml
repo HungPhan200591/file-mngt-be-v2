@@ -13,6 +13,9 @@ paths:
     post:
       operationId: replayCatalogQueryProjection
       summary: Enqueue current Catalog subject snapshots for Query projection hydration
+      description: >-
+        Tạo eventId mới từ canonical snapshot hiện tại. Replay giữ nguyên subjectVersion và có thể chạy lại
+        để hydrate additive metadata mà payload producer cũ chưa mang theo.
       parameters:
         - name: batchSize
           in: query
