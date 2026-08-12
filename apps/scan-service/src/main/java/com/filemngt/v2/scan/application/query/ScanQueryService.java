@@ -4,10 +4,8 @@ import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.issue.ScanIssueRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanEvidenceCodec;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
@@ -50,8 +48,8 @@ public class ScanQueryService {
     private final ScanProposalRepository proposals;
     private final ScanIssueRepository issues;
     private final ScanDecisionRepository decisions;
-    private final ScanEvidenceCodec evidenceCodec;
     private final ScanReviewProjectionQueryService reviewProjection;
+    private final ScanQueryViewFactory viewFactory;
 
     public ScanQueryService(
             ScanProperties properties,
@@ -59,15 +57,15 @@ public class ScanQueryService {
             ScanProposalRepository proposals,
             ScanIssueRepository issues,
             ScanDecisionRepository decisions,
-            ScanEvidenceCodec evidenceCodec,
-            ScanReviewProjectionQueryService reviewProjection) {
+            ScanReviewProjectionQueryService reviewProjection,
+            ScanQueryViewFactory viewFactory) {
         this.properties = properties;
         this.runs = runs;
         this.proposals = proposals;
         this.issues = issues;
         this.decisions = decisions;
-        this.evidenceCodec = evidenceCodec;
         this.reviewProjection = reviewProjection;
+        this.viewFactory = viewFactory;
     }
 
     @Transactional(readOnly = true)
@@ -113,7 +111,7 @@ public class ScanQueryService {
                         .collect(Collectors.toMap(ScanDecisionEntity::proposalId, Function.identity()));
 
         return ScanViewMapper.page(
-                result.map(proposal -> proposalView(proposal, decisionByProposal.get(proposal.id()))));
+                result.map(proposal -> viewFactory.proposal(proposal, decisionByProposal.get(proposal.id()))));
     }
 
     @Transactional(readOnly = true)
@@ -141,7 +139,7 @@ public class ScanQueryService {
                                 .toList())
                         .stream()
                         .collect(Collectors.toMap(ScanDecisionEntity::proposalId, Function.identity()));
-        return ScanViewMapper.page(result.map(proposal -> reviewQueueView(
+        return ScanViewMapper.page(result.map(proposal -> viewFactory.reviewQueueProposal(
                 proposal,
                 runsById.get(proposal.scanRunId()),
                 decisionsByProposal.get(proposal.id()),
@@ -168,7 +166,7 @@ public class ScanQueryService {
                         .toList())
                 .stream()
                 .collect(Collectors.toMap(run -> run.id(), Function.identity()));
-        return ScanViewMapper.page(result.map(issue -> reviewQueueIssueView(issue, runsById.get(issue.scanRunId()))));
+        return ScanViewMapper.page(result.map(issue -> viewFactory.reviewQueueIssue(issue, runsById.get(issue.scanRunId()))));
     }
 
     @Transactional(readOnly = true)
@@ -177,7 +175,7 @@ public class ScanQueryService {
         ensureRunExists(runId);
         var pageable = PageRequest.of(page, size, Sort.by(SOURCE_RELATIVE_PATH));
         Page<ScanIssueEntity> result = findIssues(runId, code, search, pageable);
-        return ScanViewMapper.page(result.map(this::issueView));
+        return ScanViewMapper.page(result.map(viewFactory::issue));
     }
 
     /**
@@ -203,48 +201,6 @@ public class ScanQueryService {
     /**
      * Ghép proposal với quyết định đã bulk-load trước đó để dựng view không tạo N+1.
      */
-    private ScanProposalView proposalView(ScanProposalEntity proposal, ScanDecisionEntity decision) {
-        return new ScanProposalView(
-                proposal.id(),
-                proposal.sourceRelativePath(),
-                proposal.profile(),
-                proposal.candidateType(),
-                proposal.identityKey(),
-                proposal.displayTitle(),
-                proposal.assetRole(),
-                evidenceCodec.read(proposal.evidence()),
-                decision == null ? null : decision.decision(),
-                decision == null ? null : decision.decidedAt());
-    }
-
-    private ReviewQueueProposalView reviewQueueView(
-            ScanProposalEntity proposal, ScanRunEntity run, ScanDecisionEntity decision, String state) {
-        return new ReviewQueueProposalView(
-                proposal.id(),
-                proposal.scanRunId(),
-                run.rootKey(),
-                proposal.sourceRelativePath(),
-                proposal.profile(),
-                proposal.candidateType(),
-                proposal.identityKey(),
-                proposal.displayTitle(),
-                proposal.assetRole(),
-                evidenceCodec.read(proposal.evidence()),
-                state,
-                decision == null ? null : decision.decidedAt());
-    }
-
-    private ReviewQueueIssueView reviewQueueIssueView(ScanIssueEntity issue, ScanRunEntity run) {
-        return new ReviewQueueIssueView(
-                issue.id(),
-                issue.scanRunId(),
-                run.rootKey(),
-                issue.sourceRelativePath(),
-                issue.code(),
-                issue.detail(),
-                run.finishedAt());
-    }
-
     private String normalizeQueueState(String state) {
         if (PENDING.equals(state) || REJECTED.equals(state) || APPROVED.equals(state)) return state;
         throw new InvalidRequestException("state must be PENDING, REJECTED or APPROVED");
@@ -276,10 +232,6 @@ public class ScanQueryService {
                 ((Number) proposalCounts[1]).longValue(),
                 ((Number) proposalCounts[2]).longValue(),
                 issues.countCurrentByRoot(rootKey));
-    }
-
-    private ScanIssueView issueView(ScanIssueEntity issue) {
-        return new ScanIssueView(issue.id(), issue.sourceRelativePath(), issue.code(), issue.detail());
     }
 
     private boolean projectionCanServe(String rootKey) {

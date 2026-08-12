@@ -12,8 +12,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
@@ -23,8 +23,8 @@ import com.filemngt.v2.scan.domain.scan.ScanProfile;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.StreamSupport;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ScanDecisionServiceTest {
@@ -47,8 +47,10 @@ class ScanDecisionServiceTest {
         when(decisions.findAllById(anyList())).thenReturn(List.of());
         when(eventFactory.create(any(UUID.class), eq(scanId), any(ScanProposalEntity.class), eq(run)))
                 .thenReturn(outboxEvent);
-        var service =
-                new ScanDecisionService(runs, proposals, decisions, outbox, eventFactory, projection, queueBatches);
+        var runBatch = new ScanRunDecisionBatch(runs, proposals, decisions, outbox, eventFactory, projection);
+        var batchCoordinator = new ScanDecisionBatchCoordinator(runBatch, queueBatches);
+        var service = new ScanDecisionService(
+                runs, proposals, decisions, outbox, eventFactory, projection, batchCoordinator);
 
         int processed = service.decideAll(scanId, "APPROVE");
 
@@ -65,19 +67,12 @@ class ScanDecisionServiceTest {
     }
 
     private ScanProposalEntity proposal(UUID scanId, String key) {
-        return new ScanProposalEntity(
-                UUID.randomUUID(),
-                scanId,
-                key + ".mp4",
-                ScanProfile.JOKE_VIDEO,
-                "VIDEO",
-                key,
-                key,
-                "PRIMARY_VIDEO",
-                "{}");
+        return new ScanProposalEntity(UUID.randomUUID(), scanId, key + ".mp4", ScanProfile.JOKE_VIDEO,
+                "VIDEO", key, key, "PRIMARY_VIDEO", "{}");
     }
 
     private long size(Iterable<?> values) {
         return StreamSupport.stream(values.spliterator(), false).count();
     }
+
 }

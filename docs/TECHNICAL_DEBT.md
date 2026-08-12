@@ -28,7 +28,7 @@ File này chỉ giữ snapshot backlog còn mở; không ghi lại lịch sử D
 | `TD-019` | `platform/config`, các service | MEDIUM | `application.yml` chứa absolute machine path, default `change-me-*`, mặc định profile local; chưa có production config fail-fast. | Chuyển path/credential sang env/secret/config provider; fail-fast khi default còn tồn tại. |
 | `TD-020` | `platform/operations` | MEDIUM | Có dashboard nhưng thiếu alert rules, SLO/error budget, runbook restart/replay/rollback và backup/restore drill. | Chốt SLO/capacity, alert backlog age/DLT/lease/terminal latency và chạy operational game day. |
 | `TD-021` | `platform/data`, các service | MEDIUM | Chưa thấy retention/purge/archive cho outbox, processed-event, DLT và candidate index; dữ liệu có thể tăng vô hạn. | Chốt retention/audit window, archive/purge idempotent, quota và metric data age. |
-| `TD-022` | `scan-service`, `query-service`, `catalog-service` | MEDIUM | 7 class >250 dòng và 8 package >8 type; một số façade giữ nhiều trách nhiệm dù chưa vượt 500 dòng. | Tách theo capability sau P0/P1; formatter/compile/static gate và ghi exception trong Plan nếu cần. |
+| `TD-022` | `scan-service`, `query-service`, `catalog-service` | MEDIUM | Đã tách mapping view khỏi `ScanQueryService` (297 → 250 dòng) và tách batch decision khỏi `ScanDecisionService` (255 → 196 dòng). Còn 5 class >250 dòng và 8 package >8 type; chưa tuyên bố toàn bộ debt đã trả. | Tiếp tục tách theo capability cho `ScanChunkCommitter`, `ScanExecutor`, `MasterDataImportService`, `MasterDataController`, `ScanController`; sau đó giảm package vượt ngưỡng. Chạy formatter/compile/static gate khi được phép và ghi exception trong Plan nếu cần. |
 
 ## Thứ tự xử lý
 
