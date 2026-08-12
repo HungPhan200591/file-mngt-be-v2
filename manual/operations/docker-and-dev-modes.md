@@ -97,5 +97,6 @@ Khi AI Agent nhận task từ người dùng có liên quan đến Docker hoặc
    - Nếu user muốn gỡ 1 container ứng dụng để mở IDE: Gợi ý dùng `npm run docker:stop <service_name>`.
 4. **Kiểm tra cú pháp trước khi bàn giao**:
    ```powershell
-   docker compose -f infra/compose/compose.yaml -f infra/compose/compose.apps.yaml --env-file .env.example config
+   docker compose -f infra/compose/compose.yaml config
+   docker compose -f infra/compose/compose.apps.yaml config
    ```

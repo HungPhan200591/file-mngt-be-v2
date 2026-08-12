@@ -1,5 +1,8 @@
+name: filemngt-infra
+
 services:
   nginx-media:
+    container_name: nginx-media
     image: nginx:${NGINX_MEDIA_VERSION:-1.30.4-alpine}
     ports:
       - "${NGINX_MEDIA_PORT:-18119}:80"
@@ -11,43 +14,38 @@ services:
     restart: unless-stopped
 
   postgres:
+    container_name: postgres
     image: postgres:18.0-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-platform_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-change-me-platform-admin}
-      POSTGRES_DB: postgres
-      CATALOG_DB: ${CATALOG_DB:-catalog_db}
-      CATALOG_DB_USER: ${CATALOG_DB_USER:-catalog_user}
-      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:-change-me-catalog}
-      SCAN_DB: ${SCAN_DB:-scan_db}
-      SCAN_DB_USER: ${SCAN_DB_USER:-scan_user}
-      SCAN_DB_PASSWORD: ${SCAN_DB_PASSWORD:-change-me-scan}
-      QUERY_DB: ${QUERY_DB:-query_db}
-      QUERY_DB_USER: ${QUERY_DB_USER:-query_user}
-      QUERY_DB_PASSWORD: ${QUERY_DB_PASSWORD:-change-me-query}
+      POSTGRES_DB: ${POSTGRES_DB:-file_mngt_v2}
+      POSTGRES_USER: ${POSTGRES_USER:-file_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres}
     ports:
       - "${POSTGRES_PORT:-18110}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql
-      - ./postgres/init-databases.sh:/docker-entrypoint-initdb.d/10-init-databases.sh:ro
+      - ../postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready --username=$${POSTGRES_USER} --dbname=postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-file_user} -d ${POSTGRES_DB:-file_mngt_v2}"]
       interval: 10s
       timeout: 5s
       retries: 10
     restart: unless-stopped
 
   kafka-volume-init:
+    container_name: kafka-volume-init
     image: apache/kafka:3.9.0
-    user: "0:0"
-    entrypoint:
-      - sh
-      - -ec
-      - mkdir -p /tmp/kraft-combined-logs && chown -R 1000:1000 /tmp/kraft-combined-logs
+    command: >
+      sh -c "
+        if [ ! -f /tmp/kraft-combined-logs/meta.properties ]; then
+          /opt/kafka/bin/kafka-storage.sh format -t MkU3OEVBNTcwNTJENDM2Qk -c /opt/kafka/config/kraft/server.properties --standalone;
+        fi
+      "
     volumes:
       - kafka-data:/tmp/kraft-combined-logs
 
   kafka:
+    container_name: kafka
     image: apache/kafka:3.9.0
     depends_on:
       kafka-volume-init:
@@ -79,10 +77,10 @@ services:
     restart: unless-stopped
 
   kafka-ui:
+    container_name: kafka-ui
     image: provectuslabs/kafka-ui:${KAFKA_UI_VERSION:-latest}
     depends_on:
-      kafka:
-        condition: service_healthy
+      - kafka
     ports:
       - "${KAFKA_UI_PORT:-18121}:8080"
     environment:
@@ -91,6 +89,7 @@ services:
     restart: unless-stopped
 
   redis:
+    container_name: redis
     image: redis:7.4.2-alpine
     ports:
       - "${REDIS_PORT:-18112}:6379"
@@ -104,8 +103,8 @@ services:
     restart: unless-stopped
 
   elasticsearch:
+    container_name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_STACK_VERSION:-9.2.5}
-    profiles: ["search", "observability"]
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"
@@ -122,6 +121,7 @@ services:
     restart: unless-stopped
 
   logstash:
+    container_name: logstash
     image: docker.elastic.co/logstash/logstash:${ELASTIC_STACK_VERSION:-9.2.5}
     profiles: ["observability"]
     depends_on:
@@ -144,6 +144,7 @@ services:
     restart: unless-stopped
 
   kibana:
+    container_name: kibana
     image: docker.elastic.co/kibana/kibana:${ELASTIC_STACK_VERSION:-9.2.5}
     profiles: ["observability"]
     depends_on:
@@ -156,6 +157,7 @@ services:
     restart: unless-stopped
 
   prometheus:
+    container_name: prometheus
     image: prom/prometheus:${PROMETHEUS_VERSION:-v3.5.0}
     profiles: ["observability"]
     command:
@@ -172,6 +174,7 @@ services:
     restart: unless-stopped
 
   grafana:
+    container_name: grafana
     image: grafana/grafana:${GRAFANA_VERSION:-12.1.0}
     profiles: ["observability"]
     depends_on:
@@ -189,6 +192,7 @@ services:
     restart: unless-stopped
 
   swagger-ui:
+    container_name: swagger-ui
     image: swaggerapi/swagger-ui:${SWAGGER_UI_VERSION:-v5.18.2}
     ports:
       - "${SWAGGER_UI_PORT:-18118}:8080"
@@ -199,6 +203,7 @@ services:
     restart: unless-stopped
 
   jaeger:
+    container_name: jaeger
     image: jaegertracing/all-in-one:${JAEGER_VERSION:-1.60.0}
     profiles: ["observability", "tracing"]
     ports:
