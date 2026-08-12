@@ -1,5 +1,6 @@
 package com.filemngt.v2.catalog.adapter.out.persistence;
 
+import com.filemngt.v2.catalog.domain.PrimaryVideoElectionPolicy;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
 import jakarta.persistence.CascadeType;
@@ -93,6 +94,44 @@ public class MediaSubjectEntity {
         updatedAt = Instant.now();
     }
 
+    /** Chọn video thắng election; caller chịu trách nhiệm demote/flush trước khi promote. */
+    public MediaAssetEntity preferredPrimaryVideo(MediaAssetEntity candidate) {
+        var current = primaryVideo();
+        if (current == null) return candidate;
+        if (current != candidate) return outranks(candidate, current) ? candidate : current;
+        return assets.stream()
+                .filter(asset -> asset != current)
+                .filter(asset -> asset.role() == com.filemngt.v2.catalog.domain.MediaAssetRole.VIDEO)
+                .filter(asset -> outranks(asset, current))
+                .findFirst()
+                .orElse(current);
+    }
+
+    public MediaAssetEntity primaryVideoAsset() {
+        return primaryVideo();
+    }
+
+    public void demotePrimaryVideo() {
+        var current = primaryVideo();
+        if (current != null) current.changeRole(com.filemngt.v2.catalog.domain.MediaAssetRole.VIDEO);
+    }
+
+    public boolean promotePrimaryVideo(MediaAssetEntity candidate, SubjectMetadata metadata) {
+        candidate.changeRole(com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO);
+        if (metadata != null) return applyMetadata(metadata, true);
+        replaceTags(candidate.tagNames());
+        updatedAt = Instant.now();
+        return true;
+    }
+
+    public MediaAssetEntity assetByLocator(String storageKey, String relativePath) {
+        return assets.stream()
+                .filter(asset -> java.util.Objects.equals(asset.storageKey(), storageKey)
+                        && asset.relativePath().equals(relativePath))
+                .findFirst()
+                .orElse(null);
+    }
+
     /** Cập nhật metadata subject; chỉ primary video mới có quyền thay thế tags. */
     public boolean applyMetadata(SubjectMetadata metadata, boolean tagsAuthoritative) {
         var nextActresses = new LinkedHashSet<>(metadata.actressNames());
@@ -114,33 +153,43 @@ public class MediaSubjectEntity {
         return true;
     }
 
-    public boolean hasAssetLocator(String storageKey, String relativePath) {
-        return assets.stream()
-                .anyMatch(asset -> java.util.Objects.equals(asset.storageKey(), storageKey)
-                        && asset.relativePath().equals(relativePath));
-    }
-
-    public boolean hasPrimaryVideo() {
-        return assets.stream()
-                .anyMatch(asset -> asset.role() == com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO);
-    }
-
-    public boolean removeAssetLocator(String storageKey, String relativePath) {
+    public AssetRemovalResult removeAssetLocator(String storageKey, String relativePath) {
         var removedAsset = assets.stream()
                 .filter(asset -> java.util.Objects.equals(asset.storageKey(), storageKey)
                         && asset.relativePath().equals(relativePath))
                 .findFirst();
-        if (removedAsset.isEmpty()) return false;
+        if (removedAsset.isEmpty()) return new AssetRemovalResult(false, false);
         assets.remove(removedAsset.get());
-        if (removedAsset.get().role() == com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO) {
-            tagNames.clear();
-        }
+        boolean primaryRemoved =
+                removedAsset.get().role() == com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO;
+        if (primaryRemoved) tagNames.clear();
         updatedAt = Instant.now();
-        return true;
+        return new AssetRemovalResult(true, primaryRemoved);
     }
 
-    public boolean hasAssets() {
-        return !assets.isEmpty();
+    public MediaAssetEntity fallbackPrimaryVideo() {
+        return assets.stream()
+                .filter(asset -> asset.role() == com.filemngt.v2.catalog.domain.MediaAssetRole.VIDEO)
+                .max(java.util.Comparator.comparingInt(asset ->
+                        PrimaryVideoElectionPolicy.priority(!asset.tagNames().isEmpty())))
+                .orElse(null);
+    }
+
+    private MediaAssetEntity primaryVideo() {
+        return assets.stream()
+                .filter(asset -> asset.role() == com.filemngt.v2.catalog.domain.MediaAssetRole.PRIMARY_VIDEO)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void replaceTags(java.util.Collection<String> tags) {
+        tagNames.clear();
+        tagNames.addAll(tags);
+    }
+
+    private boolean outranks(MediaAssetEntity candidate, MediaAssetEntity current) {
+        return PrimaryVideoElectionPolicy.outranks(
+                !candidate.tagNames().isEmpty(), !current.tagNames().isEmpty());
     }
 
     public UUID id() {
@@ -197,13 +246,5 @@ public class MediaSubjectEntity {
 
     public List<MediaAssetEntity> assets() {
         return List.copyOf(assets);
-    }
-
-    public record SubjectMetadata(
-            String baseCode, String part, String studioCode, List<String> actressNames, List<String> tagNames) {
-        public SubjectMetadata {
-            actressNames = actressNames == null ? List.of() : List.copyOf(actressNames);
-            tagNames = tagNames == null ? List.of() : List.copyOf(tagNames);
-        }
     }
 }

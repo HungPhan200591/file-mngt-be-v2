@@ -7,6 +7,7 @@ import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventEntity;
 import com.filemngt.v2.catalog.adapter.out.persistence.ProcessedEventRepository;
 import com.filemngt.v2.catalog.adapter.out.persistence.RemovedAssetLocatorEntity;
 import com.filemngt.v2.catalog.adapter.out.persistence.RemovedAssetLocatorRepository;
+import com.filemngt.v2.catalog.adapter.out.persistence.SubjectMetadata;
 import com.filemngt.v2.catalog.domain.MediaAssetRole;
 import com.filemngt.v2.catalog.domain.Region;
 import com.filemngt.v2.catalog.domain.SubjectType;
@@ -66,19 +67,26 @@ public class CatalogFileDiscoveryService {
         var subject = existing.orElseGet(() -> new MediaSubjectEntity(
                 UUID.randomUUID(), type, region, event.identityKey(), event.displayTitle(), Instant.now()));
         MediaAssetRole role = event.role() != null ? MediaAssetRole.valueOf(event.role()) : null;
-        boolean metadataChanged = subject.applyMetadata(
-                new MediaSubjectEntity.SubjectMetadata(
-                        event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames()),
-                role == MediaAssetRole.PRIMARY_VIDEO);
-        boolean isDuplicatePrimaryVideo = role == MediaAssetRole.PRIMARY_VIDEO && subject.hasPrimaryVideo();
-        boolean assetAdded = role != null
-                && !subject.hasAssetLocator(event.storageKey(), event.relativePath())
-                && !isDuplicatePrimaryVideo;
+        var metadata = new SubjectMetadata(
+                event.baseCode(), event.part(), event.studioCode(), event.actressNames(), event.tagNames());
+        var asset = subject.assetByLocator(event.storageKey(), event.relativePath());
+        boolean assetAdded = asset == null && role != null;
         if (assetAdded) {
-            subject.addAsset(new MediaAssetEntity(
-                    UUID.randomUUID(), role, event.relativePath(), event.storageKey(), Instant.now()));
+            var persistedRole = isVideo(role) ? MediaAssetRole.VIDEO : role;
+            asset = new MediaAssetEntity(
+                    UUID.randomUUID(),
+                    persistedRole,
+                    event.relativePath(),
+                    event.storageKey(),
+                    Instant.now(),
+                    event.tagNames());
+            subject.addAsset(asset);
         }
-        if (existing.isEmpty() || assetAdded || metadataChanged) {
+        boolean assetChanged = asset != null && isVideo(role) && asset.replaceTags(event.tagNames());
+        boolean metadataChanged = asset != null && isVideo(role)
+                ? electPrimary(subject, asset, metadata, existing.isPresent())
+                : subject.applyMetadata(metadata, false);
+        if (existing.isEmpty() || assetAdded || assetChanged || metadataChanged) {
             subjects.saveAndFlush(subject);
             outbox.enqueue(subject);
         }
@@ -115,5 +123,21 @@ public class CatalogFileDiscoveryService {
                 event.relativePath(),
                 event.baseCode(),
                 event.part());
+    }
+
+    private boolean isVideo(MediaAssetRole role) {
+        return role == MediaAssetRole.VIDEO || role == MediaAssetRole.PRIMARY_VIDEO;
+    }
+
+    private boolean electPrimary(
+            MediaSubjectEntity subject, MediaAssetEntity candidate, SubjectMetadata metadata, boolean persisted) {
+        var current = subject.primaryVideoAsset();
+        var preferred = subject.preferredPrimaryVideo(candidate);
+        if (preferred == current) return preferred == candidate && subject.applyMetadata(metadata, true);
+        if (current != null && persisted) {
+            subject.demotePrimaryVideo();
+            subjects.saveAndFlush(subject);
+        }
+        return subject.promotePrimaryVideo(preferred, preferred == candidate ? metadata : null);
     }
 }

@@ -82,7 +82,7 @@ public class CatalogScanExistenceService {
                         locator.assetId(),
                         ConflictCode.LOCATOR_SUBJECT_MISMATCH);
             }
-            if (locator.role() != candidate.assetRole()) {
+            if (!sameAssetKind(locator.role(), candidate.assetRole())) {
                 return Result.conflict(
                         candidate.clientRef(),
                         locator.subjectId(),
@@ -101,12 +101,17 @@ public class CatalogScanExistenceService {
         if (subject == null) {
             return new Result(candidate.clientRef(), Classification.NEW_SUBJECT, null, null, null);
         }
-        if (candidate.assetRole() == MediaAssetRole.PRIMARY_VIDEO && subject.hasPrimaryVideo()) {
-            return Result.conflict(
-                    candidate.clientRef(), subject.subjectId(), null, ConflictCode.SUBJECT_PRIMARY_ASSET_EXISTS);
-        }
         return new Result(
                 candidate.clientRef(), Classification.EXISTING_SUBJECT_NEW_ASSET, subject.subjectId(), null, null);
+    }
+
+    private boolean sameAssetKind(MediaAssetRole existing, MediaAssetRole candidate) {
+        if (existing == candidate) return true;
+        return isVideo(existing) && isVideo(candidate);
+    }
+
+    private boolean isVideo(MediaAssetRole role) {
+        return role == MediaAssetRole.PRIMARY_VIDEO || role == MediaAssetRole.VIDEO;
     }
 
     public record Request(UUID scanRunId, List<Candidate> items) {}

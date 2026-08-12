@@ -12,8 +12,7 @@ class ScanCandidateParserTest {
         var candidate = ScanCandidateParser.parse(ScanProfile.JOKE_VIDEO, "Studio/Actress/Sample - [JOKE-001].mp4");
 
         assertThat(candidate)
-                .isEqualTo(
-                        new ScanCandidate(ScanCandidateType.VIDEO, "JOKE-001", "Sample", ScanAssetRole.PRIMARY_VIDEO));
+                .isEqualTo(new ScanCandidate(ScanCandidateType.VIDEO, "JOKE-001", "Sample", ScanAssetRole.VIDEO));
     }
 
     @Test

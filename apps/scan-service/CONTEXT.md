@@ -62,6 +62,8 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
   query lẫn insert; không tạo thêm index đơn cột hoặc composite trùng leading columns
   của unique constraint vì gây write amplification nghiêm trọng khi bulk insert.
 - Approval ghi item và outbox cùng transaction.
+- Video proposal phát `assetRole=VIDEO`; Scan chỉ mô tả candidate và tags của file, không tự bầu primary.
+  Catalog là owner election `PRIMARY_VIDEO` theo toàn bộ asset hiện có của subject.
 - Danh sách proposal của một scan run lọc server-side theo `search` và `decision`; FE không lọc trên page hiện tại.
 - `scan_run` lưu durable `changedFileCount` sau staging diff và `reconciledFileCount` sau từng checkpoint;
   history REST và SSE dùng chung hai counter này. Run cũ chưa có giá trị sẽ trả `null` cho tới khi chạy lại.

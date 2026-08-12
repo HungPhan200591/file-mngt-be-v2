@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 class ScanProposalEvaluatorTest {
     private static final ScanCandidate CANDIDATE =
-            new ScanCandidate(ScanCandidateType.VIDEO, "JOKE-001", "Fallback title", ScanAssetRole.PRIMARY_VIDEO);
+            new ScanCandidate(ScanCandidateType.VIDEO, "JOKE-001", "Fallback title", ScanAssetRole.VIDEO);
 
     @Test
     void usesCandidateTitleWhenSemanticTitleIsAbsent() {

@@ -13,19 +13,19 @@ import org.springframework.data.repository.query.Param;
 
 public interface MediaSubjectRepository extends JpaRepository<MediaSubjectEntity, UUID> {
 
-    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
+    @EntityGraph(attributePaths = {"assets", "assets.tagNames", "actressNames", "tagNames"})
     @Query("select distinct subject from MediaSubjectEntity subject join subject.assets asset "
             + "where asset.storageKey = :storageKey and asset.relativePath = :relativePath")
     Optional<MediaSubjectEntity> findByAssetLocator(
             @Param("storageKey") String storageKey, @Param("relativePath") String relativePath);
 
     @Override
-    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
+    @EntityGraph(attributePaths = {"assets", "assets.tagNames", "actressNames", "tagNames"})
     Optional<MediaSubjectEntity> findById(UUID id);
 
     boolean existsByRegionAndSubjectTypeAndIdentityKey(Region region, SubjectType subjectType, String identityKey);
 
-    @EntityGraph(attributePaths = {"assets", "actressNames", "tagNames"})
+    @EntityGraph(attributePaths = {"assets", "assets.tagNames", "actressNames", "tagNames"})
     Optional<MediaSubjectEntity> findByRegionAndSubjectTypeAndIdentityKey(
             Region region, SubjectType subjectType, String identityKey);
 

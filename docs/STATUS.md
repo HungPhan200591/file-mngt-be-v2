@@ -24,6 +24,9 @@ BT-04 → BT-05 của SC-01, đều ở trạng thái **`IMPLEMENTED — verific
 [FT-041 — Scan rerun overwrite](./features/041-scan-rerun-overwrite/01-brief.md) đã sửa luồng
 repair metadata không cần reset data, đồng thời tạo proposal xóa cho file biến mất và dọn
 Catalog/Query/Redis/Elasticsearch sau approve; đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
+[FT-042 — Primary video election](./features/042-primary-video-election/01-brief.md) đã chuyển quyền bầu
+`PRIMARY_VIDEO` về Catalog, lưu tag theo video asset và dùng comparator ưu tiên video không tag;
+implementation hiện **`DONE — static verification only`**.
 
 Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
 

@@ -228,6 +228,48 @@ class CatalogIntegrationTest {
     }
 
     @Test
+    void electsUntaggedVideoOverTaggedVideoRegardlessOfArrivalOrder() throws Exception {
+        String identityKey = "VIDEO-ELECTION-" + UUID.randomUUID();
+        var tagged = eventWithTags("JOKE", identityKey, "VIDEO", "Root/best.mp4", java.util.List.of("BEST"));
+        var untagged = eventWithTags("JOKE", identityKey, "VIDEO", "Root/original.mp4", java.util.List.of());
+
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(tagged)));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 1L, "key", json.writeValueAsString(untagged)));
+
+        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, identityKey)
+                .orElseThrow();
+        assertThat(subject.tagNames()).isEmpty();
+        assertThat(subject.assets())
+                .filteredOn(asset -> asset.role() == MediaAssetRole.PRIMARY_VIDEO)
+                .singleElement()
+                .extracting(MediaAssetEntity::relativePath)
+                .isEqualTo("Root/original.mp4");
+    }
+
+    @Test
+    void keepsUntaggedPrimaryWhenTaggedVideoArrivesLater() throws Exception {
+        String identityKey = "VIDEO-ELECTION-REVERSE-" + UUID.randomUUID();
+        var untagged = eventWithTags("JOKE", identityKey, "VIDEO", "Root/original.mp4", java.util.List.of());
+        var tagged = eventWithTags("JOKE", identityKey, "VIDEO", "Root/best.mp4", java.util.List.of("BEST"));
+
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 0L, "key", json.writeValueAsString(untagged)));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 1L, "key", json.writeValueAsString(tagged)));
+
+        var subject = subjects.findByRegionAndSubjectTypeAndIdentityKey(Region.JOKE, SubjectType.VIDEO, identityKey)
+                .orElseThrow();
+        assertThat(subject.tagNames()).isEmpty();
+        assertThat(subject.assets())
+                .filteredOn(asset -> asset.role() == MediaAssetRole.PRIMARY_VIDEO)
+                .singleElement()
+                .extracting(MediaAssetEntity::relativePath)
+                .isEqualTo("Root/original.mp4");
+    }
+
+    @Test
     void removesAssetAndDeletesSubjectWhenLastAssetDisappears() throws Exception {
         String identityKey = "REMOVE-" + UUID.randomUUID();
         MediaFileDiscoveredV2 discovery =

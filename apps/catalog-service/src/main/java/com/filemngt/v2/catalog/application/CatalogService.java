@@ -45,7 +45,12 @@ public class CatalogService {
                 now);
         command.assets()
                 .forEach(asset -> subject.addAsset(new MediaAssetEntity(
-                        UUID.randomUUID(), asset.role(), asset.relativePath(), asset.storageKey(), now)));
+                        UUID.randomUUID(),
+                        asset.role(),
+                        asset.relativePath(),
+                        asset.storageKey(),
+                        now,
+                        java.util.List.of())));
         try {
             var saved = repository.saveAndFlush(subject);
             outbox.enqueue(saved);

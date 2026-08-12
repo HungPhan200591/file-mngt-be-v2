@@ -38,8 +38,14 @@ public class CatalogFileRemovalService {
                     new RemovedAssetLocatorEntity(event.storageKey(), event.relativePath(), event.occurredAt()));
         }
         subjects.findByAssetLocator(event.storageKey(), event.relativePath()).ifPresent(subject -> {
-            if (!subject.removeAssetLocator(event.storageKey(), event.relativePath())) return;
-            if (subject.hasAssets()) {
+            var removal = subject.removeAssetLocator(event.storageKey(), event.relativePath());
+            if (!removal.removed()) return;
+            if (!subject.assets().isEmpty()) {
+                if (removal.primaryRemoved()) {
+                    subjects.saveAndFlush(subject);
+                    var fallback = subject.fallbackPrimaryVideo();
+                    if (fallback != null) subject.promotePrimaryVideo(fallback, null);
+                }
                 subjects.saveAndFlush(subject);
                 outbox.enqueue(subject);
             } else {

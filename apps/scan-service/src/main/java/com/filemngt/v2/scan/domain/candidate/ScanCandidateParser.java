@@ -21,7 +21,7 @@ public final class ScanCandidateParser {
         ScanCandidateType type = candidateType(profile);
         ScanAssetRole role =
                 switch (type) {
-                    case VIDEO -> ScanAssetRole.PRIMARY_VIDEO;
+                    case VIDEO -> ScanAssetRole.VIDEO;
                     case ASSET ->
                         relativePath.toLowerCase(Locale.ROOT).endsWith(".gif")
                                 ? ScanAssetRole.GIF

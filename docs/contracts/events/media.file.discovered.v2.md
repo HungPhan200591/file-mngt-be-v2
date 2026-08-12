@@ -25,7 +25,7 @@
   "displayTitle": "Actress - [START-001]",
   "actressNames": ["Actress"],
   "tagNames": ["tag"],
-  "role": "PRIMARY_VIDEO",
+  "role": "VIDEO",
   "storageKey": "fixture-joke-video",
   "relativePath": "Actress - [START-001].mp4"
 }
@@ -35,10 +35,11 @@
 are never emitted. `eventId` is the idempotency key and is deduplicated by Catalog in the same transaction
 as canonical state changes.
 
-`tagNames` is subject-level metadata and is authoritative only when `role` is `PRIMARY_VIDEO`.
-For `IMAGE`, `GIF`, `VIDEO` or `null` role events, Catalog ignores `tagNames` for subject mutation;
-those events may still add their asset and update other metadata according to Catalog rules. This keeps
-an auxiliary asset without a tag from clearing tags discovered on the primary video.
+For video events, `tagNames` describes the candidate file. Catalog stores the tags on the asset,
+elects exactly one `PRIMARY_VIDEO`, and materializes subject `tagNames` from that primary. An untagged
+video outranks a tagged video; equal priority keeps the current primary. Scan producers should emit
+`role=VIDEO`; Catalog still accepts legacy `PRIMARY_VIDEO` producers during compatibility rollout.
+For `IMAGE`, `GIF` or `null` role events, Catalog ignores `tagNames` for primary election.
 
 ## Compatibility and failure
 
