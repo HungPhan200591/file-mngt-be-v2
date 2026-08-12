@@ -35,6 +35,11 @@ Mục tiêu: code ít lớp nhưng rõ owner, nhất quán và dễ review. Áp 
 - Method tối đa 30 dòng logic, 4 parameter (không tính constructor) và 2 mức nesting; dùng guard clause. Tuyệt đối không quá 50 dòng. Nếu buộc giữ quá 30 dòng, comment ngắn ngay trước method nêu lý do không thể tách an toàn.
 - Class tối đa 250 dòng và 7 constructor dependency. Vượt ngưỡng là tín hiệu tách theo trách nhiệm/capability; tuyệt đối không quá 500 dòng. Nếu tạm vượt 250 dòng, Javadoc class phải nêu cohesion và lý do giữ nguyên.
 - Tách method khi nó trộn điều phối use case với validate, map, policy, tạo object hoặc I/O. Tách class/package khi có nhiều lý do thay đổi; không tạo lớp chỉ forward lời gọi hoặc abstraction một lần dùng.
+- Với mỗi entry point mới hoặc sửa, phân hoạch đầu vào và trạng thái làm đổi control flow; trace tối thiểu happy path,
+  no-op/boundary, failure, retry/re-entry và concurrency khi áp dụng. Side effect DB, network, event, metric và log
+  phải tương ứng với công việc thực sự hoàn thành.
+- Scheduled/batch worker phải kiểm tra cardinality `0`, `1` và đầy batch. Batch rỗng là no-op/boundary path và
+  mặc định return trước dispatch, ghi DB, tăng success metric hoặc log INFO, trừ khi có housekeeping được mô tả rõ.
 - Chuỗi `if/else` quá 3 nhánh phải đổi thành guard clause, exhaustive `switch`, lookup table hoặc Strategy tùy biến thể nghiệp vụ. Magic string/number có nghĩa, status, regex, threshold và issue code lặp lại phải thành constant hoặc type phù hợp.
 - Package trực tiếp tối đa 8 production type; root package của một layer tối đa 5. Leaf package thường có 2–8 type cùng thay đổi vì một lý do. Tách theo capability/domain trước; cấm `util`, `common`, `misc`, `helper` làm nơi gom code không owner.
 - Ưu tiên enum, record, sealed type hoặc value object cho tập giá trị đóng; không dùng raw `String`, `Object`, `Map<String, Object>` hay raw generic trong core logic khi có type nghiệp vụ rõ hơn.

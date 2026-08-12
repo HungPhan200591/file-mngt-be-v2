@@ -26,6 +26,21 @@ description: Review diffs and feature work in Backend V2 for correctness, bounda
 
 Đánh dấu `PASS`, `PARTIAL` hoặc `MISSING` cho data model/index, happy/failure path, retry/idempotency, transaction/compensation, contract/invariant và tài liệu owner. PRD im lặng về failure mode quan trọng là finding, không phải ngầm chấp nhận.
 
+Với mỗi entry point mới hoặc sửa, bắt buộc thực hiện control-flow partition review:
+
+1. Liệt kê các partition đầu vào và trạng thái hệ thống có thể làm control flow đổi nhánh.
+2. Trace từng partition từ entry đến return hoặc terminal state.
+3. Đối chiếu side effect dự kiến và thực tế: DB, network, event, metric và log.
+4. Kiểm tra tối thiểu happy path, no-op/boundary, partial failure, total failure, retry/re-entry và concurrent
+   execution khi áp dụng.
+5. Không kết luận `READY` nếu còn nhánh chưa trace hoặc side effect không tương ứng với công việc đã hoàn thành.
+
+Với batch, scheduler, poller và outbox publisher, cardinality là một partition bắt buộc: `0`, `1` và đầy batch.
+Batch `0` là **no-op/boundary path**, không phải failure. Khi claim/read trả collection rỗng, mặc định phải return
+trước dispatch, persistence, success metric và success log; chỉ tiếp tục nếu có housekeeping được mô tả rõ. Không
+log `INFO` theo polling cycle rỗng; nếu idle observation thật sự cần thiết thì dùng metric hoặc log rate-limited/debug.
+Review phải tìm evidence rằng empty batch không gọi downstream, không ghi DB và không báo thành công giả.
+
 ### 3. Gate liveness và resilience
 
 Áp dụng khi có background worker, lease/heartbeat/lock, scheduler, retry, blocking filesystem/network/database I/O hoặc trạng thái trung gian dài hạn:

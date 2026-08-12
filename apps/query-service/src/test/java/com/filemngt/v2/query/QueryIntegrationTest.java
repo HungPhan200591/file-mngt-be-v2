@@ -128,6 +128,12 @@ class QueryIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.projectionVersion").value(2))
                 .andExpect(jsonPath("$.assets.length()").value(2));
+        mockMvc.perform(get("/api/v2/query/videos")
+                        .queryParam("order", "SHUFFLE")
+                        .queryParam("page", "0")
+                        .queryParam("size", "24"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
         mockMvc.perform(get("/api/v2/query/subjects")
                         .queryParam("region", "JOKE")
                         .queryParam("subjectType", "VIDEO")
