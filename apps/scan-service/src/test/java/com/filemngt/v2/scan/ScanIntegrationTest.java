@@ -189,6 +189,20 @@ class ScanIntegrationTest {
     }
 
     @Test
+    void rerunOverwriteReparsesUnchangedFiles() throws Exception {
+        scanAndGetProposal();
+        long proposalsAfterFirst = proposals.count();
+
+        UUID rerunId = triggerScanAndComplete(true);
+        var rerun = runs.findById(rerunId).orElseThrow();
+
+        assertThat(rerun.changedFileCount()).isEqualTo(regularFileCount());
+        assertThat(rerun.proposalCount()).isEqualTo(1);
+        assertThat(rerun.issueCount()).isEqualTo(1);
+        assertThat(proposals.count()).isEqualTo(proposalsAfterFirst + 1);
+    }
+
+    @Test
     void inventoryMatcherMarksMissingFile() throws Exception {
         // Lần scan 1: inventory có đủ file PRESENT
         scanAndGetProposal();
@@ -405,9 +419,13 @@ class ScanIntegrationTest {
      * vì file unchanged đúng đắn trả về 0 proposals.
      */
     private UUID triggerScanAndComplete() throws Exception {
+        return triggerScanAndComplete(false);
+    }
+
+    private UUID triggerScanAndComplete(boolean overwriteExisting) throws Exception {
         var response = mockMvc.perform(post("/api/v2/scans/previews")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"rootKey\":\"fixture\"}"))
+                        .content("{\"rootKey\":\"fixture\",\"overwriteExisting\":" + overwriteExisting + "}"))
                 .andExpect(status().isAccepted())
                 .andReturn()
                 .getResponse()

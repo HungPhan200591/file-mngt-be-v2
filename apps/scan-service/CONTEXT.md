@@ -18,6 +18,9 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 
 - Bắt buộc fetch thành công `RegistrySnapshot` từ Catalog trước khi tạo `scan_run`; nếu Catalog unavailable, trả 503 Service Unavailable.
 - Existence lookup chia micro-batch tối đa 500, chạy ngoài transaction persistence và fail closed khi Catalog timeout/lỗi/protocol sai. `EXACT_ASSET_EXISTS` không ghi proposal; các classification khác giữ proposal cùng `catalogExistence` evidence. Không retry tự động; verification runtime còn deferred.
+- Start preview hỗ trợ `overwriteExisting=true` cho rerun có chủ đích: materialize toàn bộ file
+  hiện có vào reconciliation và giữ cả proposal `EXACT_ASSET_EXISTS`. Mặc định `false`
+  vẫn changed-only; rerun không bypass review/approval.
 - Preview không ghi Catalog, rename/move file hoặc xóa cache.
 - JOKE dùng code; USE video/assets dùng normalized basename; USE Album dùng relative folder làm identity và có thể tạo candidate link `FULL_ALBUM_OF` tới Syncdroid để review.
 - Parse mơ hồ tạo issue, không tự đoán.

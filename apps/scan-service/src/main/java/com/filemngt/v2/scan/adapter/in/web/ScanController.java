@@ -76,8 +76,11 @@ public class ScanController {
     @PostMapping("/previews")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ScanRunView start(@Valid @RequestBody StartScanRequest request) {
-        LOGGER.info("HTTP POST /api/v2/scans/previews -> Khởi tạo scan: rootKey={}", request.rootKey());
-        return service.start(request.rootKey());
+        LOGGER.info(
+                "HTTP POST /api/v2/scans/previews -> Khởi tạo scan: rootKey={}, overwriteExisting={}",
+                request.rootKey(),
+                request.overwriteExisting());
+        return service.start(request.rootKey(), request.overwriteExisting());
     }
 
     /**

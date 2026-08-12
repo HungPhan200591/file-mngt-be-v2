@@ -70,8 +70,8 @@ public class ScanService {
         this.deadlineGuard = deadlineGuard;
     }
 
-    /** Khởi tạo scan mới cho root hợp lệ và trả ngay trạng thái RUNNING cho HTTP caller. */
-    public ScanRunView start(String rootKey) {
+    /** Khởi tạo scan mới; overwrite rerun phân tích lại toàn bộ file nhưng vẫn qua review. */
+    public ScanRunView start(String rootKey, boolean overwriteExisting) {
         var timeline = ScanExecutionTimeline.received(MDC.get(CorrelationId.MDC_KEY));
         var root = findRoot(rootKey);
         requireRootAvailable(root);
@@ -87,7 +87,7 @@ public class ScanService {
                 rootKey,
                 workerId,
                 run.leaseUntil());
-        taskExecutor.execute(() -> executor.execute(run.id(), root, snapshot, timeline));
+        taskExecutor.execute(() -> executor.execute(run.id(), root, snapshot, overwriteExisting, timeline));
         return ScanViewMapper.run(run);
     }
 

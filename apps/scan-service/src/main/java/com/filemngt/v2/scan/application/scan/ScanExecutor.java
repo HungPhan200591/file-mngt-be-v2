@@ -61,21 +61,33 @@ public class ScanExecutor {
 
     /** Quét root theo snapshot đã chốt, rồi hoàn tất hoặc đánh dấu thất bại cho scan run. */
     public void execute(
-            UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot, ScanExecutionTimeline timeline) {
+            UUID runId,
+            ScanProperties.Root root,
+            ScanRegistrySnapshot snapshot,
+            boolean overwriteExisting,
+            ScanExecutionTimeline timeline) {
         try (var ignoredRunId = MDC.putCloseable("runId", runId.toString());
                 var ignoredCorrelationId = MDC.putCloseable(CorrelationId.MDC_KEY, timeline.correlationId())) {
             timeline.workerStarted();
-            executeRun(runId, root, snapshot, timeline);
+            executeRun(runId, root, snapshot, overwriteExisting, timeline);
         }
     }
 
     private void executeRun(
-            UUID runId, ScanProperties.Root root, ScanRegistrySnapshot snapshot, ScanExecutionTimeline timeline) {
+            UUID runId,
+            ScanProperties.Root root,
+            ScanRegistrySnapshot snapshot,
+            boolean overwriteExisting,
+            ScanExecutionTimeline timeline) {
         var progress = new ScanProgress();
-        LOGGER.info("Bắt đầu scan bất đồng bộ: runId={}, rootKey={}", runId, root.key());
+        LOGGER.info(
+                "Bắt đầu scan bất đồng bộ: runId={}, rootKey={}, overwriteExisting={}",
+                runId,
+                root.key(),
+                overwriteExisting);
         try {
             var run = runs.findById(runId).orElseThrow();
-            scanFiles(run, root, snapshot, progress, timeline);
+            scanFiles(run, root, snapshot, overwriteExisting, progress, timeline);
             var finalProgress = progressSnapshot(progress);
             publishProgress(runId, ScanRunStreamPhase.FINALIZING, finalProgress, progress);
             timeline.finalizingStarted();
@@ -97,14 +109,16 @@ public class ScanExecutor {
             ScanRunEntity run,
             ScanProperties.Root root,
             ScanRegistrySnapshot snapshot,
+            boolean overwriteExisting,
             ScanProgress progress,
             ScanExecutionTimeline timeline) {
-        var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot);
+        var context = new ScanExecutionContext(run.id(), run.workerId(), root, snapshot, overwriteExisting);
         timeline.discoveryStarted();
         int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
         timeline.discoveryCompleted();
         timeline.diffStarted();
-        progress.setChangedFiles(chunkCommitter.prepareReconciliation(context.runId(), context.workerId()));
+        progress.setChangedFiles(chunkCommitter.prepareReconciliation(
+                context.runId(), context.workerId(), context.overwriteExisting()));
         timeline.diffCompleted();
         var inventoryWriteMode = chunkCommitter.inventoryWriteMode(
                 context.runId(), context.workerId(), context.root().key());

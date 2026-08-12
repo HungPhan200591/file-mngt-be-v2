@@ -37,7 +37,8 @@ class ScanCatalogExistenceFilter {
                     batch.stream().map(p -> candidate(context, p)).toList());
             for (var proposal : batch) {
                 var result = requireResult(results, proposal.id());
-                if (result.classification() == CatalogExistenceClient.Classification.EXACT_ASSET_EXISTS) {
+                if (result.classification() == CatalogExistenceClient.Classification.EXACT_ASSET_EXISTS
+                        && !context.overwriteExisting()) {
                     exact++;
                     continue;
                 }

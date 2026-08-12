@@ -20,6 +20,9 @@ BT-04 → BT-05 của SC-01, đều ở trạng thái **`IMPLEMENTED — verific
 [FT-038 — Targeted issue recheck](./features/038-targeted-issue-recheck/01-brief.md) và
 [FT-039 — Durable bulk decision](./features/039-durable-bulk-decision/01-brief.md) đã có code,
 đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
+[FT-040 — Primary video tag ownership](./features/040-primary-video-tag-ownership/01-brief.md) và
+[FT-041 — Scan rerun overwrite](./features/041-scan-rerun-overwrite/01-brief.md) đã sửa luồng
+repair metadata không cần reset data; đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
 
 Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
 

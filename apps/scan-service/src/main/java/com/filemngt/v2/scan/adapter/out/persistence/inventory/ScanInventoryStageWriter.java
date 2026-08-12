@@ -43,6 +43,13 @@ public class ScanInventoryStageWriter {
                     AND inventory.source_relative_path = stage.source_relative_path
               ), FALSE)
             """;
+    private static final String MATERIALIZE_ALL_SQL = """
+            INSERT INTO scan_inventory_diff_stage
+                (scan_run_id, root_key, source_relative_path, file_size, file_modified_at)
+            SELECT scan_run_id, root_key, source_relative_path, file_size, file_modified_at
+            FROM scan_inventory_stage
+            WHERE scan_run_id = ?
+            """;
     private static final String DELETE_INACTIVE_RUNS_SQL = """
             DELETE FROM scan_inventory_stage stage
             WHERE NOT EXISTS (
@@ -107,8 +114,17 @@ public class ScanInventoryStageWriter {
 
     /** Materialize tập changed một lần để các page sau không quét lại toàn bộ staging. */
     public long materializeDiff(UUID runId) {
+        return materialize(runId, MATERIALIZE_DIFF_SQL);
+    }
+
+    /** Materialize toàn bộ file hiện có cho rerun overwrite. */
+    public long materializeAll(UUID runId) {
+        return materialize(runId, MATERIALIZE_ALL_SQL);
+    }
+
+    private long materialize(UUID runId, String sql) {
         jdbcTemplate.update(DELETE_DIFF_RUN_SQL, runId);
-        int changed = jdbcTemplate.update(MATERIALIZE_DIFF_SQL, runId);
+        int changed = jdbcTemplate.update(sql, runId);
         jdbcTemplate.execute(ANALYZE_DIFF_SQL);
         return changed;
     }

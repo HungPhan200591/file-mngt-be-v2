@@ -440,6 +440,10 @@ components:
       required: [rootKey]
       properties:
         rootKey: { type: string, minLength: 1, maxLength: 100 }
+        overwriteExisting:
+          type: boolean
+          default: false
+          description: Reparse every current file and retain proposals for assets already present in Catalog
     ScanRoot:
       type: object
       required: [key, profile]

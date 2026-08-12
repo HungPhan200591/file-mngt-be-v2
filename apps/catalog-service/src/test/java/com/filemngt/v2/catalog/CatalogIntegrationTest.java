@@ -196,15 +196,25 @@ class CatalogIntegrationTest {
         assertThat(subject.assets()).extracting(MediaAssetEntity::role)
                 .containsExactlyInAnyOrder(MediaAssetRole.PRIMARY_VIDEO, MediaAssetRole.IMAGE);
 
+        MediaFileDiscoveredV2 rerunPrimary = eventWithTags(
+                "JOKE", identityKey, "PRIMARY_VIDEO", "Root/primary.mp4", java.util.List.of("BEST", "4K"));
+        consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "media.file.discovered.v2", 0, 2L, "key", json.writeValueAsString(rerunPrimary)));
+        var overwrittenSubject = subjects.findByRegionAndSubjectTypeAndIdentityKey(
+                        Region.JOKE, SubjectType.VIDEO, identityKey)
+                .orElseThrow();
+        assertThat(overwrittenSubject.tagNames()).containsExactlyInAnyOrder("BEST", "4K");
+        assertThat(overwrittenSubject.assets()).hasSize(2);
+
         String reverseIdentityKey = "PRIMARY-TAGS-REVERSE-" + UUID.randomUUID();
         MediaFileDiscoveredV2 reverseImage = eventWithTags(
                 "JOKE", reverseIdentityKey, "IMAGE", "Root/reverse (2).jpg", java.util.List.of("AUXILIARY"));
         MediaFileDiscoveredV2 reversePrimary = eventWithTags(
                 "JOKE", reverseIdentityKey, "PRIMARY_VIDEO", "Root/reverse.mp4", java.util.List.of("BEST"));
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-                "media.file.discovered.v2", 0, 2L, "key", json.writeValueAsString(reverseImage)));
+                "media.file.discovered.v2", 0, 3L, "key", json.writeValueAsString(reverseImage)));
         consumer.consume(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-                "media.file.discovered.v2", 0, 3L, "key", json.writeValueAsString(reversePrimary)));
+                "media.file.discovered.v2", 0, 4L, "key", json.writeValueAsString(reversePrimary)));
 
         var reverseSubject = subjects.findByRegionAndSubjectTypeAndIdentityKey(
                         Region.JOKE, SubjectType.VIDEO, reverseIdentityKey)
