@@ -4,6 +4,8 @@ Scenario, prerequisite, workload contract và evidence cần thu thập do [road
 
 ## Study pack
 
+Ghi chú khảo sát mới về performance và scale Kafka/cloud: [06-performance-and-cloud-scaling.md](./06-performance-and-cloud-scaling.md).
+
 | Artifact | Vị trí | Trạng thái |
 | --- | --- | --- |
 | Deep-dive | [01-deep-dive.md](./01-deep-dive.md) | Đã tạo |
