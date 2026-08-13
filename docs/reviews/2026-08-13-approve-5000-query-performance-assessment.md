@@ -253,6 +253,39 @@ Khuyến nghị SLO 2–3 giây áp dụng cho PostgreSQL projection + cache tr�
 - kích hoạt worker ngay sau enqueue thay vì chờ scheduler 1 giây;
 - giữ decision + outbox atomic trong cùng transaction.
 
+## Đánh đổi khi nâng cấp theo hướng bulk/asynchronous
+
+Thiết kế mới có thể đưa 5.000 record về `QUERY_DB_READY` trong khoảng 2–3 giây, nhưng đây không phải là tối ưu miễn phí. Đánh đổi chính là chuyển một phần độ đơn giản của mô hình per-record sang throughput, bounded batch và khả năng vận hành phức tạp hơn.
+
+| Thay đổi | Lợi ích | Đánh đổi/rủi ro | Kiểm soát bắt buộc |
+| --- | --- | --- | --- |
+| Kafka batch listener + một transaction cho batch | Giảm dispatch, commit và round-trip DB trên từng record | Batch lỗi có thể làm nhiều record retry; transaction lớn giữ lock lâu hơn và tăng thời gian rollback | Batch bounded 250–500; chia nhỏ khi lỗi; retry/DLT theo record hoặc sub-batch; đo transaction duration và lock wait |
+| Coalesce event theo subject | Giảm 5.000 snapshot xuống số subject thực tế, giảm write/event amplification | Không còn quan sát một-một giữa discovery event và snapshot; event trung gian có thể không được phát riêng | Giữ `eventId` dedupe, version monotonic, partition ordering; chỉ coalesce các mutation có semantics tương đương |
+| Staging + `COPY`/set-based upsert | Tăng throughput và giảm CPU/heap ORM | Phải viết SQL/adapter riêng, khó giữ invariant của aggregate JPA; phụ thuộc schema và dialect PostgreSQL | Contract persistence rõ ràng; unique key/version guard; kiểm thử duplicate, out-of-order, tombstone và partial failure |
+| Bulk upsert collection | Giảm delete/insert lặp lại của `@ElementCollection` | Có thể thay đổi semantics cập nhật từng phần; thao tác replace lớn tạo WAL và I/O đột biến | Chỉ ghi các subject thay đổi; giới hạn batch; theo dõi WAL, IOPS, bloat và deadlock |
+| Watermark `QUERY_DB_READY` | API biết chính xác khi projection đã commit, không đoán qua HTTP response | Tăng state machine, bảng trạng thái và đường retry; timeout cần được biểu diễn rõ | `batchId/operationId` durable; trạng thái monotonic; API phân biệt `COMPLETED`, `PROCESSING`, `TIMEOUT`, `FAILED` |
+| Redis pipeline/invalidate sau commit | Giảm hàng nghìn network round-trip | Cache có khoảng trễ ngắn sau DB commit; pipeline lỗi có thể để stale key | Redis không là source of truth; versioned key hoặc đọc-through; retry invalidate và metric stale/eviction lag |
+| Tách `QUERY_DB_READY` khỏi `SEARCH_READY` | Không để Elasticsearch quyết định latency của projection DB | Client có thể thấy DB đã mới nhưng tìm kiếm chưa cập nhật; cần truyền đạt hai mốc nhất quán | Công bố rõ SLO/contract; nếu bắt buộc search ready thì dùng Elasticsearch Bulk API và backlog watermark riêng |
+| Relay liên tục, bỏ fixed delay khi còn backlog | Giảm latency chờ scheduler | Worker chạy nóng hơn, tăng CPU/network và áp lực lên DB/Kafka | Backpressure, rate limit, max in-flight, pause/resume theo DB pool và Kafka lag |
+| Tăng partition/concurrency và hạ tầng HA | Có thêm năng lực xử lý song song và khả năng chịu lỗi | Tăng chi phí máy, broker/partition overhead, connection pool và lock contention; scale sai hướng có thể làm hệ thống chậm hơn | Load test theo từng nấc; giới hạn concurrency theo partition và DB capacity; autoscaling dựa trên lag/oldest age chứ không chỉ CPU |
+| SQL/native path thay cho ORM per-record | Giảm object allocation, dirty checking và số statement | Tăng coupling với PostgreSQL, khó debug hơn và cần migration/rollback cẩn thận | Giữ adapter riêng; explain plan; feature flag/canary; đường fallback an toàn |
+
+### Các đánh đổi về tính nhất quán
+
+Mục tiêu thực tế nên là **transactional ở từng bounded batch và eventual consistency giữa các service**. Không nên biến approve HTTP thành distributed transaction xuyên Scan, Catalog, Query và Elasticsearch vì sẽ làm tăng latency, lock và failure blast radius. `APPROVAL_COMMITTED` chỉ xác nhận Scan đã ghi bền vững; `QUERY_DB_READY` mới xác nhận Query projection đã commit. Nếu nghiệp vụ yêu cầu tất cả 5.000 record phải đồng bộ nguyên tử như một đơn vị, SLO 2–3 giây sẽ khó khả thi và cần một quyết định nghiệp vụ riêng.
+
+### Đánh đổi về xử lý lỗi và khả năng replay
+
+Per-record dễ cô lập poison record; batch nhanh hơn nhưng có thể retry lại cả nhóm và tạo duplicate work. Vì vậy phải duy trì idempotency, lưu batch boundary, hỗ trợ split batch khi lỗi, và có DLT/replay theo `eventId`. Không được đánh đổi at-least-once để lấy tốc độ bằng cách bỏ outbox hoặc dedupe.
+
+### Đánh đổi về chi phí và vận hành
+
+Để đạt throughput mục tiêu, hệ thống thường cần PostgreSQL I/O/CPU cao hơn, Kafka nhiều partition hơn, Redis/Elasticsearch có năng lực bulk tương ứng và ít nhất hai replica ứng dụng. Chi phí không chỉ là VM: còn gồm storage IOPS/WAL, network, observability, backup, alert, capacity test và trực vận hành. Vì vậy chỉ chốt sizing sau benchmark có p95/p99, Kafka lag, outbox age, DB pool wait, lock/WAL/IOPS và chi phí mỗi 5.000 record.
+
+### Kết luận cân bằng
+
+Đánh đổi này đáng chấp nhận nếu SLO được định nghĩa là `QUERY_DB_READY` và workload cho phép eventual consistency với Search. Thứ tự triển khai an toàn là: giữ nguyên contract/idempotency → thêm batch/coalesce có feature flag → bulk persistence → watermark → benchmark/canary → mới tăng concurrency và hạ tầng. Nếu chưa có các phép đo và cơ chế rollback trên, việc tăng máy hoặc tăng consumer chỉ che giấu bottleneck và có thể làm chi phí tăng mà không đạt 2–3 giây.
+
 ## Runtime tuning sau khi đổi kiến trúc
 
 Chỉ tuning sau khi có batch consumer/persistence:
