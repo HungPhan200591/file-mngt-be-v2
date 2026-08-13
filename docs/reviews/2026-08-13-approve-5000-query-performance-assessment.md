@@ -31,6 +31,62 @@ Approve all
 
 ## Điểm nghẽn đã xác định
 
+## Audit bulk hiện trạng: đã có batch cục bộ, chưa có bulk xuyên pipeline
+
+Không chính xác nếu nói toàn bộ dự án hoàn toàn không có batch. Dự án đã có một số mảnh bulk, nhưng chúng dừng ở transport hoặc gom entity trong memory; consumer và persistence quan trọng vẫn xử lý từng record.
+
+| Lớp | Hiện trạng | Kết luận |
+| --- | --- | --- |
+| Approve Scan | `decisions.saveAll(newDecisions)` và `outbox.saveAll(newEvents)` | Gom nhiều entity, nhưng chưa phải set-based SQL; `projection.apply(...)` vẫn gọi từng proposal |
+| Scan/Catalog outbox | Claim tối đa 500; gửi nhiều `publishAsync` rồi chờ acknowledgement | Có batch transport và async fan-out; vẫn có scheduler/fixed-delay và mark/claim DB riêng |
+| Kafka consumer Catalog | `@KafkaListener` nhận một `ConsumerRecord`; gọi `service.handleV2(...)` | Callback per-record, transaction per-record |
+| Catalog persistence | `saveAndFlush(subject)`, enqueue snapshot và processed event trong từng handler | Per-record aggregate load/flush/outbox; chưa coalesce theo subject trong Kafka batch |
+| Kafka consumer Query | `@KafkaListener` nhận một `ConsumerRecord`; gọi `service.handle(...)` | Callback per-record, transaction per-record |
+| Query persistence | `subjects.save`, `searchOutbox.save`, `processed.save` trong từng handler | Per-record projection; collection có thể delete/insert lại |
+| Query cache | Một `DEL` Redis sau mỗi transaction | Per-subject network call, chưa pipeline |
+| Search outbox | Lấy tối đa 100 nhưng gọi `search.index/delete` từng entry | Batch read nhưng external write tuần tự, lại giữ transaction |
+
+### Vì sao `saveAll()` chưa đủ
+
+`saveAll()` thường chỉ là vòng lặp gọi `save()` trên từng entity trong persistence context. Hibernate/JDBC có thể gom các statement thành JDBC batch nếu cấu hình đúng, nhưng vẫn khác hoàn toàn với một bulk/set-based operation:
+
+- vẫn tạo và quản lý hàng nghìn entity;
+- dirty checking vẫn chạy trên từng entity;
+- quan hệ `@OneToMany`/`@ElementCollection` có thể tạo nhiều delete/insert;
+- vẫn có thể phát sinh select để kiểm tra state hoặc version;
+- không coalesce các thay đổi trùng cùng aggregate;
+- khó giới hạn transaction và cô lập poison record.
+
+Vì vậy cần phân biệt:
+
+```text
+saveAll()                 = batch persistence ở mức ORM
+JDBC batch                = giảm số lần network round-trip tới DB
+INSERT ... SELECT/COPY   = set-based bulk write
+coalesce theo subject     = giảm số trạng thái cần ghi
+Kafka batch consumer      = giảm transaction/dispatch overhead ở consumer
+```
+
+Mục tiêu 5.000 record trong 2–3 giây cần kết hợp cả năm lớp trên; chỉ thêm `saveAll()` hoặc tăng Kafka `concurrency` không giải quyết được.
+
+### Vì sao Kafka đã async nhưng vẫn chậm
+
+Producer hiện đã dispatch nhiều future bất đồng bộ trong một claimed batch. Đây là tối ưu đúng ở Scan/Catalog outbox. Tuy nhiên consumer listener vẫn nhận từng `ConsumerRecord`, và mỗi callback mở transaction riêng. Khi một batch producer gửi 500 event, phía consumer vẫn có thể thực hiện 500 transaction liên tiếp.
+
+Kafka broker chỉ vận chuyển record; broker không tự gộp 500 message thành một transaction database cho Catalog hoặc Query. Muốn có bulk thật, phải đổi listener container sang batch listener và đổi application port để nhận một danh sách event bounded.
+
+### Vì sao thiết kế hiện tại dễ xuất hiện như vậy
+
+Các feature trước đây ưu tiên đúng boundary và reliability cục bộ:
+
+- transactional outbox để không mất event;
+- eventId dedupe và version guard;
+- bounded claim/lease để tránh giữ transaction khi chờ Kafka;
+- JPA entity aggregate để triển khai nhanh và dễ bảo toàn invariant;
+- consumer per-record để retry/DLT dễ hiểu.
+
+Đây là các quyết định hợp lý cho vertical slice và correctness, nhưng chưa đủ cho throughput SLO. Bước còn thiếu là một feature riêng thiết kế batch semantics: batch size, coalesce key, version ordering, partial failure/DLT, watermark và bulk persistence.
+
 ### 1. Approval vẫn tạo write amplification lớn
 
 `ScanRunDecisionBatch` đọc proposals, tạo decision/outbox cho từng proposal và gọi `projection.apply(...)` cho từng record. `saveAll()` không bảo đảm một SQL statement duy nhất; JPA vẫn có thể phát sinh nhiều insert/update được JDBC batch lại.
@@ -485,3 +541,131 @@ Thực hiện theo thứ tự:
 - [AWS ElastiCache Redis/Valkey replica scaling và Multi-AZ](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Scaling.RedisReplGrps.html)
 - [Elastic production deployment planning](https://www.elastic.co/guide/en/cloud/current/ec-planning.html/)
 - [Elastic JVM heap sizing](https://www.elastic.co/guide/en/elasticsearch/reference/current/jvm-options.html)
+
+## Sơ đồ kiến trúc và mức độ bulk
+
+### Hiện trạng: batch cục bộ, consumer và projection per-record
+
+```mermaid
+flowchart TB
+    API_NOW(["<font color='white'>Approve all<br/>1 request</font>"])
+    SCAN_NOW["<font color='white'>Scan decision<br/>saveAll nhưng loop projection<br/>per proposal</font>"]
+    SO_NOW{{"<font color='white'>Scan outbox<br/>claim 500<br/>publish async batch</font>"}}
+    K1_NOW{{"<font color='white'>Kafka discovery<br/>transport batch<br/>consumer callback per record</font>"}}
+    CAT_NOW["<font color='white'>Catalog<br/>transaction per record<br/>saveAndFlush + outbox</font>"]
+    CO_NOW{{"<font color='white'>Catalog outbox<br/>claim 500<br/>publish async batch</font>"}}
+    K2_NOW{{"<font color='white'>Kafka subject snapshot<br/>consumer callback per record</font>"}}
+    Q_NOW["<font color='white'>Query projection<br/>transaction per record<br/>subject + assets + processed</font>"]
+    R_NOW(("<font color='white'>Redis<br/>DEL per subject<br/>after commit</font>"))
+    S_NOW["<font color='white'>Search outbox<br/>read 100<br/>index/delete sequential</font>"]
+    ES_NOW>"<font color='white'>Elasticsearch<br/>per entry<br/>inside publisher transaction</font>"]
+
+    API_NOW -->|"1 request"| SCAN_NOW
+    SCAN_NOW -->|"saveAll + per-row projection"| SO_NOW
+    SO_NOW -->|"batch 500"| K1_NOW
+    K1_NOW -->|"one ConsumerRecord"| CAT_NOW
+    CAT_NOW -->|"one subject snapshot"| CO_NOW
+    CO_NOW -->|"batch 500"| K2_NOW
+    K2_NOW -->|"one ConsumerRecord"| Q_NOW
+    Q_NOW -->|"one AFTER_COMMIT event"| R_NOW
+    Q_NOW -->|"one search outbox row"| S_NOW
+    S_NOW -->|"one external call"| ES_NOW
+
+    style API_NOW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style SCAN_NOW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style SO_NOW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style K1_NOW fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style CAT_NOW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style CO_NOW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style K2_NOW fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style Q_NOW fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style R_NOW fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style S_NOW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style ES_NOW fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+Điểm cần chú ý: mũi tên `batch 500` ở outbox chỉ nói về claim/publish transport. Nó không biến Catalog hoặc Query thành batch consumer; hai consumer vẫn nhận một `ConsumerRecord` và mở transaction riêng.
+
+### Kiến trúc mục tiêu: 5.000 record/giây tới `QUERY_DB_READY`
+
+```mermaid
+flowchart TB
+    API_5K(["<font color='white'>Approve API<br/>operationId + batchId</font>"])
+    SCAN_5K["<font color='white'>Scan DB<br/>set-based decision + outbox<br/>commit watermark</font>"]
+    SO_5K{{"<font color='white'>Outbox drain<br/>claim 500-1.000<br/>continuous while backlog</font>"}}
+    K_5K{{"<font color='white'>Kafka<br/>12-24 partitions<br/>acks=all + compression</font>"}}
+    CAT_5K["<font color='white'>Catalog batch consumer<br/>250-500 records/poll<br/>group by subject</font>"]
+    CATDB_5K[("<font color='white'>Catalog bulk write<br/>one final state/subject<br/>bulk outbox snapshot</font>")]
+    Q_5K["<font color='white'>Query batch consumer<br/>dedupe + version guard<br/>bounded transaction</font>"]
+    QDB_5K[("<font color='white'>Query bulk upsert<br/>COPY/staging + set-based SQL<br/>processed + watermark</font>")]
+    CACHE_5K(("<font color='white'>Redis pipeline<br/>UNLINK/versioned key<br/>after commit</font>"))
+    READY_5K(["<font color='white'>QUERY_DB_READY<br/>p95 target &lt;= 3s<br/>p99 target &lt;= 5s</font>"])
+    SEARCH_5K>"<font color='white'>Search async lane<br/>Bulk API + coalesce<br/>SEARCH_READY separate</font>"]
+
+    API_5K -->|"operationId"| SCAN_5K
+    SCAN_5K -->|"atomic local commit"| SO_5K
+    SO_5K -->|"batch publish"| K_5K
+    K_5K -->|"batch poll"| CAT_5K
+    CAT_5K -->|"coalesced subjects"| CATDB_5K
+    CATDB_5K -->|"snapshot batch"| K_5K
+    K_5K -->|"batch poll"| Q_5K
+    Q_5K -->|"bulk transaction"| QDB_5K
+    QDB_5K -->|"after commit"| CACHE_5K
+    QDB_5K -->|"watermark"| READY_5K
+    QDB_5K -->|"durable search outbox"| SEARCH_5K
+
+    style API_5K fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style SCAN_5K fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style SO_5K fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style K_5K fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style CAT_5K fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style CATDB_5K fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style Q_5K fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style QDB_5K fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style CACHE_5K fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style READY_5K fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style SEARCH_5K fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+Ở sơ đồ này Kafka vẫn vận chuyển event theo partition/order, nhưng Catalog và Query đều xử lý bounded batch. `QUERY_DB_READY` không chờ Elasticsearch; search có watermark riêng để không kéo critical path xuống tốc độ của external index.
+
+### Kiến trúc SC-01: 1 triệu record với staging, COPY và partition parallelism
+
+```mermaid
+flowchart TB
+    DISC_1M["<font color='white'>Filesystem discovery<br/>bounded queue<br/>stream metadata</font>"]
+    STAGE_1M[/"<font color='white'>PostgreSQL staging<br/>UNLOGGED + COPY<br/>chunk 50k-100k</font>"/]
+    DIFF_1M["<font color='white'>Set-based diff<br/>INSERT SELECT + anti-join<br/>changed set only</font>"]
+    PART_1M["<font color='white'>Partition fan-out<br/>hash by root/run/identity<br/>virtual threads bounded</font>"]
+    WRITE_1M["<font color='white'>Parallel analyze<br/>no shared writes<br/>bounded result queues</font>"]
+    COMMIT_1M[("<font color='white'>Single commit lane<br/>COPY proposals/issues<br/>checkpoint + lease fence</font>")]
+    EVENT_1M{{"<font color='white'>Outbox event stream<br/>batch publish<br/>partitioned Kafka</font>"}}
+    CAT_1M["<font color='white'>Optional Catalog bulk lane<br/>coalesce by subject<br/>bulk upsert</font>"]
+    Q_1M["<font color='white'>Query projection lanes<br/>staging/COPY<br/>version-guarded merge</font>"]
+    OBS_1M(("<font color='white'>Progress + capacity<br/>checkpoint, lag, WAL<br/>terminal state</font>"))
+
+    DISC_1M -->|"stream chunks"| STAGE_1M
+    STAGE_1M -->|"one set-based pass"| DIFF_1M
+    DIFF_1M -->|"changed partitions"| PART_1M
+    PART_1M -->|"bounded parallel"| WRITE_1M
+    WRITE_1M -->|"ordered results"| COMMIT_1M
+    COMMIT_1M -->|"transactional outbox"| EVENT_1M
+    EVENT_1M -->|"if Catalog/Query flow"| CAT_1M
+    CAT_1M -->|"subject snapshots"| Q_1M
+    COMMIT_1M -->|"checkpoint metrics"| OBS_1M
+    EVENT_1M -->|"consumer lag"| OBS_1M
+    Q_1M -->|"projection watermark"| OBS_1M
+
+    style DISC_1M fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style STAGE_1M fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style DIFF_1M fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style PART_1M fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style WRITE_1M fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style COMMIT_1M fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style EVENT_1M fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style CAT_1M fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style Q_1M fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style OBS_1M fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+SC-01 ở quy mô 1 triệu record không nên mở một transaction chứa toàn bộ 1 triệu record. Thiết kế đúng là stream vào staging, xử lý changed set theo chunk 50k–100k, phân tích song song có giới hạn, rồi ghi qua một commit lane được lease-fence. “Parallel analyze” và “single commit lane” là hai trách nhiệm khác nhau: phân tích có thể song song; source-of-truth checkpoint và terminal state phải tuần tự, có kiểm soát.
