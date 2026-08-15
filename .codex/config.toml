@@ -1,6 +1,8 @@
 # MCP PostgreSQL local cho Backend V2.
 # Credential được đọc từ .env bởi script launcher; không lưu secret trong file này.
 
+model_reasoning_summary = "auto"
+sandbox_mode = "workspace-write"
 [mcp_servers.catalog_postgres]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://catalog_user:change-me-catalog@localhost:18110/catalog_db"]
@@ -21,3 +23,6 @@ args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://query_user:
 enabled_tools = ["query"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
+
+[sandbox_workspace_write]
+network_access = true
