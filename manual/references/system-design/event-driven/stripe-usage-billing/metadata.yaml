@@ -1,0 +1,7 @@
+title: "How we built it: Usage-based billing"
+source_url: "https://stripe.com/blog/how-we-built-it-usage-based-billing"
+published_at: "2025-01-28"
+retrieved_at: "2026-08-15"
+tags: [event-streaming, async-processing, reconciliation, fast-path, slow-path]
+status: complete
+completeness_note: "Full captured sections, image references, links and Vietnamese translation retained."

@@ -1,0 +1,8 @@
+title: "Designing robust and predictable APIs with idempotency"
+source_url: "https://stripe.com/blog/idempotency"
+author: "Brandur Leach"
+published_at: "2017-02-22"
+retrieved_at: "2026-08-15"
+tags: [idempotency, retry, backoff, jitter, API]
+status: complete
+completeness_note: "Full captured prose, headings, image and links translated faithfully."

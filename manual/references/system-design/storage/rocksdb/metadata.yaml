@@ -1,0 +1,7 @@
+title: "Under the Hood: Building and open-sourcing RocksDB"
+source_url: "https://engineering.fb.com/2013/11/21/core-infra/under-the-hood-building-and-open-sourcing-rocksdb/"
+published_at: "2013-11-21"
+retrieved_at: "2026-08-15"
+tags: [RocksDB, LSM-tree, compaction, embedded-storage, bloom-filter]
+status: complete
+completeness_note: "Full captured sections, links, images, performance and Vietnamese translation retained."
