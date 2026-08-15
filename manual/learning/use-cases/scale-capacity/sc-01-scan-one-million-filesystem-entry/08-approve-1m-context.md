@@ -37,6 +37,7 @@ idempotency/version guard và terminal watermark.
 2. Khi học cách lập SLO theo phần cứng/số liệu, đọc [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md).
 3. Khi chọn hypothesis bottleneck, đọc [06-performance-and-cloud-scaling.md](./06-performance-and-cloud-scaling.md) hoặc review được chỉ định.
 4. Khi triển khai một lát, đọc Plan/Design/contract của đúng BT/FT; không đọc toàn bộ SC-01 history.
+5. Chỉ đọc [09-fixture-and-microbenchmarks.md](./09-fixture-and-microbenchmarks.md) khi task yêu cầu chạy fixture/benchmark.
 
 Source of truth triển khai vẫn là [docs/STATUS.md](../../../../../docs/STATUS.md),
 [scan-service CONTEXT](../../../../../apps/scan-service/CONTEXT.md), feature Plan và contract tương ứng.
