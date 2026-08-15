@@ -18,10 +18,12 @@ idempotency/version guard và terminal watermark.
 ## Trạng thái evidence
 
 - Cold scan/reconciliation 1M đã có historical local evidence; không suy ra approve capacity từ đó.
-- Approve 1M tới `QUERY_DB_READY` chưa có runtime evidence hoặc SLO chính thức.
+- Approve 1M tới `QUERY_DB_READY` đã có target SLO chính thức trong
+  [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md), nhưng chưa có runtime
+  qualification evidence.
 - Review 5K chỉ là calibration rung để soi bottleneck, không phải target thay thế.
-- Các con số latency, hardware, partition/chunk size và số subject sau coalesce là hypothesis cho
-  tới khi có benchmark thực tế.
+- Target latency là contract trong `07`; hardware, partition/concurrency, chunk size và subject fan-out
+  vẫn là qualification inputs phải được ghi trong run manifest và benchmark thực tế.
 
 ## Owner và task đang mở
 
@@ -34,7 +36,7 @@ idempotency/version guard và terminal watermark.
 ## Routing để tiết kiệm context
 
 1. Mặc định chỉ đọc file này và đúng section `BT-09` trong `04-break-task.md`.
-2. Khi học cách lập SLO theo phần cứng/số liệu, đọc [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md).
+2. Khi cần đọc hoặc thay đổi SLO chính thức và hardware envelope, đọc [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md).
 3. Khi chọn hypothesis bottleneck, đọc [06-performance-and-cloud-scaling.md](./06-performance-and-cloud-scaling.md) hoặc review được chỉ định.
 4. Khi triển khai một lát, đọc Plan/Design/contract của đúng BT/FT; không đọc toàn bộ SC-01 history.
 5. Chỉ đọc [09-fixture-and-microbenchmarks.md](./09-fixture-and-microbenchmarks.md) khi task yêu cầu chạy fixture/benchmark.

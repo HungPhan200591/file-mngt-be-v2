@@ -1,6 +1,6 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-12
+Updated: 2026-08-15
 
 ## Gate mới nhất — production readiness review
 
@@ -15,7 +15,8 @@ và [technical debt snapshot](./TECHNICAL_DEBT.md).
 Workstream kế tiếp cho approve quy mô lớn là [SC-01 approve 1M context](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/08-approve-1m-context.md),
 với break task owner là [BT-09](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
 Workload đích là 1.000.000 records tới `QUERY_DB_READY`; review 5.000 records chỉ là calibration và
-approve 1M chưa có runtime evidence hoặc SLO chính thức.
+target SLO chính thức được chốt tại [SC-01 SLO contract](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/07-performance-slo-and-benchmarks.md),
+nhưng approve 1M vẫn chưa có runtime qualification evidence.
 
 [FT-034 — Catalog batch existence API](./features/034-catalog-batch-existence-api/01-brief.md) và
 [FT-035 — Scan–Catalog filtering](./features/035-scan-catalog-filtering/01-brief.md) đã thông luồng

@@ -1,44 +1,107 @@
 # SC-01 — Khung mục tiêu hiệu năng & Chỉ số SLO (Chính thức)
 
 Ngày chốt: 2026-08-15  
-Phạm vi: Chỉ tiêu SLO chính thức của SC-01 (Quy mô 1.000.000 files/records).  
-*Tài liệu nghiên cứu sâu về giới hạn vật lý phần cứng: xem [Deep-dive Hardware & Physical Limits](../../../deep-dive/media-asset-management-architecture/02-performance-slo-and-hardware-benchmarks.md).*
+Owner: SC-01 Scale & Capacity
+Phạm vi: SLO chính thức cho workload 1.000.000 files/records của Backend V2.
+Cơ sở hardware và giới hạn vật lý: [Deep-dive Hardware & Physical Limits](../../../deep-dive/media-asset-management-architecture/02-performance-slo-and-hardware-benchmarks.md).
 
----
+> Đây là target contract, không phải tuyên bố runtime đã đạt. P95 là mục tiêu chính; P99 là guardrail.
+> Một lần chạy thành công không chứng minh được percentile SLO.
 
-## 1. Bảng chỉ tiêu SLI / SLO chính thức (Workload 1.000.000 Records)
+## 1. Workload và môi trường áp dụng
 
-| Mã SLI | Nghiệp vụ thực thi | Target SLO (P90) | Ngưỡng chặn (P99) | Throughput toàn tuyến | Trạng thái hiện tại |
+- `SLI-01`: cold scan 1M filesystem entries tới Scan proposal terminal.
+- `SLI-02`: warm scan 1M entries, profile 0 changed files; changed-ratio phải ghi trong run manifest.
+- `SLI-03`: approve 1M proposals đã tồn tại tới `QUERY_DB_READY`; thời gian bắt đầu là server-side
+  operation accepted, kết thúc là Query watermark commit.
+- `SLI-04`: Query projection tới `SEARCH_READY`; đây là async lane và không chặn `QUERY_DB_READY`.
+- Approve SLO không bao gồm filesystem scan trước đó, nhưng phải bao gồm Scan decision/outbox,
+  relay, Kafka, Catalog coalesce/canonical write, Catalog outbox, Query projection và watermark.
+- Run manifest bắt buộc ghi record count, subject cardinality/fan-out, payload profile, cache mode,
+  observability profile và phase timestamps. Không cố định giả định `1M → ~150k subjects` cho mọi run.
+
+Qualification environment phải được ghi rõ theo hardware deep-dive: CPU/RAM, NVMe/storage profile,
+PostgreSQL/Kafka topology, partition/concurrency, connection pool và profile local/cloud. Đổi hardware,
+storage class, topology hoặc observability profile thì phải re-qualify; không chuyển kết quả local thành
+production capacity.
+
+### Quy ước đo và điều kiện áp dụng
+
+- SLO được tính trên các operation đã được server accept theo workload contract trong một measurement window
+  rolling 7 ngày. Operation chưa có terminal state khi hết deadline được tính là vi phạm; không loại lỗi latency
+  bằng cách chỉ lấy các run thành công.
+- Mỗi cell qualification mặc định có **một operation 1M đang chạy tại một thời điểm**, không có operation
+  approve 1M khác tranh chấp. Concurrent approve, traffic nền và queueing phải ghi trong manifest và được
+  qualify thành cell riêng.
+- Với tập đủ mẫu: ít nhất **30 run** để báo provisional P95; ít nhất **100 observation đủ điều kiện đo** để
+  tuyên bố qualification P95/P99. Ít hơn ngưỡng này chỉ là benchmark evidence, không phải SLO pass.
+- SLO latency là steady-state target khi dependency healthy, không phải hard deadline trong failover/outage.
+  Failover vẫn phải giữ correctness, retry/replay và eventual completion; thời gian gián đoạn phải được
+  báo riêng trong availability/error budget.
+
+## 2. Bảng SLI/SLO chính thức
+
+| Mã SLI | Nghiệp vụ | Target P95 | Guardrail P99 | Throughput tương đương | Trạng thái evidence |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`SLI-01`** | **Cold Scan 1M Files** (Walk $\rightarrow$ Staging $\rightarrow$ Parse $\rightarrow$ Proposal DB) | **$\le$ 30.0s** | **$\le$ 45.0s** | $\ge 33.000$ files/s | **`ĐẠT`** (Thực tế: **25.76s**) |
-| **`SLI-02`** | **Warm Scan 1M Files** (Periodic Re-scan, 0 changed files) | **$\le$ 8.0s** | **$\le$ 12.0s** | $\ge 125.000$ files/s | **`ĐẠT`** (~5.5s - 7.0s) |
-| **`SLI-03`** | **Approve 1M Records** (Scan Outbox $\rightarrow$ Catalog Coalesce $\rightarrow$ Query DB Ready) | **$\le$ 30.0s** | **$\le$ 45.0s** | $\ge 33.000$ records/s | **`MỤC TIÊU TỐI ƯU`** |
-| **`SLI-04`** | **Search Ready 1M Records** (Elasticsearch Bulk Async Lane) | **$\le$ 60.0s** | **$\le$ 90.0s** | $\ge 15.000$ docs/s | **`ASYNC LANE`** |
+| **`SLI-01`** | **Cold Scan 1M Files**: Walk → Staging → Parse → Proposal DB | **≤ 30s** | **≤ 45s** | **≥ 33.000 files/s** | Một run 25,763s; run lịch sử khác 41,18s; chưa đủ qualification |
+| **`SLI-02`** | **Warm Scan 1M Files**: periodic re-scan, 0 changed | **≤ 8s** | **≤ 12s** | **≥ 125.000 files/s** | Chưa đủ evidence lặp lại theo workload manifest |
+| **`SLI-03`** | **Approve 1M Records** tới `QUERY_DB_READY` | **≤ 30s** | **≤ 45s** | **≥ 33.000 records/s** | Target contract; chưa có runtime evidence |
+| **`SLI-04`** | **Search Ready 1M Records** qua Elasticsearch bulk async | **≤ 60s** | **≤ 90s** | **≥ 16.700 docs/s** | Async SLO riêng; chưa có runtime evidence |
 
----
+## 3. Latency budget
 
-## 2. Phân rã ngân sách thời gian (Latency Budget)
+Các số dưới đây là **budget allocation**, không phải phase measurement. Tổng mỗi critical path phải
+khớp target; khi đo thực tế, phase nào vượt budget phải tạo hypothesis và benchmark riêng.
 
-### 2.1. Cold Scan 1M Files (Tổng ngân sách: 30.0s)
-- Filesystem Discovery (`walkFileTree` streaming): **5.0s**
-- PostgreSQL Staging Write (`COPY FROM STDIN` Unlogged): **3.0s**
-- Set-based SQL Diff (`INSERT SELECT` + Anti-join): **2.5s**
-- Semantic Parsing (8 Partition Virtual Threads Regex): **6.5s**
-- Fast-path Inventory Insert + Proposals/Issues `COPY`: **11.5s**
-- Checkpoint, Lease Fencing & Finalize SSE: **1.5s**
+### 3.1. Cold Scan 1M — tổng P95 budget 30s
 
-### 2.2. Approve 1M Records $\rightarrow$ `QUERY_DB_READY` (Tổng ngân sách: 30.0s)
-- Scan DB Approve + Outbox `COPY` 1M: **4.0 – 6.0s**
-- Scan Outbox Continuous Drain $\rightarrow$ 12 Kafka Partitions: **3.0 – 5.0s**
-- Catalog Batch Listener + Coalesce (1M $\rightarrow$ ~150k subjects) + DB `COPY`: **8.0 – 12.0s**
-- Catalog Outbox Relay $\rightarrow$ Kafka (150k snapshot events): **1.5 – 2.5s**
-- Query Bulk Upsert DB (~150k subjects): **5.0 – 8.0s**
-- Redis Generation Key Switch (`cache:gen:2:*`) & Watermark: **< 0.1s**
-- Buffer dự phòng biến động I/O: **1.5 – 3.5s**
+| Phase | Budget |
+| --- | ---: |
+| Filesystem discovery | 5,0s |
+| PostgreSQL staging `COPY` | 3,0s |
+| Set-based diff | 2,5s |
+| Semantic parsing | 6,5s |
+| Inventory + proposal/issue `COPY` | 11,5s |
+| Checkpoint, lease fence, finalize | 1,5s |
+| **Tổng** | **30,0s** |
 
----
+### 3.2. Approve 1M → `QUERY_DB_READY` — tổng P95 budget 30s
 
-## 3. Tiêu chí Đạt / Không đạt (Pass/Fail Gate)
+| Phase | Budget |
+| --- | ---: |
+| Scan decision + outbox commit | 5,0s |
+| Scan outbox drain → Kafka | 4,0s |
+| Catalog batch/coalesce + canonical write | 10,0s |
+| Catalog outbox relay → Kafka | 2,0s |
+| Query bulk projection/upsert | 6,5s |
+| Query watermark + cache generation switch | 0,5s |
+| I/O/GC variance reserve | 2,0s |
+| **Tổng** | **30,0s** |
 
-1. **Cold Scan 1M**: `PASS` khi runtime hoàn tất $\le 30.0\text{s}$, không warning timeout, lease fencing hợp lệ.
-2. **Approve 1M**: `PASS` khi `QUERY_DB_READY` đạt được trong vòng $\le 30.0\text{s}$ kể từ lúc bấm Approve All, 0 tin nhắn rơi vào DLT.
+`SEARCH_READY` không nằm trong budget `QUERY_DB_READY`; search có budget và backlog watermark riêng.
+
+## 4. Correctness và pass/fail gate
+
+Một operation chỉ được tính là thành công khi đồng thời:
+
+- nằm trong percentile target của workload profile đã khai báo; percentile chỉ được kết luận ở cấp
+  measurement window đủ mẫu, không kết luận từ một operation;
+- có terminal state và watermark đúng operation/batch, kèm expected record/subject cardinality để reconciliation;
+- không có unhandled DLT, duplicate canonical business effect hoặc mất record;
+- decision + outbox atomic theo service owner; batch bounded, lease/fence và retry hợp lệ;
+- resource metrics không cho thấy OOM, queue tăng vô hạn, pool exhaustion hoặc lease-loss.
+
+Trạng thái hiện tại: `SLI-01` mới có baseline local một run; `SLI-02`, `SLI-03` và `SLI-04` chưa
+được qualification. Không dùng chữ `ĐẠT` cho tới khi có repeated runtime runs đủ để tính P95/P99.
+
+Latency compliance là **ít nhất 95% operation ≤ target P95 và ít nhất 99% operation ≤ guardrail P99**;
+data loss, sai watermark, canonical duplicate effect hoặc unhandled DLT là **0 tolerance** dù latency có đạt.
+
+## 5. Qualification evidence bắt buộc
+
+Workload ladder: `1K → 5K → 50K → 250K → 1M`, giữ cùng contract và ghi p50/p95/p99, records/s,
+phase timing, Kafka lag, outbox pending/oldest age, SQL count, transaction duration, DB pool wait,
+WAL/IOPS/lock, Redis latency, DLT, duplicate, retry và restart/reclaim.
+
+SLO này phải được re-check khi thay đổi subject fan-out, payload profile, hardware/storage, Kafka
+partition/concurrency, database index/schema hoặc observability configuration.

@@ -251,13 +251,14 @@ Không chọn batch/concurrency mới chỉ vì bulk job tạo nhiều event; tu
 **1.000.000 records** từ Scan tới Query bằng bounded batch, coalesce và bulk persistence. Review
 5.000 records chỉ là nấc calibration để phát hiện bottleneck sớm, không phải workload target hay SLO
 cuối cùng. Context routing ngắn nằm ở
-[08-approve-1m-context.md](./08-approve-1m-context.md); workload/SLO study chi tiết nằm ở
-[07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md) và chỉ đọc khi cần study.
+[08-approve-1m-context.md](./08-approve-1m-context.md); SLO contract và hardware envelope nằm ở
+[07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md), chỉ đọc khi cần kiểm tra
+target hoặc qualification.
 
 BT-09 chưa cấp quyền sửa code. Mỗi lát phải mở thành một FT ADLC riêng; lát chạm REST/Kafka hoặc từ
 hai service phải chốt contract trước khi triển khai. Context ngắn để route Agent nằm ở
-[08-approve-1m-context.md](./08-approve-1m-context.md); file SLO/phần cứng chi tiết [07](./07-performance-slo-and-benchmarks.md)
-chỉ đọc khi study.
+[08-approve-1m-context.md](./08-approve-1m-context.md); SLO contract và hardware envelope nằm ở
+[07](./07-performance-slo-and-benchmarks.md), chỉ đọc khi cần kiểm tra target hoặc qualification.
 
 | Lát | Mục tiêu | Gate trước khi chuyển lát |
 | --- | --- | --- |
