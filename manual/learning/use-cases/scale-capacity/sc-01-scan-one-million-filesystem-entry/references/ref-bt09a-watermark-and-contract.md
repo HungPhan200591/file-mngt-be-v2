@@ -2,6 +2,7 @@
 
 > Context ngắn để triển khai các lát BT-09B–E. Contract chi tiết là
 > [`media.approval.watermark.v1`](../../../../../../docs/contracts/events/media.approval.watermark.v1.md).
+> Xem giải thích chi tiết chuyên sâu tại [`explain-bt09a-watermark-and-completion-barrier.md`](./explain-bt09a-watermark-and-completion-barrier.md).
 
 ## Lifecycle đã chốt
 
