@@ -206,6 +206,7 @@ services:
   jaeger:
     container_name: jaeger
     image: jaegertracing/all-in-one:${JAEGER_VERSION:-1.60.0}
+    profiles: ["observability"]
     ports:
       - "${JAEGER_UI_PORT:-18122}:16686"
       - "${JAEGER_OTLP_PORT:-18123}:4317"
