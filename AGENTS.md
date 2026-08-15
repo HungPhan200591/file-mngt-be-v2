@@ -43,7 +43,7 @@ Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về 
 - Feature đang làm: `docs/features/<feature-id>/`.
 - REST và Kafka contract: `docs/contracts/`.
 - Quyết định dài hạn: `docs/adr/`.
-- Tài liệu cá nhân: `manual/` không phải source of truth hay context mặc định; chỉ đọc khi người dùng gọi tên hoặc yêu cầu sửa.
+- Tài liệu cá nhân & học tập: `manual/` không phải source of truth hay context mặc định; chỉ đọc khi người dùng gọi tên hoặc yêu cầu sửa. Khi triển khai task/code, Agent chỉ nạp context capsule tối thiểu được router chỉ định, tuyệt đối không tự ý nạp các tài liệu giải thích chi tiết, deep-dive hay bài review lớn trong `manual/` để tránh tốn token và loãng context.
 
 Khi đổi contract hoặc boundary, cập nhật source of truth tương ứng trong cùng task; không sao chép rule sang nhiều nơi.
 

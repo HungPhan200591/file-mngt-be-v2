@@ -21,7 +21,7 @@ flowchart TD
     KAFKA[("Kafka: media.file.discovered.v2")] --> BATCH_LISTEN["@KafkaListener nhận Batch (500 records)"]
     BATCH_LISTEN --> GROUP["Group theo subjectIdentity<br/>(JOKE: code, USE: normalized basename/folder)"]
     GROUP --> COALESCE["Áp dụng tuần tự các mutation của các asset<br/>vào cùng một aggregate subject trong RAM"]
-    COALESCE --> VERSION["Tăng aggregateVersion đúng 1 lần cho mỗi subject"]
+    COALESCE --> VERSION["Tăng subjectVersion đúng 1 lần cho mỗi subject"]
     VERSION --> BULK_UPSERT[("Bulk Upsert Catalog DB (chỉ N subject duy nhất)")]
     BULK_UPSERT --> OUTBOX[("Ghi Outbox đúng N event subject.changed.v2<br/>(1 snapshot cuối cùng cho mỗi subject)")]
 ```

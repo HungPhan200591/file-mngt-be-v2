@@ -41,5 +41,5 @@ flowchart TD
    - `x-original-topic` & `x-original-partition`: Vị trí gốc của message.
    - `operationId` & `occurredAt`.
 2. **Replay an toàn (Idempotent Replay)**:
-   - Khi operator chạy lệnh replay từ DLT về main topic, consumer phải luôn kiểm tra bảng `processed_event` hoặc `aggregateVersion`.
+   - Khi operator chạy lệnh replay từ DLT về main topic, consumer phải luôn kiểm tra bảng `processed_event` hoặc `subjectVersion`.
    - Nếu record đã được cập nhật bởi một event mới hơn, consumer tự động bỏ qua (No-Op), không ghi đè dữ liệu cũ lên dữ liệu mới.
