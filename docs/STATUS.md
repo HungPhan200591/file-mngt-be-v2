@@ -20,8 +20,8 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 ```
 
 ### Roadmap triển khai BT-09 theo thứ tự:
-1. **`BT-09A — Operation contract` (Active Task / Bắt đầu ngay)**: Chốt `operationId`/`batchId`, các trạng thái watermark (`APPROVAL_COMMITTED`, `QUERY_DB_READY`, `SEARCH_READY`), idempotency, partition key ordering và partial failure handling.
-2. **`BT-09B — Scan decision/outbox`**: Ghi decision + outbox atomic theo bounded chunk, tránh hydrate entity 1M records, kiểm soát WAL/DB connection pool.
+1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
+2. **`BT-09B — Scan decision/outbox` (Active Focus / Bắt đầu ngay)**: Ghi decision + outbox atomic theo bounded chunk, tránh hydrate entity 1M records, kiểm soát WAL/DB connection pool.
 3. **`BT-09C — Outbox drain`**: Drain liên tục, bounded in-flight, deadline/backpressure, lease budget và partition ordering.
 4. **`BT-09D — Catalog batch/coalesce`**: Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject (giảm event amplification).
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
@@ -75,6 +75,7 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Giai đoạn hiện tại (Active Focus — P0)**: Hoàn thành trọn bộ **SC-01 BT-09 (Approve 1M records to `QUERY_DB_READY`)**, bắt đầu bằng **`BT-09A — Operation contract`**.
-2. **Giai đoạn tiếp theo (Post SC-01 Verification & Hardening)**: Thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
-3. **Giai đoạn phát triển tính năng mới (New Features)**: Triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.
+1. **Giai đoạn hiện tại (Active Focus — P0)**: Triển khai **`BT-09B — Scan decision & outbox chunking`** (viết logic chunking `REQUIRES_NEW`, JDBC batching/set-based SQL, kiểm soát WAL và connection pool).
+2. **Giai đoạn tiếp theo của BT-09**: Triển khai lần lượt **`BT-09C`** (Outbox drain) → **`BT-09D`** (Catalog coalesce) → **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**.
+3. **Giai đoạn sau khi thông luồng SC-01**: Thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
+4. **Giai đoạn phát triển tính năng mới (New Features)**: Triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.

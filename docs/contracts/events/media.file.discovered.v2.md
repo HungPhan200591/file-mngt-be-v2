@@ -16,6 +16,8 @@
   "eventId": "UUID",
   "eventType": "media.file.discovered.v2",
   "timestamp": "2026-08-01T00:00:00Z",
+  "operationId": "UUID",
+  "batchId": "scan-output-00042",
   "scanRunId": "UUID",
   "proposalId": "UUID",
   "region": "JOKE",
@@ -37,6 +39,10 @@
 are never emitted. `eventId` is the idempotency key and is deduplicated by Catalog in the same transaction
 as canonical state changes.
 
+`operationId` và `batchId` là required cho approve operation. Chúng phải nằm trong payload/outbox để
+completion counter và replay không phụ thuộc transient Kafka headers. Catalog đếm unique input theo
+`(operationId, eventId)` và đối chiếu `expectedRecordCount` từ `media.approval.watermark.v1`.
+
 For video events, `tagNames` describes the candidate file. Catalog stores the tags on the asset,
 elects exactly one `PRIMARY_VIDEO`, and materializes subject `tagNames` from that primary. An untagged
 video outranks a tagged video; equal priority keeps the current primary. Scan producers should emit
@@ -48,5 +54,7 @@ For `IMAGE`, `GIF` or `null` role events, Catalog ignores `tagNames` for primary
 - v2 là contract runtime duy nhất của SC-01 sau khi reset dữ liệu/E2E; event type khác v2 bị reject và đưa vào DLT.
 - Delivery is at-least-once. Kafka retry is two retries after one second; unrecoverable records go to
   `<source-topic>.DLT`; SC-01 observer theo dõi `media.file.discovered.v2.DLT`.
+- V2 là runtime target duy nhất của study environment; BT-09B/BT-09D thay thẳng producer/consumer và có thể
+  reset local topic/data, không duy trì payload cũ thiếu operation metadata.
 - Correlation/trace context is carried in Kafka headers, not JSON. Unknown event versions fail and are retained
   in the corresponding DLT for operator action.

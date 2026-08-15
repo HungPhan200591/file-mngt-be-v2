@@ -57,7 +57,7 @@ correlationId, aggregateType, aggregateId, payload
 Topic đầu tiên:
 
 - `media.file.discovered.v1`
-- `media.subject.changed.v1`
+- `media.subject.changed.v2` (SC-01 target; thay thẳng v1 ở BT-09D/BT-09E)
 - `media.metadata.changed.v1`
 - `media.processing.requested.v1`
 - `media.processing.completed.v1`

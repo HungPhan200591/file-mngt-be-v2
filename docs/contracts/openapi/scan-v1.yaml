@@ -202,7 +202,7 @@ paths:
           headers:
             Cache-Control:
               schema: { type: string }
-              description: `no-cache` for the open event stream.
+              description: "no-cache for the open event stream."
           content:
             text/event-stream:
               schema:
@@ -378,10 +378,62 @@ paths:
           $ref: '#/components/responses/NotFoundProblem'
         '409':
           $ref: '#/components/responses/ConflictProblem'
+  /api/v2/scans/runs/{scanRunId}/approve:
+    post:
+      operationId: approveScanRun
+      summary: Accept an asynchronous approve operation for one scan run
+      description: |
+        Commits an operation row in scan_db and returns immediately. acceptedAt is
+        the SLI-03 start; APPROVAL_COMMITTED is reached later after all bounded
+        decision and discovery-outbox chunks have committed.
+      parameters:
+        - $ref: '#/components/parameters/ScanRunId'
+      responses:
+        '202':
+          description: Approve operation accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalOperationAccepted' }
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
+  /api/v2/scans/operations/{operationId}/status:
+    get:
+      operationId: getApprovalOperationStatus
+      summary: Get durable approve-operation progress and watermark
+      description: |
+        Reads the Scan-owned status projection. queryDbReadyAt is the timestamp
+        committed by Query and remains the SLI-03 end even if status projection
+        delivery reaches Scan later.
+      parameters:
+        - $ref: '#/components/parameters/OperationId'
+      responses:
+        '200':
+          description: Current approve-operation status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalOperationStatus' }
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
 components:
   parameters:
     ScanId:
       name: scanId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ScanRunId:
+      name: scanRunId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    OperationId:
+      name: operationId
       in: path
       required: true
       schema:
@@ -620,6 +672,37 @@ components:
       required: [jobId]
       properties:
         jobId: { type: string, format: uuid }
+    ApprovalOperationAccepted:
+      type: object
+      required: [operationId, scanRunId, status, expectedRecordCount, acceptedAt]
+      properties:
+        operationId: { type: string, format: uuid }
+        scanRunId: { type: string, format: uuid }
+        status: { type: string, enum: [ACCEPTED] }
+        expectedRecordCount: { type: integer, format: int64, minimum: 0 }
+        acceptedAt: { type: string, format: date-time }
+    ApprovalOperationStatus:
+      type: object
+      required: [operationId, scanRunId, status, expectedRecordCount, unresolvedDltCount, acceptedAt]
+      properties:
+        operationId: { type: string, format: uuid }
+        scanRunId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [ACCEPTED, APPROVAL_COMMITTED, CATALOG_COMMITTED, QUERY_DB_READY, SEARCH_READY, BLOCKED, FAILED, CANCELLED]
+        expectedRecordCount: { type: integer, format: int64, minimum: 0 }
+        scanCommittedRecordCount: { type: [integer, 'null'], format: int64, minimum: 0 }
+        catalogProcessedRecordCount: { type: [integer, 'null'], format: int64, minimum: 0 }
+        expectedSubjectCount: { type: [integer, 'null'], format: int64, minimum: 0 }
+        queryProjectedSubjectCount: { type: [integer, 'null'], format: int64, minimum: 0 }
+        searchIndexedSubjectCount: { type: [integer, 'null'], format: int64, minimum: 0 }
+        unresolvedDltCount: { type: integer, format: int64, minimum: 0 }
+        acceptedAt: { type: string, format: date-time }
+        approvalCommittedAt: { type: [string, 'null'], format: date-time }
+        catalogCommittedAt: { type: [string, 'null'], format: date-time }
+        queryDbReadyAt: { type: [string, 'null'], format: date-time }
+        searchReadyAt: { type: [string, 'null'], format: date-time }
+        failureCode: { type: [string, 'null'] }
     ScanAsyncJobStatus:
       type: object
       required: [jobId, jobType, status, createdAt]

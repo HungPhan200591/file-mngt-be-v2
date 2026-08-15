@@ -8,6 +8,8 @@ Read model tối ưu cho Gallery Web, Media Library, filter, card và search.
 
 - Database `query_db`: projection và processed-event Query.
 - Kafka consumer dựng lại projection từ Catalog/Worker events.
+- Contract target SC-01 là `media.subject.changed.v2` batch projection với operation completion counter;
+  runtime v1 sẽ được thay thẳng ở BT-09E, không duy trì dual consumer.
 - REST API search, filter, order, pagination và detail read model.
 - Gallery filter theo asset root/studio/actress/tag và `mediaUrl` Nginx được resolve từ locator + deployment root map;
   response trả `null` khi projection/root mapping chưa đủ, không suy diễn filesystem path.

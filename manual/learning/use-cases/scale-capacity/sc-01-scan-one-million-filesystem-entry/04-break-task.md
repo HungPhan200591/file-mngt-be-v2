@@ -260,15 +260,15 @@ hai service phải chốt contract trước khi triển khai. Context ngắn đ�
 [08-approve-1m-context.md](./08-approve-1m-context.md); SLO contract và hardware envelope nằm ở
 [07](./07-performance-slo-and-benchmarks.md), chỉ đọc khi cần kiểm tra target hoặc qualification.
 
-| Lát | Mục tiêu | Gate trước khi chuyển lát |
-| --- | --- | --- |
-| BT-09A — Operation contract | Chốt `operationId`/`batchId`, `APPROVAL_COMMITTED`, `QUERY_DB_READY`, `SEARCH_READY`, idempotency, ordering và partial failure. | Brief/Design/contract được duyệt; không biến approve HTTP thành distributed transaction. |
-| BT-09B — Scan decision/outbox | Ghi decision + outbox atomic theo bounded chunk; không hydrate 1M entity hoặc mở transaction 1M rows. | Đo statement count, transaction time, WAL, lock/pool wait và rollback chunk. |
-| BT-09C — Outbox drain | Continuous drain, bounded in-flight, deadline/backpressure, lease budget và partition-key ordering. | Có publish latency, backlog age, lease-loss, duplicate và broker-failure evidence. |
-| BT-09D — Catalog batch/coalesce | Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject. | Có version/order/dedupe proof và đo event amplification `1M records → subjects`. |
-| BT-09E — Query bulk projection | Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event và watermark. | `QUERY_DB_READY` chỉ sau projection commit; Redis/Search không kéo dài critical path. |
-| BT-09F — Failure/operation evidence | DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim. | Có terminal state, operator visibility và replay/idempotency proof. |
-| BT-09G — Scale ladder | Chạy cùng workload ở 1K → 5K → 50K → 250K → 1M để tìm phase bottleneck và capacity ceiling. | Báo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool và cost; chưa có evidence thì không chốt SLO. |
+| Lát | Mục tiêu | Trạng thái | Gate trước khi chuyển lát |
+| --- | --- | --- | --- |
+| **BT-09A — Operation contract** | Chốt `ACCEPTED`, `operationId`/`batchId`, completion cardinality, `APPROVAL_COMMITTED`, `QUERY_DB_READY`, `SEARCH_READY`, DLT và cache generation. | **`DONE`** (FT-044) | Brief/Design/contract được duyệt tại [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md). |
+| **BT-09B — Scan decision/outbox** | Ghi decision + outbox atomic theo bounded chunk; không hydrate 1M entity hoặc mở transaction 1M rows. | **`READY`** | Đo statement count, transaction time, WAL, lock/pool wait và rollback chunk. |
+| BT-09C — Outbox drain | Continuous drain, bounded in-flight, deadline/backpressure, lease budget và partition-key ordering. | `PLANNED` | Có publish latency, backlog age, lease-loss, duplicate và broker-failure evidence. |
+| BT-09D — Catalog batch/coalesce | Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject. | `PLANNED` | Có version/order/dedupe proof và đo event amplification `1M records → subjects`. |
+| BT-09E — Query bulk projection | Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event và watermark. | `PLANNED` | `QUERY_DB_READY` chỉ sau projection commit; Redis/Search không kéo dài critical path. |
+| BT-09F — Failure/operation evidence | DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim. | `PLANNED` | Có terminal state, operator visibility và replay/idempotency proof. |
+| BT-09G — Scale ladder | Chạy cùng workload ở 1K → 5K → 50K → 250K → 1M để tìm phase bottleneck và capacity ceiling. | `PLANNED` | Báo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool và cost; chưa có evidence thì không chốt SLO. |
 
 Dependency tối thiểu: BT-07 decision job, BT-08A event/DLT và BT-08B outbox capacity. BT-09 không
 được coi là hoàn tất chỉ vì cold scan 1M đã đạt benchmark; approve path phải có watermark và

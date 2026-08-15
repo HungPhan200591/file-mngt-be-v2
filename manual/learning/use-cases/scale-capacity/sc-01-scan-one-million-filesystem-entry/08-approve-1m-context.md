@@ -28,8 +28,9 @@ idempotency/version guard và terminal watermark.
 ## Owner và task đang mở
 
 - Break-task owner: [BT-09](./04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
-- **BT-09A**: Operation contract / watermark (`Active Focus`).
-- **BT-09B–09C**: Scan decision/outbox và bounded relay.
+- **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
+- **BT-09B**: Scan decision/outbox chunking (**`Active Focus`**).
+- **BT-09C**: Outbox drain và bounded relay.
 - **BT-09D–09E**: Catalog coalesce và Query bulk projection.
 - **BT-09F–09G**: Failure evidence và scale ladder 1K → 5K → 50K → 250K → 1M.
 

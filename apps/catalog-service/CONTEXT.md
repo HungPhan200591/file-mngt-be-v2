@@ -12,10 +12,11 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Internal API `GET /api/v2/master-data/scan-registry` cung cấp snapshot cho `scan-service`.
 - Internal read-only API `POST /internal/v2/catalog/scan-existence` phân loại batch candidate theo locator
   canonical và subject identity; implementation FT-034 có Flyway V8, nhưng direct verification còn deferred.
-- Event `media.subject.changed.v1`, `media.metadata.changed.v1`.
+- Event target SC-01: `media.subject.changed.v2`; runtime v1 sẽ được thay thẳng ở BT-09D, không dual-publish.
+  `media.metadata.changed.v1` không đổi trong BT-09A.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
-  `media.subject.changed.v1` phát các field này dạng additive cho Query.
+  `media.subject.changed.v2` phát final full snapshot theo operation cho Query; implementation còn pending BT-09D.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.
