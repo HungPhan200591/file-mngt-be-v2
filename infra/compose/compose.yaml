@@ -212,6 +212,13 @@ services:
       - "${JAEGER_OTLP_HTTP_PORT:-18124}:4318"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
+      - MEMORY_MAX_TRACES=2000
+    mem_limit: 500m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
 volumes:
