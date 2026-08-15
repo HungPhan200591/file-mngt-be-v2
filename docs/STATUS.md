@@ -2,94 +2,79 @@
 
 Updated: 2026-08-15
 
-## Gate mới nhất — production readiness review
+## Gate mới nhất — Production Readiness Review
 
-Review tĩnh toàn backend tại commit `45adade8d67c` kết luận **`NOT READY` cho
-production/cutover**. Blocker hiện tại là security/network boundary, restart
-recovery của scan, blocking filesystem liveness, lease fencing của durable job,
-outbox lease/throughput và Query DLT observation/replay evidence. Xem [review đầy đủ](./reviews/2026-08-12-backend-quality-architecture-production-readiness.md)
-và [technical debt snapshot](./TECHNICAL_DEBT.md).
+Review tĩnh toàn backend tại commit `45adade8d67c` kết luận **`NOT READY` cho production/cutover**.
+Blocker hiện tại là security/network boundary, restart recovery của scan, blocking filesystem liveness, lease fencing của durable job, outbox lease/throughput và Query DLT observation/replay evidence.
+Xem [review đầy đủ](./reviews/2026-08-12-backend-quality-architecture-production-readiness.md) và [technical debt snapshot](./TECHNICAL_DEBT.md).
 
-## Trọng tâm hiện tại — SC-01 thông luồng
+---
 
-Workstream kế tiếp cho approve quy mô lớn là [SC-01 approve 1M context](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/08-approve-1m-context.md),
-với break task owner là [BT-09](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
-Workload đích là 1.000.000 records tới `QUERY_DB_READY`; review 5.000 records chỉ là calibration và
-target SLO chính thức được chốt tại [SC-01 SLO contract](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/07-performance-slo-and-benchmarks.md),
-nhưng approve 1M vẫn chưa có runtime qualification evidence.
+## Trọng tâm ưu tiên tối đa hiện tại — SC-01 BT-09: Approve 1M records to `QUERY_DB_READY`
 
-[FT-034 — Catalog batch existence API](./features/034-catalog-batch-existence-api/01-brief.md) và
-[FT-035 — Scan–Catalog filtering](./features/035-scan-catalog-filtering/01-brief.md) đã thông luồng
-BT-04 → BT-05 của SC-01, đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
-[FT-036 — Event contract/DLT alignment](./features/036-event-contract-dlt-alignment/01-brief.md),
-[FT-037 — Outbox backlog capacity](./features/037-outbox-backlog-capacity/01-brief.md),
-[FT-038 — Targeted issue recheck](./features/038-targeted-issue-recheck/01-brief.md) và
-[FT-039 — Durable bulk decision](./features/039-durable-bulk-decision/01-brief.md) đã có code,
-đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
-[FT-040 — Primary video tag ownership](./features/040-primary-video-tag-ownership/01-brief.md) và
-[FT-041 — Scan rerun overwrite](./features/041-scan-rerun-overwrite/01-brief.md) đã sửa luồng
-repair metadata không cần reset data, đồng thời tạo proposal xóa cho file biến mất và dọn
-Catalog/Query/Redis/Elasticsearch sau approve; đều ở trạng thái **`IMPLEMENTED — verification deferred`**.
-[FT-042 — Primary video election](./features/042-primary-video-election/01-brief.md) đã chuyển quyền bầu
-`PRIMARY_VIDEO` về Catalog, lưu tag theo video asset và dùng comparator ưu tiên video không tag;
-implementation hiện **`DONE — static verification only`**.
+Toàn bộ tài nguyên và session hiện tại tập trung tuyệt đối vào workstream [SC-01 approve 1M context](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/08-approve-1m-context.md) theo break-task [BT-09](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
 
-[FT-043 — Video Gallery và throughput event](./features/043-video-gallery-throughput/01-brief.md) dùng card theo video
-asset/root, fallback một card theo subject cho root chỉ có ảnh/GIF, trả đủ preview của subject, tag theo asset và detail
-theo subject; đồng thời batch hóa Kafka acknowledgement, bulk update outbox và cấu hình nhiều partition/consumer lane.
-Trạng thái **`DONE — targeted Query integration verified`**; topic hiện hữu, migration, DLT replay và benchmark runtime
-chưa chạy.
+Mục tiêu cốt lõi: Thông luồng và tối ưu pipeline approve **1.000.000 records** sau khi proposal đã tồn tại trong Scan:
+```text
+Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bulk projection → QUERY_DB_READY
+```
 
-Phạm vi đã có Catalog provider và Scan consumer cho SC-01 BT-04/BT-05:
+### Roadmap triển khai BT-09 theo thứ tự:
+1. **`BT-09A — Operation contract` (Active Task / Bắt đầu ngay)**: Chốt `operationId`/`batchId`, các trạng thái watermark (`APPROVAL_COMMITTED`, `QUERY_DB_READY`, `SEARCH_READY`), idempotency, partition key ordering và partial failure handling.
+2. **`BT-09B — Scan decision/outbox`**: Ghi decision + outbox atomic theo bounded chunk, tránh hydrate entity 1M records, kiểm soát WAL/DB connection pool.
+3. **`BT-09C — Outbox drain`**: Drain liên tục, bounded in-flight, deadline/backpressure, lease budget và partition ordering.
+4. **`BT-09D — Catalog batch/coalesce`**: Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject (giảm event amplification).
+5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
+6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
+7. **`BT-09G — Scale ladder`**: Chạy benchmark scale ladder 1K → 5K → 50K → 250K → 1M đo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool.
 
-- Internal read-only `POST /internal/v2/catalog/scan-existence`, batch từ 1 đến 500 candidate.
-- Lookup set-based locator `storageKey + relativePath` và canonical subject identity trong `catalog_db`.
-- Trả bốn classification; không tạo subject/asset/outbox. Scan gọi ngoài transaction persistence, split
-  batch tối đa 500, exact skip proposal và giữ evidence cho các classification còn lại.
-- Có Flyway unique partial index locator non-null; migration phải fail nếu data conflict, không tự
-  cleanup/import dữ liệu.
-- Gateway route `/api/v2/scans/**` đã bao phủ các endpoint SC-01 mới; contract routing và integration coverage
-  cho bulk decision/recheck đã được cập nhật. FE V2 đã chuyển bulk action sang durable job và thêm recheck issue.
-  Runtime E2E/verification vẫn deferred theo ưu tiên thông luồng.
-- BT-08A ghi contract v2, explicit event validation và quan sát v2 DLT. BT-08B claim outbox bounded có
-  lease/`SKIP LOCKED` cho cả Scan và Catalog, publish ngoài transaction và metrics backlog.
-- BT-06C hỗ trợ enqueue targeted recheck theo `issueId`, worker lease và observation mới; BT-07 hỗ trợ
-  decision/reopen bulk dạng durable job, bounded batch và progress.
+---
 
-## Trạng thái đã ổn định
+## Nền tảng hạ tầng và feature đã sẵn sàng cho BT-09
 
-- SC-01 Scan API và persistence hot path của [FT-028](./features/028-parallel-reconciliation-pipeline/03-plan.md)
-  đã có parallel analyze, direct `COPY`, set-based reconciliation và checkpoint lease-fenced.
-- [FT-030 telemetry](./features/030-scan-performance-telemetry/03-plan.md) đã có runtime evidence cho
-  terminal timeline và chunk persistence theo `runId`.
-- [FT-031 persistence optimization](./features/031-scan-reconciliation-persistence-optimization/03-plan.md)
-  đã benchmark run 1M file dưới 30 giây; không tuning lại chunk size nếu chưa có hypothesis/evidence mới.
-- [FT-032 Scan review queue](./features/032-scan-review-queue/03-plan.md) có code tối thiểu ở trạng thái `DONE`.
-- [FT-033 Scan review read model](./features/033-scan-review-read-model/03-plan.md) đã hoàn tất code cho
-  generation projection, durable worker, fallback read và decision synchronization. Implementation review
-  `CONDITIONAL`: compile/Testcontainers/migration/runtime evidence được deferred theo yêu cầu người dùng.
-- [FT-013 Media Worker processing foundation](./features/013-media-worker-processing-foundation/03-plan.md)
-  vẫn `READY`, nhưng không phải trọng tâm của session hiện tại.
+- [FT-034](./features/034-catalog-batch-existence-api/01-brief.md) & [FT-035](./features/035-scan-catalog-filtering/01-brief.md): Batch existence API và Scan-Catalog filtering (`IMPLEMENTED — verification deferred`).
+- [FT-036](./features/036-event-contract-dlt-alignment/01-brief.md) & [FT-037](./features/037-outbox-backlog-capacity/01-brief.md): Event contract/DLT và Outbox backlog capacity (`IMPLEMENTED — verification deferred`).
+- [FT-038](./features/038-targeted-issue-recheck/01-brief.md) & [FT-039](./features/039-durable-bulk-decision/01-brief.md): Targeted issue recheck và Durable bulk decision job (`IMPLEMENTED — verification deferred`).
+- [FT-040](./features/040-primary-video-tag-ownership/01-brief.md), [FT-041](./features/041-scan-rerun-overwrite/01-brief.md), [FT-042](./features/042-primary-video-election/01-brief.md): Metadata repair, rerun overwrite và primary video election (`DONE`).
+- [FT-043](./features/043-video-gallery-throughput/01-brief.md): Video Gallery & throughput event/outbox batch acknowledgement (`DONE — targeted Query integration verified`).
+- Hot path persistence: [FT-028](./features/028-parallel-reconciliation-pipeline/03-plan.md) (parallel analyze, direct COPY), [FT-030](./features/030-scan-performance-telemetry/03-plan.md) (telemetry runtime), [FT-031](./features/031-scan-reconciliation-persistence-optimization/03-plan.md) (benchmark 1M file < 30s), [FT-032](./features/032-scan-review-queue/03-plan.md) & [FT-033](./features/033-scan-review-read-model/03-plan.md) (review queue/read model).
 
-## Deferred và gate rộng hơn
+---
 
-- FT-033 còn gate verification trước production cutover: migration/Testcontainers, decision race, stale lease,
-  query plan và benchmark 1M dưới projector load; xem
-  [implementation review](./features/033-scan-review-read-model/06-implementation-review.md).
-- Verification deferred: FT-025 semantics Testcontainers, FT-026 timeout/lease-loss, FT-027 E2E
-  Gateway/SSE; thực hiện theo Plan owner khi có scope hardening phù hợp.
-- Phase 4 còn thiếu Media Worker processing pipeline; Phase 7 còn thiếu importer/backfill V1.
-- Observability mở rộng còn thiếu alert/SLO, profiling sâu và k6.
+## Lộ trình sau khi hoàn tất SC-01 (Post SC-01 Roadmap & Deferred Gates)
 
-## Nợ kỹ thuật đang mở
+Sau khi hoàn tất toàn bộ pipeline SC-01 BT-09 (từ BT-09A đến BT-09G), các giai đoạn tiếp theo của dự án theo [02-PLAN.md](./architecture/02-PLAN.md) gồm:
 
-Xem [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md). Snapshot này chỉ giữ gate và
-work active; evidence/remediation chi tiết nằm ở review và Feature Plan owner.
+### 1. Verification & Hardening Gate (P0 / P1)
+- **Hardening P0**: Security boundary, Nginx drive exposure (`TD-009`), Scan restart recovery (`TD-010`), Walker liveness/watchdog (`TD-011`), Durable job lease fencing (`TD-012`).
+- **Runtime Verification**: Chạy Testcontainers cho semantics (`FT-025`), timeout/lease-loss (`FT-026`), E2E Gateway/SSE (`FT-027`), Review projection cutover (`FT-033`), DLT poison event & replay procedure (`TD-015`).
 
-## Việc tiếp theo theo thứ tự ưu tiên
+### 2. Giai đoạn tiếp theo (Phase Roadmap)
+- **Phase 4 — Media Worker Processing Foundation** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)):
+  - Consume `processing.requested` qua Kafka consumer group.
+  - Trích xuất technical metadata, sinh thumbnail, GIF preview và hash file (SHA-256).
+  - Publish `processing.completed` và Catalog cập nhật asset completion.
+- **Phase 7 — Importer & Backfill V1 → V2**:
+  - Importer read-only từ V1, dry-run, batch idempotent, checkpoint và reconciliation đối soát.
+  - Rebuild Query projection từ Catalog/event.
+- **Phase 8 — Observability mở rộng & Production Hardening**:
+  - Cấu hình Alert rules, SLO/error budget, k6 load test toàn diện, profiling sâu (JFR/JMH).
+- **Phase 9 (Optional Labs)**:
+  - Schema Registry (Avro/Protobuf), Kafka Streams, Kubernetes local (kind/k3d), GraalVM native image.
 
-1. Ưu tiên P0: security boundary, scan restart/I/O liveness và durable-job fencing.
-2. Sau P0, chạy direct verification SC-01: Flyway/index, Testcontainers, Kafka
-   DLT, `SKIP LOCKED`, lease reclaim, duplicate và rolling restart.
-3. Sau verification, chốt E2E Gateway/FE qua `18100`, SLO/alert và benchmark
-   approve → Catalog → Query.
+---
+
+## Nợ kỹ thuật đang mở (Technical Debt Snapshot)
+
+Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
+- **P0**: `TD-009` (Security/network boundary) → `TD-010` (Scan restart recovery) → `TD-011` (Walker liveness) → `TD-012` (Job lease fencing).
+- **P1**: `TD-013` (Outbox throughput) → `TD-014` (Gateway operations route) → `TD-015` (Query DLT observer) → `TD-016` (N+1 query/lock) → `TD-017` (Deep pagination cursor).
+- **P2**: `TD-018` đến `TD-022` (Clean code, config provider, retention purge, split classes).
+
+---
+
+## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
+
+1. **Giai đoạn hiện tại (Active Focus — P0)**: Hoàn thành trọn bộ **SC-01 BT-09 (Approve 1M records to `QUERY_DB_READY`)**, bắt đầu bằng **`BT-09A — Operation contract`**.
+2. **Giai đoạn tiếp theo (Post SC-01 Verification & Hardening)**: Thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
+3. **Giai đoạn phát triển tính năng mới (New Features)**: Triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.
