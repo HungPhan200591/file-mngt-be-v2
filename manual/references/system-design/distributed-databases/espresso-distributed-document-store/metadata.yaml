@@ -1,0 +1,16 @@
+title: "Introducing Espresso - LinkedIn's hot new distributed document store"
+source_url: "https://engineering.linkedin.com/espresso/introducing-espresso-linkedins-hot-new-distributed-document-store"
+source_org: "LinkedIn Engineering"
+authors:
+  - "Aditya Auradkar"
+  - "Tom Quiggle"
+published_at: "2015-01-21"
+retrieved_at: "2026-08-15"
+topic: distributed-databases
+tags: [NoSQL, document-store, partitioning, replication, change-data-capture, Apache-Helix, Avro, MySQL, ZooKeeper]
+capture_method: "Jina Reader, with LinkedIn HTML fallback"
+license_note: "Private study reference; preserve original attribution and source URL."
+qa:
+  source_capture: verified
+  translation: structured-faithful-study-translation
+  assets: "No downloadable image asset was retained; source image URLs and captions are preserved in article.en.md."
