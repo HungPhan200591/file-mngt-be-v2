@@ -13,6 +13,8 @@ Ghi chú khảo sát mới về performance và scale Kafka/cloud: [06-performan
 | Giải pháp Lọc trùng Xuyên Service | [03-cross-service-deduplication.md](./03-cross-service-deduplication.md) | Đã tạo |
 | Break task triển khai | [04-break-task.md](./04-break-task.md) | Đã tạo |
 | Phương án UI/UX Solution Behavior | [05-ui-ux-solution-behavior.md](./05-ui-ux-solution-behavior.md) | Đã tạo |
+| Khảo sát Scale & Cloud | [06-performance-and-cloud-scaling.md](./06-performance-and-cloud-scaling.md) | Đã tạo |
+| Khung mục tiêu SLO & Benchmark | [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md) | Đã tạo |
 | Java 25 Fixture Tool | [fixture-tools](../../../../../tests/fixtures/tools/pom.xml) (package `com.filemngt.tools.sc01_scan_one_million`) | Đã tạo |
 | Summary | [summary/01-issues-and-solutions.md](./summary/01-issues-and-solutions.md) | Đã tạo; distill từ issue/solution/evidence |
 | Question chain | [question-bank/01-question-chain.md](./question-bank/01-question-chain.md) | Đã tạo, bổ sung dần theo BT/deep-dive |
@@ -20,7 +22,6 @@ Ghi chú khảo sát mới về performance và scale Kafka/cloud: [06-performan
 Xem [UC-01](../../core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) cho flow nhỏ làm prerequisite. Không thay architecture, contract, owner context hoặc `docs/STATUS.md`.
 
 Chạy nhanh qua NPM scripts từ root repository:
-
 ```bash
 # Sinh 1 triệu file fixture rỗng cho SC-01
 npm run fixture:sc01:gen
