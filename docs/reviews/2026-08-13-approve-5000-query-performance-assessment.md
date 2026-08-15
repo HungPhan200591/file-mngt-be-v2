@@ -1,8 +1,15 @@
-# Đánh giá hiệu năng approve 5.000 bản ghi
+# Đánh giá throughput approve bulk — 5.000 records calibration cho SC-01
 
 Ngày: 2026-08-13  
 Phạm vi: `scan-service` → Scan outbox → Kafka → `catalog-service` → Catalog outbox → Kafka → `query-service`  
-Mục tiêu: từ lúc gọi approve all đến khi dữ liệu hoàn tất đồng bộ tại Query trong 2–3 giây.
+Mục tiêu review: dùng workload 5.000 records để soi bottleneck và kiểm tra thiết kế cho workload
+đích 1.000.000 records của SC-01. Con số 2–3 giây là calibration hypothesis của review này, không
+phải SLO chính thức.
+
+> Context ngắn và break task hiện hành nằm ở [SC-01 approve 1M context](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/08-approve-1m-context.md)
+> và [BT-09](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
+> Study SLO/phần cứng chi tiết nằm ở [07-performance-slo-and-benchmarks](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/07-performance-slo-and-benchmarks.md).
+> File này chỉ giữ evidence/reasoning của calibration rung; không phải entrypoint mặc định.
 
 ## Kết luận
 
@@ -619,7 +626,10 @@ flowchart TB
 
 Điểm cần chú ý: mũi tên `batch 500` ở outbox chỉ nói về claim/publish transport. Nó không biến Catalog hoặc Query thành batch consumer; hai consumer vẫn nhận một `ConsumerRecord` và mở transaction riêng.
 
-### Kiến trúc mục tiêu: 5.000 record/giây tới `QUERY_DB_READY`
+### Kiến trúc calibration: 5.000 records/giây tới `QUERY_DB_READY`
+
+Đây là mô hình trung gian để kiểm tra batch/coalesce/watermark trước khi scale ladder lên 1M;
+không phải SLO cuối cùng của SC-01.
 
 ```mermaid
 flowchart TB

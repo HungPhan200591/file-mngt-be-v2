@@ -245,6 +245,34 @@ Verification còn cần evidence queue age, publish rate, broker latency/failure
 
 Không chọn batch/concurrency mới chỉ vì bulk job tạo nhiều event; tuning phải dựa trên evidence.
 
+### BT-09 — Approve 1M records to `QUERY_DB_READY` — `PLANNED`
+
+Đây là workstream tối ưu tiếp theo của SC-01. Mục tiêu là xử lý một operation approve gồm
+**1.000.000 records** từ Scan tới Query bằng bounded batch, coalesce và bulk persistence. Review
+5.000 records chỉ là nấc calibration để phát hiện bottleneck sớm, không phải workload target hay SLO
+cuối cùng. Context routing ngắn nằm ở
+[08-approve-1m-context.md](./08-approve-1m-context.md); workload/SLO study chi tiết nằm ở
+[07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md) và chỉ đọc khi cần study.
+
+BT-09 chưa cấp quyền sửa code. Mỗi lát phải mở thành một FT ADLC riêng; lát chạm REST/Kafka hoặc từ
+hai service phải chốt contract trước khi triển khai. Context ngắn để route Agent nằm ở
+[08-approve-1m-context.md](./08-approve-1m-context.md); file SLO/phần cứng chi tiết [07](./07-performance-slo-and-benchmarks.md)
+chỉ đọc khi study.
+
+| Lát | Mục tiêu | Gate trước khi chuyển lát |
+| --- | --- | --- |
+| BT-09A — Operation contract | Chốt `operationId`/`batchId`, `APPROVAL_COMMITTED`, `QUERY_DB_READY`, `SEARCH_READY`, idempotency, ordering và partial failure. | Brief/Design/contract được duyệt; không biến approve HTTP thành distributed transaction. |
+| BT-09B — Scan decision/outbox | Ghi decision + outbox atomic theo bounded chunk; không hydrate 1M entity hoặc mở transaction 1M rows. | Đo statement count, transaction time, WAL, lock/pool wait và rollback chunk. |
+| BT-09C — Outbox drain | Continuous drain, bounded in-flight, deadline/backpressure, lease budget và partition-key ordering. | Có publish latency, backlog age, lease-loss, duplicate và broker-failure evidence. |
+| BT-09D — Catalog batch/coalesce | Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject. | Có version/order/dedupe proof và đo event amplification `1M records → subjects`. |
+| BT-09E — Query bulk projection | Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event và watermark. | `QUERY_DB_READY` chỉ sau projection commit; Redis/Search không kéo dài critical path. |
+| BT-09F — Failure/operation evidence | DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim. | Có terminal state, operator visibility và replay/idempotency proof. |
+| BT-09G — Scale ladder | Chạy cùng workload ở 1K → 5K → 50K → 250K → 1M để tìm phase bottleneck và capacity ceiling. | Báo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool và cost; chưa có evidence thì không chốt SLO. |
+
+Dependency tối thiểu: BT-07 decision job, BT-08A event/DLT và BT-08B outbox capacity. BT-09 không
+được coi là hoàn tất chỉ vì cold scan 1M đã đạt benchmark; approve path phải có watermark và
+end-to-end evidence riêng.
+
 ## Verification/debt còn mở nhưng không tự biến thành BT mới
 
 - FT-025: Testcontainers semantics và post-follow-up cold/warm benchmark theo Plan owner.
@@ -273,4 +301,6 @@ Các mục trên phải thực hiện theo Plan/feature hardening phù hợp khi
 - [Touchpoints](./02-architecture-touchpoints-and-flows.md)
 - [Inventory và cross-service deduplication](./03-cross-service-deduplication.md)
 - [Summary issue/solution/evidence](./summary/01-issues-and-solutions.md)
+- [Workload, SLI/SLO & Benchmark plan](./07-performance-slo-and-benchmarks.md)
+- [Review approve 5.000 records — calibration evidence](../../../../../docs/reviews/2026-08-13-approve-5000-query-performance-assessment.md)
 - [Trạng thái Backend V2](../../../../../docs/STATUS.md)

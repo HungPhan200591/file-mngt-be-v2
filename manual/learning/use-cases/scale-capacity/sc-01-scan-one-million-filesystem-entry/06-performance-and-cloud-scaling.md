@@ -3,6 +3,11 @@
 > Trạng thái: ghi chú khảo sát, chưa phải quyết định triển khai.
 >
 > Ngày: 2026-08-12
+>
+> Vai trò: phân tích hypothesis và evidence. Workload contract nằm ở
+> [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md); dependency map
+> và task đang mở nằm ở [04-break-task.md](./04-break-task.md). Không dùng file này làm entrypoint
+> mặc định hoặc suy ra SLO từ một benchmark đơn lẻ.
 
 ## 1. Kết luận chính
 
@@ -138,11 +143,11 @@ partition key sai, consumer handler chậm, transaction quá nhỏ hoặc filesy
 
 ## 7. Việc tiếp theo khi quay lại
 
-1. Xác nhận đang đo scan chưa approve hay approve-to-Catalog.
-2. Lấy phase timing, outbox backlog và Kafka lag trên cùng một run.
-3. So sánh resource profile giữa máy nhanh và laptop hiện tại.
-4. Chỉ sau khi có evidence mới lập hypothesis tuning: async producer, topic
-   partitions, consumer concurrency hoặc bulk Catalog ingestion.
+1. Xác nhận đang đo scan chưa approve hay approve 1M tới `QUERY_DB_READY`.
+2. Với approve, chạy workload ladder 1K → 5K → 50K → 250K → 1M; 5K chỉ là calibration rung.
+3. Lấy phase timing, outbox backlog, Kafka lag, Catalog/Query transaction và watermark trên cùng một operation.
+4. Chỉ sau khi có evidence mới lập hypothesis tuning: async producer, topic partitions, consumer
+   concurrency, Catalog coalesce hoặc Query bulk projection.
 
 Các kiểm tra build, Testcontainers, migration, runtime và benchmark mới vẫn là
 deferred cho tới khi được yêu cầu rõ ràng.
