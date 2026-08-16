@@ -31,6 +31,8 @@ Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corrett
 12. Tạo/sửa học liệu UC-xx, SC-xx, scenario hoặc Scale & Capacity: dùng `$study-use-case-scenario`; card/evidence ở `manual/learning/use-cases/`, deep-dive dùng chung ở `manual/learning/deep-dive/`.
 13. Đánh giá release/cutover, service mới, async worker/scheduler, messaging pipeline hoặc major migration: dùng `$production-readiness-review` theo sáu pillar Well-Architected và control workflow nội bộ; không dùng mặc định cho diff nhỏ.
 14. Liệt kê kiến thức đã học, active recall, mock hỏi-đáp hoặc đánh giá mức nắm một topic: dùng `$review-learning`; roadmap là owner của snapshot tiến độ học cá nhân.
+15. Viết, tổ chức, phân tầng hoặc chuẩn hóa Unit/Integration/Benchmark Test cho Backend: dùng `$author-backend-tests`; nếu skill chưa được nhận diện, đọc `.agents/skills/author-backend-tests/SKILL.md`.
+
 
 Không đọc toàn bộ plan, context hay feature lịch sử. Chi tiết về ADLC, contract và session nằm trong skill tương ứng.
 
