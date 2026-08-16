@@ -3,6 +3,7 @@ package com.filemngt.v2.scan.adapter.out.persistence.inventory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,5 +50,19 @@ class ScanFileInventorySetWriterTest {
         verify(jdbcTemplate).update(sql.capture(), eq(runId), eq("a"), eq("z"));
         assertThat(sql.getValue()).contains("INSERT INTO scan_file_inventory");
         assertThat(sql.getValue()).doesNotContain("UPDATE", "NOT EXISTS");
+    }
+
+    @Test
+    void insertsOnlyMissingInventoryRowsWithHashAntiJoin() {
+        UUID runId = UUID.fromString("019fe011-2278-7c46-9008-19a8c90ed5e4");
+        when(jdbcTemplate.update(anyString(), eq(runId), eq("a"), eq("z"))).thenReturn(2);
+        var writer = new ScanFileInventorySetWriter(jdbcTemplate);
+
+        assertThat(writer.upsertChanged(runId, "a", "z").inserted()).isEqualTo(2);
+
+        var sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate, times(2)).update(sql.capture(), eq(runId), eq("a"), eq("z"));
+        assertThat(sql.getAllValues().get(1)).contains("LEFT JOIN scan_file_inventory", "inventory.root_key IS NULL");
+        assertThat(sql.getAllValues().get(1)).doesNotContain("NOT EXISTS");
     }
 }

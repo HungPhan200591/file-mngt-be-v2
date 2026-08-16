@@ -225,17 +225,35 @@ class ScanCorePipelineBenchmarkTest {
         verify(cursorProvider).open(any(Path.class), eq(ROOT_KEY));
     }
 
+    private static final String BANNER_BORDER =
+            "==========================================================================================";
+
     private void logResult(ScanCoreBenchmarkScenario scenario, ScanRunEntity run, long durationMillis) {
         double throughput = (run.scannedFileCount() * 1_000.0) / Math.max(1L, durationMillis);
         LOGGER.info(
-                "Scan-core benchmark hoàn tất: scenario={}, status={}, files={}, proposals={}, issues={}, durationMs={}, throughputFilesPerSecond={}",
+                """
+
+                {}
+                🚀 SCAN-CORE BENCHMARK HOÀN TẤT
+                ------------------------------------------------------------------------------------------
+                 • Scenario   : {}
+                 • Status     : {}
+                 • Files      : {}
+                 • Proposals  : {}
+                 • Issues     : {}
+                 • Duration   : {} ms
+                 • Throughput : {} files/s
+                {}
+                """,
+                BANNER_BORDER,
                 scenario,
                 run.status(),
                 run.scannedFileCount(),
                 run.proposalCount(),
                 run.issueCount(),
                 durationMillis,
-                Math.round(throughput));
+                Math.round(throughput),
+                BANNER_BORDER);
     }
 
     private static long elapsedMillis(long startedNanos) {

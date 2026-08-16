@@ -28,7 +28,8 @@ public enum ScanCoreBenchmarkScenario {
         return switch (this) {
             case COLD, FULL_CHANGE, REVIVED -> true;
             case UNCHANGED -> false;
-            case INCREMENTAL -> position % 100 == 0;
+            // Fixture mutate path issue kết thúc bằng "00.mp4"; issue rate 1% nên chọn mỗi 1.000 item.
+            case INCREMENTAL -> position % 1_000 == 0;
         };
     }
 
