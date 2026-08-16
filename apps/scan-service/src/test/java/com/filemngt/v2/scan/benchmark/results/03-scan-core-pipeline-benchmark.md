@@ -121,9 +121,17 @@ Kết quả xác nhận mục tiêu correctness/runtime chính của thay đổi
 
 `COLD` đã dưới 30 giây và vượt 33.000 files/s trong run này, phù hợp giả thuyết bỏ diff-stage tiết kiệm khoảng 6–7 giây. Tuy nhiên `FULL_CHANGE` và `REVIVED` biến động trái chiều giữa hai process benchmark dù vẫn dùng `WARM_DIFF`; chưa được coi là chứng cứ không-regression. Cần ít nhất hai run nữa cùng manifest trước khi chốt FT-047.
 
+### Current page-size tuning — `DIFF_PAGE_SIZE=25,000`
+
+Sau các benchmark historical ở trên, `DIFF_PAGE_SIZE` được giảm từ `100,000` xuống `25,000`.
+Với 1M rows, reconciliation hiện đọc khoảng 40 page/chunk thay vì 10 page/chunk; `business-chunk-size=100,000`
+chỉ còn là upper bound. Kết quả COLD gần nhất vẫn khoảng `25–26s`, không khác có ý nghĩa so với run trước,
+nên thay đổi này được ghi nhận là bounded-memory/transaction tuning, không phải performance improvement mới.
+
 - **Mã bài đo**: `BENCH-03-SCAN-CORE`
 - **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java)
-- **Workload**: 1.000.000 files (990.000 proposals, 10.000 issues, 10 chunks x 100k items)
+- **Historical workload**: 1.000.000 files (990.000 proposals, 10.000 issues, 10 chunks x 100k items)
+- **Current tuning**: `DIFF_PAGE_SIZE=25,000`, approximately 40 pages/chunks for 1M rows
 - **Môi trường**: PostgreSQL Testcontainers (`postgres:18.0-alpine`), Java 25, In-Memory Stream Cursor (Zero Disk I/O)
 
 ---

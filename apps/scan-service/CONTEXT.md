@@ -44,6 +44,11 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 - Reconciliation analyze chạy song song trên virtual thread với mức parallelism cấu hình
   (`scan.reconciliation-parallelism`, default 8). Commit DB vẫn single-thread trong
   `@Transactional(REQUIRES_NEW)`. Nếu bất kỳ partition fail, cancel tất cả partition còn lại.
+- Reconciliation keyset reader hiện giới hạn `DIFF_PAGE_SIZE=25.000`; với workload 1M,
+  đây là khoảng 40 page/chunk thực tế. `business-chunk-size=100.000` chỉ là upper bound
+  hiện tại, không phải kích thước chunk hiệu dụng khi page reader nhỏ hơn. Benchmark không
+  cho thấy gain latency rõ ràng sau khi giảm từ 100.000 xuống 25.000; lựa chọn này phục vụ
+  bounded memory và giới hạn transaction.
 - Reconciliation hot write path dùng PostgreSQL `COPY` trực tiếp cho `scan_proposal`/
   `scan_issue`. Inventory cold root được nhận diện một lần sau lease validation và ghi bằng
   `INSERT ... SELECT` từ `scan_inventory_diff_stage`; warm root giữ set-based

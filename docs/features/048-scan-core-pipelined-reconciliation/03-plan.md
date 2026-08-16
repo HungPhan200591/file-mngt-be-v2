@@ -33,6 +33,11 @@ Must Preserve: one transaction per chunk, ordered checkpoint, lease fence, bound
 Latest IntelliJ evidence: COLD completed in 25.371s with capacity 1 and 26.408s with capacity 2. Capacity 1 is selected;
 warm scenarios remain regression evidence because their database workload is substantially noisier.
 
+Post-benchmark tuning changed `DIFF_PAGE_SIZE` from 100,000 to 25,000. This makes the current reconciliation reader
+bounded to approximately 40 pages/chunks for 1M rows; the 100,000 business chunk size remains only an upper bound.
+The rerun did not produce a measurable improvement, so 25,000 is recorded as a bounded-memory/transaction tuning,
+not as a new SLO gain.
+
 The report must include queue wait, parse time, commit time, heap/live chunk count, lease extensions and total duration.
 
 ## 4. Rollback and gate
