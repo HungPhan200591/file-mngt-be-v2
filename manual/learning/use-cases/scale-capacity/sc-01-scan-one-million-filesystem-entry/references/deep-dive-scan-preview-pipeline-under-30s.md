@@ -11,33 +11,33 @@ Toàn bộ pipeline Scan Preview được điều phối dựa trên **1 Trục 
 
 ```mermaid
 flowchart TD
-    START(["POST /api/v2/scans/previews<br/>(Khởi tạo Scan 1M file)"])
+    START(["Khởi tạo Scan 1M<br/>POST /previews"])
     
     subgraph BACKBONE["Trục xương sống chính (Backbone Pipeline)"]
         direction TB
-        S1["[Phase 1] Cấp Lease<br/>Khóa độc quyền rootKey"]
-        S2["[Phase 2] Discovery 1M<br/>Stream COPY 2 Segments"]
-        S3["[Phase 3] Set-based Diff<br/>Lọc changed files"]
-        S4["[Phase 4] Parallel Analyze<br/>8 Virtual Threads"]
-        S5["[Phase 5] Direct COPY<br/>Ghi proposal + issue"]
-        S6["[Phase 6] Complete Run<br/>Cập nhật COMPLETED"]
+        S1["[Phase 1] Cấp Lease<br/>Khóa độc quyền<br/>rootKey (60s)"]
+        S2["[Phase 2] Discovery<br/>Stream COPY 1M<br/>(2 Segments 500k)"]
+        S3["[Phase 3] Set Diff<br/>SQL Anti-Join lọc<br/>changed files"]
+        S4["[Phase 4] Parallel<br/>8 Virtual Threads<br/>(100k items/chunk)"]
+        S5["[Phase 5] Direct COPY<br/>Ghi proposal + issue<br/>(Binary Stream)"]
+        S6["[Phase 6] Complete<br/>Cập nhật COMPLETED<br/>&amp; Dọn Staging"]
         
         S1 --> S2 --> S3 --> S4 --> S5 --> S6
     end
 
     subgraph SIDE_BRANCHES["4 Nhánh rẽ phụ (Ancillary Lanes)"]
         direction TB
-        B1["[Nhánh 1] SSE Progress<br/>Stream realtime cho UI"]
-        B2["[Nhánh 2] Catalog Check<br/>Micro-batch 500"]
-        B3["[Nhánh 3] Lease Heartbeat<br/>Gia hạn lease 60s"]
-        B4["[Nhánh 4] Review Projection<br/>Dựng ngầm &amp; Swap Gen"]
+        B1["[Nhánh 1] SSE Stream<br/>Bắn tiến độ realtime<br/>cho giao diện UI"]
+        B2["[Nhánh 2] Catalog<br/>Micro-batch 500<br/>kiểm tra trùng lặp"]
+        B3["[Nhánh 3] Heartbeat<br/>Gia hạn lease 60s<br/>chống zombie worker"]
+        B4["[Nhánh 4] Review Queue<br/>Dựng ngầm Gen 2<br/>&amp; Swap tức thì"]
     end
 
     START --> S1
-    S2 -.->|"Bắn event tiến độ"| B1
-    S4 -.->|"Kiểm tra trùng lặp"| B2
+    S2 -.->|"Bắn tiến độ"| B1
+    S4 -.->|"Kiểm tra trùng"| B2
     S2 & S5 -.->|"Gia hạn lease"| B3
-    S6 ==>|"Enqueue Task sau khi xong"| B4
+    S6 ==>|"Enqueue Task"| B4
 
     style START fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style S1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
@@ -57,11 +57,12 @@ flowchart TD
 | Chặng | Tên giai đoạn | Trách nhiệm kỹ thuật cốt lõi | Thời gian thực thi | Luồng con chi tiết |
 | :--- | :--- | :--- | :---: | :---: |
 | **Phase 1** | Cấp Lease Fencing | Khóa phân vùng `rootKey`, chặn 2 scan chạy đè lên nhau | $\sim 5\text{ms}$ | Mục 3 |
-| **Phase 2** | Discovery & Stream COPY | `Files.walkFileTree` $\to$ Bounded Queue $\to$ Direct COPY 2 segments (500k/segment) vào bảng UNLOGGED | $\sim 1,8\text{s}$ | **Sub-flow A (Mục 4)** |
-| **Phase 3** | Set-based Diff | 1 câu SQL `INSERT ... SELECT` lọc các file mới/đổi vào `scan_inventory_diff_stage` | $\sim 0,4\text{s}$ | **Sub-flow B (Mục 5)** |
-| **Phase 4** | Parallel Analyzer | Chia 8 partition trên Java Virtual Threads, parse regex và phân loại proposal/issue | $\sim 18,5\text{s}$ | **Sub-flow B (Mục 5)** |
-| **Phase 5** | Direct COPY Persistence | Ghi trực tiếp `scan_proposal` và `scan_issue` bằng PostgreSQL `COPY`, commit `@Transactional(REQUIRES_NEW)` | $\sim 4,2\text{s}$ | **Sub-flow C (Mục 6)** |
-| **Phase 6** | Complete & Hand-off | Đánh dấu `COMPLETED`, ném Task dựng Review Projection vào hàng đợi | $\sim 10\text{ms}$ | **Sub-flow D (Mục 7)** |
+| **Phase 2** | Discovery & Stream COPY | `Files.walkFileTree` $\to$ Bounded Queue $\to$ Direct COPY 2 segments (500k/segment) vào bảng UNLOGGED | $\sim 1,8\text{s} - 6,0\text{s}$ | **Sub-flow A (Mục 4)** |
+| **Phase 3** | Set-based Diff | 1 câu SQL `INSERT ... SELECT` lọc các file mới/đổi vào `scan_inventory_diff_stage` | $\sim 0,4\text{s} - 6,5\text{s}$ | **Sub-flow B (Mục 5)** |
+| **Phase 4** | Parallel Analyzer | Đọc từng page Keyset 100.000 items, chia 8 partition trên Java Virtual Threads (~12.5k items/thread) | $\sim 8,5\text{s} - 18,5\text{s}$ | **Sub-flow B (Mục 5)** |
+| **Phase 5** | Direct COPY Persistence | Ghi trực tiếp `scan_proposal` và `scan_issue` bằng PostgreSQL `COPY`, commit `@Transactional(REQUIRES_NEW)` | $\sim 4,2\text{s} - 8,8\text{s}$ | **Sub-flow C (Mục 6)** |
+| **Phase 6** | Complete & Hand-off | Đánh dấu `COMPLETED`, dọn staging và ném Task dựng Review Projection vào hàng đợi | $\sim 1,5\text{s}$ | **Sub-flow D (Mục 7)** |
+
 
 > [!TIP]
 > ### 💡 Từ điển Thuật ngữ & Mental Model (Gốc từ & Cách liên tưởng)
@@ -90,36 +91,36 @@ flowchart TD
 flowchart TD
     subgraph PHASE_1_HTTP["Chặng 1: HTTP API (Sync &lt; 10ms)"]
         direction TB
-        REQ["1. POST /previews<br/>(Nhận request)"]
-        SNAP["2. Fetch Registry<br/>(Sync HTTP Catalog)"]
-        LEASE["3. Cấp Lease DB<br/>(Sync SQL)"]
-        RESP["4. Trả HTTP 202<br/>(Bàn giao cho Worker)"]
+        REQ["[1] Nhận Request<br/>POST /previews"]
+        SNAP["[2] Fetch Registry<br/>(Sync Catalog)"]
+        LEASE["[3] Cấp Lease DB<br/>(Sync Fencing)"]
+        RESP["[4] Trả HTTP 202<br/>(Bàn giao Worker)"]
         
         REQ --> SNAP --> LEASE --> RESP
     end
 
-    subgraph PHASE_2_DISCOVERY["Chặng 2: Discovery 1M (Producer-Consumer Async)"]
+    subgraph PHASE_2_DISCOVERY["Chặng 2: Discovery 1M (Producer-Consumer)"]
         direction TB
         T1["Thread 1: Walker<br/>Đọc đĩa liên tục<br/>(Producer I/O)"]
         Q(("Queue đệm<br/>(Cap 1.000)"))
-        T2["Thread 2: COPY<br/>Ghi nhị phân<br/>scan_inv_stage"]
+        T2["Thread 2: COPY<br/>Ghi UNLOGGED<br/>scan_inventory_stage"]
         
         T1 -->|"queue.put()"| Q
         Q -->|"queue.take()"| T2
     end
 
     subgraph PHASE_3_DIFF["Chặng 3: Set-based Diff (Sync DB Call)"]
-        SQL["1 câu SQL Diff<br/>Trừ tập hợp trên DB<br/>(Sync đợi DB 0,4s)"]
+        SQL["SQL Hash Anti-Join<br/>Trừ tập hợp trên DB<br/>(Sync đợi DB)"]
     end
 
-    subgraph PHASE_4_ANALYZE["Chặng 4: Parallel Analyzer (Concurrent Virtual Threads)"]
+    subgraph PHASE_4_ANALYZE["Chặng 4: Parallel Analyzer (Virtual Threads)"]
         direction TB
-        SPLIT["Chia 8 Partitions<br/>(5.000 items/chunk)"]
+        SPLIT["Chia 8 Partitions<br/>(100k items/chunk<br/>~12.5k/thread)"]
         V1["Virtual Thread 1<br/>(Parse Regex CPU)"]
         V2["Virtual Thread 2<br/>(Parse Regex CPU)"]
         V8["Virtual Thread 8<br/>(Parse Regex CPU)"]
-        CAT["Catalog Check<br/>(Sync HTTP 500 items<br/>trên từng Virtual Thread)"]
-        JOIN["Join Barrier<br/>(Đợi cả 8 thread xong)"]
+        CAT["Catalog Check<br/>(Sync HTTP 500<br/>trên mỗi luồng)"]
+        JOIN["Join Barrier<br/>(Đợi 8 luồng xong)"]
 
         SPLIT --> V1 & V2 & V8
         V1 & V2 & V8 <--> CAT
@@ -129,9 +130,9 @@ flowchart TD
     subgraph PHASE_5_PERSIST["Chặng 5: Commit DB (Sync Local Transaction)"]
         direction TB
         TX["Transaction Cục bộ<br/>@Transactional<br/>(REQUIRES_NEW)"]
-        COPY_P["Direct COPY<br/>scan_proposal"]
-        COPY_I["Direct COPY<br/>scan_issue"]
-        INV_UP["Update inventory<br/>&amp; Checkpoint"]
+        COPY_P["Direct COPY<br/>vào scan_proposal<br/>(Nhị phân)"]
+        COPY_I["Direct COPY<br/>vào scan_issue<br/>(Nhị phân)"]
+        INV_UP["Cập nhật<br/>scan_file_inventory<br/>&amp; Checkpoint"]
 
         TX --> COPY_P --> COPY_I --> INV_UP
     end
@@ -176,12 +177,12 @@ flowchart TD
 | Chặng xử lý | Chi tiết hoạt động | Cơ chế thực thi | Thời gian |
 | :--- | :--- | :---: | :---: |
 | **1. HTTP Controller** | Kiểm tra Snapshot Catalog + Cấp Lease Fencing + Trả HTTP `202`. | **SYNC** (Chặn request client $< 10\text{ms}$) | $< 10\text{ms}$ |
-| **2. Discovery Phase** | **Thread 1 (Walker)** quét đĩa đẩy vào Queue; **Thread 2 (COPY)** rút Queue ghi PostgreSQL `COPY`. | **ASYNC** giữa Đĩa và Database (Tách rời I/O qua Queue) | $\sim 1,8\text{s}$ (1M files) |
-| **3. Set-based Diff** | Gửi 1 câu SQL `INSERT ... SELECT` sang PostgreSQL so sánh fingerprint. | **SYNC** (Luồng Worker đợi DB trả kết quả) | $\sim 0,4\text{s}$ |
-| **4. Java Analyzer** | Chia 8 phân vùng chạy song song trên **8 Virtual Threads (Java 25)**. | **PARALLEL / CONCURRENT** (Đa nhân CPU) | $\sim 18,5\text{s}$ |
+| **2. Discovery Phase** | **Thread 1 (Walker)** quét đĩa đẩy vào Queue; **Thread 2 (COPY)** rút Queue ghi PostgreSQL `COPY`. | **ASYNC** giữa Đĩa và Database (Tách rời I/O qua Queue) | $\sim 1,8\text{s} - 6,0\text{s}$ (1M files) |
+| **3. Set-based Diff** | Gửi 1 câu SQL `INSERT ... SELECT` sang PostgreSQL so sánh fingerprint. | **SYNC** (Luồng Worker đợi DB trả kết quả) | $\sim 0,4\text{s} - 6,5\text{s}$ |
+| **4. Java Analyzer** | Đọc Keyset 100k items, chia 8 phân vùng chạy song song trên **8 Virtual Threads (Java 25)**. | **PARALLEL / CONCURRENT** (Đa nhân CPU) | $\sim 8,5\text{s} - 18,5\text{s}$ |
 | **- Catalog Existence** | Từng Virtual Thread gọi HTTP sang Catalog theo micro-batch 500. | **SYNC** bên trong từng Virtual Thread | $\sim 15\text{ms}$/batch |
 | **- Join Barrier** | Luồng Worker chính đứng đợi cả 8 Virtual Threads hoàn tất. | **SYNC BARRIER** (Structured Concurrency) | Điểm chốt chặn |
-| **5. Commit DB Chunk** | Mở Transaction ghi `scan_proposal`, `scan_issue`, cập nhật `scan_run`. | **SYNC** (Local Transaction `@Transactional`) | $\sim 90\text{ms}$/chunk |
+| **5. Commit DB Chunk** | Mở Transaction ghi `scan_proposal`, `scan_issue`, cập nhật `scan_run`. | **SYNC** (Local Transaction `@Transactional`) | $\sim 1,5\text{s}$/chunk (100k items) |
 | **6. SSE Progress** | Phát event tiến độ phần trăm (`0% -> 100%`) cho trình duyệt. | **ASYNC** (Non-blocking qua `SseEmitter`) | Best-effort ($< 1\text{ms}$) |
 | **7. Review Projection** | `@Scheduled` Worker bốc Task dựng ngầm `generation = 2` và `swapRoot()`. | **ASYNC HOÀN TOÀN** (Tách rời khỏi tiến trình Scan) | Chạy ngầm độc lập |
 
@@ -196,15 +197,16 @@ flowchart TD
 >
 > 2. **Set-based Diff (Phép trừ tập hợp trên Database) vs. Row-by-row**:
 >    - **Nghĩa tiếng Anh thuần**: `Set-based` là *dựa trên lý thuyết tập hợp (toán học A, B)*; `Diff` (Difference) là *sự khác biệt / phép trừ tập hợp*.
->    - **Trong ngữ cảnh dự án**: Thay vì kéo 1 triệu dòng lên Java rồi dùng vòng lặp `for` so sánh từng dòng (Row-by-row tốn $> 30\text{s}$), ta bắt Database thực hiện 1 phép toán đại số quan hệ: $\text{Tập file vừa quét} - \text{Tập file cũ} = \text{Tập file mới/đổi}$ trong $0,4\text{s}$.
+>    - **Trong ngữ cảnh dự án**: Thay vì kéo 1 triệu dòng lên Java rồi dùng vòng lặp `for` so sánh từng dòng (Row-by-row tốn $> 30\text{s}$), ta bắt Database thực hiện 1 phép toán đại số quan hệ: $\text{Tập file vừa quét} - \text{Tập file cũ} = \text{Tập file mới/đổi}$.
 >    - **Tại sao gọi như vậy**: Triết lý thiết kế của cơ sở dữ liệu quan hệ (RDBMS) là xử lý theo khối tập hợp dữ liệu trong RAM của DB kernel thay vì xử lý tuần tự từng bản ghi.
 >    - **Cách liên tưởng**: *"Dùng rây lọc hạt cát: Đổ cả xô cát qua rây 1 lần (Set-based) thay vì nhặt từng hạt cát lên soi (Row-by-row)"*.
 >
 > 3. **Structured Concurrency, Virtual Threads & Join Barrier**:
 >    - **Nghĩa tiếng Anh thuần**: `Virtual Threads` là *luồng ảo siêu nhẹ (Java 25)*; `Structured Concurrency` là *xử lý đồng thời có tổ chức cấu trúc (mở ra cùng nhau, đóng lại cùng nhau)*; `Join Barrier` là *hàng rào hội quân / điểm danh*.
->    - **Trong ngữ cảnh dự án**: Khi cần phân tích 5.000 file, luồng chính chia làm 8 phần và mở 8 Virtual Threads chạy song song. Luồng chính đứng đợi ở "Join Barrier" (chốt điểm danh); khi cả 8 luồng báo cáo hoàn tất thì mới cùng nhau bước tiếp sang bước Commit DB.
+>    - **Trong ngữ cảnh dự án**: Khi cần phân tích 100.000 file trong 1 chunk, luồng chính chia làm 8 phần (~12.500 items/thread) và mở 8 Virtual Threads chạy song song. Luồng chính đứng đợi ở "Join Barrier" (chốt điểm danh); khi cả 8 luồng báo cáo hoàn tất thì mới cùng nhau bước tiếp sang bước Commit DB.
 >    - **Tại sao gọi như vậy**: Tránh tình trạng "luồng mồ côi" (Orphan thread) chạy lạc trôi không ai quản lý khi gặp lỗi.
 >    - **Cách liên tưởng**: *"Tổ đội đặc nhiệm chia 8 mũi tấn công và hẹn gặp nhau tại chốt tập kết (Join Barrier). Đúng giờ, đủ quân số 8 người mới cùng rút quân"*.
+
 
 ---
 
@@ -233,16 +235,16 @@ flowchart TD
 flowchart TD
     DISK[("Ổ cứng Filesystem<br/>(1.000.000 files)")]
     
-    DISK --> WALK["Files.walkFileTree()<br/>(Đọc I/O liên tục)"]
+    DISK --> WALK["Files.walkFileTree<br/>(Đọc I/O liên tục)"]
     
-    WALK --> QUEUE(("ArrayBlockingQueue<br/>(Capacity 1.000)"))
+    WALK --> QUEUE(("Queue đệm<br/>(Cap 1.000)"))
     
-    QUEUE --> SEGMENT{"Chia 2 Segments<br/>(500.000 rows/seg)"}
+    QUEUE --> SEGMENT{"Chia 2 Segments<br/>(500k rows/seg)"}
     
-    SEGMENT --> COPY1["PostgreSQL COPY #1<br/>(500.000 rows nhị phân)"]
-    SEGMENT --> COPY2["PostgreSQL COPY #2<br/>(500.000 rows nhị phân)"]
+    SEGMENT --> COPY1["PostgreSQL COPY #1<br/>(500k rows nhị phân)"]
+    SEGMENT --> COPY2["PostgreSQL COPY #2<br/>(500k rows nhị phân)"]
     
-    COPY1 & COPY2 --> STAGE[("scan_inventory_stage<br/>(Bảng UNLOGGED - Siêu tốc)")]
+    COPY1 & COPY2 --> STAGE[("scan_inventory_stage<br/>(Bảng UNLOGGED)")]
 
     style DISK fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style WALK fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
@@ -277,20 +279,20 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    STAGE[("scan_inventory_stage<br/>(1.000.000 files vừa quét)")]
-    INV[("scan_file_inventory<br/>(Dữ liệu lần scan trước)")]
+    STAGE[("scan_inventory_stage<br/>(1M files vừa quét)")]
+    INV[("scan_file_inventory<br/>(Dữ liệu quét trước)")]
     
-    STAGE & INV --> SQL_DIFF["1 câu SQL Set-based Diff<br/>(Phép trừ tập hợp trên DB)"]
+    STAGE & INV --> SQL_DIFF["SQL Set-based Diff<br/>(Trừ tập hợp trên DB)"]
     
     SQL_DIFF --> DIFF_TABLE[("scan_inventory_diff_stage<br/>(Chỉ chứa file MỚI / ĐỔI)")]
     
-    DIFF_TABLE --> CHUNK_READ["Đọc theo Bounded Chunk<br/>(5.000 items/chunk)"]
+    DIFF_TABLE --> CHUNK_READ["Đọc Bounded Chunk<br/>(100.000 items/chunk)"]
     
-    CHUNK_READ --> SPLIT["Chia 8 Phân vùng<br/>(Partition Splitter)"]
+    CHUNK_READ --> SPLIT["Chia 8 Phân vùng<br/>(~12.500 items/thread)"]
     
-    SPLIT --> V1["Virtual Thread #1"]
-    SPLIT --> V2["Virtual Thread #2"]
-    SPLIT --> V8["Virtual Thread #8"]
+    SPLIT --> V1["Virtual Thread #1<br/>(Parse Regex CPU)"]
+    SPLIT --> V2["Virtual Thread #2<br/>(Parse Regex CPU)"]
+    SPLIT --> V8["Virtual Thread #8<br/>(Parse Regex CPU)"]
     
     V1 & V2 & V8 --> MERGE["Gom kết quả<br/>(ScanChunk Analyzer)"]
 
@@ -307,21 +309,21 @@ flowchart TD
 ```
 
 ### 🔍 Cơ chế kỹ thuật:
-1. **Phép trừ tập hợp trên Database ($0,4\text{s}$)**: Thay vì kéo 1M file lên Java để so sánh từng file, Database tự chạy 1 câu SQL so khớp fingerprint (`file_size_bytes` + `modified_at`). Nếu file không đổi $\implies$ Bỏ qua ngay lập tức.
-2. **Java 25 Virtual Threads Parallelism**: 8 luồng ảo chạy song song trên CPU phân tích biểu thức chính quy (Regex) và phân loại Video / Comic / Image, giúp giảm thời gian phân tích từ $90\text{s} \to \mathbf{18,5\text{s}}$!
+1. **Phép trừ tập hợp trên Database**: Thay vì kéo 1M file lên Java để so sánh từng file, Database tự chạy 1 câu SQL so khớp fingerprint (`file_size_bytes` + `modified_at`). Nếu file không đổi $\implies$ Bỏ qua ngay lập tức.
+2. **Java 25 Virtual Threads Parallelism**: 8 luồng ảo chạy song song trên CPU phân tích biểu thức chính quy (Regex) và phân loại Video / Comic / Image cho từng chunk 100.000 items (~12.500 items/thread).
 
 > [!TIP]
 > ### 💡 Từ điển Thuật ngữ & Mental Model (Set-based & Phân tích song song)
 >
 > 1. **Set-based (Tư duy xử lý theo khối tập hợp toán học)**:
 >    - **Nghĩa tiếng Anh thuần**: `Set` là *tập hợp (trong toán học)*; `based` là *dựa trên / nền tảng trên*.
->    - **Trong ngữ cảnh dự án**: `Set-based` là phong cách ra lệnh cho Database xử lý trọn vẹn cả triệu dòng cùng một lúc như một tập hợp duy nhất bằng 1 câu lệnh SQL (`INSERT ... SELECT ... NOT EXISTS`), tận dụng engine đại số quan hệ tối ưu của PostgreSQL ($0,4\text{s}$). Ngược lại hoàn toàn với `Row-by-row` (hoặc `Procedural`): kéo dữ liệu lên Java rồi dùng vòng lặp `for-each` để so sánh từng dòng (tốn $> 30\text{s}$).
+>    - **Trong ngữ cảnh dự án**: `Set-based` là phong cách ra lệnh cho Database xử lý trọn vẹn cả triệu dòng cùng một lúc như một tập hợp duy nhất bằng 1 câu lệnh SQL (`INSERT ... SELECT ... NOT EXISTS`), tận dụng engine đại số quan hệ tối ưu của PostgreSQL. Ngược lại hoàn toàn với `Row-by-row` (hoặc `Procedural`): kéo dữ liệu lên Java rồi dùng vòng lặp `for-each` để so sánh từng dòng (tốn $> 30\text{s}$).
 >    - **Tại sao lại gọi như vậy**: Xuất phát từ *Lý thuyết tập hợp (Set Theory)* của nhà toán học Edgar F. Codd (cha đẻ RDBMS). Dữ liệu trong database là các quan hệ tập hợp, máy tính xử lý phép hợp/giao/trừ tập hợp nhanh gấp hàng trăm lần việc lặp từng phần tử.
 >    - **💡 Cách liên tưởng**: *"Thu hoạch lúa bằng máy gặt đập liên hợp (Set-based: gom cả thửa ruộng một lượt) thay vì cầm liềm cắt từng bông lúa một (Row-by-row)"*.
 >
 > 2. **Partitioning & Deterministic Merge (Chia để trị & Hợp nhất xác định)**:
 >    - **Nghĩa tiếng Anh thuần**: `Partition` là *vách ngăn / chia phần*; `Deterministic` là *xác định / luôn ra cùng 1 kết quả không đổi*; `Merge` là *gộp lại*.
->    - **Trong ngữ cảnh dự án**: 5.000 file được chia đều cho 8 Virtual Threads chạy song song. Khi xong, kết quả được gộp lại theo đúng thứ tự ban đầu để đảm bảo tính nhất quán (Deterministic).
+>    - **Trong ngữ cảnh dự án**: 100.000 file trong mỗi chunk được chia đều cho 8 Virtual Threads chạy song song (~12.500 items/thread). Khi xong, kết quả được gộp lại theo đúng thứ tự ban đầu để đảm bảo tính nhất quán (Deterministic).
 >    - **💡 Cách liên tưởng**: *"Chia bài kiểm tra cho 8 giám khảo cùng chấm điểm (Partitioning), sau đó xếp lại bài theo đúng thứ tự số báo danh (Deterministic Merge)"*.
 
 ---
@@ -330,26 +332,27 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    ANALYZE["Kết quả phân tích từ Java<br/>(Proposals &amp; Issues)"]
+    ANALYZE["Kết quả phân tích<br/>từ Java (RAM)<br/>(Proposals &amp; Issues)"]
     
-    subgraph TX["Transaction Cục bộ (@Transactional REQUIRES_NEW)"]
+    subgraph TX["Transaction Cục bộ<br/>@Transactional(REQUIRES_NEW)"]
         direction TB
-        C1["[1] Direct COPY vào scan_proposal<br/>(Ghi trực tiếp nhị phân)"]
-        C2["[2] Direct COPY vào scan_issue<br/>(Ghi file lỗi/mơ hồ)"]
-        C3["[3] Cập nhật scan_file_inventory<br/>(Cold / Warm Path)"]
-        C4["[4] Ghi Checkpoint + Lease Fence<br/>vào scan_run"]
+        C1["[1] Direct COPY<br/>vào scan_proposal<br/>(Ghi nhị phân)"]
+        C2["[2] Direct COPY<br/>vào scan_issue<br/>(Ghi file lỗi/mơ hồ)"]
+        C3["[3] Cập nhật<br/>scan_file_inventory<br/>(Cold / Warm Path)"]
+        C4["[4] Ghi Checkpoint<br/>+ Lease Fence<br/>vào scan_run"]
         
         C1 --> C2 --> C3 --> C4
     end
 
     ANALYZE --> TX
-    TX --> COMMIT[("Commit DB Chunk")]
+    TX --> COMMIT[("Commit DB Chunk<br/>(100.000 items)")]
 
     style ANALYZE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style TX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style C1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style C2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style C3 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style C4 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
     style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
@@ -376,23 +379,23 @@ Sau khi Scan hoàn tất, luồng Review Projection chạy ngầm hoàn toàn đ
 
 ```mermaid
 flowchart TD
-    COMPLETE["Scan hoàn tất 100%<br/>(ScanRun.status = COMPLETED)"]
+    COMPLETE["Scan hoàn tất 100%<br/>(Status = COMPLETED)"]
     
-    COMPLETE --> ENQUEUE["Đẩy 1 Task vào DB:<br/>scan_review_projection_task"]
+    COMPLETE --> ENQUEUE["Đẩy 1 Task vào DB:<br/>scan_review_proj_task"]
     
-    ENQUEUE --> WORKER["Worker @Scheduled (1s/lần)<br/>Bốc Task lên xử lý"]
+    ENQUEUE --> WORKER["Worker @Scheduled<br/>(Chu kỳ 1s/lần)<br/>Bốc Task xử lý ngầm"]
     
-    WORKER --> BUILD["Dựng ngầm thế hệ mới (Gen 2):<br/>INSERT INTO scan_review_proposal<br/>WHERE generation = 2"]
+    WORKER --> BUILD["Dựng ngầm Gen 2:<br/>INSERT review_proposal<br/>WHERE gen = 2"]
     
-    BUILD --> LOCK["lockRoot(rootKey)<br/>SELECT ... FOR UPDATE"]
+    BUILD --> LOCK["lockRoot(rootKey)<br/>SELECT FOR UPDATE"]
     
-    LOCK --> REFRESH["Cập nhật các quyết định đã duyệt<br/>(REFRESH_DECISION_SQL)"]
+    LOCK --> REFRESH["Cập nhật quyết định<br/>đã duyệt từ trước"]
     
-    REFRESH --> SWAP["Cú tráo đổi thế hệ O(1):<br/>UPDATE scan_review_projection_root<br/>SET current_generation = 2 (&lt;1ms)"]
+    REFRESH --> SWAP["Tráo thế hệ O(1):<br/>UPDATE projection_root<br/>SET current_gen = 2"]
     
-    SWAP --> CLEANUP["Dọn dẹp rác thế hệ cũ:<br/>DELETE ... WHERE generation &lt; 2"]
+    SWAP --> CLEANUP["Dọn rác thế hệ cũ:<br/>DELETE WHERE gen &lt; 2"]
     
-    SWAP --> UI["Admin UI xem ngay lập tức<br/>Review Queue Thế hệ 2!"]
+    SWAP --> UI["Admin UI xem ngay:<br/>Review Queue Gen 2!"]
 
     style COMPLETE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style ENQUEUE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
@@ -426,16 +429,16 @@ flowchart TD
 ```text
 [Filesystem 1M files]
        │
-       ▼ (Phase 2: COPY 1.8s)
+       ▼ (Phase 2: COPY Staging)
 [scan_inventory_stage] (UNLOGGED)
        │
-       ▼ (Phase 3: SQL Set-based Diff 0.4s)
+       ▼ (Phase 3: SQL Set-based Diff)
 [scan_inventory_diff_stage] (UNLOGGED - Chỉ chứa file mới/đổi)
        │
-       ▼ (Phase 4: Parallel Virtual Threads 18.5s)
+       ▼ (Phase 4: Parallel Virtual Threads 10 Chunks x 100k)
 [Java Analyzer in RAM]
        │
-       ▼ (Phase 5: Direct COPY 4.2s)
+       ▼ (Phase 5: Direct COPY 10 Transactions)
 [scan_proposal] & [scan_issue] & [scan_file_inventory] (Durable Storage)
        │
        ▼ (Phase 6: Hoàn tất Scan Run -> Enqueue Task)
@@ -444,5 +447,6 @@ flowchart TD
        ▼ (Luồng con D: Background Worker Rebuild & Swap)
 [scan_review_proposal] (Read Model CQRS hiển thị cho Admin UI)
 ```
+
 
 👉 **Tổng thời gian toàn bộ tiến trình**: $1,8\text{s} + 0,4\text{s} + 18,5\text{s} + 4,2\text{s} \approx \mathbf{24,9\text{ giây}}$ (Hoàn thành xuất sắc mục tiêu $< 30\text{s}$ cho 1.000.000 files!).
