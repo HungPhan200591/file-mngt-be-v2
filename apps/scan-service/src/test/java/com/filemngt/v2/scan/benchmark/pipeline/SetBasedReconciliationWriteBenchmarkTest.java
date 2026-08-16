@@ -22,13 +22,13 @@ import org.testcontainers.utility.DockerImageName;
  * Benchmark Phase 3 & 5 (Set-based Reconciliation Write) trên PostgreSQL.
  *
  * Chạy từ root:
- * {@code mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmark}
+ * {@code mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest}
  */
 @Tag("benchmark")
 @Testcontainers
 @SpringBootTest(properties = {"scan.outbox.enabled=false", "spring.task.scheduling.enabled=false"})
-class SetBasedReconciliationWriteBenchmark {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SetBasedReconciliationWriteBenchmark.class);
+class SetBasedReconciliationWriteBenchmarkTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SetBasedReconciliationWriteBenchmarkTest.class);
     private static final int ROW_COUNT = 1_000_000;
     private static final String ROOT_KEY = "set-based-benchmark";
     private static final String PROPOSAL_FK = "scan_proposal_scan_run_id_fkey";

@@ -1,8 +1,9 @@
 # ⚡ Benchmark Chi tiết: Phase 4 CPU Parallel Analyzer & Virtual Threads
 
 - **Mã bài đo**: `BENCH-03-CPU-PARALLEL-ANALYZER`
-- **Class thực thi**: [`ScanParallelAnalyzerBenchmark.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanParallelAnalyzerBenchmark.java)
+- **Class thực thi**: [`ScanParallelAnalyzerBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanParallelAnalyzerBenchmarkTest.java)
 - **Workload**: 1.000.000 Synthetic Files trong RAM (`SyntheticScanItemGenerator`)
+
 - **Môi trường**: Amazon Corretto 25.0.4, 8 Virtual Threads Partitions
 
 ---

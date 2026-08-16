@@ -21,10 +21,10 @@ import tools.jackson.databind.ObjectMapper;
  * Benchmark Phase 4 (Parallel Analyzer) trên 1.000.000 records giả lập trong RAM.
  *
  * Chạy từ root:
- * {@code mvn test -pl apps/scan-service -Dtest=ScanParallelAnalyzerBenchmark}
+ * {@code mvn test -pl apps/scan-service -Dtest=ScanParallelAnalyzerBenchmarkTest}
  */
 @Tag("benchmark")
-class ScanParallelAnalyzerBenchmark {
+class ScanParallelAnalyzerBenchmarkTest {
 
     private ScanParallelAnalyzer parallelAnalyzer;
     private ScanExecutionContext context;

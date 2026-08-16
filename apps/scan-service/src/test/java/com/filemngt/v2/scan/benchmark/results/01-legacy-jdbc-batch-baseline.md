@@ -1,8 +1,9 @@
 # 📜 Benchmark Chi tiết: Legacy JDBC Batch Baseline (FT-028)
 
 - **Mã bài đo**: `BENCH-01-LEGACY-JDBC`
-- **Class thực thi**: [`JdbcBatchReconciliationWriteBenchmark.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/legacy/JdbcBatchReconciliationWriteBenchmark.java)
+- **Class thực thi**: [`JdbcBatchReconciliationWriteBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/legacy/JdbcBatchReconciliationWriteBenchmarkTest.java)
 - **Workload**: 1.000.000 diff rows (1M inventory, 900k proposals, 100k issues)
+
 - **Môi trường**: PostgreSQL Testcontainers (`postgres:18.0-alpine`), Java 25
 
 ---

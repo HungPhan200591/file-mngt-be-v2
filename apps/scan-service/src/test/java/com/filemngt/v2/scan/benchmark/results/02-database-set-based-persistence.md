@@ -1,8 +1,9 @@
 # 💾 Benchmark Chi tiết: Database Set-based Persistence (FT-031)
 
 - **Mã bài đo**: `BENCH-02-DB-SET-BASED`
-- **Class thực thi**: [`SetBasedReconciliationWriteBenchmark.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/SetBasedReconciliationWriteBenchmark.java)
+- **Class thực thi**: [`SetBasedReconciliationWriteBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/SetBasedReconciliationWriteBenchmarkTest.java)
 - **Workload**: 1.000.000 diff rows (1M inventory, 900k proposals, 100k issues)
+
 - **Môi trường**: PostgreSQL Testcontainers (`postgres:18.0-alpine`), Java 25
 
 ---

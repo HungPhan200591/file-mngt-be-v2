@@ -12,11 +12,11 @@ com.filemngt.v2.scan.benchmark/
 │   └── SyntheticScanItemGenerator.java    <-- Generator sinh dữ liệu sạch (10k -> 1.000.000+ files)
 │
 ├── pipeline/                              <-- Các bài benchmark cho Scan Pipeline (Phase 1 -> 6)
-│   ├── ScanParallelAnalyzerBenchmark.java <-- [PHASE 4] CPU Regex, Evidence JSON & Virtual Threads trong RAM
-│   └── SetBasedReconciliationWriteBenchmark.java <-- [PHASE 3 & 5] PostgreSQL Direct COPY & SQL Set-based trên DB
+│   ├── ScanParallelAnalyzerBenchmarkTest.java <-- [PHASE 4] CPU Regex, Evidence JSON & Virtual Threads trong RAM
+│   └── SetBasedReconciliationWriteBenchmarkTest.java <-- [PHASE 3 & 5] PostgreSQL Direct COPY & SQL Set-based trên DB
 │
 ├── legacy/                                <-- Các bài benchmark đối chiếu kiến trúc cũ (Baseline)
-│   └── JdbcBatchReconciliationWriteBenchmark.java <-- [LEGACY] Baseline JDBC Batch truyền thống (84s / 1M)
+│   └── JdbcBatchReconciliationWriteBenchmarkTest.java <-- [LEGACY] Baseline JDBC Batch truyền thống (84s / 1M)
 │
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
@@ -57,17 +57,18 @@ Tất cả các lệnh Maven chạy từ **thư mục gốc dự án** với JDK
 ### ⚡ 1. Đo Phase 4 (CPU Java Virtual Threads trong RAM - 1M files):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-mvn test -pl apps/scan-service -Dtest=ScanParallelAnalyzerBenchmark
+mvn test -pl apps/scan-service -Dtest=ScanParallelAnalyzerBenchmarkTest
 ```
 
 ### 💾 2. Đo Phase 3 & 5 (Database Direct COPY + SQL Set-based - 1M rows):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmark
+mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest
 ```
 
 ### 📜 3. Đo Baseline JDBC Batch truyền thống (Đối chiếu lịch sử):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-mvn test -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmark
+mvn test -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmarkTest
 ```
+
