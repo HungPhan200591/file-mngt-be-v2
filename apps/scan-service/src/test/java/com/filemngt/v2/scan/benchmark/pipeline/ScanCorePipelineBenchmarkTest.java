@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -152,6 +153,7 @@ class ScanCorePipelineBenchmarkTest {
             ScanCoreBenchmarkDatabaseFixture.mutateInventory(jdbcTemplate, scenario);
         }
         cursor = new InMemoryScanFileCursor(items);
+        clearInvocations(cursorProvider);
         when(cursorProvider.open(any(Path.class), eq(ROOT_KEY))).thenReturn(cursor);
 
         ScanCoreBenchmarkScenario.Expectation expectation = scenario.expectation(items);
