@@ -183,14 +183,18 @@ class InventoryDiffQueryBenchmarkTest {
     }
 
     private void resetTables() {
-        jdbcTemplate.update("DELETE FROM scan_outbox_event");
-        jdbcTemplate.update("DELETE FROM scan_decision");
-        jdbcTemplate.update("DELETE FROM scan_proposal");
-        jdbcTemplate.update("DELETE FROM scan_issue");
-        jdbcTemplate.update("DELETE FROM scan_file_inventory");
-        jdbcTemplate.update("DELETE FROM scan_inventory_diff_stage");
-        jdbcTemplate.update("DELETE FROM scan_inventory_stage");
-        jdbcTemplate.update("DELETE FROM scan_run");
+        jdbcTemplate.update("""
+                TRUNCATE TABLE
+                    scan_outbox_event,
+                    scan_decision,
+                    scan_proposal,
+                    scan_issue,
+                    scan_file_inventory,
+                    scan_inventory_diff_stage,
+                    scan_inventory_stage,
+                    scan_run
+                CASCADE
+                """);
     }
 
     private long elapsedMillis(long startedNanos) {

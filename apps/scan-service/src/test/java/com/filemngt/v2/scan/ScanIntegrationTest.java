@@ -277,9 +277,9 @@ class ScanIntegrationTest {
                     .filter(item -> item.sourceRelativePath().equals("bad.mp4"))
                     .findFirst()
                     .orElseThrow();
-            assertThat(revived.state())
-                    .isEqualTo(com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
-            assertThat(runs.findById(reviveRunId).orElseThrow().changedFileCount()).isEqualTo(1L);
+            assertThat(revived.state()).isEqualTo(com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+            assertThat(runs.findById(reviveRunId).orElseThrow().changedFileCount())
+                    .isEqualTo(1L);
             assertThat(inventories.findAll().stream()
                             .filter(item -> item.sourceRelativePath().equals("bad.mp4"))
                             .count())

@@ -256,5 +256,4 @@ public class ScanChunkCommitter {
             List<ScanIssueEntity> issues) {}
 
     public record ChunkProgress(long files, long proposals, long issues, Long changedFiles, long reconciledFiles) {}
-
 }

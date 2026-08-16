@@ -17,7 +17,9 @@ public class ScanReconciliationPageReader {
     private final ScanTransactionTimeouts timeouts;
 
     public ScanReconciliationPageReader(
-            ScanInventoryDiffReader diffReader, ScanInventoryStageReader stageReader, ScanTransactionTimeouts timeouts) {
+            ScanInventoryDiffReader diffReader,
+            ScanInventoryStageReader stageReader,
+            ScanTransactionTimeouts timeouts) {
         this.diffReader = diffReader;
         this.stageReader = stageReader;
         this.timeouts = timeouts;

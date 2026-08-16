@@ -221,5 +221,4 @@ public class ScanExecutor {
             ScanInventoryItem firstItem,
             long previouslyScanned,
             int chunkIndex) {}
-
 }

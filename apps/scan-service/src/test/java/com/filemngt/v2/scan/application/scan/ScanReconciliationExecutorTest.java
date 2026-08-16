@@ -2,10 +2,10 @@ package com.filemngt.v2.scan.application.scan;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -33,14 +33,8 @@ class ScanReconciliationExecutorTest {
     private final ScanReconciliationPageReader pageReader = mock(ScanReconciliationPageReader.class);
     private final ScanExecutionLiveness liveness = mock(ScanExecutionLiveness.class);
     private final ScanProperties properties = new ScanProperties();
-    private final ScanReconciliationExecutor executor = new ScanReconciliationExecutor(
-            new ScanReconciliationPipeline(
-                    chunkCommitter,
-                    parallelAnalyzer,
-                    catalogExistenceFilter,
-                    pageReader,
-                    liveness,
-                    properties));
+    private final ScanReconciliationExecutor executor = new ScanReconciliationExecutor(new ScanReconciliationPipeline(
+            chunkCommitter, parallelAnalyzer, catalogExistenceFilter, pageReader, liveness, properties));
     private final ScanExecutionContext context = context();
 
     @BeforeEach
@@ -126,8 +120,7 @@ class ScanReconciliationExecutorTest {
                 .when(chunkCommitter)
                 .commitChangedChunk(any(), any(), any(), any());
 
-        assertThatThrownBy(() -> executor.reconcile(request(1, 1)))
-                .isInstanceOf(ScanLeaseExpiredException.class);
+        assertThatThrownBy(() -> executor.reconcile(request(1, 1))).isInstanceOf(ScanLeaseExpiredException.class);
 
         verifyNoInteractions(liveness);
     }

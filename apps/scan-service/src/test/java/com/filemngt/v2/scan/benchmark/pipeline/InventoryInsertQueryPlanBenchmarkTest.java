@@ -78,8 +78,7 @@ class InventoryInsertQueryPlanBenchmarkTest {
             """;
 
     @Container
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -188,8 +187,7 @@ class InventoryInsertQueryPlanBenchmarkTest {
                 (RowCallbackHandler) resultSet -> {
                     String line = resultSet.getString(1);
                     if (isPlanSignal(line)) {
-                        LOGGER.info(
-                                "Inventory chunk plan: mode={}, chunk={}, line={}", planMode, chunk, line);
+                        LOGGER.info("Inventory chunk plan: mode={}, chunk={}, line={}", planMode, chunk, line);
                     }
                 },
                 runId,
@@ -216,13 +214,17 @@ class InventoryInsertQueryPlanBenchmarkTest {
     }
 
     private void resetTables() {
-        jdbcTemplate.update("DELETE FROM scan_outbox_event");
-        jdbcTemplate.update("DELETE FROM scan_decision");
-        jdbcTemplate.update("DELETE FROM scan_proposal");
-        jdbcTemplate.update("DELETE FROM scan_issue");
-        jdbcTemplate.update("DELETE FROM scan_file_inventory");
-        jdbcTemplate.update("DELETE FROM scan_inventory_diff_stage");
-        jdbcTemplate.update("DELETE FROM scan_inventory_stage");
-        jdbcTemplate.update("DELETE FROM scan_run");
+        jdbcTemplate.update("""
+                TRUNCATE TABLE
+                    scan_outbox_event,
+                    scan_decision,
+                    scan_proposal,
+                    scan_issue,
+                    scan_file_inventory,
+                    scan_inventory_diff_stage,
+                    scan_inventory_stage,
+                    scan_run
+                CASCADE
+                """);
     }
 }

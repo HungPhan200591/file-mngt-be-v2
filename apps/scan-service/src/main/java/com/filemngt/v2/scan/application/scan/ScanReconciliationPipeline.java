@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 final class ScanReconciliationPipeline {
-    private static final int DIFF_PAGE_SIZE = 100_000;
+    private static final int DIFF_PAGE_SIZE = 25_000;
 
     private final ScanChunkCommitter chunkCommitter;
     private final ScanParallelAnalyzer parallelAnalyzer;
@@ -77,10 +77,10 @@ final class ScanReconciliationPipeline {
         AtomicReference<Thread> producerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<?> producer = executor.submit(() -> produce(
-                    request, queue, failure, producerThread, consumerThread));
-            Future<?> consumer = executor.submit(() -> consume(
-                    request, queue, failure, producerThread, consumerThread));
+            Future<?> producer =
+                    executor.submit(() -> produce(request, queue, failure, producerThread, consumerThread));
+            Future<?> consumer =
+                    executor.submit(() -> consume(request, queue, failure, producerThread, consumerThread));
             await(producer, consumer, failure);
         }
     }
@@ -106,7 +106,9 @@ final class ScanReconciliationPipeline {
             while (true) {
                 var page = readPage(request, afterPath);
                 for (int start = 0; start < page.items().size(); start += properties.getBusinessChunkSize()) {
-                    int end = Math.min(start + properties.getBusinessChunkSize(), page.items().size());
+                    int end = Math.min(
+                            start + properties.getBusinessChunkSize(),
+                            page.items().size());
                     AnalyzedChunk analyzed = analyze(request, page.items().subList(start, end));
                     int skipped = catalogExistenceFilter.filter(request.context(), analyzed.chunk());
                     queue.put(new AnalyzedChunk(++chunkIndex, analyzed.chunk(), skipped, analyzed.parseMillis()));
@@ -185,8 +187,7 @@ final class ScanReconciliationPipeline {
         }
     }
 
-    private void failPipeline(
-            AtomicReference<Throwable> failure, AtomicReference<Thread> peer, Throwable exception) {
+    private void failPipeline(AtomicReference<Throwable> failure, AtomicReference<Thread> peer, Throwable exception) {
         if (failure.compareAndSet(null, exception)) {
             Thread peerThread = peer.get();
             if (peerThread != null) {
@@ -247,8 +248,8 @@ final class ScanReconciliationPipeline {
 
     private AnalyzedChunk analyze(ScanReconciliationRequest request, List<ScanInventoryItem> items) {
         long startedNanos = System.nanoTime();
-        ScanChunk chunk = parallelAnalyzer.analyzeParallel(
-                request.context(), items, properties.getReconciliationParallelism());
+        ScanChunk chunk =
+                parallelAnalyzer.analyzeParallel(request.context(), items, properties.getReconciliationParallelism());
         long parseMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
         return new AnalyzedChunk(0, chunk, 0, parseMillis);
     }
@@ -259,13 +260,19 @@ final class ScanReconciliationPipeline {
     }
 
     private void recordFinalSkipped(ScanReconciliationRequest request) {
-        long changedFiles = request.progress().changedFiles() == null ? 0 : request.progress().changedFiles();
+        long changedFiles = request.progress().changedFiles() == null
+                ? 0
+                : request.progress().changedFiles();
         request.progress().recordSkipped(request.progress().files() - changedFiles);
     }
 
     private ScanChunkCommitter.ChunkProgress progressSnapshot(ScanProgress progress) {
         return new ScanChunkCommitter.ChunkProgress(
-                progress.files(), progress.proposals(), progress.issues(), progress.changedFiles(), progress.reconciledFiles());
+                progress.files(),
+                progress.proposals(),
+                progress.issues(),
+                progress.changedFiles(),
+                progress.reconciledFiles());
     }
 
     private sealed interface PipelineItem permits AnalyzedChunk, EndOfStream {}

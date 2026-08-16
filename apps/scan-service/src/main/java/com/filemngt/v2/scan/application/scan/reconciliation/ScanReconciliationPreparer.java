@@ -36,7 +36,8 @@ public class ScanReconciliationPreparer {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public ScanReconciliationPreparation prepare(UUID runId, String workerId, String rootKey, boolean overwriteExisting) {
+    public ScanReconciliationPreparation prepare(
+            UUID runId, String workerId, String rootKey, boolean overwriteExisting) {
         long startedNanos = System.nanoTime();
         timeouts.applyMutationTimeout();
         validateLease(runId, workerId);
