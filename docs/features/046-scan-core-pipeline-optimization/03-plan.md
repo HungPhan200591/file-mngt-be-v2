@@ -9,6 +9,8 @@ Must Preserve: inventory semantics, chunk atomicity, lease fencing, staging clea
 - **Scope / files**:
   - `apps/scan-service/src/main/java/.../ScanExecutionTimeline.java` [MODIFY]
   - `apps/scan-service/src/main/java/.../ScanInventoryStageWriter.java` [MODIFY]
+  - `apps/scan-service/src/main/java/.../ScanFileInventorySetWriter.java` [MODIFY]
+  - `apps/scan-service/src/main/resources/db/migration/V21__add_inventory_diff_new_flag.sql` [NEW]
   - `apps/scan-service/src/test/java/.../benchmark/pipeline/ScanCorePipelineBenchmarkTest.java` [MODIFY]
   - `apps/scan-service/src/test/java/.../benchmark/pipeline/InventoryDiffQueryBenchmarkTest.java` [NEW]
   - `apps/scan-service/src/test/java/.../benchmark/fixture/` [EXTEND]
@@ -21,9 +23,10 @@ Must Preserve: inventory semantics, chunk atomicity, lease fencing, staging clea
 1. Add exact phase boundaries to runtime timeline and terminal benchmark logging.
 2. Extend fixtures to seed cold, unchanged, incremental-change and full-change inventory states.
 3. Add a focused diff-query benchmark with the current SQL and semantic-equivalent candidates.
-4. Add assertions for row equivalence, modified/revived records, cleanup, retry and lease fence.
-5. Adopt a query candidate only after runtime evidence shows stable improvement.
-6. Run Spotless and static checks; update the benchmark report with scope and environment manifest.
+4. Materialize `is_new` once in the diff scratch stage and remove warm per-chunk inventory anti-join. V21 backfills existing scratch rows before enforcing `NOT NULL`.
+5. Add assertions for row equivalence, modified/revived records, cleanup, retry and lease fence.
+6. Adopt a query candidate only after runtime evidence shows stable improvement.
+7. Run Spotless and static checks; update the benchmark report with scope and environment manifest.
 
 ## 3. Verification
 

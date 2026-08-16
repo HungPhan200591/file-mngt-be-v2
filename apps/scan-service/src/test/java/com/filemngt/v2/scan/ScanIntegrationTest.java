@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.filemngt.v2.scan.adapter.out.catalog.CatalogExistenceClient;
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
@@ -73,10 +74,26 @@ class ScanIntegrationTest {
     @MockitoBean
     CatalogRegistryClient catalogClient;
 
+    @MockitoBean
+    CatalogExistenceClient catalogExistenceClient;
+
     @BeforeEach
     void setUp() {
         Mockito.when(catalogClient.fetch("JOKE"))
                 .thenReturn(Optional.of(new ScanRegistrySnapshot(100L, "JOKE", List.of("JOKE-001"), List.of())));
+        Mockito.when(catalogExistenceClient.classify(Mockito.any(), Mockito.anyList()))
+                .thenAnswer(invocation -> {
+                    List<CatalogExistenceClient.Candidate> candidates = invocation.getArgument(1);
+                    return candidates.stream()
+                            .collect(Collectors.toMap(
+                                    CatalogExistenceClient.Candidate::clientRef,
+                                    candidate -> new CatalogExistenceClient.Result(
+                                            candidate.clientRef(),
+                                            CatalogExistenceClient.Classification.NEW_SUBJECT,
+                                            null,
+                                            null,
+                                            null)));
+                });
         // Xóa toàn bộ state DB trước mỗi test để đảm bảo isolation.
         // Cần thiết từ BT-03: inventory persisted cross-test khiến file bị classify UNCHANGED sai.
         outbox.deleteAllInBatch();
@@ -238,8 +255,8 @@ class ScanIntegrationTest {
         Path deletedFile = ROOT.resolve("bad.mp4");
         Files.deleteIfExists(deletedFile);
         try {
-            // Lần scan 2 (warm): file bị xóa phải là MISSING; 2 file còn lại UNCHANGED → 0 proposal là CORRECT
-            triggerScanAndComplete();
+            // Normal scan không suy diễn file đã biến mất; overwrite rerun mới đối soát toàn root.
+            triggerScanAndComplete(true);
             var missingItems = inventories.findAll().stream()
                     .filter(item ->
                             item.state() == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.MISSING)
@@ -253,6 +270,20 @@ class ScanIntegrationTest {
                                     == com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT)
                             .count())
                     .isEqualTo(inventoryCount - 1);
+
+            Files.writeString(deletedFile, "restored");
+            UUID reviveRunId = triggerScanAndComplete();
+            var revived = inventories.findAll().stream()
+                    .filter(item -> item.sourceRelativePath().equals("bad.mp4"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(revived.state())
+                    .isEqualTo(com.filemngt.v2.scan.domain.inventory.ScanFileInventoryState.PRESENT);
+            assertThat(runs.findById(reviveRunId).orElseThrow().changedFileCount()).isEqualTo(1L);
+            assertThat(inventories.findAll().stream()
+                            .filter(item -> item.sourceRelativePath().equals("bad.mp4"))
+                            .count())
+                    .isEqualTo(1L);
         } finally {
             // Khôi phục fixture để không ảnh hưởng test khác
             Files.writeString(deletedFile, "x");
@@ -456,15 +487,17 @@ class ScanIntegrationTest {
                 .getResponse()
                 .getContentAsString();
         String id = response.replaceFirst(".*\"id\":\"([^\"]+)\".*", "$1");
+        String body = "";
         for (int i = 0; i < 50; i++) {
-            String body = mockMvc.perform(get("/api/v2/scans/" + id))
+            body = mockMvc.perform(get("/api/v2/scans/" + id))
                     .andExpect(status().isOk())
                     .andReturn()
                     .getResponse()
                     .getContentAsString();
-            if (body.contains("COMPLETED")) break;
+            if (body.contains("COMPLETED") || body.contains("FAILED")) break;
             Thread.sleep(50);
         }
+        assertThat(body).as("Scan run phải hoàn tất thành công: %s", id).contains("\"status\":\"COMPLETED\"");
         return UUID.fromString(id);
     }
 

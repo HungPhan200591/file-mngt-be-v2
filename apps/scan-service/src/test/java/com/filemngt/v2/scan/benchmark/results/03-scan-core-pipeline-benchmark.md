@@ -61,7 +61,7 @@ Kết luận: generic plan không phải nguyên nhân chính và chưa có cơ 
 
 Kết luận: `LEFT JOIN` đã đổi hình dạng query thành hash anti-join nhưng vẫn phải quét và hash toàn bộ inventory cho mỗi chunk. Đây là nguyên nhân hợp lý khiến full pipeline có thể timeout dù test cô lập chỉ mất khoảng 1,1 giây. Index unique `(root_key, source_relative_path)` tồn tại nhưng planner không chọn index lookup vì workload trả về gần như toàn bộ 1M rows.
 
-Candidate tiếp theo cần benchmark riêng là `INSERT ... ON CONFLICT (root_key, source_relative_path) DO NOTHING`, sau đó kiểm tra lại row-count và chi phí conflict/WAL. Chưa tăng timeout và chưa áp dụng candidate này vào production.
+Candidate `INSERT ... ON CONFLICT (root_key, source_relative_path) DO NOTHING` đã được benchmark riêng và bị loại bỏ; chưa tăng timeout và chưa dùng candidate này trong production.
 
 ### A/B result — `REVIVED`, 1M rows
 
@@ -73,6 +73,12 @@ Candidate tiếp theo cần benchmark riêng là `INSERT ... ON CONFLICT (root_k
 `ON CONFLICT` phải thực hiện conflict check qua unique arbiter index cho toàn bộ 1M rows dù không insert row nào, nên chậm hơn khoảng 10,1 lần trong workload `REVIVED`. Candidate này không được áp dụng vào production.
 
 Các dòng `Mockito is currently self-attaching` và cảnh báo Byte Buddy chỉ là warning về dynamic Java agent trên JDK 25; benchmark vẫn chạy và không phải nguyên nhân của chênh lệch hiệu năng.
+
+## Implementation sau khi loại trừ plan-cache và `ON CONFLICT`
+
+Warm reconciliation hiện materialize `is_new` một lần trong `scan_inventory_diff_stage` bằng `LEFT JOIN`. Mỗi chunk giữ nguyên transaction boundary nhưng chỉ `UPDATE` các row `is_new = false` và `INSERT` các row `is_new = true`; không còn anti-join lại toàn bộ `scan_file_inventory` trong từng chunk.
+
+Migration/runtime correctness và full-pipeline benchmark sau thay đổi này vẫn là gate VERIFY PENDING.
 
 - **Mã bài đo**: `BENCH-03-SCAN-CORE`
 - **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java)

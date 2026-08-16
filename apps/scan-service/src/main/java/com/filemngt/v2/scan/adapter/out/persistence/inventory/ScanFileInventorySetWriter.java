@@ -23,6 +23,7 @@ public class ScanFileInventorySetWriter {
               AND diff.source_relative_path <= ?
               AND inventory.root_key = diff.root_key
               AND inventory.source_relative_path = diff.source_relative_path
+              AND diff.is_new = FALSE
               AND (inventory.file_size IS DISTINCT FROM diff.file_size
                    OR inventory.file_modified_at IS DISTINCT FROM diff.file_modified_at
                    OR inventory.state IS DISTINCT FROM 'PRESENT')
@@ -38,13 +39,10 @@ public class ScanFileInventorySetWriter {
                    now(),
                    now()
             FROM scan_inventory_diff_stage diff
-            LEFT JOIN scan_file_inventory inventory
-              ON inventory.root_key = diff.root_key
-             AND inventory.source_relative_path = diff.source_relative_path
             WHERE diff.scan_run_id = ?
               AND diff.source_relative_path >= ?
               AND diff.source_relative_path <= ?
-              AND inventory.root_key IS NULL
+              AND diff.is_new = TRUE
             """;
     private static final String INSERT_COLD_SQL = """
             INSERT INTO scan_file_inventory

@@ -79,8 +79,8 @@ public class ScanController {
         LOGGER.info(
                 "HTTP POST /api/v2/scans/previews -> Khởi tạo scan: rootKey={}, overwriteExisting={}",
                 request.rootKey(),
-                request.overwriteExisting());
-        return service.start(request.rootKey(), request.overwriteExisting());
+                request.overwriteExistingOrDefault());
+        return service.start(request.rootKey(), request.overwriteExistingOrDefault());
     }
 
     /**

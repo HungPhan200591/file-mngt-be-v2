@@ -26,29 +26,37 @@ public class ScanInventoryStageWriter {
     private static final String ANALYZE_DIFF_SQL = "ANALYZE scan_inventory_diff_stage";
     private static final String MATERIALIZE_DIFF_SQL = """
             INSERT INTO scan_inventory_diff_stage
-                (scan_run_id, root_key, source_relative_path, file_size, file_modified_at)
+                (scan_run_id, root_key, source_relative_path, file_size, file_modified_at, is_new)
             SELECT stage.scan_run_id,
                    stage.root_key,
                    stage.source_relative_path,
                    stage.file_size,
-                   stage.file_modified_at
+                   stage.file_modified_at,
+                   inventory.id IS NULL
             FROM scan_inventory_stage stage
+            LEFT JOIN scan_file_inventory inventory
+              ON inventory.root_key = stage.root_key
+             AND inventory.source_relative_path = stage.source_relative_path
             WHERE stage.scan_run_id = ?
-              AND NOT COALESCE((
-                  SELECT inventory.state = 'PRESENT'
-                     AND inventory.file_size IS NOT DISTINCT FROM stage.file_size
-                     AND inventory.file_modified_at IS NOT DISTINCT FROM stage.file_modified_at
-                  FROM scan_file_inventory inventory
-                  WHERE inventory.root_key = stage.root_key
-                    AND inventory.source_relative_path = stage.source_relative_path
-              ), FALSE)
+              AND (inventory.id IS NULL
+                   OR inventory.state IS DISTINCT FROM 'PRESENT'
+                   OR inventory.file_size IS DISTINCT FROM stage.file_size
+                   OR inventory.file_modified_at IS DISTINCT FROM stage.file_modified_at)
             """;
     private static final String MATERIALIZE_ALL_SQL = """
             INSERT INTO scan_inventory_diff_stage
-                (scan_run_id, root_key, source_relative_path, file_size, file_modified_at)
-            SELECT scan_run_id, root_key, source_relative_path, file_size, file_modified_at
-            FROM scan_inventory_stage
-            WHERE scan_run_id = ?
+                (scan_run_id, root_key, source_relative_path, file_size, file_modified_at, is_new)
+            SELECT stage.scan_run_id,
+                   stage.root_key,
+                   stage.source_relative_path,
+                   stage.file_size,
+                   stage.file_modified_at,
+                   inventory.id IS NULL
+            FROM scan_inventory_stage stage
+            LEFT JOIN scan_file_inventory inventory
+              ON inventory.root_key = stage.root_key
+             AND inventory.source_relative_path = stage.source_relative_path
+            WHERE stage.scan_run_id = ?
             """;
     private static final String DELETE_INACTIVE_RUNS_SQL = """
             DELETE FROM scan_inventory_stage stage

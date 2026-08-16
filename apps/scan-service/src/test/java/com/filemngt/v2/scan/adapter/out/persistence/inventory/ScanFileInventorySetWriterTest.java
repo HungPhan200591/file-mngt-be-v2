@@ -53,7 +53,7 @@ class ScanFileInventorySetWriterTest {
     }
 
     @Test
-    void insertsOnlyMissingInventoryRowsWithHashAntiJoin() {
+    void insertsOnlyRowsMarkedNewInDiffStage() {
         UUID runId = UUID.fromString("019fe011-2278-7c46-9008-19a8c90ed5e4");
         when(jdbcTemplate.update(anyString(), eq(runId), eq("a"), eq("z"))).thenReturn(2);
         var writer = new ScanFileInventorySetWriter(jdbcTemplate);
@@ -62,7 +62,8 @@ class ScanFileInventorySetWriterTest {
 
         var sql = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate, times(2)).update(sql.capture(), eq(runId), eq("a"), eq("z"));
-        assertThat(sql.getAllValues().get(1)).contains("LEFT JOIN scan_file_inventory", "inventory.root_key IS NULL");
-        assertThat(sql.getAllValues().get(1)).doesNotContain("NOT EXISTS");
+        assertThat(sql.getAllValues().get(0)).contains("diff.is_new = FALSE");
+        assertThat(sql.getAllValues().get(1)).contains("diff.is_new = TRUE");
+        assertThat(sql.getAllValues().get(1)).doesNotContain("LEFT JOIN", "NOT EXISTS");
     }
 }
