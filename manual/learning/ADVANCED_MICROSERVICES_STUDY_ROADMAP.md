@@ -26,6 +26,7 @@ Scenario thật → Deep-dive → Summary → Question bank → failure test / e
 | Virtual Threads | [Deep-dive](./deep-dive/virtual-threads/00-overview.md) | Chưa xác nhận | — | Pinning, no-pooling và throttling |
 | CQRS Read Projection | [Deep-dive](./deep-dive/cqrs-read-projection/README.md) | Chưa xác nhận | — | Version guard, hydration và reconciliation |
 | Observability | [Deep-dive](./deep-dive/observability/README.md) | Chưa xác nhận | — | Metrics, logs, trace và incident flow |
+| Database Internals (Storage & Query) | [Deep-dive](./deep-dive/database-internals/README.md) | Chưa xác nhận | — | WAL, Buffer Pool, Anti-Join, work_mem & EXPLAIN |
 | UC-01 — Scan → Catalog ingestion | [Study pack](./use-cases/core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) | Chưa xác nhận | — | Ownership, outbox và idempotent consumer |
 | SC-01 — Scan 1M filesystem entry | [Study pack](./use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md) | Chưa xác nhận | — | Lease, checkpoint, chunk commit và backpressure |
 
