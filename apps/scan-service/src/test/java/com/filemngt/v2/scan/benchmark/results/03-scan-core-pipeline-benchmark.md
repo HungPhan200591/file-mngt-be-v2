@@ -33,6 +33,23 @@
 
 `REVIVED` bị PostgreSQL hủy câu `INSERT_NEW_SQL` sau khi áp dụng `LEFT JOIN`. Do đó không được coi candidate đã đạt SLO 1M cho toàn bộ workload; cần lấy `EXPLAIN (ANALYZE, BUFFERS)` của câu insert và kiểm tra kế hoạch/index trước khi tiếp tục tối ưu.
 
+## Focused diff-query A/B sau implementation
+
+- **Thời điểm chạy**: `2026-08-17 00:23–00:25 +07:00`
+- **Workload**: 1.000.000 rows/scenario
+- **Correctness gate**: cả hai query trả đúng expected row count cho `COLD`, `UNCHANGED`, `INCREMENTAL`, `FULL_CHANGE` và `REVIVED`.
+- **Lưu ý thống kê**: các số dưới đây là sample được dòng summary của test ghi lại, chưa phải median/min/max của nhiều process độc lập.
+
+| Scenario | Correlated query (ms) | `LEFT JOIN` (ms) | Nhanh hơn |
+| :--- | ---: | ---: | ---: |
+| `COLD` | 279 | 84 | 3,3x |
+| `UNCHANGED` | 3.174 | 394 | 8,1x |
+| `INCREMENTAL` | 3.156 | 419 | 7,5x |
+| `FULL_CHANGE` | 3.816 | 405 | 9,4x |
+| `REVIVED` | 3.722 | 154 | 24,2x |
+
+Kết luận: chọn `LEFT JOIN` cho bước materialize diff là phù hợp trên toàn bộ workload đã đo. Kết quả này chỉ qualify query diff cô lập; chưa chứng minh full scan-core đạt SLO hoặc xác nhận per-chunk anti-join đã biến mất khỏi runtime production.
+
 ## Diagnostic execution plan
 
 Đã thêm `InventoryInsertQueryPlanBenchmarkTest` để A/B chính câu `INSERT_NEW_SQL` hiện tại với candidate `INSERT ... ON CONFLICT (root_key, source_relative_path) DO NOTHING` trong workload `REVIVED`, dùng `EXPLAIN (ANALYZE, BUFFERS, WAL, FORMAT TEXT)`. Mỗi câu lệnh chạy trong transaction riêng và rollback sau khi đo; test không giữ lại các row được `INSERT` bởi `EXPLAIN ANALYZE`.
@@ -78,7 +95,19 @@ Các dòng `Mockito is currently self-attaching` và cảnh báo Byte Buddy ch�
 
 Warm reconciliation hiện materialize `is_new` một lần trong `scan_inventory_diff_stage` bằng `LEFT JOIN`. Mỗi chunk giữ nguyên transaction boundary nhưng chỉ `UPDATE` các row `is_new = false` và `INSERT` các row `is_new = true`; không còn anti-join lại toàn bộ `scan_file_inventory` trong từng chunk.
 
-Migration/runtime correctness và full-pipeline benchmark sau thay đổi này vẫn là gate VERIFY PENDING.
+### Full scan-core sau materialized `is_new` — 1M rows
+
+| Scenario | Status | Duration (ms) | Throughput (files/s) | So với candidate per-chunk `LEFT JOIN` |
+| :--- | :--- | ---: | ---: | :--- |
+| `COLD` | `COMPLETED` | 35.823 | 27.915 | nhanh hơn 2,5% |
+| `UNCHANGED` | `COMPLETED` | 8.112 | 123.274 | nhanh hơn 18,3% |
+| `INCREMENTAL` | `COMPLETED` | 8.424 | 118.708 | nhanh hơn 21,4% |
+| `FULL_CHANGE` | `COMPLETED` | 109.453 | 9.136 | nhanh hơn 25,1% |
+| `REVIVED` | `COMPLETED` | 45.997 | 21.741 | candidate cũ failed ở 85.434 ms |
+
+Kết quả xác nhận mục tiêu correctness/runtime chính của thay đổi: toàn bộ 5 workload về terminal `COMPLETED`; `FULL_CHANGE` và `REVIVED` không còn `statement_timeout`. Warm unchanged chỉ còn cao hơn target đơn-run tham chiếu 8 giây khoảng 112 ms; cold scan-core 35,823 giây vẫn cao hơn target 30 giây và là scope của FT-047.
+
+Đây là một benchmark run, chưa đủ median/min/max hoặc percentile qualification. `SLI-01` còn bao gồm filesystem discovery thật, trong khi benchmark này loại filesystem và Catalog I/O; vì vậy không dùng kết quả này để tuyên bố SLO đã đạt.
 
 - **Mã bài đo**: `BENCH-03-SCAN-CORE`
 - **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java)
