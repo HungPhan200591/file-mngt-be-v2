@@ -16,7 +16,7 @@ flowchart TD
     end
 
     subgraph STAGE_B["BT-09B: Scan Chunking"]
-        S_CHUNK["Scan Chunk Executor<br/>(2.000 items/chunk)"]
+        S_CHUNK["Scan Chunk Executor<br/>(25.000 items/chunk)"]
         S_DB[("scan_db<br/>(decision + outbox)")]
         W_SCAN(["[2] APPROVAL_COMMITTED<br/>(Scan xong 1M file)"])
     end
@@ -100,7 +100,7 @@ flowchart TD
 | Lát cắt | Service sở hữu | Trách nhiệm kỹ thuật cốt lõi |
 | :--- | :--- | :--- |
 | **`BT-09A`** | Cross-service | Thiết kế khung Hợp đồng & Watermarks (cấp vé `[1] ACCEPTED`, chốt 5 mốc). |
-| **`BT-09B`** | `scan-service` | Ghi decision + outbox atomic theo bounded chunks 2.000 items $\to$ `[2] APPROVAL_COMMITTED`. |
+| **`BT-09B`** | `scan-service` | Ghi decision + outbox atomic theo bounded chunks 25.000 items $\to$ `[2] APPROVAL_COMMITTED`. |
 | **`BT-09C`** | `scan-service` Relay | Continuous Drain Relay xả liên tục lên Kafka với in-flight buffer 2.000 messages. |
 | **`BT-09D`** | `catalog-service` | In-Memory Batch Coalescing gom 1M file thành ~148K subject $\to$ `[3] CATALOG_COMMITTED`. |
 | **`BT-09E`** | `query-service` | Bulk Projection (COPY/Upsert), Equality Gate $\to$ `[4] QUERY_DB_READY` & `[5] SEARCH_READY`. |

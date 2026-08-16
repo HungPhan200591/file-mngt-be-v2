@@ -25,7 +25,7 @@ Ladder 5: 1.000.000 records -> Target workload chính thức
 
 | Chặng xử lý | % Thời gian mục tiêu | Trọng tâm tối ưu |
 | --- | --- | --- |
-| **Scan Decision + Outbox Chunking** | 25% – 30% | JDBC batch, không hydrate entity, chunk 2.000 items. |
+| **Scan Decision + Outbox Chunking** | 25% – 30% | JDBC batch, không hydrate entity, chunk 25.000 items. |
 | **Kafka Relay & Outbox Drain** | 15% – 20% | Continuous drain, async non-blocking publish. |
 | **Catalog Coalesce & Bulk DB** | 25% – 30% | In-memory coalesce theo subject, giảm 70% DB writes. |
 | **Query Bulk Projection + cache switch** | 20% – 25% | Bulk COPY/Upsert, `subjectVersion` guard, `cacheGeneration` O(1). |

@@ -39,7 +39,7 @@ Query Service nhận các subject events từ 12 Kafka partitions.
 flowchart TD
     subgraph SCAN_PHASE["Scan Service"]
         S1["[1] Đếm tổng candidate:<br/>expectedRecordCount = 1M"]
-        S2["[2] Chia chunk outbox<br/>(ví dụ: 500 batches)"]
+        S2["[2] Chia chunk outbox<br/>(ví dụ: 40 batches / 25k)"]
         S3["[3] Ghi nhận xong:<br/>scanCommitted = 1M"]
         S4(["Phát Watermark:<br/>APPROVAL_COMMITTED"])
     end
@@ -117,7 +117,7 @@ Hệ thống được chuẩn hóa thành 5 mốc rõ ràng:
    - Ngay khi nhận HTTP request, Scan tạo 1 dòng `operation` trong database với trạng thái `ACCEPTED` ($O(1)$ mất ~5ms), trả về ngay HTTP `202 Accepted` kèm `operationId`. 
    - **Đây là điểm mốc $T_0$ bắt đầu tính thời gian cho SLO 30 giây.**
 2. **`APPROVAL_COMMITTED` (Scan)**:
-   - Worker nền của Scan chạy chia nhỏ 1.000.000 records thành từng chunk (ví dụ 2.000 records/chunk) với `@Transactional(REQUIRES_NEW)`.
+   - Worker nền của Scan chạy chia nhỏ 1.000.000 records thành từng chunk (ví dụ 25.000 records/chunk) với `@Transactional(REQUIRES_NEW)`.
    - Khi chunk cuối cùng commit xong, Scan phát watermark `APPROVAL_COMMITTED`.
 3. **`CATALOG_COMMITTED` (Catalog)**:
    - Catalog consume các batch từ Kafka, gộp các file cùng subject vào RAM, ghi DB và phát ra các event `media.subject.changed.v2`.

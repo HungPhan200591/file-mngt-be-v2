@@ -1,6 +1,7 @@
 # Reference Capsule: BT-09B — Scan Decision & Outbox Chunking
 
 > Trích xuất từ: `docs/reviews/2026-08-13-approve-5000-query-performance-assessment.md` (Section 1 & P1) & `2026-08-12-backend-quality-architecture-production-readiness.md` (TD-012).
+> Giải thích chi tiết & Chứng minh toán học: [`explain-bt09b-chunk-size-tradeoff-and-benchmark.md`](./explain-bt09b-chunk-size-tradeoff-and-benchmark.md).
 > Phạm vi: Áp dụng cho write hot-path của Scan khi duyệt 1.000.000 records.
 
 ---
@@ -16,7 +17,7 @@
 
 ```mermaid
 flowchart TD
-    REQ(["Approve Request (1M items)"]) --> SPLIT["Chia thành N Bounded Chunks<br/>(kích thước 1.000 - 5.000 items/chunk)"]
+    REQ(["Approve Request (1M items)"]) --> SPLIT["Chia thành 40 Bounded Chunks<br/>(kích thước 20.000 - 25.000 items/chunk)"]
     SPLIT --> LOOP["Lặp qua từng chunk"]
     LOOP --> TX["@Transactional(REQUIRES_NEW)<br/>(Transaction cục bộ cho 1 chunk)"]
     TX --> SET_SQL["Ghi scan_decision + scan_outbox_event<br/>(Bằng JDBC Batch / Set-based SQL)"]
