@@ -38,25 +38,25 @@ Query Service nhận các subject events từ 12 Kafka partitions.
 ```mermaid
 flowchart TD
     subgraph SCAN_PHASE["Scan Service"]
-        S1["<font color='white'>[1] Đếm tổng candidate:<br/>expectedRecordCount = 1M</font>"]
-        S2["<font color='white'>[2] Chia chunk outbox<br/>(ví dụ: 500 batches)</font>"]
-        S3["<font color='white'>[3] Ghi nhận xong:<br/>scanCommitted = 1M</font>"]
-        S4(["<font color='white'>Phát Watermark:<br/>APPROVAL_COMMITTED</font>"])
+        S1["[1] Đếm tổng candidate:<br/>expectedRecordCount = 1M"]
+        S2["[2] Chia chunk outbox<br/>(ví dụ: 500 batches)"]
+        S3["[3] Ghi nhận xong:<br/>scanCommitted = 1M"]
+        S4(["Phát Watermark:<br/>APPROVAL_COMMITTED"])
     end
 
     subgraph CATALOG_PHASE["Catalog Service"]
-        C1["<font color='white'>[1] Tiêu thụ đủ<br/>1.000.000 file discovered</font>"]
-        C2["<font color='white'>[2] Gom nhóm Coalesce<br/>trong RAM theo Subject</font>"]
-        C3["<font color='white'>[3] Chốt số Subject:<br/>expectedCount = 148.321</font>"]
-        C4(["<font color='white'>Phát Watermark:<br/>CATALOG_COMMITTED<br/>(expected = 148.321)</font>"])
+        C1["[1] Tiêu thụ đủ<br/>1.000.000 file discovered"]
+        C2["[2] Gom nhóm Coalesce<br/>trong RAM theo Subject"]
+        C3["[3] Chốt số Subject:<br/>expectedCount = 148.321"]
+        C4(["Phát Watermark:<br/>CATALOG_COMMITTED<br/>(expected = 148.321)"])
     end
 
     subgraph QUERY_PHASE["Query Service (Completion Barrier)"]
-        Q1["<font color='white'>Tiêu thụ Subject<br/>Changed events</font>"]
-        Q2["<font color='white'>Tăng biến đếm:<br/>projectedSubjectCount</font>"]
-        Q3{"<font color='white'>Equality Gate:<br/>projected == 148.321<br/>VÀ DLT == 0 ?</font>"}
-        Q4["<font color='white'>ĐỦ 100% DỮ LIỆU<br/>&amp; KHÔNG CÓ LỖI!</font>"]
-        Q5(["<font color='white'>Phát Watermark:<br/>QUERY_DB_READY<br/>(Dừng đồng hồ SLO)</font>"])
+        Q1["Tiêu thụ Subject<br/>Changed events"]
+        Q2["Tăng biến đếm:<br/>projectedSubjectCount"]
+        Q3{"Equality Gate:<br/>projected == 148.321<br/>VÀ DLT == 0 ?"}
+        Q4["ĐỦ 100% DỮ LIỆU<br/>&amp; KHÔNG CÓ LỖI!"]
+        Q5(["Phát Watermark:<br/>QUERY_DB_READY<br/>(Dừng đồng hồ SLO)"])
     end
 
     SCAN_PHASE --> CATALOG_PHASE --> QUERY_PHASE
@@ -146,20 +146,20 @@ Thay vì đi xóa từng key của 150.000 subjects, chúng ta chỉ thay đổi
 ```mermaid
 flowchart TD
     subgraph OLD_GEN["Thế hệ v1"]
-        K1["<font color='white'>v1:subject:001</font>"]
-        K2["<font color='white'>v1:subject:002</font>"]
-        K3["<font color='white'>148.321 keys cũ</font>"]
+        K1["v1:subject:001"]
+        K2["v1:subject:002"]
+        K3["148.321 keys cũ"]
     end
 
     subgraph SWITCH["Chuyển đổi O(1)"]
-        SW["<font color='white'>Generation: 1 -> 2<br/>(SET gen = 2, &lt;1ms)</font>"]
+        SW["Generation: 1 -> 2<br/>(SET gen = 2, &lt;1ms)"]
     end
 
     subgraph NEW_GEN["Thế hệ v2"]
-        N1["<font color='white'>v2:subject:001<br/>(Miss -> Đọc DB mới)</font>"]
+        N1["v2:subject:001<br/>(Miss -> Đọc DB mới)"]
     end
 
-    OLD_GEN -.->|"Hết hạn TTL"| DISCARD[("<font color='white'>Redis tự giải phóng</font>")]
+    OLD_GEN -.->|"Hết hạn TTL"| DISCARD[("Redis tự giải phóng")]
     SWITCH --> NEW_GEN
 
     style K1 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff

@@ -9,47 +9,47 @@
 
 ```mermaid
 flowchart TD
-    UI(["<font color='white'>User: POST /approve<br/>(1.000.000 records)</font>"])
+    UI(["User: POST /approve<br/>(1.000.000 records)"])
     
     subgraph STAGE_A["BT-09A: Contract &amp; Watermarks"]
-        W_ACC(["<font color='white'>[1] ACCEPTED<br/>(HTTP 202, Bắt đầu SLO)</font>"])
+        W_ACC(["[1] ACCEPTED<br/>(HTTP 202, Bắt đầu SLO)"])
     end
 
     subgraph STAGE_B["BT-09B: Scan Chunking"]
-        S_CHUNK["<font color='white'>Scan Chunk Executor<br/>(2.000 items/chunk)</font>"]
-        S_DB[("<font color='white'>scan_db<br/>(decision + outbox)</font>")]
-        W_SCAN(["<font color='white'>[2] APPROVAL_COMMITTED<br/>(Scan xong 1M file)</font>"])
+        S_CHUNK["Scan Chunk Executor<br/>(2.000 items/chunk)"]
+        S_DB[("scan_db<br/>(decision + outbox)")]
+        W_SCAN(["[2] APPROVAL_COMMITTED<br/>(Scan xong 1M file)"])
     end
 
     subgraph STAGE_C["BT-09C: Continuous Drain"]
-        RELAY["<font color='white'>Outbox Drain Relay<br/>(Async in-flight 2.000)</font>"]
-        K1{{"<font color='white'>Kafka Topic:<br/>media.file.discovered.v2<br/>(1M messages)</font>"}}
+        RELAY["Outbox Drain Relay<br/>(Async in-flight 2.000)"]
+        K1{{"Kafka Topic:<br/>media.file.discovered.v2<br/>(1M messages)"}}
     end
 
     subgraph STAGE_D["BT-09D: Catalog Coalescing"]
-        C_CONS["<font color='white'>Catalog Batch Consumer<br/>(In-Memory Coalescing)</font>"]
-        C_DB[("<font color='white'>catalog_db<br/>(Bulk canonical writes)</font>")]
-        W_CAT(["<font color='white'>[3] CATALOG_COMMITTED<br/>(chốt expectedSubjectCount)</font>"])
-        K2{{"<font color='white'>Kafka Topic:<br/>media.subject.changed.v2<br/>(~148K snapshots)</font>"}}
+        C_CONS["Catalog Batch Consumer<br/>(In-Memory Coalescing)"]
+        C_DB[("catalog_db<br/>(Bulk canonical writes)")]
+        W_CAT(["[3] CATALOG_COMMITTED<br/>(chốt expectedSubjectCount)"])
+        K2{{"Kafka Topic:<br/>media.subject.changed.v2<br/>(~148K snapshots)"}}
     end
 
     subgraph STAGE_E["BT-09E: Query Bulk &amp; O(1) Cache"]
-        Q_CONS["<font color='white'>Query Bulk Consumer<br/>(COPY / Upsert Version Guard)</font>"]
-        Q_DB[("<font color='white'>query_db<br/>(Read Model ready)</font>")]
-        Q_CACHE(("<font color='white'>Redis Cache<br/>(O(1) Generation Switch)</font>"))
-        BARRIER{"<font color='white'>Equality Gate:<br/>projected == expected<br/>VÀ DLT == 0 ?</font>"}
-        W_READY(["<font color='white'>[4] QUERY_DB_READY<br/>(Dừng đồng hồ đo SLO)</font>"])
-        Q_ES>"<font color='white'>[5] SEARCH_READY<br/>(Async Elasticsearch Bulk)</font>"]
+        Q_CONS["Query Bulk Consumer<br/>(COPY / Upsert Version Guard)"]
+        Q_DB[("query_db<br/>(Read Model ready)")]
+        Q_CACHE(("Redis Cache<br/>(O(1) Generation Switch)"))
+        BARRIER{"Equality Gate:<br/>projected == expected<br/>VÀ DLT == 0 ?"}
+        W_READY(["[4] QUERY_DB_READY<br/>(Dừng đồng hồ đo SLO)"])
+        Q_ES>"[5] SEARCH_READY<br/>(Async Elasticsearch Bulk)"]
     end
 
     subgraph STAGE_F["BT-09F: Error Isolation &amp; DLT"]
-        DLT{{"<font color='white'>*.DLT Topic<br/>(Poison pill isolation)</font>"}}
-        BLOCKED(["<font color='white'>Watermark: BLOCKED<br/>(Khi có DLT &gt; 0)</font>"])
-        REPLAY["<font color='white'>Idempotent Replay Runbook</font>"]
+        DLT{{"*.DLT Topic<br/>(Poison pill isolation)"}}
+        BLOCKED(["Watermark: BLOCKED<br/>(Khi có DLT &gt; 0)"])
+        REPLAY["Idempotent Replay Runbook"]
     end
 
     subgraph STAGE_G["BT-09G: Scale Ladder"]
-        LADDER["<font color='white'>Scale Ladder Benchmark:<br/>1K -> 5K -> 50K -> 250K -> 1M<br/>(Đo p95/p99, WAL, Pool)</font>"]
+        LADDER["Scale Ladder Benchmark:<br/>1K -> 5K -> 50K -> 250K -> 1M<br/>(Đo p95/p99, WAL, Pool)"]
     end
 
     UI --> W_ACC --> S_CHUNK
