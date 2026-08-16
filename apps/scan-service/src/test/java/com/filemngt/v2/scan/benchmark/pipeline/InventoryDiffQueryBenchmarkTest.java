@@ -94,8 +94,9 @@ class InventoryDiffQueryBenchmarkTest {
     void comparesSemanticEquivalentDiffQueries() {
         for (Scenario scenario : Scenario.values()) {
             UUID runId = prepareScenario(scenario);
-            long currentMillis = measure("current", CURRENT_QUERY, runId, scenario.expectedChanged());
-            long leftJoinMillis = measure("left-join", LEFT_JOIN_QUERY, runId, scenario.expectedChanged());
+            int expectedChanged = scenario.expectedChanged(ROW_COUNT);
+            long currentMillis = measure("current", CURRENT_QUERY, runId, expectedChanged);
+            long leftJoinMillis = measure("left-join", LEFT_JOIN_QUERY, runId, expectedChanged);
             logExplain(scenario, "current", CURRENT_QUERY, runId);
             logExplain(scenario, "left-join", LEFT_JOIN_QUERY, runId);
             LOGGER.info(
@@ -195,20 +196,18 @@ class InventoryDiffQueryBenchmarkTest {
     }
 
     private enum Scenario {
-        COLD(1_000_000),
-        UNCHANGED(0),
-        INCREMENTAL(10_000),
-        FULL_CHANGE(1_000_000),
-        REVIVED(1_000_000);
+        COLD,
+        UNCHANGED,
+        INCREMENTAL,
+        FULL_CHANGE,
+        REVIVED;
 
-        private final int expectedChanged;
-
-        Scenario(int expectedChanged) {
-            this.expectedChanged = expectedChanged;
-        }
-
-        int expectedChanged() {
-            return expectedChanged;
+        int expectedChanged(int rowCount) {
+            return switch (this) {
+                case COLD, FULL_CHANGE, REVIVED -> rowCount;
+                case UNCHANGED -> 0;
+                case INCREMENTAL -> rowCount / 100;
+            };
         }
     }
 }
