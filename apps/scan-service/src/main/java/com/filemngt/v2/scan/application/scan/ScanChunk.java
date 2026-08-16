@@ -7,10 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** State mutable của một chunk đang chờ classify, analyze và commit. */
-final class ScanChunk {
+public final class ScanChunk {
     private final List<ScanInventoryItem> changedInventoryItems = new ArrayList<>();
     private final List<ScanProposalEntity> proposals = new ArrayList<>();
     private final List<ScanIssueEntity> issues = new ArrayList<>();
+
+    public ScanChunk() {}
 
     void addProposal(ScanProposalEntity proposal) {
         proposals.add(proposal);
@@ -29,15 +31,15 @@ final class ScanChunk {
         proposals.addAll(filtered);
     }
 
-    List<ScanInventoryItem> changedInventoryItems() {
+    public List<ScanInventoryItem> changedInventoryItems() {
         return changedInventoryItems;
     }
 
-    List<ScanProposalEntity> proposals() {
+    public List<ScanProposalEntity> proposals() {
         return proposals;
     }
 
-    List<ScanIssueEntity> issues() {
+    public List<ScanIssueEntity> issues() {
         return issues;
     }
 }

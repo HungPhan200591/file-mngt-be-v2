@@ -1,4 +1,4 @@
-package com.filemngt.v2.scan.benchmark;
+package com.filemngt.v2.scan.benchmark.legacy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,9 +23,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Benchmark thủ công JDBC batch 50.000 row, cố ý không có hậu tố {@code Test} để Maven không tự chạy.
- * Chạy từ project root: {@code .\mvnw -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmark test}
+ * Benchmark baseline lịch sử (JDBC batch 50.000 row), dùng đối chiếu hiệu năng với giải pháp Set-based hiện tại.
+ *
+ * Chạy từ root:
+ * {@code mvn test -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmark}
  */
+@Tag("benchmark")
 @Testcontainers
 @SpringBootTest(properties = {"scan.outbox.enabled=false", "spring.task.scheduling.enabled=false"})
 class JdbcBatchReconciliationWriteBenchmark {

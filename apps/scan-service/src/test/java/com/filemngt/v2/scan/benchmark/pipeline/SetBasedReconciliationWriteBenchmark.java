@@ -1,8 +1,9 @@
-package com.filemngt.v2.scan.benchmark;
+package com.filemngt.v2.scan.benchmark.pipeline;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,11 +19,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Benchmark thủ công reconciliation set-based, cố ý không có hậu tố {@code Test} để Maven không tự chạy.
- * COPY chỉ phù hợp cho nguồn ngoài PostgreSQL vào staging; từ diff stage sang bảng nghiệp vụ dùng SQL
- * set-based để tránh vòng DB → Java → DB.
- * Chạy từ project root: {@code .\mvnw -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmark test}
+ * Benchmark Phase 3 & 5 (Set-based Reconciliation Write) trên PostgreSQL.
+ *
+ * Chạy từ root:
+ * {@code mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmark}
  */
+@Tag("benchmark")
 @Testcontainers
 @SpringBootTest(properties = {"scan.outbox.enabled=false", "spring.task.scheduling.enabled=false"})
 class SetBasedReconciliationWriteBenchmark {

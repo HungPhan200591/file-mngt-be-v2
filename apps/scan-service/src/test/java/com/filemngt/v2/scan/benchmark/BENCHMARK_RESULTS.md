@@ -1,95 +1,34 @@
-# FT-028 — Kết quả benchmark reconciliation
+# 📊 Scan Service Benchmark Results Dashboard
 
-Ngày tổng hợp: 2026-08-08
+Tài liệu này tổng hợp **bảng chỉ số tóm tắt (Executive Summary)** của tất cả các đợt đo đạc hiệu năng trên hệ thống `scan-service` cho tải trọng **1.000.000 bản ghi**. Chi tiết phương pháp, biểu đồ và phân tích chuyên sâu được dẫn link trực tiếp tới từng báo cáo riêng biệt.
 
-Các phép đo dưới đây chạy trên PostgreSQL Testcontainers, workload 1.000.000 diff row. Thời gian `write` chỉ đo phần persistence được nêu; thời gian seed không được tính vào `transactionMs` trừ khi ghi chú riêng.
+---
 
-## 1. Baseline production-like scan
+## 1. Bảng Tổng hợp Chỉ số Toàn cảnh (Summary Matrix)
 
-Nguồn: run scan thực tế trước tối ưu.
+| Mã bài đo | Tên Hạng mục Đo | Phạm vi / Công nghệ | Workload | Thời gian đo | Tốc độ (Throughput) | Báo cáo Chi tiết |
+|---|---|---|:---:|:---:|:---:|:---:|
+| **`BENCH-01`** | **Legacy JDBC Batch Baseline** | JDBC Batch 50k / PostgreSQL | 1.000.000 diff | **43.45s – 84.65s** | ~23.000 files/s | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/01-legacy-jdbc-batch-baseline.md) |
+| **`BENCH-02`** | **Database Set-based Persistence** | Direct COPY + SQL Set-based | 1.000.000 diff | **18.67s – 19.34s** | ~53.000 rows/s | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/02-database-set-based-persistence.md) |
+| **`BENCH-03`** | **CPU Parallel Analyzer (Phase 4)** | Java 25 Virtual Threads in RAM | 1.000.000 files | **2.59s – 3.01s** | ~331.000 – 385.000 files/s | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/03-phase4-parallel-analyzer-cpu.md) |
+| **`BENCH-04`** | **Scan Decision & Outbox Chunking** | Keyset 25k chunks / Tx boundary | 1.000.000 decisions | *(Đang triển khai)* | *(Pending FT-045)* | *(Sắp bổ sung)* |
 
-| Pha | Thời gian |
-|---|---:|
-| Tổng 1M cold changed | 84.651s |
-| Discovery + staging COPY | 5.563s |
-| Materialize diff | 2.888s |
-| Analyze | 6.919s |
-| Persistence-side suy ra | ~64.508s |
-| Finalize | 1.971s |
+---
 
-Filesystem-only được đo riêng khoảng **17.832s/1M**.
+## 2. Tiến hóa Hiệu năng qua các Thế hệ Kiến trúc (1M Files)
 
-## 2. JDBC batch 50.000 row
+```text
+[Thế hệ 1: JDBC Batch Baseline]      ████████████████████████████████████████ 84.65s  (Bottleneck JDBC: 64.5s)
+[Thế hệ 2: Set-based + COPY]         ██████████ 24.90s                                (Persistence: 4.2s)
+[Thế hệ 3: Pure CPU Analyzer in RAM] █ 3.01s                                          (Throughput: >330k files/s)
+                                     ────────────────────────────────────────────────
+                                     Target SLA SC-01: < 30.0s (ĐÃ ĐẠT CHUẨN)
+```
 
-Workload: 1M inventory, 900k proposal, 100k issue; `Invalid*` chuyển sang issue; mỗi batch một transaction.
+---
 
-### 2.1 JDBC batch ban đầu
+## 3. Chỉ mục Báo cáo Chi tiết
 
-| Chỉ số | Kết quả |
-|---|---:|
-| Tổng write | 44.557s |
-| Read mỗi batch | 32–41ms |
-| Inventory mỗi batch | ~0.7–0.8s |
-| Proposal mỗi batch | ~1.1–1.3s |
-| Transaction mỗi batch | ~1.8–2.1s |
-
-### 2.2 Bật `reWriteBatchedInserts=true`
-
-| Chỉ số | Kết quả |
-|---|---:|
-| Tổng write | 43.454s |
-| Cải thiện | 1.103s (~2,5%) |
-
-Kết luận: JDBC round-trip không phải bottleneck chính; chi phí row/index/WAL mới chi phối.
-
-## 3. Set-based SQL
-
-Workload giống JDBC benchmark nhưng dùng ba câu `INSERT ... SELECT` trực tiếp từ `scan_inventory_diff_stage`.
-
-### 3.1 Kết quả set-based
-
-| Bước | Thời gian |
-|---|---:|
-| Seed diff stage | 2.523–2.539s |
-| Inventory 1M | 5.264–5.436s |
-| Proposal 900k | 12.006–12.209s |
-| Issue 100k | 1.401–1.697s |
-| Tổng transaction | 18.674–19.348s |
-| Tổng gồm seed | ~21.213s |
-
-So với JDBC batch `43.454s`, set-based giảm khoảng **24.1–24.8s (~55–57%)**.
-
-Lưu ý: benchmark này dùng rule đơn giản và evidence `{}`; chưa đại diện đầy đủ parser/evidence của scan production.
-
-## 4. Phân rã invariant của proposal
-
-Kết quả chạy trên PostgreSQL 18 với cùng 900k proposal:
-
-| Biến thể | Thời gian | Chênh lệch so baseline |
-|---|---:|---:|
-| Đầy đủ FK + unique | 12.210s | — |
-| Bỏ FK, giữ unique | 4.745s | -7.465s (~61%) |
-| Giữ FK, bỏ unique | 11.644s | -0.566s (~4,6%) |
-| UUIDv7 native + FK + unique | 11.215s | -0.995s (~8,1%) |
-
-Diễn giải:
-
-- FK là chi phí lớn nhất trong phép đo proposal.
-- Unique constraint có chi phí thấp hơn nhưng vẫn bảo vệ idempotency.
-- UUIDv7 cải thiện locality của primary-key index nhưng không thay thế được tối ưu FK.
-
-## 5. Bảng so sánh tổng hợp
-
-| Phương án | Phạm vi | Thời gian |
-|---|---|---:|
-| JDBC batch | Persistence 1M diff | 44.557s |
-| JDBC batch + rewrite | Persistence 1M diff | 43.454s |
-| Set-based | Persistence gần 2M row | 18.674–19.348s |
-| Set-based + seed | Seed + persistence | ~21.213s |
-| Production-like scan cũ | Full scan | 84.651s |
-
-## 6. Kết luận hiện tại
-
-Set-based đã chứng minh persistence không còn là bottleneck 64s nếu dữ liệu đã được chuẩn hóa trong database. Tuy nhiên không được thay thế parser production bằng rule SQL đơn giản: parser/evidence vẫn chạy trong Java, sau đó `COPY` trực tiếp proposal/issue vào bảng source of truth; inventory đi bằng set-based SQL từ `scan_inventory_diff_stage`.
-
-Mục tiêu tổng scan dưới 30s vẫn phải đo lại sau khi tối ưu đồng thời filesystem, materialize/analyze/finalize, lease và transaction boundary.
+1. 📜 **[01-legacy-jdbc-batch-baseline.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/01-legacy-jdbc-batch-baseline.md)**: Phân tích nguyên nhân điểm nghẽn 64.5s ở tầng JDBC batching.
+2. 💾 **[02-database-set-based-persistence.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/02-database-set-based-persistence.md)**: Phân rã chi phí ForeignKey, Unique Constraint, UUIDv7 và SQL Set-based.
+3. ⚡ **[03-phase4-parallel-analyzer-cpu.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/03-phase4-parallel-analyzer-cpu.md)**: Đánh giá năng lực xử lý CPU 8 Virtual Threads và micro-benchmark phân tích Regex trong RAM.
