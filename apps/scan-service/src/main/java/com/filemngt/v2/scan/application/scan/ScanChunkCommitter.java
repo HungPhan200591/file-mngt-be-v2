@@ -14,6 +14,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunProgressWriter.Co
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.timeout.ScanTransactionTimeouts;
 import com.filemngt.v2.scan.application.exception.ScanLeaseExpiredException;
+import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationSource;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -81,35 +82,6 @@ public class ScanChunkCommitter {
         advanceCheckpoint(lease, batch.index(), progress);
         telemetry.checkpointWritten(elapsedMillis(checkpointStartedNanos));
         return lease.nextLeaseUntil();
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public long prepareReconciliation(UUID runId, String workerId, boolean overwriteExisting) {
-        long startedNanos = System.nanoTime();
-        timeouts.applyMutationTimeout();
-        var lease = new ChunkLease(runId, workerId, null);
-        validateLease(loadRun(lease), lease);
-        stageWriter.analyze();
-        long changed = overwriteExisting ? stageWriter.materializeAll(runId) : stageWriter.materializeDiff(runId);
-        long durationMillis = (System.nanoTime() - startedNanos) / 1_000_000L;
-        LOGGER.info(
-                "Đã materialize reconciliation diff: runId={}, changedFiles={}, durationMs={}",
-                runId,
-                changed,
-                durationMillis);
-        return changed;
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    public InventoryWriteMode inventoryWriteMode(UUID runId, String workerId, String rootKey) {
-        timeouts.applyReconciliationTimeout();
-        var lease = new ChunkLease(runId, workerId, null);
-        validateLease(loadRun(lease), lease);
-        InventoryWriteMode mode = inventorySetWriter.hasInventoryForRoot(rootKey)
-                ? InventoryWriteMode.WARM_UPSERT
-                : InventoryWriteMode.COLD_INSERT;
-        LOGGER.info("Inventory reconciliation mode: runId={}, rootKey={}, mode={}", runId, rootKey, mode);
-        return mode;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -225,9 +197,9 @@ public class ScanChunkCommitter {
 
     private long writeInventory(ChunkLease lease, ChunkBatch batch) {
         long startedNanos = System.nanoTime();
-        switch (batch.inventoryWriteMode()) {
-            case COLD_INSERT -> inventorySetWriter.insertCold(lease.runId(), batch.firstPath(), batch.lastPath());
-            case WARM_UPSERT -> inventorySetWriter.upsertChanged(lease.runId(), batch.firstPath(), batch.lastPath());
+        switch (batch.source()) {
+            case COLD_STAGE -> inventorySetWriter.insertCold(lease.runId(), batch.firstPath(), batch.lastPath());
+            case WARM_DIFF -> inventorySetWriter.upsertChanged(lease.runId(), batch.firstPath(), batch.lastPath());
         }
         return elapsedMillis(startedNanos);
     }
@@ -279,14 +251,10 @@ public class ScanChunkCommitter {
             int index,
             String firstPath,
             String lastPath,
-            InventoryWriteMode inventoryWriteMode,
+            ScanReconciliationSource source,
             List<ScanProposalEntity> proposals,
             List<ScanIssueEntity> issues) {}
 
     public record ChunkProgress(long files, long proposals, long issues, Long changedFiles, long reconciledFiles) {}
 
-    public enum InventoryWriteMode {
-        COLD_INSERT,
-        WARM_UPSERT
-    }
 }

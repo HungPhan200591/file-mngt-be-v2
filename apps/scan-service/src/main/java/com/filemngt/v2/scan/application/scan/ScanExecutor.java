@@ -6,16 +6,14 @@ import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileCursorProvider;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
-import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
+import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPreparer;
 import com.filemngt.v2.scan.application.stream.ScanRunStreamPhase;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -31,13 +29,11 @@ import org.springframework.stereotype.Component;
 public class ScanExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanExecutor.class);
     private static final int DISCOVERY_SEGMENT_SIZE = 500_000;
-    private static final int DIFF_PAGE_SIZE = 100_000;
 
     private final ScanRunRepository runs;
     private final ScanChunkCommitter chunkCommitter;
-    private final ScanParallelAnalyzer parallelAnalyzer;
-    private final ScanCatalogExistenceFilter catalogExistenceFilter;
-    private final ScanReconciliationPageReader reconciliationPageReader;
+    private final ScanReconciliationPreparer reconciliationPreparer;
+    private final ScanReconciliationExecutor reconciliationExecutor;
     private final ScanFileCursorProvider cursorProvider;
     private final ScanProperties properties;
     private final ScanExecutionFailureHandler failureHandler;
@@ -46,18 +42,16 @@ public class ScanExecutor {
     public ScanExecutor(
             ScanRunRepository runs,
             ScanChunkCommitter chunkCommitter,
-            ScanParallelAnalyzer parallelAnalyzer,
-            ScanCatalogExistenceFilter catalogExistenceFilter,
-            ScanReconciliationPageReader reconciliationPageReader,
+            ScanReconciliationPreparer reconciliationPreparer,
+            ScanReconciliationExecutor reconciliationExecutor,
             ScanFileCursorProvider cursorProvider,
             ScanProperties properties,
             ScanExecutionFailureHandler failureHandler,
             ScanExecutionLiveness liveness) {
         this.runs = runs;
         this.chunkCommitter = chunkCommitter;
-        this.parallelAnalyzer = parallelAnalyzer;
-        this.catalogExistenceFilter = catalogExistenceFilter;
-        this.reconciliationPageReader = reconciliationPageReader;
+        this.reconciliationPreparer = reconciliationPreparer;
+        this.reconciliationExecutor = reconciliationExecutor;
         this.cursorProvider = cursorProvider;
         this.properties = properties;
         this.failureHandler = failureHandler;
@@ -122,15 +116,15 @@ public class ScanExecutor {
         int nextChunkIndex = discover(context, run.checkpointChunk(), progress);
         timeline.discoveryCompleted();
         timeline.diffStarted();
-        progress.setChangedFiles(
-                chunkCommitter.prepareReconciliation(context.runId(), context.workerId(), context.overwriteExisting()));
+        var preparation = reconciliationPreparer.prepare(
+                context.runId(), context.workerId(), context.root().key(), context.overwriteExisting());
+        progress.setChangedFiles(preparation.changedFiles());
         timeline.diffCompleted();
-        var inventoryWriteMode = chunkCommitter.inventoryWriteMode(
-                context.runId(), context.workerId(), context.root().key());
         nextChunkIndex++;
         heartbeatReconciliation(context, nextChunkIndex, progress);
         timeline.reconciliationStarted();
-        reconcileChanged(context, nextChunkIndex, new ReconciliationState(progress, timeline, inventoryWriteMode));
+        reconciliationExecutor.reconcile(
+                new ScanReconciliationRequest(context, nextChunkIndex, progress, timeline, preparation.source()));
         timeline.reconciliationCompleted();
     }
 
@@ -178,64 +172,6 @@ public class ScanExecutor {
                 reporter.recordFile();
             }
         };
-    }
-
-    private int reconcileChanged(ScanExecutionContext context, int chunkIndex, ReconciliationState state) {
-        String afterPath = "";
-        while (true) {
-            var page = reconciliationPageReader.findChangedPage(context.runId(), afterPath, DIFF_PAGE_SIZE);
-            chunkIndex = commitChangedPage(context, page.items(), chunkIndex, state);
-            if (!page.hasMore()) {
-                state.progress()
-                        .recordSkipped(
-                                state.progress().files() - state.progress().changedFiles());
-                return chunkIndex;
-            }
-            afterPath = page.nextCursor();
-        }
-    }
-
-    private int commitChangedPage(
-            ScanExecutionContext context, List<ScanInventoryItem> changed, int chunkIndex, ReconciliationState state) {
-        for (int start = 0; start < changed.size(); start += properties.getBusinessChunkSize()) {
-            int end = Math.min(start + properties.getBusinessChunkSize(), changed.size());
-            long parseStartedNanos = System.nanoTime();
-            ScanChunk chunk = parallelAnalyzer.analyzeParallel(
-                    context, changed.subList(start, end), properties.getReconciliationParallelism());
-            state.timeline().recordParseMillis(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - parseStartedNanos));
-            state.progress().recordSkipped(catalogExistenceFilter.filter(context, chunk));
-            recordChunkProgress(chunk, state.progress());
-            chunkIndex++;
-            commitChangedChunk(context, chunkIndex, chunk, state);
-            state.progress().recordReconciledFiles(chunk.changedInventoryItems().size());
-            publishProgress(
-                    context.runId(),
-                    ScanRunStreamPhase.RECONCILIATION,
-                    progressSnapshot(state.progress()),
-                    state.progress());
-        }
-        return chunkIndex;
-    }
-
-    private void recordChunkProgress(ScanChunk chunk, ScanProgress progress) {
-        chunk.proposals().forEach(p -> progress.recordResult(new ScanFileAnalyzer.Proposal(p)));
-        chunk.issues().forEach(i -> progress.recordResult(new ScanFileAnalyzer.Issue(i)));
-    }
-
-    private void commitChangedChunk(
-            ScanExecutionContext context, int chunkIndex, ScanChunk chunk, ReconciliationState state) {
-        var lease = new ScanChunkCommitter.ChunkLease(context.runId(), context.workerId(), nextLeaseUntil());
-        var changedItems = chunk.changedInventoryItems();
-        var batch = new ScanChunkCommitter.ChunkBatch(
-                chunkIndex,
-                changedItems.getFirst().sourceRelativePath(),
-                changedItems.getLast().sourceRelativePath(),
-                state.inventoryWriteMode(),
-                List.copyOf(chunk.proposals()),
-                List.copyOf(chunk.issues()));
-        Instant leaseUntil =
-                chunkCommitter.commitChangedChunk(lease, batch, progressSnapshot(state.progress()), state.timeline());
-        liveness.arm(context.runId(), context.workerId(), leaseUntil);
     }
 
     private void heartbeatReconciliation(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
@@ -286,8 +222,4 @@ public class ScanExecutor {
             long previouslyScanned,
             int chunkIndex) {}
 
-    private record ReconciliationState(
-            ScanProgress progress,
-            ScanExecutionTimeline timeline,
-            ScanChunkCommitter.InventoryWriteMode inventoryWriteMode) {}
 }

@@ -109,6 +109,18 @@ Kết quả xác nhận mục tiêu correctness/runtime chính của thay đổi
 
 Đây là một benchmark run, chưa đủ median/min/max hoặc percentile qualification. `SLI-01` còn bao gồm filesystem discovery thật, trong khi benchmark này loại filesystem và Catalog I/O; vì vậy không dùng kết quả này để tuyên bố SLO đã đạt.
 
+### FT-047 cold-stage candidate — 1M rows
+
+| Scenario | Status | Duration (ms) | Throughput (files/s) | So với FT-046 run |
+| :--- | :--- | ---: | ---: | :--- |
+| `COLD` | `COMPLETED` | 28.906 | 34.595 | nhanh hơn 19,3% |
+| `UNCHANGED` | `COMPLETED` | 8.220 | 121.655 | chậm hơn 1,3% |
+| `INCREMENTAL` | `COMPLETED` | 8.235 | 121.433 | nhanh hơn 2,2% |
+| `FULL_CHANGE` | `COMPLETED` | 83.232 | 12.015 | nhanh hơn 23,9% |
+| `REVIVED` | `COMPLETED` | 78.818 | 12.687 | chậm hơn 71,4% |
+
+`COLD` đã dưới 30 giây và vượt 33.000 files/s trong run này, phù hợp giả thuyết bỏ diff-stage tiết kiệm khoảng 6–7 giây. Tuy nhiên `FULL_CHANGE` và `REVIVED` biến động trái chiều giữa hai process benchmark dù vẫn dùng `WARM_DIFF`; chưa được coi là chứng cứ không-regression. Cần ít nhất hai run nữa cùng manifest trước khi chốt FT-047.
+
 - **Mã bài đo**: `BENCH-03-SCAN-CORE`
 - **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java)
 - **Workload**: 1.000.000 files (990.000 proposals, 10.000 issues, 10 chunks x 100k items)

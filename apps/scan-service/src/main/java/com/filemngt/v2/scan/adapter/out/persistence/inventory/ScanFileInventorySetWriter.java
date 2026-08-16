@@ -47,17 +47,17 @@ public class ScanFileInventorySetWriter {
     private static final String INSERT_COLD_SQL = """
             INSERT INTO scan_file_inventory
                 (root_key, source_relative_path, file_size, file_modified_at, state, created_at, updated_at)
-            SELECT diff.root_key,
-                   diff.source_relative_path,
-                   diff.file_size,
-                   diff.file_modified_at,
+            SELECT stage.root_key,
+                   stage.source_relative_path,
+                   stage.file_size,
+                   stage.file_modified_at,
                    'PRESENT',
                    now(),
                    now()
-            FROM scan_inventory_diff_stage diff
-            WHERE diff.scan_run_id = ?
-              AND diff.source_relative_path >= ?
-              AND diff.source_relative_path <= ?
+            FROM scan_inventory_stage stage
+            WHERE stage.scan_run_id = ?
+              AND stage.source_relative_path >= ?
+              AND stage.source_relative_path <= ?
             """;
     private static final String MARK_MISSING_FROM_STAGE_SQL = """
             UPDATE scan_file_inventory inventory
@@ -104,7 +104,7 @@ public class ScanFileInventorySetWriter {
         return new InventoryWriteResult(updated, inserted);
     }
 
-    /** Cold root không có row cũ nên không cần UPDATE hay anti-join từng path. */
+    /** Cold root đọc trực tiếp discovery snapshot, không materialize diff hoặc anti-join từng path. */
     public int insertCold(UUID runId, String firstPath, String lastPath) {
         return jdbcTemplate.update(INSERT_COLD_SQL, runId, firstPath, lastPath);
     }

@@ -22,6 +22,7 @@ public class ScanInventoryStageWriter {
             """;
     private static final String DELETE_RUN_SQL = "DELETE FROM scan_inventory_stage WHERE scan_run_id = ?";
     private static final String DELETE_DIFF_RUN_SQL = "DELETE FROM scan_inventory_diff_stage WHERE scan_run_id = ?";
+    private static final String COUNT_RUN_SQL = "SELECT count(*) FROM scan_inventory_stage WHERE scan_run_id = ?";
     private static final String ANALYZE_SQL = "ANALYZE scan_inventory_stage";
     private static final String ANALYZE_DIFF_SQL = "ANALYZE scan_inventory_diff_stage";
     private static final String MATERIALIZE_DIFF_SQL = """
@@ -118,6 +119,12 @@ public class ScanInventoryStageWriter {
     /** Refresh planner statistics sau bulk COPY để reconciliation không dùng cardinality stale. */
     public void analyze() {
         jdbcTemplate.execute(ANALYZE_SQL);
+    }
+
+    /** Đếm complete snapshot khi cold path đọc trực tiếp stage thay vì materialize diff. */
+    public long countRows(UUID runId) {
+        Long count = jdbcTemplate.queryForObject(COUNT_RUN_SQL, Long.class, runId);
+        return count == null ? 0L : count;
     }
 
     /** Materialize tập changed một lần để các page sau không quét lại toàn bộ staging. */

@@ -49,7 +49,8 @@ class ScanFileInventorySetWriterTest {
         var sql = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).update(sql.capture(), eq(runId), eq("a"), eq("z"));
         assertThat(sql.getValue()).contains("INSERT INTO scan_file_inventory");
-        assertThat(sql.getValue()).doesNotContain("UPDATE", "NOT EXISTS");
+        assertThat(sql.getValue()).contains("FROM scan_inventory_stage");
+        assertThat(sql.getValue()).doesNotContain("scan_inventory_diff_stage", "UPDATE", "NOT EXISTS");
     }
 
     @Test
