@@ -21,8 +21,9 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 
 ### Roadmap triển khai BT-09 theo thứ tự:
 1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
-2. **`BT-09B — Scan decision/outbox` (Active Focus / Bắt đầu ngay)**: Ghi decision + outbox atomic theo bounded chunk, tránh hydrate entity 1M records, kiểm soát WAL/DB connection pool.
+2. **`BT-09B — Scan decision/outbox` (IN-REVIEW docs — Chờ review / chuẩn bị implement FT-045)**: Ghi decision + outbox atomic theo bounded chunk (25.000 items/chunk, 40 chunks), tránh hydrate entity 1M records, kiểm soát WAL/DB connection pool.
 3. **`BT-09C — Outbox drain`**: Drain liên tục, bounded in-flight, deadline/backpressure, lease budget và partition ordering.
+
 4. **`BT-09D — Catalog batch/coalesce`**: Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject (giảm event amplification).
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
 6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
