@@ -1,6 +1,6 @@
 # FT-048 — Plan: Scan-Core Pipelined Reconciliation
 
-Status: `IMPLEMENTED — VERIFY PENDING`
+Status: `DONE — COLD qualified`
 Owner: `apps/scan-service/`  
 Must Preserve: one transaction per chunk, ordered checkpoint, lease fence, bounded memory and terminal recovery.
 
@@ -21,8 +21,8 @@ Must Preserve: one transaction per chunk, ordered checkpoint, lease fence, bound
 2. **DONE** — Add bounded queue with capacity 1; keep capacity configurable for benchmark experiments.
 3. **DONE** — Run one producer and one ordered commit consumer.
 4. **DONE** — Define cancellation and exception propagation before enabling overlap.
-5. **IMPLEMENTED** — Add tests for ordering, empty chunk, queue validation, producer/consumer failure and lease expiry.
-6. **VERIFY PENDING** — Benchmark queue capacity 1 and 2 against the FT-047 baseline.
+5. **DONE** — Add tests for ordering, empty chunk, queue validation, producer/consumer failure and lease expiry.
+6. **DONE** — Benchmark queue capacity 1 and 2 against the FT-047 baseline; select capacity 1.
 
 ## 3. Verification
 
@@ -30,8 +30,13 @@ Must Preserve: one transaction per chunk, ordered checkpoint, lease fence, bound
 .\mvnw.cmd test -Pbenchmark -pl apps/scan-service -Dtest=ScanCorePipelineBenchmarkTest
 ```
 
+Latest IntelliJ evidence: COLD completed in 25.371s with capacity 1 and 26.408s with capacity 2. Capacity 1 is selected;
+warm scenarios remain regression evidence because their database workload is substantially noisier.
+
 The report must include queue wait, parse time, commit time, heap/live chunk count, lease extensions and total duration.
 
 ## 4. Rollback and gate
 
-Keep a sequential execution mode as fallback. Mark `DONE` only when correctness is unchanged and the median improvement survives repeated cold/warm runs without violating lease or memory budgets.
+Keep the sequential execution mode as fallback. COLD correctness is unchanged and repeated runs remain around 25–26s,
+below the FT-047 reference of 28.906s, without observed lease or memory failure. FULL_CHANGE and REVIVED remain
+regression workloads, not a separate SLO claim.

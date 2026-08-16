@@ -46,6 +46,8 @@ scan:
   lock-timeout-seconds: ${SCAN_LOCK_TIMEOUT_SECONDS:5}
   business-chunk-size: ${SCAN_BUSINESS_CHUNK_SIZE:100000}
   reconciliation-parallelism: ${SCAN_RECONCILIATION_PARALLELISM:8}
+  reconciliation-pipeline-enabled: ${SCAN_RECONCILIATION_PIPELINE_ENABLED:true}
+  reconciliation-pipeline-queue-capacity: ${SCAN_RECONCILIATION_PIPELINE_QUEUE_CAPACITY:1}
   review-projection:
     enabled: ${SCAN_REVIEW_PROJECTION_ENABLED:true}
     fixed-delay-ms: ${SCAN_REVIEW_PROJECTION_FIXED_DELAY_MS:1000}

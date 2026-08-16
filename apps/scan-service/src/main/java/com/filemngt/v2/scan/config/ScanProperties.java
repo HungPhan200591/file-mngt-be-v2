@@ -31,6 +31,11 @@ public class ScanProperties {
     @Min(1)
     private int reconciliationParallelism = 8;
 
+    private boolean reconciliationPipelineEnabled = true;
+
+    @Min(1)
+    private int reconciliationPipelineQueueCapacity = 1;
+
     private ReviewProjection reviewProjection = new ReviewProjection();
 
     public List<Root> getRoots() {
@@ -87,6 +92,22 @@ public class ScanProperties {
 
     public void setReconciliationParallelism(int reconciliationParallelism) {
         this.reconciliationParallelism = reconciliationParallelism;
+    }
+
+    public boolean isReconciliationPipelineEnabled() {
+        return reconciliationPipelineEnabled;
+    }
+
+    public void setReconciliationPipelineEnabled(boolean reconciliationPipelineEnabled) {
+        this.reconciliationPipelineEnabled = reconciliationPipelineEnabled;
+    }
+
+    public int getReconciliationPipelineQueueCapacity() {
+        return reconciliationPipelineQueueCapacity;
+    }
+
+    public void setReconciliationPipelineQueueCapacity(int reconciliationPipelineQueueCapacity) {
+        this.reconciliationPipelineQueueCapacity = reconciliationPipelineQueueCapacity;
     }
 
     public ReviewProjection getReviewProjection() {
