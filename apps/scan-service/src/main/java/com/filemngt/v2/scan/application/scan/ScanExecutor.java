@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -198,8 +199,10 @@ public class ScanExecutor {
             ScanExecutionContext context, List<ScanInventoryItem> changed, int chunkIndex, ReconciliationState state) {
         for (int start = 0; start < changed.size(); start += properties.getBusinessChunkSize()) {
             int end = Math.min(start + properties.getBusinessChunkSize(), changed.size());
+            long parseStartedNanos = System.nanoTime();
             ScanChunk chunk = parallelAnalyzer.analyzeParallel(
                     context, changed.subList(start, end), properties.getReconciliationParallelism());
+            state.timeline().recordParseMillis(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - parseStartedNanos));
             state.progress().recordSkipped(catalogExistenceFilter.filter(context, chunk));
             recordChunkProgress(chunk, state.progress());
             chunkIndex++;

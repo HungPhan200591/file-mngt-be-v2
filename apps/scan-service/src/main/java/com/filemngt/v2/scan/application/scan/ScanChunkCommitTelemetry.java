@@ -58,7 +58,7 @@ final class ScanChunkCommitTelemetry {
         public void afterCompletion(int status) {
             long completedNanos = System.nanoTime();
             var outcome = outcome(status);
-            var timing = new ScanExecutionTimeline.ChunkCommitTiming(
+            var timing = new ScanChunkCommitTiming(
                     chunkIndex,
                     outcome,
                     inventoryWriteMillis,
@@ -91,11 +91,11 @@ final class ScanChunkCommitTelemetry {
                             timing.totalMillis());
         }
 
-        private ScanExecutionTimeline.ChunkCommitOutcome outcome(int status) {
+        private ScanChunkCommitOutcome outcome(int status) {
             return switch (status) {
-                case STATUS_COMMITTED -> ScanExecutionTimeline.ChunkCommitOutcome.COMMITTED;
-                case STATUS_ROLLED_BACK -> ScanExecutionTimeline.ChunkCommitOutcome.ROLLED_BACK;
-                default -> ScanExecutionTimeline.ChunkCommitOutcome.UNKNOWN;
+                case STATUS_COMMITTED -> ScanChunkCommitOutcome.COMMITTED;
+                case STATUS_ROLLED_BACK -> ScanChunkCommitOutcome.ROLLED_BACK;
+                default -> ScanChunkCommitOutcome.UNKNOWN;
             };
         }
 

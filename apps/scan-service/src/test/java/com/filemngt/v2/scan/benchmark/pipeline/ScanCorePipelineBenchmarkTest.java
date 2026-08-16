@@ -17,6 +17,8 @@ import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ScanRunView;
 import com.filemngt.v2.scan.application.scan.ScanService;
 import com.filemngt.v2.scan.benchmark.fixture.InMemoryScanFileCursor;
+import com.filemngt.v2.scan.benchmark.fixture.ScanCoreBenchmarkDatabaseFixture;
+import com.filemngt.v2.scan.benchmark.fixture.ScanCoreBenchmarkScenario;
 import com.filemngt.v2.scan.benchmark.fixture.SyntheticScanItemGenerator;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
 import com.filemngt.v2.scan.domain.registry.ScanRegistrySnapshot;
@@ -26,6 +28,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,9 +74,7 @@ class ScanCorePipelineBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCorePipelineBenchmarkTest.class);
     private static final String ROOT_KEY = "benchmark-root";
     private static final int FILE_COUNT = 1_000_000;
-    private static final long EXPECTED_ISSUE_COUNT =
-            Math.round(FILE_COUNT * SyntheticScanItemGenerator.DEFAULT_ISSUE_RATE);
-    private static final long EXPECTED_PROPOSAL_COUNT = FILE_COUNT - EXPECTED_ISSUE_COUNT;
+    private static final Instant BENCHMARK_TIMESTAMP = Instant.parse("2026-01-01T00:00:00Z");
     private static final Duration POLL_INTERVAL = Duration.ofMillis(50);
     private static final Duration TERMINAL_TIMEOUT =
             Duration.ofSeconds(Long.getLong("benchmark.scan-core.timeout-seconds", 300L));
@@ -114,16 +115,13 @@ class ScanCorePipelineBenchmarkTest {
 
     @BeforeEach
     void setUp() {
-        resetTables();
+        ScanCoreBenchmarkDatabaseFixture.resetTables(jdbcTemplate);
         mockCatalogIo();
-        List<ScanInventoryItem> items = SyntheticScanItemGenerator.generateItems(ROOT_KEY, FILE_COUNT);
-        cursor = new InMemoryScanFileCursor(items);
-        when(cursorProvider.open(any(Path.class), eq(ROOT_KEY))).thenReturn(cursor);
     }
 
     @AfterEach
     void tearDown() {
-        resetTables();
+        ScanCoreBenchmarkDatabaseFixture.resetTables(jdbcTemplate);
     }
 
     @AfterAll
@@ -134,15 +132,40 @@ class ScanCorePipelineBenchmarkTest {
     @Test
     @DisplayName("Scan core xử lý 1M synthetic items, không gồm filesystem và Catalog I/O")
     void measuresScanCorePipeline() {
-        LOGGER.info("Bắt đầu scan-core benchmark: files={}, excluded=filesystem,catalog-io", FILE_COUNT);
+        for (ScanCoreBenchmarkScenario scenario : ScanCoreBenchmarkScenario.values()) {
+            measureScenario(scenario);
+        }
+    }
+
+    private void measureScenario(ScanCoreBenchmarkScenario scenario) {
+        ScanCoreBenchmarkDatabaseFixture.resetTables(jdbcTemplate);
+        List<ScanInventoryItem> items = SyntheticScanItemGenerator.generateItems(
+                ROOT_KEY,
+                FILE_COUNT,
+                SyntheticScanItemGenerator.DEFAULT_ISSUE_RATE,
+                SyntheticScanItemGenerator.DEFAULT_TAGGED_RATE,
+                BENCHMARK_TIMESTAMP);
+        if (scenario != ScanCoreBenchmarkScenario.COLD) {
+            ScanCoreBenchmarkDatabaseFixture.seedInventory(jdbcTemplate, ROOT_KEY, BENCHMARK_TIMESTAMP, items);
+            ScanCoreBenchmarkDatabaseFixture.mutateInventory(jdbcTemplate, scenario);
+        }
+        cursor = new InMemoryScanFileCursor(items);
+        when(cursorProvider.open(any(Path.class), eq(ROOT_KEY))).thenReturn(cursor);
+
+        ScanCoreBenchmarkScenario.Expectation expectation = scenario.expectation(items);
+        LOGGER.info(
+                "Bắt đầu scan-core benchmark: scenario={}, files={}, expectedChanged={}, excluded=filesystem,catalog-io",
+                scenario,
+                FILE_COUNT,
+                expectation.changedFiles());
         long startedNanos = System.nanoTime();
 
         ScanRunView view = scanService.start(ROOT_KEY, false);
         ScanRunEntity run = awaitTerminal(view.id());
 
         long durationMillis = elapsedMillis(startedNanos);
-        logResult(run, durationMillis);
-        assertCompletedPipeline(run);
+        logResult(scenario, run, durationMillis);
+        assertCompletedPipeline(run, expectation);
     }
 
     private void mockCatalogIo() {
@@ -184,54 +207,31 @@ class ScanCorePipelineBenchmarkTest {
         return runs.findById(runId).orElseThrow();
     }
 
-    private void assertCompletedPipeline(ScanRunEntity run) {
+    private void assertCompletedPipeline(ScanRunEntity run, ScanCoreBenchmarkScenario.Expectation expectation) {
         assertThat(run.status())
                 .withFailMessage("Scan core thất bại: %s", run.lastError())
                 .isEqualTo(ScanRunStatus.COMPLETED);
         assertThat(run.scannedFileCount()).isEqualTo(FILE_COUNT);
-        assertThat(run.changedFileCount()).isEqualTo((long) FILE_COUNT);
-        assertThat(run.reconciledFileCount()).isEqualTo((long) FILE_COUNT);
-        assertThat(run.proposalCount()).isEqualTo(EXPECTED_PROPOSAL_COUNT);
-        assertThat(run.issueCount()).isEqualTo(EXPECTED_ISSUE_COUNT);
-        assertPersistedRows();
+        assertThat(run.changedFileCount()).isEqualTo(expectation.changedFiles());
+        assertThat(run.reconciledFileCount()).isEqualTo(expectation.changedFiles());
+        assertThat(run.proposalCount()).isEqualTo(expectation.proposals());
+        assertThat(run.issueCount()).isEqualTo(expectation.issues());
+        ScanCoreBenchmarkDatabaseFixture.assertPersistedRows(jdbcTemplate, expectation, FILE_COUNT);
         assertThat(cursor.isClosed()).isTrue();
         verify(cursorProvider).open(any(Path.class), eq(ROOT_KEY));
     }
 
-    private void assertPersistedRows() {
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM scan_file_inventory", Long.class))
-                .isEqualTo(FILE_COUNT);
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM scan_proposal", Long.class))
-                .isEqualTo(EXPECTED_PROPOSAL_COUNT);
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM scan_issue", Long.class))
-                .isEqualTo(EXPECTED_ISSUE_COUNT);
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM scan_inventory_stage", Long.class))
-                .isZero();
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM scan_inventory_diff_stage", Long.class))
-                .isZero();
-    }
-
-    private void logResult(ScanRunEntity run, long durationMillis) {
+    private void logResult(ScanCoreBenchmarkScenario scenario, ScanRunEntity run, long durationMillis) {
         double throughput = (run.scannedFileCount() * 1_000.0) / Math.max(1L, durationMillis);
         LOGGER.info(
-                "Scan-core benchmark hoàn tất: status={}, files={}, proposals={}, issues={}, durationMs={}, throughputFilesPerSecond={}",
+                "Scan-core benchmark hoàn tất: scenario={}, status={}, files={}, proposals={}, issues={}, durationMs={}, throughputFilesPerSecond={}",
+                scenario,
                 run.status(),
                 run.scannedFileCount(),
                 run.proposalCount(),
                 run.issueCount(),
                 durationMillis,
                 Math.round(throughput));
-    }
-
-    private void resetTables() {
-        jdbcTemplate.update("DELETE FROM scan_outbox_event");
-        jdbcTemplate.update("DELETE FROM scan_decision");
-        jdbcTemplate.update("DELETE FROM scan_proposal");
-        jdbcTemplate.update("DELETE FROM scan_issue");
-        jdbcTemplate.update("DELETE FROM scan_file_inventory");
-        jdbcTemplate.update("DELETE FROM scan_inventory_diff_stage");
-        jdbcTemplate.update("DELETE FROM scan_inventory_stage");
-        runs.deleteAllInBatch();
     }
 
     private static long elapsedMillis(long startedNanos) {

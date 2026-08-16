@@ -67,8 +67,15 @@ public final class SyntheticScanItemGenerator {
      */
     public static List<ScanInventoryItem> generateItems(
             String rootKey, int count, double issueRate, double taggedRate) {
+        return generateItems(rootKey, count, issueRate, taggedRate, Instant.now());
+    }
+
+    /**
+     * Sinh dữ liệu với timestamp cố định để benchmark cold/warm có fingerprint giống nhau.
+     */
+    public static List<ScanInventoryItem> generateItems(
+            String rootKey, int count, double issueRate, double taggedRate, Instant modifiedAt) {
         List<ScanInventoryItem> list = new ArrayList<>(count);
-        Instant now = Instant.now();
 
         int studioCount = DEFAULT_STUDIOS.size();
         int artistCount = DEFAULT_ARTISTS.size();
@@ -93,7 +100,7 @@ public final class SyntheticScanItemGenerator {
             }
 
             long sizeBytes = 500L * 1024 * 1024 + (i * 1024L); // ~500MB
-            list.add(new ScanInventoryItem(rootKey, relativePath, sizeBytes, now));
+            list.add(new ScanInventoryItem(rootKey, relativePath, sizeBytes, modifiedAt));
         }
         return list;
     }

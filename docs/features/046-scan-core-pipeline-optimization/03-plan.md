@@ -1,6 +1,6 @@
 # FT-046 — Plan: Scan-Core Pipeline Optimization & Benchmark Evidence
 
-Status: `READY`  
+Status: `IMPLEMENTED — VERIFY PENDING`
 Owner: `apps/scan-service/`  
 Must Preserve: inventory semantics, chunk atomicity, lease fencing, staging cleanup, scan-core benchmark scope.
 

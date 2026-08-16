@@ -30,6 +30,7 @@ class ScanExecutionTimelineTest {
         timeline.reconciliationStarted();
         advance(clock, 9);
         timeline.reconciliationCompleted();
+        timeline.recordParseMillis(8);
         advance(clock, 2);
         timeline.finalizingStarted();
 
@@ -52,6 +53,7 @@ class ScanExecutionTimelineTest {
         assertThat(snapshot.diffMs()).isEqualTo(4);
         assertThat(snapshot.reconciliationMs()).isEqualTo(9);
         assertThat(snapshot.finalizeMs()).isEqualTo(6);
+        assertThat(snapshot.parseMillis()).isEqualTo(8);
         assertThat(snapshot.files()).isEqualTo(100);
         assertThat(snapshot.changedFiles()).isEqualTo(20);
         assertThat(snapshot.reconciledFiles()).isEqualTo(20);
@@ -80,10 +82,9 @@ class ScanExecutionTimelineTest {
     @Test
     void keepsRolledBackChunkOutOfDurableCommitCount() {
         var timeline = new ScanExecutionTimeline("corr-003", 0, () -> 0);
-        timeline.recordChunkCommit(new ScanExecutionTimeline.ChunkCommitTiming(
-                4, ScanExecutionTimeline.ChunkCommitOutcome.COMMITTED, 10, 20, 30, 4, 2, 66));
-        timeline.recordChunkCommit(new ScanExecutionTimeline.ChunkCommitTiming(
-                5, ScanExecutionTimeline.ChunkCommitOutcome.ROLLED_BACK, 7, 8, 9, 0, 3, 27));
+        timeline.recordChunkCommit(
+                new ScanChunkCommitTiming(4, ScanChunkCommitOutcome.COMMITTED, 10, 20, 30, 4, 2, 66));
+        timeline.recordChunkCommit(new ScanChunkCommitTiming(5, ScanChunkCommitOutcome.ROLLED_BACK, 7, 8, 9, 0, 3, 27));
 
         var snapshot = timeline.snapshot("failed", new ScanProgress(), "RuntimeException");
 

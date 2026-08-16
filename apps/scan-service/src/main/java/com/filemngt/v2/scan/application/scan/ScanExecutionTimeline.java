@@ -33,6 +33,7 @@ final class ScanExecutionTimeline {
     private long inventoryWriteMillis;
     private long proposalCopyMillis;
     private long issueCopyMillis;
+    private long parseMillis;
     private long checkpointMillis;
     private long commitMillis;
     private long chunkTransactionMillis;
@@ -91,7 +92,7 @@ final class ScanExecutionTimeline {
         finalizingStartedNanos = now();
     }
 
-    void recordChunkCommit(ChunkCommitTiming timing) {
+    void recordChunkCommit(ScanChunkCommitTiming timing) {
         switch (timing.outcome()) {
             case COMMITTED -> committedChunkCount++;
             case ROLLED_BACK -> rolledBackChunkCount++;
@@ -105,6 +106,10 @@ final class ScanExecutionTimeline {
         chunkTransactionMillis += timing.totalMillis();
     }
 
+    void recordParseMillis(long millis) {
+        parseMillis += millis;
+    }
+
     void completed(ScanProgress progress) {
         log("completed", progress, null);
     }
@@ -113,9 +118,9 @@ final class ScanExecutionTimeline {
         log("failed", progress, exception.getClass().getSimpleName());
     }
 
-    TerminalSnapshot snapshot(String terminalPhase, ScanProgress progress, String errorType) {
+    ScanExecutionTerminalSnapshot snapshot(String terminalPhase, ScanProgress progress, String errorType) {
         long terminalNanos = now();
-        return new TerminalSnapshot(
+        return new ScanExecutionTerminalSnapshot(
                 runId,
                 correlationId,
                 terminalPhase,
@@ -126,6 +131,7 @@ final class ScanExecutionTimeline {
                 elapsedMillis(diffStartedNanos, diffCompletedNanos),
                 elapsedMillis(reconciliationStartedNanos, reconciliationCompletedNanos),
                 elapsedMillis(finalizingStartedNanos, terminalNanos),
+                parseMillis,
                 progress.files(),
                 progress.changedFiles(),
                 progress.reconciledFiles(),
@@ -145,7 +151,7 @@ final class ScanExecutionTimeline {
     }
 
     private void log(String terminalPhase, ScanProgress progress, String errorType) {
-        TerminalSnapshot snapshot = snapshot(terminalPhase, progress, errorType);
+        ScanExecutionTerminalSnapshot snapshot = snapshot(terminalPhase, progress, errorType);
         LOGGER.atInfo()
                 .addKeyValue("event", "scan.execution.terminal")
                 .addKeyValue("phase", snapshot.terminalPhase())
@@ -156,6 +162,7 @@ final class ScanExecutionTimeline {
                 .addKeyValue("diffMs", snapshot.diffMs())
                 .addKeyValue("reconciliationMs", snapshot.reconciliationMs())
                 .addKeyValue("finalizeMs", snapshot.finalizeMs())
+                .addKeyValue("parseMs", snapshot.parseMillis())
                 .addKeyValue("files", snapshot.files())
                 .addKeyValue("changedFiles", snapshot.changedFiles())
                 .addKeyValue("reconciledFiles", snapshot.reconciledFiles())
@@ -173,12 +180,18 @@ final class ScanExecutionTimeline {
                 .addKeyValue("commitMs", snapshot.commitMillis())
                 .addKeyValue("chunkTransactionMs", snapshot.chunkTransactionMillis())
                 .log(
-                        "scan.execution.terminal: phase={}, durationMs={}, files={}, proposals={}, issues={}, "
+                        "scan.execution.terminal: phase={}, durationMs={}, discoveryMs={}, diffMs={}, "
+                                + "reconciliationMs={}, finalizeMs={}, parseMs={}, files={}, proposals={}, issues={}, "
                                 + "committedChunks={}, rolledBackChunks={}, inventoryWriteMs={}, "
                                 + "proposalCopyMs={}, issueCopyMs={}, checkpointMs={}, commitMs={}, "
                                 + "chunkTransactionMs={}",
                         snapshot.terminalPhase(),
                         snapshot.totalDurationMs(),
+                        snapshot.discoveryMs(),
+                        snapshot.diffMs(),
+                        snapshot.reconciliationMs(),
+                        snapshot.finalizeMs(),
+                        snapshot.parseMillis(),
                         snapshot.files(),
                         snapshot.proposals(),
                         snapshot.issues(),
@@ -201,49 +214,5 @@ final class ScanExecutionTimeline {
             return null;
         }
         return TimeUnit.NANOSECONDS.toMillis(completedNanos - startedNanos);
-    }
-
-    record TerminalSnapshot(
-            UUID runId,
-            String correlationId,
-            String terminalPhase,
-            Long totalDurationMs,
-            Long httpAcceptedMs,
-            Long queueWaitMs,
-            Long discoveryMs,
-            Long diffMs,
-            Long reconciliationMs,
-            Long finalizeMs,
-            long files,
-            long changedFiles,
-            long reconciledFiles,
-            long proposals,
-            long issues,
-            long skippedFiles,
-            String errorType,
-            long committedChunkCount,
-            long rolledBackChunkCount,
-            long unknownChunkCount,
-            long inventoryWriteMillis,
-            long proposalCopyMillis,
-            long issueCopyMillis,
-            long checkpointMillis,
-            long commitMillis,
-            long chunkTransactionMillis) {}
-
-    record ChunkCommitTiming(
-            int chunkIndex,
-            ChunkCommitOutcome outcome,
-            long inventoryWriteMillis,
-            long proposalCopyMillis,
-            long issueCopyMillis,
-            long checkpointMillis,
-            long commitMillis,
-            long totalMillis) {}
-
-    enum ChunkCommitOutcome {
-        COMMITTED,
-        ROLLED_BACK,
-        UNKNOWN
     }
 }
