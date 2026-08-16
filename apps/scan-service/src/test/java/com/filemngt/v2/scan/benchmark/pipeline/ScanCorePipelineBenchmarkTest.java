@@ -2,6 +2,12 @@ package com.filemngt.v2.scan.benchmark.pipeline;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogExistenceClient;
 import com.filemngt.v2.scan.adapter.out.catalog.CatalogRegistryClient;
@@ -31,7 +37,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,9 +45,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -75,8 +80,7 @@ class ScanCorePipelineBenchmarkTest {
     private static final Path EMPTY_BENCHMARK_ROOT = createEmptyRoot();
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:18.0-alpine"));
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
 
     @Autowired
     private ScanService scanService;
@@ -114,8 +118,7 @@ class ScanCorePipelineBenchmarkTest {
         mockCatalogIo();
         List<ScanInventoryItem> items = SyntheticScanItemGenerator.generateItems(ROOT_KEY, FILE_COUNT);
         cursor = new InMemoryScanFileCursor(items);
-        Mockito.when(cursorProvider.open(Mockito.any(Path.class), Mockito.eq(ROOT_KEY)))
-                .thenReturn(cursor);
+        when(cursorProvider.open(any(Path.class), eq(ROOT_KEY))).thenReturn(cursor);
     }
 
     @AfterEach
@@ -145,8 +148,8 @@ class ScanCorePipelineBenchmarkTest {
     private void mockCatalogIo() {
         var snapshot = new ScanRegistrySnapshot(
                 100L, "JOKE", SyntheticScanItemGenerator.DEFAULT_STUDIOS, SyntheticScanItemGenerator.DEFAULT_TAGS);
-        Mockito.when(catalogClient.fetch(Mockito.anyString())).thenReturn(Optional.of(snapshot));
-        Mockito.when(catalogExistenceClient.classify(Mockito.any(), Mockito.anyList()))
+        when(catalogClient.fetch(anyString())).thenReturn(Optional.of(snapshot));
+        when(catalogExistenceClient.classify(any(), anyList()))
                 .thenAnswer(invocation -> allNewSubjects(invocation.getArgument(1)));
     }
 
@@ -192,7 +195,7 @@ class ScanCorePipelineBenchmarkTest {
         assertThat(run.issueCount()).isEqualTo(EXPECTED_ISSUE_COUNT);
         assertPersistedRows();
         assertThat(cursor.isClosed()).isTrue();
-        Mockito.verify(cursorProvider).open(Mockito.any(Path.class), Mockito.eq(ROOT_KEY));
+        verify(cursorProvider).open(any(Path.class), eq(ROOT_KEY));
     }
 
     private void assertPersistedRows() {
