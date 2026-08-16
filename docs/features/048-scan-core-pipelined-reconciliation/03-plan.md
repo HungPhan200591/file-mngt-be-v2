@@ -1,6 +1,6 @@
 # FT-048 — Plan: Scan-Core Pipelined Reconciliation
 
-Status: `READY`  
+Status: `IMPLEMENTED — VERIFY PENDING`
 Owner: `apps/scan-service/`  
 Must Preserve: one transaction per chunk, ordered checkpoint, lease fence, bounded memory and terminal recovery.
 
@@ -17,12 +17,12 @@ Must Preserve: one transaction per chunk, ordered checkpoint, lease fence, bound
 
 ## 2. Implementation steps
 
-1. Introduce immutable chunk envelope with sequence, lease context and progress metadata.
-2. Add bounded queue with capacity 1; make capacity configurable only for benchmark experiments.
-3. Run one producer and one ordered commit consumer.
-4. Define cancellation and exception propagation before enabling overlap.
-5. Add tests for queue full, producer failure, consumer failure, lease expiry and shutdown.
-6. Benchmark queue capacity 1 and 2 against the FT-047 baseline.
+1. **DONE** — Introduce immutable chunk envelope with sequence and progress metadata.
+2. **DONE** — Add bounded queue with capacity 1; keep capacity configurable for benchmark experiments.
+3. **DONE** — Run one producer and one ordered commit consumer.
+4. **DONE** — Define cancellation and exception propagation before enabling overlap.
+5. **IMPLEMENTED** — Add tests for ordering, empty chunk, queue validation, producer/consumer failure and lease expiry.
+6. **VERIFY PENDING** — Benchmark queue capacity 1 and 2 against the FT-047 baseline.
 
 ## 3. Verification
 

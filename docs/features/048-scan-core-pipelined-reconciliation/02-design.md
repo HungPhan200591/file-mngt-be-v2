@@ -1,21 +1,21 @@
-# FT-048 — Design: Scan-Core Pipelined Reconciliation
+# FT-048 — Thiết kế: Phân tích & Đồng bộ Pipeline Gối đầu (Scan-Core Pipelined Reconciliation)
 
-Status: `READY`  
+Trạng thái: `READY`  
 Owner: `scan-service`
 
-## 1. High-level flow
+## 1. Luồng kiến trúc tổng thể (High-level flow)
 
 ```mermaid
 flowchart TB
-    CURSOR["Keyset page reader"] --> PRODUCER["Analyze producer"]
-    PRODUCER --> QUEUE{{"Bounded chunk queue"}}
-    QUEUE --> CONSUMER["Ordered DB consumer"]
-    CONSUMER --> TX[("One chunk transaction")]
-    TX --> CHECK["Checkpoint after commit"]
-    CHECK --> TERM(["Terminal state"])
-    PRODUCER --> FAIL{"Failure?"}
+    CURSOR["Bộ đọc Keyset Page<br/>(scan_inventory_diff_stage)"] --> PRODUCER["Producer:<br/>Phân tích Regex & Rules<br/>(Tận dụng CPU)"]
+    PRODUCER --> QUEUE{{"Hàng đợi Bounded Queue<br/>(Capacity: 1–2 Chunks)"}}
+    QUEUE --> CONSUMER["Consumer:<br/>Ghi DB theo đúng thứ tự<br/>(Tận dụng Disk I/O)"]
+    CONSUMER --> TX[("Transaction nguyên tử<br/>1 Chunk duy nhất")]
+    TX --> CHECK["Lưu Checkpoint<br/>sau khi Commit thành công"]
+    CHECK --> TERM(["Trạng thái kết thúc<br/>(COMPLETED)"])
+    PRODUCER --> FAIL{"Gặp lỗi?<br/>(Exception / Cancel)"}
     CONSUMER --> FAIL
-    FAIL --> CANCEL["Cancel peer and drain"]
+    FAIL --> CANCEL["Hủy luồng đối tác<br/>và xả sạch queue"]
     CANCEL --> TERM
 
     style CURSOR fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
@@ -29,19 +29,22 @@ flowchart TB
     style TERM fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-## 2. Consistency model
+## 2. Mô hình nhất quán (Consistency model)
 
-The queue carries analyzed, immutable chunk data. The consumer is the only component allowed to call the chunk committer. `chunkIndex` ordering is explicit; a later chunk cannot checkpoint before an earlier chunk commits.
+- Hàng đợi (Queue) chỉ mang các đối tượng chunk bất biến (immutable) đã được CPU phân tích xong.
+- Consumer là thành phần duy nhất được phép gọi `ScanChunkCommitter` để ghi vào cơ sở dữ liệu.
+- Thứ tự `chunkIndex` là tuyệt đối nghiêm ngặt; chunk sau không bao giờ được phép checkpoint trước khi chunk trước commit thành công.
+- Việc gia hạn Lease (Heartbeat) bám sát tiến độ đã commit thật vào DB. Việc CPU parse xong một chunk trong bộ nhớ không được tính là tiến độ bền vững.
+- Dung lượng hàng đợi (Queue capacity) thuộc ngân sách bộ nhớ Heap và bắt buộc phải được đo đạc, giới hạn chặt chẽ (mặc định 1–2 chunk).
 
-Lease renewal follows committed progress. Parsing a chunk does not make it durable progress. Queue capacity is part of the memory budget and must be measured.
+## 3. Quản lý sự cố và độ sống còn (Failure and liveness)
 
-## 3. Failure and liveness
+- **Khi Producer gặp lỗi (Exception)**: Hủy ngay toàn bộ công việc đang chờ trong queue và các tác vụ đang chạy, sau đó kích hoạt luồng xử lý thất bại hiện có để chuyển run sang `FAILED`.
+- **Khi Consumer gặp lỗi (Exception)**: Dừng ngay việc nạp thêm dữ liệu từ Producer và ngăn chặn xuất bản các checkpoint phía sau.
+- **Khi hết hạn Lease (Lease Expiry)**: Lập tức rào chắn (fence) transaction hiện tại; toàn bộ kết quả của Producer quá hạn bị hủy bỏ.
+- **Khi tắt ứng dụng (Graceful Shutdown)**: Dừng nhận dữ liệu mới, xả sạch hoặc hủy theo chính sách, và tuyệt đối không bao giờ báo thành công nếu chưa đối soát đầy đủ mọi chunk đã commit.
 
-- Producer exception cancels queued and in-flight work, then invokes the existing failure path.
-- Consumer exception stops new production and prevents later checkpoint publication.
-- Lease expiry fences the current transaction; stale producer output is discarded.
-- Shutdown stops intake, drains or cancels according to policy, and never reports success before all committed chunks are accounted for.
+## 4. Rủi ro & Điều kiện đánh đổi (Risk)
 
-## 4. Risk
-
-Overlap may be negligible when PostgreSQL persistence dominates. The feature must be rejected or deferred if queue memory, lease pressure or coordination cost exceeds the measured gain.
+- Việc chạy gối đầu (Overlap) có thể mang lại lợi ích không đáng kể nếu thời gian ghi đĩa của PostgreSQL chiếm ưu thế tuyệt đối ($> 80-90\%$).
+- Tính năng này bắt buộc phải bị từ chối hoặc hoãn lại nếu chi phí bộ nhớ queue, áp lực gia hạn lease hoặc chi phí đồng bộ luồng (coordination overhead) lớn hơn lợi ích đo đạc thực tế mang lại.
