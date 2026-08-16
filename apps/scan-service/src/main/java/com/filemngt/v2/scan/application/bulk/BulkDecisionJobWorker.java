@@ -2,11 +2,13 @@ package com.filemngt.v2.scan.application.bulk;
 
 import com.filemngt.v2.scan.application.decision.ScanReviewQueueDecisionBatch;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@ConditionalOnProperty(name = "scan.bulk-decision.enabled", havingValue = "true", matchIfMissing = true)
 class BulkDecisionJobWorker {
     private final BulkDecisionJobRepository jobs;
     private final BulkDecisionClaimService claims;

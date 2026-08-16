@@ -1,10 +1,12 @@
 package com.filemngt.v2.scan.application.recheck;
 
 import com.filemngt.v2.scan.domain.identity.UuidV7;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "scan.issue-recheck.enabled", havingValue = "true", matchIfMissing = true)
 class IssueRecheckWorker {
     private final IssueRecheckClaimService claims;
     private final IssueRecheckObservationResolver resolver;
