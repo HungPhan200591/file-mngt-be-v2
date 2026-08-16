@@ -11,8 +11,7 @@ com.filemngt.v2.scan.benchmark/
 ├── fixture/                               <-- Cung cấp mock data & context fixtures
 │   └── SyntheticScanItemGenerator.java    <-- Generator sinh dữ liệu sạch (10k -> 1.000.000+ files)
 │
-├── pipeline/                              <-- Các bài benchmark cho Scan Pipeline (Phase 1 -> 6)
-│   ├── ScanParallelAnalyzerBenchmarkTest.java <-- [PHASE 4] CPU Regex, Evidence JSON & Virtual Threads trong RAM
+├── pipeline/                              <-- Các bài benchmark cho Scan Pipeline
 │   └── SetBasedReconciliationWriteBenchmarkTest.java <-- [PHASE 3 & 5] PostgreSQL Direct COPY & SQL Set-based trên DB
 │
 ├── legacy/                                <-- Các bài benchmark đối chiếu kiến trúc cũ (Baseline)
@@ -20,8 +19,7 @@ com.filemngt.v2.scan.benchmark/
 │
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
-│   ├── 02-database-set-based-persistence.md
-│   └── 03-phase4-parallel-analyzer-cpu.md
+│   └── 02-database-set-based-persistence.md
 │
 ├── BENCHMARK_RESULTS.md                   <-- Dashboard tổng hợp chỉ số của tất cả các lần đo
 └── README.md                              <-- Chỉ mục điều hướng & CLI cheat sheet
@@ -54,21 +52,14 @@ ScanProperties.Root root = SyntheticScanItemGenerator.createDefaultVideoRoot();
 
 Tất cả các lệnh Maven chạy từ **thư mục gốc dự án** với JDK 25 Corretto:
 
-### ⚡ 1. Đo Phase 4 (CPU Java Virtual Threads trong RAM - 1M files):
-```powershell
-$env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-mvn test -pl apps/scan-service -Dtest=ScanParallelAnalyzerBenchmarkTest
-```
-
-### 💾 2. Đo Phase 3 & 5 (Database Direct COPY + SQL Set-based - 1M rows):
+### 💾 1. Đo Database Set-based Persistence (1M rows trên PostgreSQL):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest
 ```
 
-### 📜 3. Đo Baseline JDBC Batch truyền thống (Đối chiếu lịch sử):
+### 🐢 2. Đo Baseline cũ (JDBC Batching 50k - 1M rows):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 mvn test -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmarkTest
 ```
-
