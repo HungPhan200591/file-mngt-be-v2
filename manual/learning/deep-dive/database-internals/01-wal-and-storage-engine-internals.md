@@ -5,6 +5,16 @@
 
 ---
 
+> [!IMPORTANT]
+> ### ⚡ Summary 30 Giây (Bản chất & Quy tắc Cốt lõi)
+>
+> - **Bản chất của WAL**: Biến thao tác ghi ngẫu nhiên (Random I/O) rất chậm trên các Data Page 8KB và Index thành một thao tác **ghi nhật ký tuần tự (Sequential Append-Only)** siêu tốc trên đĩa cứng.
+> - **Nguyên lý Write-Ahead**: Sửa dữ liệu trong RAM (`Shared Buffers`) trong vài nano-giây $\to$ Ghi bản tin WAL xuống đĩa với `fsync()` ($< 1\text{ms}$) $\to$ Báo Commit thành công. Checkpointer chạy nền gom ngàn thay đổi xả đĩa 1 lần (**Write Coalescing**).
+> - **Sự cố phình to WAL**: 1 transaction lớn (1.000.000 dòng) khóa không cho dọn WAL, sinh $> 1.5\text{GB}$ log dồn dập, kích hoạt **Forced Checkpoint** gây đóng băng I/O hệ thống.
+> - **Giải pháp Kiến trúc**: Chia thành các **Bounded Chunks** (ví dụ 25k–100k rows) commit độc lập để giải phóng WAL tuần hoàn và truyền gối đầu sang Kafka.
+
+---
+
 ## 1. D0 — Bản chất vấn đề: Nan đề Hiệu năng vs Độ bền vững (Durability)
 
 Trong thiết kế hệ quản trị cơ sở dữ liệu quan hệ (RDBMS), mọi kiến trúc sư đều phải đối mặt với một mâu thuẫn vật lý cơ bản:

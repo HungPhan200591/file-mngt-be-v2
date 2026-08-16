@@ -5,6 +5,18 @@
 
 ---
 
+> [!IMPORTANT]
+> ### ⚡ Summary 30 Giây (Bản chất & Quy tắc Cốt lõi)
+>
+> - **Anti-Join là gì?**: Phép trừ tập hợp ($A \setminus B$) lấy tất cả các dòng ở bảng $A$ mà **KHÔNG TỒN TẠI hoặc ĐÃ BỊ ĐỔI** trong bảng $B$.
+> - **Cú pháp khuyên dùng**: Dùng `NOT EXISTS` (hoặc `LEFT JOIN ... WHERE id IS NULL`). Tuyệt đối tránh `NOT IN` vì cạm bẫy giá trị `NULL` (Three-Valued Logic) có thể làm câu query trả về rỗng.
+> - **Cơ chế Hash Anti-Join ($O(M+N)$)**: 
+>   - *Pha 1 (Build)*: Nạp $1.000.000$ dòng cũ vào **Hash Table trong RAM** (`work_mem`).
+>   - *Pha 2 (Probe)*: Quét $1.000.000$ dòng mới tra cứu nhanh $O(1)$ để lọc ra file mới/đổi. Toàn bộ quá trình chỉ mất **$< 700\text{ms}$**!
+> - **Chống Spill to Disk**: Cấu hình `work_mem` đủ lớn ($\ge 128\text{MB}$) để chứa vừa bảng băm trong 1 Batch duy nhất (`Batches: 1`), tránh bị tràn dữ liệu tạm xuống ổ đĩa.
+
+---
+
 ## 1. D0 — Bài toán Cốt lõi: Tìm Độ Lệch Tập Hợp ($A \setminus B$)
 
 Trong các hệ thống quản lý dữ liệu lớn, một trong những tác vụ phổ biến và tốn kém nhất là **tìm các phần tử mới hoặc đã bị sửa đổi**:
