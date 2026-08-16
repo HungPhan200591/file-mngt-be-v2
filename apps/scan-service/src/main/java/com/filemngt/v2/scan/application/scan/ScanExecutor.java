@@ -1,11 +1,13 @@
 package com.filemngt.v2.scan.application.scan;
 
 import com.filemngt.v2.observability.CorrelationId;
-import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileInventoryCursor;
+import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileCursor;
+import com.filemngt.v2.scan.adapter.out.filesystem.ScanFileCursorProvider;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanInventoryStageWriter.StageRowSource;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.scan.reconciliation.ScanReconciliationPageReader;
+
 import com.filemngt.v2.scan.application.stream.ScanRunStreamPhase;
 import com.filemngt.v2.scan.config.ScanProperties;
 import com.filemngt.v2.scan.domain.inventory.ScanInventoryItem;
@@ -36,6 +38,7 @@ public class ScanExecutor {
     private final ScanParallelAnalyzer parallelAnalyzer;
     private final ScanCatalogExistenceFilter catalogExistenceFilter;
     private final ScanReconciliationPageReader reconciliationPageReader;
+    private final ScanFileCursorProvider cursorProvider;
     private final ScanProperties properties;
     private final ScanExecutionFailureHandler failureHandler;
     private final ScanExecutionLiveness liveness;
@@ -46,6 +49,7 @@ public class ScanExecutor {
             ScanParallelAnalyzer parallelAnalyzer,
             ScanCatalogExistenceFilter catalogExistenceFilter,
             ScanReconciliationPageReader reconciliationPageReader,
+            ScanFileCursorProvider cursorProvider,
             ScanProperties properties,
             ScanExecutionFailureHandler failureHandler,
             ScanExecutionLiveness liveness) {
@@ -54,6 +58,7 @@ public class ScanExecutor {
         this.parallelAnalyzer = parallelAnalyzer;
         this.catalogExistenceFilter = catalogExistenceFilter;
         this.reconciliationPageReader = reconciliationPageReader;
+        this.cursorProvider = cursorProvider;
         this.properties = properties;
         this.failureHandler = failureHandler;
         this.liveness = liveness;
@@ -132,7 +137,7 @@ public class ScanExecutor {
     private int discover(ScanExecutionContext context, int chunkIndex, ScanProgress progress) {
         Path rootPath = com.filemngt.v2.scan.adapter.out.filesystem.PathUtils.resolvePath(
                 context.root().path());
-        try (var cursor = new ScanFileInventoryCursor(rootPath, context.root().key())) {
+        try (var cursor = cursorProvider.open(rootPath, context.root().key())) {
             ScanInventoryItem firstItem = cursor.next();
             while (firstItem != null) {
                 chunkIndex++;
@@ -274,7 +279,7 @@ public class ScanExecutor {
 
     private record DiscoveryRequest(
             ScanExecutionContext context,
-            ScanFileInventoryCursor cursor,
+            ScanFileCursor cursor,
             ScanInventoryItem firstItem,
             long previouslyScanned,
             int chunkIndex) {}

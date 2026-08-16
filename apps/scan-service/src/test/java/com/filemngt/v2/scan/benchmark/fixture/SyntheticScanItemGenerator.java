@@ -84,10 +84,10 @@ public final class SyntheticScanItemGenerator {
                 relativePath = studio + "/" + artist + "/Unformatted_Raw_Clip_NoCode_" + i + ".mp4";
             } else if (rand < issueRate + taggedRate) {
                 // File có kèm tag chuẩn
-                relativePath = studio + "/" + artist + "/" + artist + " - [" + code + "] [4K] [OFFICIAL].mp4";
+                relativePath = studio + "/" + artist + "/" + artist + "_" + i + " - [" + code + "] [4K] [OFFICIAL].mp4";
             } else {
                 // File video chuẩn thông thường
-                relativePath = studio + "/" + artist + "/Sample_Media_[" + code + "].mp4";
+                relativePath = studio + "/" + artist + "/Sample_Media_" + i + "_[" + code + "].mp4";
             }
 
             long sizeBytes = 500L * 1024 * 1024 + (i * 1024L); // ~500MB

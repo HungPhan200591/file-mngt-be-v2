@@ -15,7 +15,7 @@ import java.util.concurrent.BlockingQueue;
  * Chuyển walkFileTree dạng push thành cursor pull bounded-memory để COPY có thể
  * dừng và commit theo segment mà không đọc lại cây thư mục.
  */
-public final class ScanFileInventoryCursor implements AutoCloseable {
+public final class ScanFileInventoryCursor implements ScanFileCursor {
     private static final int QUEUE_CAPACITY = 1_024;
 
     private final BlockingQueue<Signal> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
