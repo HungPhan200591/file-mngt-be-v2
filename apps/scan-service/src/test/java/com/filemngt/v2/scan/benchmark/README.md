@@ -9,9 +9,11 @@ Thư mục này tổ chức toàn bộ các bài kiểm thử hiệu năng độ
 ```text
 com.filemngt.v2.scan.benchmark/
 ├── fixture/                               <-- Cung cấp mock data & context fixtures
-│   └── SyntheticScanItemGenerator.java    <-- Generator sinh dữ liệu sạch (10k -> 1.000.000+ files)
+│   ├── SyntheticScanItemGenerator.java    <-- Generator sinh dữ liệu sạch (10k -> 1.000.000+ files)
+│   └── InMemoryScanFileCursor.java         <-- Cursor fixture loại filesystem I/O
 │
 ├── pipeline/                              <-- Các bài benchmark cho Scan Pipeline
+│   ├── ScanCorePipelineBenchmarkTest.java <-- Scan core, loại filesystem và Catalog I/O
 │   └── SetBasedReconciliationWriteBenchmarkTest.java <-- [PHASE 3 & 5] PostgreSQL Direct COPY & SQL Set-based trên DB
 │
 ├── legacy/                                <-- Các bài benchmark đối chiếu kiến trúc cũ (Baseline)
@@ -55,11 +57,20 @@ Tất cả các lệnh Maven chạy từ **thư mục gốc dự án** với JDK
 ### 💾 1. Đo Database Set-based Persistence (1M rows trên PostgreSQL):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest
+mvn test -Pbenchmark -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest
 ```
 
 ### 🐢 2. Đo Baseline cũ (JDBC Batching 50k - 1M rows):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-mvn test -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmarkTest
+mvn test -Pbenchmark -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmarkTest
 ```
+
+### 🚀 3. Đo Scan Service core pipeline, loại filesystem và Catalog I/O:
+```powershell
+$env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
+mvn test -Pbenchmark -pl apps/scan-service -Dtest=ScanCorePipelineBenchmarkTest
+```
+
+Profile `benchmark` là bắt buộc. `mvn test` mặc định loại toàn bộ test gắn `@Tag("benchmark")` để
+không đưa workload 1M records vào test suite/CI thông thường.

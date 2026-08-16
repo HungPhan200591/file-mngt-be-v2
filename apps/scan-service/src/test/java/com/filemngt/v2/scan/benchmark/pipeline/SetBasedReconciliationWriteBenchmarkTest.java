@@ -22,7 +22,7 @@ import org.testcontainers.utility.DockerImageName;
  * Benchmark Phase 3 & 5 (Set-based Reconciliation Write) trên PostgreSQL.
  *
  * Chạy từ root:
- * {@code mvn test -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest}
+ * {@code mvn test -Pbenchmark -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest}
  */
 @Tag("benchmark")
 @Testcontainers

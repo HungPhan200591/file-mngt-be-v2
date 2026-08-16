@@ -22,6 +22,8 @@ public final class SyntheticScanItemGenerator {
             List.of("Artist_Alex", "Artist_Brian", "Artist_Chris", "Artist_David", "Artist_Eric");
     public static final List<String> DEFAULT_TAGS =
             List.of("HD", "4K", "OFFICIAL", "SAMPLE", "TRAILER", "REMASTER", "SUB");
+    public static final double DEFAULT_ISSUE_RATE = 0.01;
+    public static final double DEFAULT_TAGGED_RATE = 0.10;
 
     private SyntheticScanItemGenerator() {}
 
@@ -50,14 +52,14 @@ public final class SyntheticScanItemGenerator {
      * Sinh danh sách N items giả lập với RootKey mặc định.
      */
     public static List<ScanInventoryItem> generateItems(int count) {
-        return generateItems(DEFAULT_ROOT_KEY, count, 0.01, 0.10);
+        return generateItems(DEFAULT_ROOT_KEY, count, DEFAULT_ISSUE_RATE, DEFAULT_TAGGED_RATE);
     }
 
     /**
      * Sinh danh sách N items giả lập với RootKey chỉ định.
      */
     public static List<ScanInventoryItem> generateItems(String rootKey, int count) {
-        return generateItems(rootKey, count, 0.01, 0.10);
+        return generateItems(rootKey, count, DEFAULT_ISSUE_RATE, DEFAULT_TAGGED_RATE);
     }
 
     /**
@@ -84,7 +86,7 @@ public final class SyntheticScanItemGenerator {
                 relativePath = studio + "/" + artist + "/Unformatted_Raw_Clip_NoCode_" + i + ".mp4";
             } else if (rand < issueRate + taggedRate) {
                 // File có kèm tag chuẩn
-                relativePath = studio + "/" + artist + "/" + artist + "_" + i + " - [" + code + "] [4K] [OFFICIAL].mp4";
+                relativePath = studio + "/" + artist + "/" + artist + "_" + i + " - [" + code + "] (4K) (OFFICIAL).mp4";
             } else {
                 // File video chuẩn thông thường
                 relativePath = studio + "/" + artist + "/Sample_Media_" + i + "_[" + code + "].mp4";

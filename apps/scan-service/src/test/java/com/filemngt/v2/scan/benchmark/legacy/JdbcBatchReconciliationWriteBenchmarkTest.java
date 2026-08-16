@@ -26,7 +26,7 @@ import org.testcontainers.utility.DockerImageName;
  * Benchmark baseline lịch sử (JDBC batch 50.000 row), dùng đối chiếu hiệu năng với giải pháp Set-based hiện tại.
  *
  * Chạy từ root:
- * {@code mvn test -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmarkTest}
+ * {@code mvn test -Pbenchmark -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmarkTest}
  */
 @Tag("benchmark")
 @Testcontainers

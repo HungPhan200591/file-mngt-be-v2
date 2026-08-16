@@ -34,6 +34,8 @@
         <spotless.version>3.9.0</spotless.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <spring-cloud-gateway.version>5.0.2</spring-cloud-gateway.version>
+        <test.included.groups></test.included.groups>
+        <test.excluded.groups>benchmark</test.excluded.groups>
     </properties>
 
     <dependencyManagement>
@@ -82,8 +84,20 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                    <groups>${test.included.groups}</groups>
+                    <excludedGroups>${test.excluded.groups}</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>benchmark</id>
+            <properties>
+                <test.included.groups>benchmark</test.included.groups>
+                <test.excluded.groups>none</test.excluded.groups>
+            </properties>
+        </profile>
+    </profiles>
 </project>
