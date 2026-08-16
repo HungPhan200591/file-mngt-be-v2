@@ -63,6 +63,23 @@ flowchart TD
 | **Phase 5** | Direct COPY Persistence | Ghi trực tiếp `scan_proposal` và `scan_issue` bằng PostgreSQL `COPY`, commit `@Transactional(REQUIRES_NEW)` | $\sim 4,2\text{s}$ | **Sub-flow C (Mục 6)** |
 | **Phase 6** | Complete & Hand-off | Đánh dấu `COMPLETED`, ném Task dựng Review Projection vào hàng đợi | $\sim 10\text{ms}$ | **Sub-flow D (Mục 7)** |
 
+> [!TIP]
+> ### 💡 Từ điển Thuật ngữ & Mental Model (Gốc từ & Cách liên tưởng)
+>
+> 1. **Lease Fencing (Hàng rào kiểm tra hợp đồng thuê)**:
+>    - **Nghĩa tiếng Anh thuần**: `Lease` là *hợp đồng thuê nhà/thuê đất có thời hạn*; `Fencing` là *dựng hàng rào ngăn cách / rào chắn bảo vệ*.
+>    - **Trong ngữ cảnh dự án**: Một Worker muốn quét thư mục `ROOT_VIDEO` phải "thuê" quyền độc quyền trong 60 giây (`lease_until = NOW() + 60s`). "Fencing" là rào chắn: trước khi ghi dữ liệu, Worker phải trình vé thuê (`WHERE lease_owner = :workerId AND lease_until > NOW()`). Nếu Worker bị đơ/lag quá 60s, hợp đồng hết hạn $\to$ Hàng rào sập xuống chặn đứng, không cho ghi bậy vào DB.
+>    - **Tại sao gọi như vậy**: Giống như bạn thuê phòng khách sạn có khóa thẻ từ theo giờ. Hết giờ thuê mà chưa gia hạn, thẻ bị vô hiệu hóa (Fencing), bảo vệ không cho bạn vào phòng nữa để giao cho khách mới.
+>    - **Cách liên tưởng**: *"Trình vé thuê còn hạn ở cổng hàng rào"*.
+>
+> 2. **Backbone Pipeline (Đường ống xương sống)**:
+>    - **Nghĩa tiếng Anh thuần**: `Backbone` là *xương sống của cơ thể*; `Pipeline` là *đường ống dẫn nước / dây chuyền sản xuất*.
+>    - **Trong ngữ cảnh dự án**: Là trục thực thi chính yếu, bắt buộc phải chạy tuần tự qua 6 chặng để hoàn thành 1 đợt scan. Nếu gãy 1 đốt xương sống thì cả tiến trình scan dừng lại.
+>
+> 3. **Ancillary Lanes (Các làn xe phụ trợ)**:
+>    - **Nghĩa tiếng Anh thuần**: `Ancillary` là *phụ trợ / thứ yếu*; `Lane` là *làn đường xe chạy*.
+>    - **Trong ngữ cảnh dự án**: Là các tác vụ chạy rẽ nhánh bên cạnh trục chính (như bắn SSE cho UI, gia hạn lease, dựng projection). Xe trên làn phụ dù có trục trặc (ví dụ mất mạng SSE) thì xe trên làn chính (Backbone) vẫn phóng thẳng về đích!
+
 ---
 
 ## 2. Bản đồ Cấp 2 (Vi phẫu): Chi tiết Mô hình Sync / Async / Parallel
@@ -168,6 +185,27 @@ flowchart TD
 | **6. SSE Progress** | Phát event tiến độ phần trăm (`0% -> 100%`) cho trình duyệt. | **ASYNC** (Non-blocking qua `SseEmitter`) | Best-effort ($< 1\text{ms}$) |
 | **7. Review Projection** | `@Scheduled` Worker bốc Task dựng ngầm `generation = 2` và `swapRoot()`. | **ASYNC HOÀN TOÀN** (Tách rời khỏi tiến trình Scan) | Chạy ngầm độc lập |
 
+> [!TIP]
+> ### 💡 Từ điển Thuật ngữ & Mental Model (Vi phẫu Concurrency)
+>
+> 1. **Producer - Consumer (Mô hình Nhà sản xuất - Người tiêu thụ qua Băng chuyền)**:
+>    - **Nghĩa tiếng Anh thuần**: `Producer` là *người sản xuất/chế tạo ra hàng hóa*; `Consumer` là *người mua/ăn/tiêu thụ hàng hóa*.
+>    - **Trong ngữ cảnh dự án**: Luồng 1 (Walker) đóng vai trò Producer chuyên đọc đường dẫn từ ổ cứng rồi thả vào khay đệm (`ArrayBlockingQueue`). Luồng 2 (COPY Writer) đóng vai trò Consumer chuyên bốc từ khay ra nạp vào PostgreSQL.
+>    - **Tại sao gọi như vậy**: Tách rời 2 người làm 2 việc khác nhau. Tốc độ đọc ổ cứng nhanh không bị phụ thuộc vào tốc độ ghi Database; không bên nào phải đứng chờ bên nào.
+>    - **Cách liên tưởng**: *"Quán lẩu băng chuyền: Đầu bếp cứ đặt đĩa thịt lên băng chuyền (Producer), khách cứ gắp đĩa xuống ăn (Consumer). Đầu bếp không cần đứng đợi khách nhai xong mới làm đĩa tiếp theo"*.
+>
+> 2. **Set-based Diff (Phép trừ tập hợp trên Database) vs. Row-by-row**:
+>    - **Nghĩa tiếng Anh thuần**: `Set-based` là *dựa trên lý thuyết tập hợp (toán học A, B)*; `Diff` (Difference) là *sự khác biệt / phép trừ tập hợp*.
+>    - **Trong ngữ cảnh dự án**: Thay vì kéo 1 triệu dòng lên Java rồi dùng vòng lặp `for` so sánh từng dòng (Row-by-row tốn $> 30\text{s}$), ta bắt Database thực hiện 1 phép toán đại số quan hệ: $\text{Tập file vừa quét} - \text{Tập file cũ} = \text{Tập file mới/đổi}$ trong $0,4\text{s}$.
+>    - **Tại sao gọi như vậy**: Triết lý thiết kế của cơ sở dữ liệu quan hệ (RDBMS) là xử lý theo khối tập hợp dữ liệu trong RAM của DB kernel thay vì xử lý tuần tự từng bản ghi.
+>    - **Cách liên tưởng**: *"Dùng rây lọc hạt cát: Đổ cả xô cát qua rây 1 lần (Set-based) thay vì nhặt từng hạt cát lên soi (Row-by-row)"*.
+>
+> 3. **Structured Concurrency, Virtual Threads & Join Barrier**:
+>    - **Nghĩa tiếng Anh thuần**: `Virtual Threads` là *luồng ảo siêu nhẹ (Java 25)*; `Structured Concurrency` là *xử lý đồng thời có tổ chức cấu trúc (mở ra cùng nhau, đóng lại cùng nhau)*; `Join Barrier` là *hàng rào hội quân / điểm danh*.
+>    - **Trong ngữ cảnh dự án**: Khi cần phân tích 5.000 file, luồng chính chia làm 8 phần và mở 8 Virtual Threads chạy song song. Luồng chính đứng đợi ở "Join Barrier" (chốt điểm danh); khi cả 8 luồng báo cáo hoàn tất thì mới cùng nhau bước tiếp sang bước Commit DB.
+>    - **Tại sao gọi như vậy**: Tránh tình trạng "luồng mồ côi" (Orphan thread) chạy lạc trôi không ai quản lý khi gặp lỗi.
+>    - **Cách liên tưởng**: *"Tổ đội đặc nhiệm chia 8 mũi tấn công và hẹn gặp nhau tại chốt tập kết (Join Barrier). Đúng giờ, đủ quân số 8 người mới cùng rút quân"*.
+
 ---
 
 ## 3. Chi tiết các Nhánh rẽ phụ (Ancillary Lanes)
@@ -218,6 +256,20 @@ flowchart TD
 ### 🔍 Cơ chế kỹ thuật:
 1. **Không dùng JDBC `INSERT`**: Việc chạy 1.000.000 lệnh INSERT sẽ mất $> 40\text{ giây}$. Thay vào đó, hệ thống dùng giao thức nhị phân **PostgreSQL `COPY`** đổ trực tiếp vào bảng.
 2. **Bảng `UNLOGGED`**: Bảng `scan_inventory_stage` được đánh dấu `UNLOGGED` (không ghi WAL log) $\implies$ Tốc độ ghi đạt **$\sim 300.000\text{ rows/giây}$**, toàn bộ 1 triệu file nạp vào DB chỉ mất đúng **$1,8\text{ giây}$**!
+
+> [!TIP]
+> ### 💡 Từ điển Thuật ngữ & Mental Model (Discovery & Staging)
+>
+> 1. **UNLOGGED Table (Bảng không ghi nhật ký phục hồi)**:
+>    - **Nghĩa tiếng Anh thuần**: `Unlogged` là *không được ghi vào nhật ký (Log)*.
+>    - **Trong ngữ cảnh dự án**: Bình thường PostgreSQL ghi mọi thay đổi vào file WAL (Write-Ahead Logging) trên đĩa để phòng khi mất điện thì khôi phục lại. Với bảng staging nháp, ta thêm từ khóa `UNLOGGED` để tắt tính năng này $\to$ Ghi thẳng vào RAM/Cache đĩa với tốc độ tối đa. Nếu server sập thì bảng nháp này tự bị xóa, không ảnh hưởng dữ liệu thật.
+>    - **Tại sao gọi như vậy**: Vì nó bỏ qua bước ghi nhật ký (Log) để đổi lấy tốc độ ghi cực đại.
+>    - **Cách liên tưởng**: *"Giấy nháp học sinh: Viết nháp nhanh tay rồi vứt đi, không cần đóng dấu lưu trữ vào sổ học bạ"*.
+>
+> 2. **Direct COPY / Binary Stream (Truyền tải dòng nhị phân trực tiếp)**:
+>    - **Nghĩa tiếng Anh thuần**: `Direct` là *trực tiếp*; `COPY` là *lệnh sao chép khối lượng lớn*; `Binary Stream` là *luồng nhị phân 0 và 1*.
+>    - **Trong ngữ cảnh dự án**: Thay vì biến từng object Java thành chuỗi SQL `INSERT INTO (...) VALUES (...)` (tốn CPU parse cú pháp), Java mở 1 đường ống nhị phân trực tiếp vào Socket của PostgreSQL và đẩy hàng loạt byte nhị phân thô vào bảng.
+>    - **Cách liên tưởng**: *"Bơm nước bằng vòi rồng cứu hỏa (Direct COPY) thay vì múc từng gáo nước đổ vào bể (JDBC INSERT)"*.
 
 ---
 
@@ -324,6 +376,20 @@ flowchart TD
     style CLEANUP fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
     style UI fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
 ```
+
+> [!TIP]
+> ### 💡 Từ điển Thuật ngữ & Mental Model (Review Projection & Generation Swap)
+>
+> 1. **Generation Swap (Tráo đổi thế hệ $O(1)$) / Blue-Green Switch**:
+>    - **Nghĩa tiếng Anh thuần**: `Generation` là *thế hệ (Gen 1, Gen 2)*; `Swap` là *hoán đổi / tráo đổi vị trí*.
+>    - **Trong ngữ cảnh dự án**: Thay vì xóa sửa trực tiếp bảng Review đang hiển thị cho Admin (gây giật lag hoặc mất dữ liệu), hệ thống dựng toàn bộ dữ liệu mới ở "Thế hệ 2" ngầm bên dưới. Khi xong xuôi 100%, chỉ cần 1 câu lệnh UPDATE 1 dòng duy nhất (`SET current_generation = 2`) mất $< 1\text{ms}$ để tráo đổi tức thì.
+>    - **Tại sao gọi như vậy**: Kỹ thuật này tương đương với mô hình triển khai **Blue-Green Deployment**: Môi trường Blue đang chạy phục vụ khách, môi trường Green dựng sẵn; khi sẵn sàng chỉ cần đổi Router sang Green.
+>    - **Cách liên tưởng**: *"Gạt công tắc chuyển nguồn điện: Lắp sẵn dàn bóng đèn mới (Gen 2), khi xong chỉ cần gạt cầu dao sang nguồn mới trong 1 phần nghìn giây"*.
+>
+> 2. **Pessimistic Lock / `SELECT ... FOR UPDATE` (Khóa bi quan độc quyền)**:
+>    - **Nghĩa tiếng Anh thuần**: `Pessimistic` là *bi quan (luôn nghĩ điều xấu nhất sẽ xảy ra)*; `Lock` là *ổ khóa bảo vệ*.
+>    - **Trong ngữ cảnh dự án**: Hệ thống "bi quan" giả định rằng chắc chắn sẽ có người khác/tiến trình khác nhảy vào tranh chấp dữ liệu của thư mục này. Vì vậy, trước khi đụng vào, nó khóa cứng dòng đó trong DB (`SELECT ... FOR UPDATE`). Bất kỳ ai khác muốn chạm vào đều phải đứng xếp hàng đợi mở khóa.
+>    - **Cách liên tưởng**: *"Khóa chốt cửa phòng vệ sinh: Bước vào là khóa chốt trong ngay lập tức (Pessimistic), người bên ngoài nhìn thấy biển 'Đang có người' và phải đứng đợi, không ai xông vào phá đám được"*.
 
 ---
 
