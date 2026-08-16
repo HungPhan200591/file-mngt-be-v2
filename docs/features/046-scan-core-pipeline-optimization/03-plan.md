@@ -1,6 +1,6 @@
 # FT-046 — Plan: Scan-Core Pipeline Optimization & Benchmark Evidence
 
-Status: `IMPLEMENTED — VERIFY PENDING`
+Status: `DONE — benchmark waiver accepted`
 Owner: `apps/scan-service/`  
 Must Preserve: inventory semantics, chunk atomicity, lease fencing, staging cleanup, scan-core benchmark scope.
 
@@ -37,10 +37,12 @@ Must Preserve: inventory semantics, chunk atomicity, lease fencing, staging clea
 
 Run these commands only when the user authorizes runtime verification. Record median/min/max across repeated runs and label any unrun check as pending.
 
+Runtime evidence `2026-08-17`: focused diff-query assertions pass cho 5 workload; full scan-core 1M trả `COMPLETED` cho `COLD`, `UNCHANGED`, `INCREMENTAL`, `FULL_CHANGE` và `REVIVED`. User chấp nhận chốt feature với benchmark waiver; repeated-run median/min/max vẫn là evidence gap của SLO, không phải qualification percentile.
+
 ## 4. Rollback
 
 Revert the SQL candidate and telemetry-only changes independently. No migration, REST/Kafka contract or cross-service rollback is required.
 
 ## 5. Completion gate
 
-`DONE` only after benchmark runtime evidence is attached, correctness assertions pass for all workload classes, and the report clearly separates scan-core evidence from full Scan → Catalog → Query SLO evidence.
+`DONE`: benchmark runtime evidence đã được ghi và correctness assertions đã pass cho các workload. Waiver đã chấp nhận thiếu median/min/max; report vẫn tách scan-core khỏi full Scan → Catalog → Query SLO evidence.
