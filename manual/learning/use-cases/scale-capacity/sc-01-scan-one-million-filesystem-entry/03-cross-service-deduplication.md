@@ -174,8 +174,9 @@ tin nested loop này rẻ. Run cuối cùng `FAILED` sau 5 phút 45 giây do lea
 Fix gồm hai phần:
 
 - `ANALYZE scan_inventory_stage` sau bulk discovery để cardinality phản ánh run.
-- Keyset staging tối đa 100.000 row mỗi query; correlated lookup dùng đúng
-  composite key để subplan có index condition trên cả root và path.
+- Keyset staging tối đa 25.000 row mỗi query; correlated lookup dùng đúng
+  composite key để subplan có index condition trên cả root và path. Đây là
+  effective page size hiện tại; `business-chunk-size=100k` chỉ là upper bound.
 - Page không có file changed vẫn heartbeat lease, nên warm scan lớn không hết
   lease chỉ vì Java không có business chunk để commit.
 

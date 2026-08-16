@@ -1,10 +1,10 @@
 # Backend V2 — Review chất lượng, kiến trúc và Production Readiness
 
-> Ngày review: **2026-08-12**  
-> Commit khảo sát: **`45adade8d67c`**  
+> Ngày review: **2026-08-12**
+> Commit khảo sát: **`45adade8d67c`**
 > Phạm vi: toàn bộ production source/config của `gateway-service`,
 > `catalog-service`, `scan-service`, `query-service`, `media-worker`,
-> `platform/*`, migration và contract trực tiếp liên quan tới SC-01.  
+> `platform/*`, migration và contract trực tiếp liên quan tới SC-01.
 > Workload tham chiếu: [SC-01 — Scan một triệu filesystem entry](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md)
 > và [ghi chú performance/cloud scaling](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/06-performance-and-cloud-scaling.md).
 

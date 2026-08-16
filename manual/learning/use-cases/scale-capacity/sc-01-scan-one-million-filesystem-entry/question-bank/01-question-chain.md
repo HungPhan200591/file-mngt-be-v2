@@ -153,7 +153,7 @@
 15. **Hỏi:** Vì sao FT-025.2 có đủ composite index mà diff 27.122 file vẫn chạy hơn hai phút?
     **Đáp nhanh:** LEFT JOIN plan chỉ dùng `root_key`; path rơi xuống join filter, trong khi staging statistics stale báo 0 row. Nested loop thực tế gần O(stage × inventory-root), trái hẳn cost estimate.
 16. **Hỏi:** FT-025.3 sửa query plan bằng cách nào?
-    **Đáp nhanh:** ANALYZE staging, keyset page 100.000 row và correlated lookup để `(root_key, source_relative_path)` xuất hiện đầy đủ trong inventory `Index Cond`; page zero-change heartbeat lease.
+    **Đáp nhanh:** ANALYZE staging, keyset page 25.000 row và correlated lookup để `(root_key, source_relative_path)` xuất hiện đầy đủ trong inventory `Index Cond`; page zero-change heartbeat lease. `business-chunk-size=100k` chỉ là upper bound.
 
 ### CH-08 — FT-028: performance evolution
 
@@ -169,8 +169,8 @@
    **Đáp nhanh:** `scan_file_inventory` được set-based một lần thay vì 70 lần, giảm transaction/index amplification; E2E giảm khoảng 33%. Đây là experiment throughput, chưa phải transaction boundary cuối cùng.
 6. **Hỏi:** Nhược điểm của transaction 1M là gì?
    **Đáp nhanh:** SSE proposal/issue chỉ nhảy một lần khi commit xong, và một lỗi rollback toàn bộ 1M. Blast radius và khả năng resume là trade-off lớn.
-7. **Hỏi:** Batch 100k thay đổi behavior và latency ra sao?
-   **Đáp nhanh:** 1M được ghi thành 10 transaction, FE nhận progress tăng dần và mỗi lỗi rollback tối đa 100k; E2E đo được 43,069s. Inventory tăng từ 428ms batch đầu lên 1.702ms batch cuối.
+7. **Hỏi:** Page 25k thay đổi behavior và latency ra sao?
+   **Đáp nhanh:** Với effective page 25k, 1M được xử lý khoảng 40 page/transaction thay vì 10 page 100k. Peak memory, rollback blast radius và thời gian giữ lease giảm; đổi lại số query/commit/checkpoint tăng khoảng 4 lần. Benchmark hiện tại không cho thấy latency cải thiện có ý nghĩa, nên đây là tuning bounded-memory/transaction.
 8. **Hỏi:** Solution tiếp theo để vừa nhanh vừa có progress là gì?
    **Đáp nhanh:** COPY kết quả phân tích vào staging theo batch, phát SSE `staged/analyzed`, sau đó materialize business theo batch lớn và checkpoint. Resume chi tiết sau crash và retry staging là follow-up riêng.
 
@@ -195,7 +195,7 @@
 9. **Hỏi:** Cold fast path có phải nâng cấp thuần túy cho mọi scan không?
    **Đáp nhanh:** Không; nó đúng khi classification **cold** đáng tin và một root không có writer cạnh tranh. Với manual SQL hoặc writer mới chen giữa classify và insert, unique constraint sẽ làm chunk fail/rollback thay vì tạo dữ liệu sai; vì vậy ownership và running-root invariant là một phần của tối ưu.
 10. **Hỏi:** Vì sao chưa tự tăng business chunk lên 200k hay 500k trong FT-031.4?
-   **Đáp nhanh:** Chunk lớn có thể giảm overhead nhưng tăng **peak memory**, rollback blast radius và thời gian giữ transaction/lease. Cold target dưới 30 giây đã đạt với 100k; chỉ đổi default sau benchmark kiểm soát 100k/200k/250k/500k chứng minh thắng ổn định.
+    **Đáp nhanh:** Chunk lớn có thể giảm overhead nhưng tăng **peak memory**, rollback blast radius và thời gian giữ transaction/lease. Effective page hiện tại là 25k vì ưu tiên bounded-memory/transaction; benchmark chưa chứng minh đây là latency gain. Các mốc 100k/200k/250k/500k trong FT-031 là historical scale experiment, không phải current page size.
 
 ## Anchor interview questions
 
@@ -225,7 +225,7 @@
 **Trả lời 30 giây:** `saveAll()` vẫn tạo nhiều entity/statement và không mô tả tốt changed-set; `COPY` giảm protocol overhead còn `UPDATE ... FROM`/`INSERT ... SELECT` để PostgreSQL xử lý cả tập dữ liệu. Native SQL giảm abstraction JPA nhưng phù hợp hot path đã đo được bottleneck.
 **Answer spine:** ORM overhead → COPY transport → set-based plan → transaction boundary.
 **Project evidence:** `ScanFileInventorySetWriter`, `ScanProposalCopyWriter`, `ScanIssueCopyWriter`, `SetBasedReconciliationWriteBenchmark`.
-**Trade-offs:** Một transaction lớn nhanh hơn nhưng mất progress và tăng rollback blast radius; batch 100k là compromise hiện tại.
+**Trade-offs:** Page 25k giảm memory, rollback blast radius và lease hold time nhưng tăng số transaction/query/checkpoint; benchmark chưa chứng minh latency tốt hơn. `business-chunk-size=100k` vẫn chỉ là upper bound cấu hình.
 **Follow-up ladder:** 499 insert + 1 update? Retry? Có cần lock không?
 **Red flags:** Đồng nhất `saveAll()` với một SQL statement duy nhất, hoặc dùng Redis làm source of truth.
 

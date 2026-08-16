@@ -1,7 +1,7 @@
 # Đánh giá throughput approve bulk — 5.000 records calibration cho SC-01
 
-Ngày: 2026-08-13  
-Phạm vi: `scan-service` → Scan outbox → Kafka → `catalog-service` → Catalog outbox → Kafka → `query-service`  
+Ngày: 2026-08-13
+Phạm vi: `scan-service` → Scan outbox → Kafka → `catalog-service` → Catalog outbox → Kafka → `query-service`
 Mục tiêu review: dùng workload 5.000 records để soi bottleneck và kiểm tra thiết kế cho workload
 đích 1.000.000 records của SC-01. Con số 2–3 giây là calibration hypothesis của review này, không
 phải SLO chính thức.
@@ -711,4 +711,6 @@ flowchart TB
     style OBS_1M fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-SC-01 ở quy mô 1 triệu record không nên mở một transaction chứa toàn bộ 1 triệu record. Thiết kế đúng là stream vào staging, xử lý changed set theo chunk 50k–100k, phân tích song song có giới hạn, rồi ghi qua một commit lane được lease-fence. “Parallel analyze” và “single commit lane” là hai trách nhiệm khác nhau: phân tích có thể song song; source-of-truth checkpoint và terminal state phải tuần tự, có kiểm soát.
+SC-01 ở quy mô 1 triệu record không nên mở một transaction chứa toàn bộ 1 triệu record. Thiết kế hiện tại là stream vào staging, xử lý changed set theo effective page/chunk 25k, phân tích song song có giới hạn, rồi ghi qua một commit lane được lease-fence. `business-chunk-size=100k` vẫn là upper bound cấu hình, không phải kích thước page thực tế. “Parallel analyze” và “single commit lane” là hai trách nhiệm khác nhau: phân tích có thể song song; source-of-truth checkpoint và terminal state phải tuần tự, có kiểm soát.
+
+Về trade-off, 25k giảm khoảng 4 lần peak memory và rollback blast radius trên mỗi page, đồng thời checkpoint/lease tiến thường xuyên hơn. Đổi lại, 1M rows tạo khoảng 40 page/transaction thay vì 10, nên tăng số lần query, analyze, commit, checkpoint và telemetry. Benchmark hiện tại không cho thấy latency cải thiện có ý nghĩa; đây là lựa chọn bounded-memory/transaction safety, không phải SLO gain.

@@ -171,8 +171,11 @@ Ba giá trị hiện mâu thuẫn:
 | `application.yml` default bind runtime | 15.000 |
 | FT-028 Plan | 50.000 |
 
-Runtime thực tế là 15.000 item/chunk. Với diff page 100.000, mỗi page bị chia
-thành 7 chunk, tổng 70 transaction reconciliation cho 1M row.
+Runtime historical là 15.000 item/chunk. Với current `DIFF_PAGE_SIZE=25.000`, một
+page có thể chứa tối đa khoảng 25k item; effective page/chunk hiện tại là 25k,
+không còn mặc định 100k. Với 1M row, reconciliation đọc khoảng 40 page thay vì
+10 page; số transaction thực tế vẫn phụ thuộc `business-chunk-size` và pipeline
+commit boundary.
 
 Sửa chunk size đơn thuần chỉ giảm một phần nhỏ transaction overhead, không
 giảm được khoảng 64s persist-side. Khi triển khai follow-up phải thống nhất

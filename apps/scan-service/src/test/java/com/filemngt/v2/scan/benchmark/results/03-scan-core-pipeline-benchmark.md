@@ -128,6 +128,18 @@ Với 1M rows, reconciliation hiện đọc khoảng 40 page/chunk thay vì 10 p
 chỉ còn là upper bound. Kết quả COLD gần nhất vẫn khoảng `25–26s`, không khác có ý nghĩa so với run trước,
 nên thay đổi này được ghi nhận là bounded-memory/transaction tuning, không phải performance improvement mới.
 
+### Trade-off của page size 25k
+
+- **Được:** giảm khoảng 4 lần dữ liệu tối đa trong page/chunk, giảm peak heap,
+  rollback blast radius và thời gian giữ transaction/lease; lỗi chỉ phải retry
+  tối đa khoảng 25k rows.
+- **Mất:** 1M rows tạo khoảng 40 page thay vì 10 page 100k, nên tăng số lần
+  keyset query, analyze, commit, checkpoint/lease renewal và telemetry. Overhead
+  này có thể làm throughput giảm nếu DB commit là bottleneck.
+- **Kết luận:** 25k phù hợp mục tiêu bounded-memory và failure isolation, nhưng
+  chưa có bằng chứng latency tốt hơn. Không dùng việc đổi page size này để nâng
+  SLO; các mốc 100k trong phần historical bên dưới vẫn được giữ để trace benchmark.
+
 - **Mã bài đo**: `BENCH-03-SCAN-CORE`
 - **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java)
 - **Historical workload**: 1.000.000 files (990.000 proposals, 10.000 issues, 10 chunks x 100k items)

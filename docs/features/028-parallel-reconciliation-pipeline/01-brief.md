@@ -6,7 +6,8 @@ Owner: `scan-service`
 
 Scan 1 triệu file vào staging rất nhanh (discovery dùng `COPY` bulk-load, segment
 500k), nhưng pha reconciliation (đối soát changed + tạo proposal/issue + commit
-inventory) chậm hơn nhiều lần. Tăng `business-chunk-size` từ 15k lên 100k không
+inventory) chậm hơn nhiều lần. Historical experiment tăng `business-chunk-size`
+từ 15k lên 100k không
 cải thiện do bottleneck không nằm ở số lần commit mà nằm ở xử lý tuần tự trong
 mỗi chunk.
 
@@ -36,8 +37,9 @@ Ba nguyên nhân gốc:
 - Lease fence, checkpoint, liveness và SSE progress không bị ảnh hưởng; chỉ phần
   analyze CPU-bound chạy song song, phần commit DB vẫn single-thread trong
   `@Transactional(REQUIRES_NEW)`.
-- Giá trị `business-chunk-size` có thể giữ 100k hoặc quay về 50k tùy benchmark;
-  cấu hình không thay đổi contract.
+- `DIFF_PAGE_SIZE=25k` là effective page size hiện tại để giới hạn memory và
+  transaction. `business-chunk-size=100k` vẫn là upper bound cấu hình; nó không
+  có nghĩa mỗi page runtime chứa 100k item và không thay đổi contract.
 - Không thay đổi schema DB, REST API, Kafka event hay SSE contract.
 
 ## Ngoài phạm vi

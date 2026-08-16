@@ -65,7 +65,9 @@ mới và budget chạy 100k/200k/250k/500k.
    reset và cache mode được ghi nhận.
 2. Chỉ chọn giá trị tốt nhất nếu mọi chunk dưới mutation timeout/lease budget,
    không OOM, không timeout/lost lease và end-to-end cải thiện.
-3. Đặt default mới qua `scan.business-chunk-size`; rollback chỉ là trả về 100k.
+3. Đặt default mới qua `scan.business-chunk-size`; đây là kế hoạch historical
+   của FT-031. Runtime hiện tại dùng `DIFF_PAGE_SIZE=25k`; không dùng dòng này
+   để suy ra current page size.
 
 **Done criteria FT-031:** đạt: cold scan 1M có evidence dưới 30 giây.
 
@@ -83,7 +85,8 @@ mới và budget chạy 100k/200k/250k/500k.
 - Không migration schema, không đổi contract; rollout từng sub-feature qua code
   deployment riêng.
 - 31.1 rollback bằng bỏ telemetry mới; 31.2 rollback copy helper cũ; 31.3
-  rollback luôn chọn warm path; 31.4 rollback cấu hình 100k.
+  rollback luôn chọn warm path; 31.4 là historical chunk-size experiment,
+  không phải rollback rule của current `DIFF_PAGE_SIZE=25k`.
 - Không rollout sub-feature sau khi gate của sub-feature trước chưa đạt.
 
 ## Tài liệu cần cập nhật

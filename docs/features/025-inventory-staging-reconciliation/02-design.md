@@ -149,8 +149,9 @@ Fix:
   `INSERT ... SELECT` dùng correlated composite-key lookup materialize file new/changed/revived
   và trả exact row count; Java keyset page chỉ đọc bảng diff này. Cleanup run luôn xóa cả
   full staging lẫn diff staging, còn full staging vẫn được giữ đến finalization để mark `MISSING`.
-- Keyset staging theo page tối đa 100.000 row để một warm scan 10 triệu file
-  không biến thành một JDBC query dài vượt lease.
+- Keyset staging theo page tối đa 25.000 row để một warm scan 10 triệu file
+  không biến thành một JDBC query dài vượt lease. `business-chunk-size=100k` vẫn
+  là upper bound nghiệp vụ, không override page size hiệu dụng.
 - Trong từng page, correlated scalar lookup buộc subplan index condition dùng đủ
   `(root_key, source_relative_path)`.
 - Page zero-change renew lease/checkpoint; page có changed item được business

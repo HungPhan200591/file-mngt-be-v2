@@ -50,7 +50,7 @@ Design: [02-design.md](./02-design.md)
 - Đã sửa FT-025.3 từ runtime evidence run `cb6ed18e...`: discovery hoàn tất
   27.122 file nhưng LEFT JOIN diff chạy hơn 2 phút vì planner chỉ dùng
   `root_key` của inventory index rồi join-filter từng path. Reconciliation hiện
-  refresh staging statistics, keyset staging theo page 100.000, dùng correlated
+  refresh staging statistics, keyset staging theo page 25.000, dùng correlated
   composite-key lookup và heartbeat lease cho page zero-change.
 - Filesystem-only benchmark trước follow-up đã đo 17,832 giây; chưa chạy
   test/build/migration hoặc post-FT-025.3 scan benchmark theo rule người dùng, vì vậy

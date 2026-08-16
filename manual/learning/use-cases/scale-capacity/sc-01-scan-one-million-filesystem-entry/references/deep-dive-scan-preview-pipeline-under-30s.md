@@ -18,7 +18,7 @@ flowchart TD
         S1["[Phase 1] Cấp Lease<br/>Khóa độc quyền<br/>rootKey (60s)"]
         S2["[Phase 2] Discovery<br/>Stream COPY 1M<br/>(2 Segments 500k)"]
         S3["[Phase 3] Set Diff<br/>SQL Anti-Join lọc<br/>changed files"]
-        S4["[Phase 4] Parallel<br/>8 Virtual Threads<br/>(100k items/chunk)"]
+        S4["[Phase 4] Parallel<br/>8 Virtual Threads<br/>(25k items/page)"]
         S5["[Phase 5] Direct COPY<br/>Ghi proposal + issue<br/>(Binary Stream)"]
         S6["[Phase 6] Complete<br/>Cập nhật COMPLETED<br/>&amp; Dọn Staging"]
         
@@ -59,7 +59,7 @@ flowchart TD
 | **Phase 1** | Cấp Lease Fencing | Khóa phân vùng `rootKey`, chặn 2 scan chạy đè lên nhau | $\sim 5\text{ms}$ | Mục 3 |
 | **Phase 2** | Discovery & Stream COPY | `Files.walkFileTree` $\to$ Bounded Queue $\to$ Direct COPY 2 segments (500k/segment) vào bảng UNLOGGED | $\sim 1,8\text{s} - 6,0\text{s}$ | **Sub-flow A (Mục 4)** |
 | **Phase 3** | Set-based Diff | 1 câu SQL `INSERT ... SELECT` lọc các file mới/đổi vào `scan_inventory_diff_stage` | $\sim 0,4\text{s} - 6,5\text{s}$ | **Sub-flow B (Mục 5)** |
-| **Phase 4** | Parallel Analyzer | Đọc từng page Keyset 100.000 items, chia 8 partition trên Java Virtual Threads (~12.5k items/thread) | $\sim 8,5\text{s} - 18,5\text{s}$ | **Sub-flow B (Mục 5)** |
+| **Phase 4** | Parallel Analyzer | Đọc từng page Keyset 25.000 items, chia 8 partition trên Java Virtual Threads (~3.125 items/thread) | $\sim 8,5\text{s} - 18,5\text{s}$ | **Sub-flow B (Mục 5)** |
 | **Phase 5** | Direct COPY Persistence | Ghi trực tiếp `scan_proposal` và `scan_issue` bằng PostgreSQL `COPY`, commit `@Transactional(REQUIRES_NEW)` | $\sim 4,2\text{s} - 8,8\text{s}$ | **Sub-flow C (Mục 6)** |
 | **Phase 6** | Complete & Hand-off | Đánh dấu `COMPLETED`, dọn staging và ném Task dựng Review Projection vào hàng đợi | $\sim 1,5\text{s}$ | **Sub-flow D (Mục 7)** |
 
@@ -115,7 +115,7 @@ flowchart TD
 
     subgraph PHASE_4_ANALYZE["Chặng 4: Parallel Analyzer (Virtual Threads)"]
         direction TB
-        SPLIT["Chia 8 Partitions<br/>(100k items/chunk<br/>~12.5k/thread)"]
+        SPLIT["Chia 8 Partitions<br/>(25k items/page<br/>~3.125/thread)"]
         V1["Virtual Thread 1<br/>(Parse Regex CPU)"]
         V2["Virtual Thread 2<br/>(Parse Regex CPU)"]
         V8["Virtual Thread 8<br/>(Parse Regex CPU)"]
@@ -179,10 +179,10 @@ flowchart TD
 | **1. HTTP Controller** | Kiểm tra Snapshot Catalog + Cấp Lease Fencing + Trả HTTP `202`. | **SYNC** (Chặn request client $< 10\text{ms}$) | $< 10\text{ms}$ |
 | **2. Discovery Phase** | **Thread 1 (Walker)** quét đĩa đẩy vào Queue; **Thread 2 (COPY)** rút Queue ghi PostgreSQL `COPY`. | **ASYNC** giữa Đĩa và Database (Tách rời I/O qua Queue) | $\sim 1,8\text{s} - 6,0\text{s}$ (1M files) |
 | **3. Set-based Diff** | Gửi 1 câu SQL `INSERT ... SELECT` sang PostgreSQL so sánh fingerprint. | **SYNC** (Luồng Worker đợi DB trả kết quả) | $\sim 0,4\text{s} - 6,5\text{s}$ |
-| **4. Java Analyzer** | Đọc Keyset 100k items, chia 8 phân vùng chạy song song trên **8 Virtual Threads (Java 25)**. | **PARALLEL / CONCURRENT** (Đa nhân CPU) | $\sim 8,5\text{s} - 18,5\text{s}$ |
+| **4. Java Analyzer** | Đọc Keyset 25k items, chia 8 phân vùng chạy song song trên **8 Virtual Threads (Java 25)**. | **PARALLEL / CONCURRENT** (Đa nhân CPU) | $\sim 8,5\text{s} - 18,5\text{s}$ |
 | **- Catalog Existence** | Từng Virtual Thread gọi HTTP sang Catalog theo micro-batch 500. | **SYNC** bên trong từng Virtual Thread | $\sim 15\text{ms}$/batch |
 | **- Join Barrier** | Luồng Worker chính đứng đợi cả 8 Virtual Threads hoàn tất. | **SYNC BARRIER** (Structured Concurrency) | Điểm chốt chặn |
-| **5. Commit DB Chunk** | Mở Transaction ghi `scan_proposal`, `scan_issue`, cập nhật `scan_run`. | **SYNC** (Local Transaction `@Transactional`) | $\sim 1,5\text{s}$/chunk (100k items) |
+| **5. Commit DB Chunk** | Mở Transaction ghi `scan_proposal`, `scan_issue`, cập nhật `scan_run`. | **SYNC** (Local Transaction `@Transactional`) | $\sim 1,5\text{s}$/page (25k items) |
 | **6. SSE Progress** | Phát event tiến độ phần trăm (`0% -> 100%`) cho trình duyệt. | **ASYNC** (Non-blocking qua `SseEmitter`) | Best-effort ($< 1\text{ms}$) |
 | **7. Review Projection** | `@Scheduled` Worker bốc Task dựng ngầm `generation = 2` và `swapRoot()`. | **ASYNC HOÀN TOÀN** (Tách rời khỏi tiến trình Scan) | Chạy ngầm độc lập |
 
@@ -203,7 +203,7 @@ flowchart TD
 >
 > 3. **Structured Concurrency, Virtual Threads & Join Barrier**:
 >    - **Nghĩa tiếng Anh thuần**: `Virtual Threads` là *luồng ảo siêu nhẹ (Java 25)*; `Structured Concurrency` là *xử lý đồng thời có tổ chức cấu trúc (mở ra cùng nhau, đóng lại cùng nhau)*; `Join Barrier` là *hàng rào hội quân / điểm danh*.
->    - **Trong ngữ cảnh dự án**: Khi cần phân tích 100.000 file trong 1 chunk, luồng chính chia làm 8 phần (~12.500 items/thread) và mở 8 Virtual Threads chạy song song. Luồng chính đứng đợi ở "Join Barrier" (chốt điểm danh); khi cả 8 luồng báo cáo hoàn tất thì mới cùng nhau bước tiếp sang bước Commit DB.
+>    - **Trong ngữ cảnh dự án**: Khi cần phân tích 25.000 file trong 1 page, luồng chính chia làm 8 phần (~3.125 items/thread) và mở 8 Virtual Threads chạy song song. Luồng chính đứng đợi ở "Join Barrier" (chốt điểm danh); khi cả 8 luồng báo cáo hoàn tất thì mới cùng nhau bước tiếp sang bước Commit DB.
 >    - **Tại sao gọi như vậy**: Tránh tình trạng "luồng mồ côi" (Orphan thread) chạy lạc trôi không ai quản lý khi gặp lỗi.
 >    - **Cách liên tưởng**: *"Tổ đội đặc nhiệm chia 8 mũi tấn công và hẹn gặp nhau tại chốt tập kết (Join Barrier). Đúng giờ, đủ quân số 8 người mới cùng rút quân"*.
 
@@ -286,9 +286,9 @@ flowchart TD
     
     SQL_DIFF --> DIFF_TABLE[("scan_inventory_diff_stage<br/>(Chỉ chứa file MỚI / ĐỔI)")]
     
-    DIFF_TABLE --> CHUNK_READ["Đọc Bounded Chunk<br/>(100.000 items/chunk)"]
+    DIFF_TABLE --> CHUNK_READ["Đọc Bounded Page<br/>(25.000 items/page)"]
     
-    CHUNK_READ --> SPLIT["Chia 8 Phân vùng<br/>(~12.500 items/thread)"]
+    CHUNK_READ --> SPLIT["Chia 8 Phân vùng<br/>(~3.125 items/thread)"]
     
     SPLIT --> V1["Virtual Thread #1<br/>(Parse Regex CPU)"]
     SPLIT --> V2["Virtual Thread #2<br/>(Parse Regex CPU)"]
@@ -310,7 +310,7 @@ flowchart TD
 
 ### 🔍 Cơ chế kỹ thuật:
 1. **Phép trừ tập hợp trên Database**: Thay vì kéo 1M file lên Java để so sánh từng file, Database tự chạy 1 câu SQL so khớp fingerprint (`file_size_bytes` + `modified_at`). Nếu file không đổi $\implies$ Bỏ qua ngay lập tức.
-2. **Java 25 Virtual Threads Parallelism**: 8 luồng ảo chạy song song trên CPU phân tích biểu thức chính quy (Regex) và phân loại Video / Comic / Image cho từng chunk 100.000 items (~12.500 items/thread).
+2. **Java 25 Virtual Threads Parallelism**: 8 luồng ảo chạy song song trên CPU phân tích biểu thức chính quy (Regex) và phân loại Video / Comic / Image cho từng page 25.000 items (~3.125 items/thread).
 
 > [!TIP]
 > ### 💡 Từ điển Thuật ngữ & Mental Model (Set-based & Phân tích song song)
@@ -323,7 +323,7 @@ flowchart TD
 >
 > 2. **Partitioning & Deterministic Merge (Chia để trị & Hợp nhất xác định)**:
 >    - **Nghĩa tiếng Anh thuần**: `Partition` là *vách ngăn / chia phần*; `Deterministic` là *xác định / luôn ra cùng 1 kết quả không đổi*; `Merge` là *gộp lại*.
->    - **Trong ngữ cảnh dự án**: 100.000 file trong mỗi chunk được chia đều cho 8 Virtual Threads chạy song song (~12.500 items/thread). Khi xong, kết quả được gộp lại theo đúng thứ tự ban đầu để đảm bảo tính nhất quán (Deterministic).
+>    - **Trong ngữ cảnh dự án**: 25.000 file trong mỗi page được chia đều cho 8 Virtual Threads chạy song song (~3.125 items/thread). Khi xong, kết quả được gộp lại theo đúng thứ tự ban đầu để đảm bảo tính nhất quán (Deterministic).
 >    - **💡 Cách liên tưởng**: *"Chia bài kiểm tra cho 8 giám khảo cùng chấm điểm (Partitioning), sau đó xếp lại bài theo đúng thứ tự số báo danh (Deterministic Merge)"*.
 
 ---
@@ -345,7 +345,7 @@ flowchart TD
     end
 
     ANALYZE --> TX
-    TX --> COMMIT[("Commit DB Chunk<br/>(100.000 items)")]
+    TX --> COMMIT[("Commit DB Page<br/>(25.000 items)")]
 
     style ANALYZE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style TX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
@@ -435,7 +435,7 @@ flowchart TD
        ▼ (Phase 3: SQL Set-based Diff)
 [scan_inventory_diff_stage] (UNLOGGED - Chỉ chứa file mới/đổi)
        │
-       ▼ (Phase 4: Parallel Virtual Threads 10 Chunks x 100k)
+       ▼ (Historical Phase 4 evidence: 10 Chunks x 100k)
 [Java Analyzer in RAM]
        │
        ▼ (Phase 5: Direct COPY 10 Transactions)
