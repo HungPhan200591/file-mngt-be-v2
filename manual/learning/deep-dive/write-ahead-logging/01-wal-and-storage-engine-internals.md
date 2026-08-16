@@ -10,13 +10,13 @@
 Trong thiết kế hệ quản trị cơ sở dữ liệu quan hệ (RDBMS), mọi kiến trúc sư đều phải đối mặt với một mâu thuẫn vật lý cơ bản:
 
 ```mermaid
-flowchart LR
-    subgraph CONFLICT["Nan đề thiết kế Storage Engine"]
-        RAM["RAM (Shared Buffers)<br/>• Tốc độ: ~50GB/s (Siêu nhanh)<br/>• Rủi ro: Bay màu 100% khi mất điện"]
-        DISK["Ổ cứng (Data Files)<br/>• Bền vững vĩnh viễn<br/>• Rủi ro: Random I/O cực chậm (~100MB/s)"]
+flowchart TD
+    subgraph CONFLICT["Nan đề Storage Engine"]
+        RAM["RAM (Shared Buffers)<br/>• Tốc độ: ~50GB/s<br/>(Siêu nhanh)<br/>• Rủi ro: Mất sạch<br/>khi sập nguồn"]
+        DISK["Ổ cứng (Data Files)<br/>• Bền vững vĩnh viễn<br/>• Rủi ro: Random I/O<br/>rất chậm (~100MB/s)"]
     end
 
-    RAM <-->|Xung đột cơ bản| DISK
+    RAM <-->|"Xung đột"| DISK
 
     style RAM fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style DISK fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
@@ -47,13 +47,13 @@ flowchart LR
 ```mermaid
 flowchart TD
     REQ(["1. Transaction: INSERT / UPDATE"]) 
-    --> RAM[("<font color='white'>2. Shared Buffers (RAM)<br/>• Sửa Data Page 8KB<br/>• Rebalance B-Tree Index<br/>(Thành Dirty Page, ~nano-giây)</font>")]
+    --> RAM[("2. Shared Buffers (RAM)<br/>• Sửa Data Page 8KB<br/>• Rebalance B-Tree Index<br/>(Dirty Page, nano-giây)")]
 
-    RAM --> WAL[("<font color='white'>3. WAL Buffer ──► WAL File (Đĩa)<br/>Ghi nối tiếp Append-only (LSN)<br/>(Fsync đĩa cực nhanh, &lt; 1ms)</font>")]
+    RAM --> WAL[("3. WAL File (Đĩa)<br/>Ghi nối tiếp Append-only<br/>(Fsync cực nhanh, &lt; 1ms)")]
 
-    WAL --> COMMIT(["4. Báo COMMIT thành công!<br/>(Dữ liệu đã an toàn tuyệt đối)"])
+    WAL --> COMMIT(["4. Báo COMMIT thành công!<br/>(Dữ liệu an toàn 100%)"])
 
-    RAM -.->|"5. Checkpointer chạy ngầm định kỳ<br/>(Gộp hàng ngàn dòng, xả 1 lần 8KB)"| DATA_FILES[("<font color='white'>Data Files chính trên đĩa<br/>(base/16384/...)</font>")]
+    RAM -.->|"5. Checkpointer chạy ngầm định kỳ<br/>(Gộp ngàn dòng, xả 1 lần 8KB)"| DATA_FILES[("Data Files chính trên đĩa<br/>(base/16384/...)")]
 
     style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style RAM fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
@@ -102,16 +102,16 @@ flowchart TD
 ```mermaid
 flowchart TD
     BOOT(["1. PostgreSQL khởi động lại sau Crash"])
-    --> READ_CONTROL["2. Đọc pg_control file<br/>(Tìm vị trí Checkpoint hợp lệ cuối cùng: REDO LSN)"]
-    --> SCAN_WAL["3. Mở các file WAL từ vị trí REDO LSN trở đi"]
+    --> READ_CONTROL["2. Đọc pg_control file<br/>(Tìm Checkpoint cuối: REDO LSN)"]
+    --> SCAN_WAL["3. Mở các file WAL từ REDO LSN trở đi"]
     --> REDO_LOOP{"4. Duyệt từng WAL Record"}
 
-    REDO_LOOP -->|"PageLSN &lt; WAL_LSN<br/>(Trang đĩa bị cũ do mất điện)"| APPLY["Áp dụng lại thay đổi (REDO)<br/>Đưa Page lên trạng thái mới nhất"]
+    REDO_LOOP -->|"PageLSN &lt; WAL_LSN<br/>(Trang đĩa bị cũ do mất điện)"| APPLY["Áp dụng lại thay đổi (REDO)<br/>Đưa Page lên trạng thái mới"]
     REDO_LOOP -->|"PageLSN &gt;= WAL_LSN<br/>(Trang đĩa đã kịp ghi)"| SKIP["Bỏ qua (Idempotent)"]
 
     APPLY --> REDO_LOOP
     SKIP --> REDO_LOOP
-    REDO_LOOP -->|Hết file WAL| READY(["5. DB sẵn sàng phục vụ 100% vẹn toàn!"])
+    REDO_LOOP -->|Hết file WAL| READY(["5. DB sẵn sàng phục vụ vẹn toàn!"])
 
     style BOOT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style READ_CONTROL fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
@@ -152,10 +152,10 @@ flowchart TD
         T1["1 Transaction (1M rows)<br/>• Giữ lock DB hàng giây<br/>• Sinh 1,5GB WAL liên tục<br/>• Lỗi = Mất trắng 100%"]
     end
 
-    subgraph GOOD["✅ Bounded Chunking (25.000 rows x 40 chunks)"]
-        C1["Chunk 1 (25k rows) ──► Commit ngay (30MB WAL)"]
-        C2["Chunk 2 (25k rows) ──► Commit ngay (30MB WAL)"]
-        C3["Chunk ... (Checkpoint dọn dẹp WAL tuần hoàn)"]
+    subgraph GOOD["✅ Bounded Chunking (25k rows x 40 chunks)"]
+        C1["Chunk 1 (25k rows) -> Commit ngay (30MB WAL)"]
+        C2["Chunk 2 (25k rows) -> Commit ngay (30MB WAL)"]
+        C3["Chunk ... (Checkpoint dọn WAL tuần hoàn)"]
     end
 
     style BAD fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
