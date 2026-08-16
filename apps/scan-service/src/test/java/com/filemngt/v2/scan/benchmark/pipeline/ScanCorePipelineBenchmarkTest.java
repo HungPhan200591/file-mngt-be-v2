@@ -68,6 +68,8 @@ import org.testcontainers.utility.DockerImageName;
         properties = {
             "scan.outbox.enabled=false",
             "scan.review-projection.enabled=false",
+            "scan.bulk-decision.enabled=false",
+            "scan.issue-recheck.enabled=false",
             "spring.task.scheduling.enabled=false"
         })
 class ScanCorePipelineBenchmarkTest {

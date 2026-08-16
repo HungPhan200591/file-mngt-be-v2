@@ -26,7 +26,13 @@ import org.testcontainers.utility.DockerImageName;
  */
 @Tag("benchmark")
 @Testcontainers
-@SpringBootTest(properties = {"scan.outbox.enabled=false", "spring.task.scheduling.enabled=false"})
+@SpringBootTest(
+        properties = {
+            "scan.outbox.enabled=false",
+            "scan.bulk-decision.enabled=false",
+            "scan.issue-recheck.enabled=false",
+            "spring.task.scheduling.enabled=false"
+        })
 class SetBasedReconciliationWriteBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(SetBasedReconciliationWriteBenchmarkTest.class);
     private static final int ROW_COUNT = 1_000_000;
