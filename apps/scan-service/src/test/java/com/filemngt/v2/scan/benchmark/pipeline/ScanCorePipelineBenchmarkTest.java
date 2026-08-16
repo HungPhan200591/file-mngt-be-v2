@@ -231,20 +231,7 @@ class ScanCorePipelineBenchmarkTest {
     private void logResult(ScanCoreBenchmarkScenario scenario, ScanRunEntity run, long durationMillis) {
         double throughput = (run.scannedFileCount() * 1_000.0) / Math.max(1L, durationMillis);
         LOGGER.info(
-                """
-
-                {}
-                🚀 SCAN-CORE BENCHMARK HOÀN TẤT
-                ------------------------------------------------------------------------------------------
-                 • Scenario   : {}
-                 • Status     : {}
-                 • Files      : {}
-                 • Proposals  : {}
-                 • Issues     : {}
-                 • Duration   : {} ms
-                 • Throughput : {} files/s
-                {}
-                """,
+                "\n{}\nScan-core benchmark hoàn tất: scenario={}, status={}, files={}, proposals={}, issues={}, durationMs={}, throughputFilesPerSecond={}\n{}",
                 BANNER_BORDER,
                 scenario,
                 run.status(),

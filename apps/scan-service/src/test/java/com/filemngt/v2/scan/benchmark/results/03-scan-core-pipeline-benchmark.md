@@ -17,6 +17,63 @@
 
 `FULL_CHANGE` lỗi tại bước insert inventory với `ERROR: canceling statement due to statement timeout` sau khi xử lý phần lớn chunk. Vì vậy run này chỉ được dùng làm **baseline failure evidence**, không dùng làm SLO thành công.
 
+## Candidate sau khi áp dụng `LEFT JOIN`
+
+- **Thời điểm chạy**: `2026-08-16 23:42 +07:00`
+- **Mutation query**: `INSERT_NEW_SQL` dùng `LEFT JOIN scan_file_inventory ... IS NULL`
+- **Kết luận tạm thời**: `FULL_CHANGE` đã hoàn thành, nhưng `REVIVED` vẫn bị `statement_timeout` tại cùng bước insert. Candidate chưa đủ bằng chứng để thay thế hoàn toàn baseline.
+
+| Scenario | Status | Proposals | Issues | Duration (ms) | Throughput (files/s) |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| `COLD` | `COMPLETED` | 990.000 | 10.000 | 36.747 | 27.213 |
+| `UNCHANGED` | `COMPLETED` | 0 | 0 | 9.923 | 100.776 |
+| `INCREMENTAL` | `COMPLETED` | 0 | 1.000 | 10.722 | 93.266 |
+| `FULL_CHANGE` | `COMPLETED` | 990.000 | 10.000 | 146.197 | 6.840 |
+| `REVIVED` | `FAILED` | 0 | 0 | 85.434 | 11.705 |
+
+`REVIVED` bị PostgreSQL hủy câu `INSERT_NEW_SQL` sau khi áp dụng `LEFT JOIN`. Do đó không được coi candidate đã đạt SLO 1M cho toàn bộ workload; cần lấy `EXPLAIN (ANALYZE, BUFFERS)` của câu insert và kiểm tra kế hoạch/index trước khi tiếp tục tối ưu.
+
+## Diagnostic execution plan
+
+Đã thêm `InventoryInsertQueryPlanBenchmarkTest` để A/B chính câu `INSERT_NEW_SQL` hiện tại với candidate `INSERT ... ON CONFLICT (root_key, source_relative_path) DO NOTHING` trong workload `REVIVED`, dùng `EXPLAIN (ANALYZE, BUFFERS, WAL, FORMAT TEXT)`. Mỗi câu lệnh chạy trong transaction riêng và rollback sau khi đo; test không giữ lại các row được `INSERT` bởi `EXPLAIN ANALYZE`.
+
+Chạy riêng test này trong IntelliJ và lọc log theo `Inventory insert plan:`; trường `candidate` có giá trị `left-join` hoặc `on-conflict`. Có thể giảm tải khi kiểm tra nhanh bằng VM option `-Dbenchmark.inventory-insert.rows=100000`; khi lấy bằng chứng 1M, bỏ option này hoặc đặt `-Dbenchmark.inventory-insert.rows=1000000`.
+
+Test `comparesChunkPlanModes` bổ sung A/B `plan_cache_mode=auto` và `plan_cache_mode=force_custom_plan` trên 10 chunk x 100.000 rows. Lọc log theo `Inventory chunk plan:` và đối chiếu `mode`, `chunk`, `Seq Scan/Index Scan`, `temp` và `Execution Time`.
+
+### Plan-cache A/B result — 10 chunks x 100k
+
+- Cả `auto` và `force_custom_plan` đều dùng `Seq Scan` trên toàn bộ `scan_file_inventory` (`1.000.000` rows) ở cả 10 chunk.
+- Cả hai đều dùng `Bitmap Index Scan` trên `idx_scan_inventory_diff_stage_run_path` cho khoảng 100k rows của diff stage.
+- Cả hai đều có temp spill khoảng `4.000` blocks mỗi chunk.
+- `force_custom_plan` chỉ nhanh hơn nhẹ, khoảng `383–430ms/chunk`; `auto` khoảng `425–486ms/chunk` trong run này.
+
+Kết luận: generic plan không phải nguyên nhân chính và chưa có cơ sở áp dụng `SET LOCAL plan_cache_mode = 'force_custom_plan'` vào production. Bottleneck đã được xác nhận là anti-join phải quét/hash toàn bộ inventory lặp lại theo từng chunk. Hướng tiếp theo là materialize tập `new inventory rows` một lần ở cấp run hoặc tách một lần insert-new khỏi vòng commit chunk; không tiếp tục tối ưu bằng timeout hay plan-cache hint.
+
+### Evidence `REVIVED` — 1M rows
+
+- `Hash Anti Join`: khoảng `1.040s` cho node join, tổng execution `1.122s` trong test cô lập.
+- `scan_inventory_diff_stage`: `Seq Scan`, đọc `1.000.000` rows.
+- `scan_file_inventory`: `Seq Scan`, đọc `1.000.000` rows.
+- Hash table: `Batches: 16`, `Memory Usage: 5268kB`.
+- Temporary I/O: `temp read=15359`, `temp written=15359` ở node join.
+- Không có row mới được insert (`rows=0`).
+
+Kết luận: `LEFT JOIN` đã đổi hình dạng query thành hash anti-join nhưng vẫn phải quét và hash toàn bộ inventory cho mỗi chunk. Đây là nguyên nhân hợp lý khiến full pipeline có thể timeout dù test cô lập chỉ mất khoảng 1,1 giây. Index unique `(root_key, source_relative_path)` tồn tại nhưng planner không chọn index lookup vì workload trả về gần như toàn bộ 1M rows.
+
+Candidate tiếp theo cần benchmark riêng là `INSERT ... ON CONFLICT (root_key, source_relative_path) DO NOTHING`, sau đó kiểm tra lại row-count và chi phí conflict/WAL. Chưa tăng timeout và chưa áp dụng candidate này vào production.
+
+### A/B result — `REVIVED`, 1M rows
+
+| Candidate | Execution time | Tuples inserted | Conflicting tuples | Buffer/temp evidence | Decision |
+| :--- | ---: | ---: | ---: | :--- | :--- |
+| `LEFT JOIN ... IS NULL` | 1.054s | 0 | — | Hash spill, temp I/O | Giữ làm baseline candidate |
+| `ON CONFLICT DO NOTHING` | 10.656s | 0 | 1.000.000 | 3.976.398 shared hits, 11.766 buffers written | Loại bỏ |
+
+`ON CONFLICT` phải thực hiện conflict check qua unique arbiter index cho toàn bộ 1M rows dù không insert row nào, nên chậm hơn khoảng 10,1 lần trong workload `REVIVED`. Candidate này không được áp dụng vào production.
+
+Các dòng `Mockito is currently self-attaching` và cảnh báo Byte Buddy chỉ là warning về dynamic Java agent trên JDK 25; benchmark vẫn chạy và không phải nguyên nhân của chênh lệch hiệu năng.
+
 - **Mã bài đo**: `BENCH-03-SCAN-CORE`
 - **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java)
 - **Workload**: 1.000.000 files (990.000 proposals, 10.000 issues, 10 chunks x 100k items)
