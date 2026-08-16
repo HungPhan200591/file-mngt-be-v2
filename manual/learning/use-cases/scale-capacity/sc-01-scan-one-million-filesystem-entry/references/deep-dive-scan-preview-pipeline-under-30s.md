@@ -310,6 +310,20 @@ flowchart TD
 1. **Phép trừ tập hợp trên Database ($0,4\text{s}$)**: Thay vì kéo 1M file lên Java để so sánh từng file, Database tự chạy 1 câu SQL so khớp fingerprint (`file_size_bytes` + `modified_at`). Nếu file không đổi $\implies$ Bỏ qua ngay lập tức.
 2. **Java 25 Virtual Threads Parallelism**: 8 luồng ảo chạy song song trên CPU phân tích biểu thức chính quy (Regex) và phân loại Video / Comic / Image, giúp giảm thời gian phân tích từ $90\text{s} \to \mathbf{18,5\text{s}}$!
 
+> [!TIP]
+> ### 💡 Từ điển Thuật ngữ & Mental Model (Set-based & Phân tích song song)
+>
+> 1. **Set-based (Tư duy xử lý theo khối tập hợp toán học)**:
+>    - **Nghĩa tiếng Anh thuần**: `Set` là *tập hợp (trong toán học)*; `based` là *dựa trên / nền tảng trên*.
+>    - **Trong ngữ cảnh dự án**: `Set-based` là phong cách ra lệnh cho Database xử lý trọn vẹn cả triệu dòng cùng một lúc như một tập hợp duy nhất bằng 1 câu lệnh SQL (`INSERT ... SELECT ... NOT EXISTS`), tận dụng engine đại số quan hệ tối ưu của PostgreSQL ($0,4\text{s}$). Ngược lại hoàn toàn với `Row-by-row` (hoặc `Procedural`): kéo dữ liệu lên Java rồi dùng vòng lặp `for-each` để so sánh từng dòng (tốn $> 30\text{s}$).
+>    - **Tại sao lại gọi như vậy**: Xuất phát từ *Lý thuyết tập hợp (Set Theory)* của nhà toán học Edgar F. Codd (cha đẻ RDBMS). Dữ liệu trong database là các quan hệ tập hợp, máy tính xử lý phép hợp/giao/trừ tập hợp nhanh gấp hàng trăm lần việc lặp từng phần tử.
+>    - **💡 Cách liên tưởng**: *"Thu hoạch lúa bằng máy gặt đập liên hợp (Set-based: gom cả thửa ruộng một lượt) thay vì cầm liềm cắt từng bông lúa một (Row-by-row)"*.
+>
+> 2. **Partitioning & Deterministic Merge (Chia để trị & Hợp nhất xác định)**:
+>    - **Nghĩa tiếng Anh thuần**: `Partition` là *vách ngăn / chia phần*; `Deterministic` là *xác định / luôn ra cùng 1 kết quả không đổi*; `Merge` là *gộp lại*.
+>    - **Trong ngữ cảnh dự án**: 5.000 file được chia đều cho 8 Virtual Threads chạy song song. Khi xong, kết quả được gộp lại theo đúng thứ tự ban đầu để đảm bảo tính nhất quán (Deterministic).
+>    - **💡 Cách liên tưởng**: *"Chia bài kiểm tra cho 8 giám khảo cùng chấm điểm (Partitioning), sau đó xếp lại bài theo đúng thứ tự số báo danh (Deterministic Merge)"*.
+
 ---
 
 ## 6. Luồng con C: Direct COPY Persistence & Atomic Checkpoint
@@ -336,9 +350,23 @@ flowchart TD
     style C1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style C2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style C3 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style C4 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
+
+> [!TIP]
+> ### 💡 Từ điển Thuật ngữ & Mental Model (Persistence & Checkpoint)
+>
+> 1. **Atomic Checkpoint (Điểm kiểm tra nguyên tử / Bất khả phân chia)**:
+>    - **Nghĩa tiếng Anh thuần**: `Atomic` là *thuộc về nguyên tử (tính chất không thể chia nhỏ hơn)*; `Checkpoint` là *trạm kiểm soát / điểm mốc lưu trữ*.
+>    - **Trong ngữ cảnh dự án**: Một chunk ghi đồng thời cả Proposal, Issue và cập nhật số lượng tiến độ vào `scan_run` trong cùng 1 Transaction `@Transactional(REQUIRES_NEW)`. Nếu mất điện hoặc lỗi giữa chừng, toàn bộ chunk đó bị rollback sạch sẽ 100%, không bị tình trạng "lưu được file nhưng không cập nhật tiến độ".
+>    - **💡 Cách liên tưởng**: *"Điểm Save Game tự động: Khi qua màn (chunk), game lưu toàn bộ lượng máu, tiền và trang bị cùng 1 lượt. Không bao giờ có chuyện lưu được tiền mà mất sạch trang bị"*.
+>
+> 2. **Cold Path vs. Warm Path (Luồng chạy nguội vs. Luồng chạy nóng)**:
+>    - **Nghĩa tiếng Anh thuần**: `Cold` là *nguội/lạnh (chưa có gì, mới toanh)*; `Warm` là *nóng/ấm (đã chạy trước đó, đang hoạt động)*; `Path` là *con đường / luồng thực thi*.
+>    - **Trong ngữ cảnh dự án**: 
+>      - **Cold Path**: Thư mục quét lần đầu tiên (bảng inventory rỗng) $\implies$ Bỏ qua bước kiểm tra UPDATE, nạp thẳng 100% bằng `INSERT` thần tốc.
+>      - **Warm Path**: Thư mục đã từng quét (đã có dữ liệu) $\implies$ Phải chạy câu đối soát `UPDATE ... FROM` để so sánh sửa đổi.
+>    - **💡 Cách liên tưởng**: *"Làn đường thu phí tự động ETC không dừng (Cold Path: phóng thẳng không cần soát vé) vs. Làn dừng lại soát vé kiểm tra từng xe (Warm Path)"*.
 
 ---
 
