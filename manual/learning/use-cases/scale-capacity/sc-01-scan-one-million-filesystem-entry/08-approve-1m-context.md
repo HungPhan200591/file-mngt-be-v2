@@ -2,6 +2,7 @@
 
 > Đây là context router ngắn cho Agent. Không phải SLO, không thay architecture/contract/Plan và
 > không chứa benchmark chi tiết.
+> Xem sơ đồ Master Map toàn cảnh tại [`explain-bt09-master-pipeline-map.md`](./references/explain-bt09-master-pipeline-map.md).
 
 ## Vấn đề hiện tại
 
@@ -28,7 +29,7 @@ idempotency/version guard và terminal watermark.
 ## Owner và task đang mở
 
 - Break-task owner: [BT-09](./04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
-- **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
+- **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
 - **BT-09B**: Scan decision/outbox chunking (**`Active Focus`**).
 - **BT-09C**: Outbox drain và bounded relay.
 - **BT-09D–09E**: Catalog coalesce và Query bulk projection.
@@ -38,8 +39,7 @@ idempotency/version guard và terminal watermark.
 
 ## Chỉ mục Reference Capsules (Đọc siêu gọn theo nhu cầu — JIT Context)
 
-Để tiết kiệm token, phân tích từ review được cô đọng thành capsule độc lập. Khi thực hiện lát cắt nào,
-Agent **chỉ đọc đúng capsule của lát đó**; không đọc deep-dive/review/explain nếu task không yêu cầu.
+Để tiết kiệm tối đa token, toàn bộ phân tích từ các file review lớn (48KB) đã được cô đọng thành các capsule độc lập dài 40–60 dòng. Khi thực hiện lát cắt nào, Agent **chỉ đọc đúng duy nhất file reference capsule của lát đó**:
 
 | Lát BT-09 | Mục tiêu kỹ thuật cốt lõi | File Reference Capsule cần đọc |
 | --- | --- | --- |
@@ -47,7 +47,7 @@ Agent **chỉ đọc đúng capsule của lát đó**; không đọc deep-dive/r
 | **`BT-09B`** | Scan Decision & Outbox Chunking (`REQUIRES_NEW`), tránh JPA dirty checking & WAL overflow | [ref-bt09b-scan-decision-chunking.md](./references/ref-bt09b-scan-decision-chunking.md) |
 | **`BT-09C`** | Outbox Continuous Drain, Bounded in-flight async publish, Lease budget | [ref-bt09c-outbox-continuous-drain.md](./references/ref-bt09c-outbox-continuous-drain.md) |
 | **`BT-09D`** | Catalog Batch Coalescing theo `subjectIdentity` trong RAM, giảm 70% event amplification | [ref-bt09d-catalog-batch-coalescing.md](./references/ref-bt09d-catalog-batch-coalescing.md) |
-| **`BT-09E`** | Query Bulk Projection, `subjectVersion` guard, `cacheGeneration` switch | [ref-bt09e-query-bulk-projection.md](./references/ref-bt09e-query-bulk-projection.md) |
+| **`BT-09E`** | Query Bulk Projection (COPY/Upsert), Version Guard, Redis Pipeline Invalidation | [ref-bt09e-query-bulk-projection.md](./references/ref-bt09e-query-bulk-projection.md) |
 | **`BT-09F`** | Xử lý Poison pill trong Batch, Dead-Letter Topic (DLT) isolation, Idempotent replay | [ref-bt09f-dlt-and-replay-runbook.md](./references/ref-bt09f-dlt-and-replay-runbook.md) |
 | **`BT-09G`** | Scale Ladder (1K → 5K → 50K → 250K → 1M), Latency budget, Đo lường DB pool/WAL/lag | [ref-bt09g-capacity-and-benchmarking.md](./references/ref-bt09g-capacity-and-benchmarking.md) |
 
@@ -55,9 +55,10 @@ Agent **chỉ đọc đúng capsule của lát đó**; không đọc deep-dive/r
 
 ## Routing để tiết kiệm context (Quy tắc Dual-Layer Documentation)
 
-1. **Tầng Agent**: đọc file `ref-bt09x-*.md` của lát đang làm; capsule chỉ giữ invariant, decision và link owner.
-2. **Tầng con người**: `explain-*`, deep-dive, review, summary và question-bank chỉ mở khi cần học/giải thích/evidence.
-3. Không tự tạo hoặc cập nhật `explain-*` trong task implementation nếu người dùng chưa yêu cầu.
-4. Mặc định chỉ đọc file này; chỉ mở section `BT-09` trong `04-break-task.md` khi cần break task.
-5. Khi cần target SLO/hardware, đọc [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md).
-6. Chỉ đọc [09-fixture-and-microbenchmarks.md](./09-fixture-and-microbenchmarks.md) khi task yêu cầu fixture/benchmark.
+1. **Phân tách 2 tầng tài liệu (Agent vs Con người)**:
+   - **Tầng Thực thi (Agent)**: Chỉ đọc file capsule ngắn `ref-bt09x-*.md` (30–50 dòng) khi bắt đầu thực hiện lát cắt tương ứng. **Tuyệt đối không tự ý nạp các file `explain-*.md` hoặc các bài review lớn** khi triển khai code/task để tiết kiệm token và tránh loãng context.
+   - **Tầng Chuyên sâu (Con người)**: Các file `explain-*.md` và deep-dive được tạo riêng cho người dùng đọc hiểu bản chất; Agent chỉ tạo hoặc cập nhật khi người dùng yêu cầu giải thích chi tiết.
+2. Mặc định chỉ đọc file này và đúng section `BT-09` trong `04-break-task.md`.
+3. Khi bắt đầu một lát (ví dụ `BT-09B`), mở đúng duy nhất file capsule `ref-bt09b-scan-decision-chunking.md`.
+4. Khi cần tra cứu target SLO và hardware envelope, đọc [07-performance-slo-and-benchmarks.md](./07-performance-slo-and-benchmarks.md).
+5. Chỉ đọc [09-fixture-and-microbenchmarks.md](./09-fixture-and-microbenchmarks.md) khi task yêu cầu chạy fixture/benchmark.

@@ -37,37 +37,47 @@ Query Service nhận các subject events từ 12 Kafka partitions.
 
 ```mermaid
 flowchart TD
-    subgraph SCAN_PHASE["1. Scan Service"]
-        S1["Đếm tổng candidate: expectedRecordCount = 1.000.000"]
-        S2["Chia chunk outbox (ví dụ 500 batches)"]
-        S3["Ghi nhận xong: scanCommittedRecordCount = 1.000.000"]
-        S4["Phát Watermark: APPROVAL_COMMITTED"]
+    subgraph SCAN_PHASE["Scan Service"]
+        S1["<font color='white'>[1] Đếm tổng candidate:<br/>expectedRecordCount = 1M</font>"]
+        S2["<font color='white'>[2] Chia chunk outbox<br/>(ví dụ: 500 batches)</font>"]
+        S3["<font color='white'>[3] Ghi nhận xong:<br/>scanCommitted = 1M</font>"]
+        S4(["<font color='white'>Phát Watermark:<br/>APPROVAL_COMMITTED</font>"])
     end
 
-    subgraph CATALOG_PHASE["2. Catalog Service"]
-        C1["Tiêu thụ đủ 1.000.000 file discovered"]
-        C2["Gom nhóm (Coalesce) trong RAM thành các Subject"]
-        C3["Chốt con số Subject thực tế: expectedSubjectCount = 148.321"]
-        C4["Phát Watermark: CATALOG_COMMITTED<br/>(Mang theo con số: expectedSubjectCount = 148.321)"]
+    subgraph CATALOG_PHASE["Catalog Service"]
+        C1["<font color='white'>[1] Tiêu thụ đủ<br/>1.000.000 file discovered</font>"]
+        C2["<font color='white'>[2] Gom nhóm Coalesce<br/>trong RAM theo Subject</font>"]
+        C3["<font color='white'>[3] Chốt số Subject:<br/>expectedCount = 148.321</font>"]
+        C4(["<font color='white'>Phát Watermark:<br/>CATALOG_COMMITTED<br/>(expected = 148.321)</font>"])
     end
 
-    subgraph QUERY_PHASE["3. Query Service (Completion Barrier)"]
-        Q1["Tiêu thụ các Subject Changed events"]
-        Q2["Tăng biến đếm: projectedSubjectCount"]
-        Q3{"Equality Gate:<br/>projectedSubjectCount == 148.321<br/>VÀ unresolvedDltCount == 0 ?"}
-        Q4["ĐỦ 100% DỮ LIỆU & KHÔNG LỖI!"]
-        Q5["Phát Watermark: QUERY_DB_READY<br/>(Dừng đồng hồ đo SLO)"]
+    subgraph QUERY_PHASE["Query Service (Completion Barrier)"]
+        Q1["<font color='white'>Tiêu thụ Subject<br/>Changed events</font>"]
+        Q2["<font color='white'>Tăng biến đếm:<br/>projectedSubjectCount</font>"]
+        Q3{"<font color='white'>Equality Gate:<br/>projected == 148.321<br/>VÀ DLT == 0 ?</font>"}
+        Q4["<font color='white'>ĐỦ 100% DỮ LIỆU<br/>&amp; KHÔNG CÓ LỖI!</font>"]
+        Q5(["<font color='white'>Phát Watermark:<br/>QUERY_DB_READY<br/>(Dừng đồng hồ SLO)</font>"])
     end
 
     SCAN_PHASE --> CATALOG_PHASE --> QUERY_PHASE
-    Q3 -->|Chưa đủ| Q1
-    Q3 -->|Đủ| Q4 --> Q5
+    Q3 -->|"Chưa đủ"| Q1
+    Q3 -->|"Đủ"| Q4 --> Q5
 
-    style SCAN_PHASE fill:#e3f2fd,stroke:#2196F3
-    style CATALOG_PHASE fill:#f3e5f5,stroke:#9c27b0
-    style QUERY_PHASE fill:#e8f5e9,stroke:#4caf50
-    style Q3 fill:#fff9c4,stroke:#fbc02d
-    style Q5 fill:#4caf50,color:#fff
+    style S1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style S2 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style S4 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+
+    style C1 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style C2 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style C3 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style C4 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+
+    style Q1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style Q2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style Q3 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style Q4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style Q5 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 **Bản chất của Completion Barrier**:
@@ -134,26 +144,30 @@ Khi có 150.000 subjects được cập nhật, nếu dùng Redis `DEL`:
 Thay vì đi xóa từng key của 150.000 subjects, chúng ta chỉ thay đổi **một biến số thế hệ (Generation Version)** trong Redis hoặc application memory:
 
 ```mermaid
-flowchart LR
-    subgraph OLD_GEN["Thế hệ cũ (Generation = 1)"]
-        K1["v1:subject:uuid-1"]
-        K2["v1:subject:uuid-2"]
-        K3["v1:subject:uuid-3"]
+flowchart TD
+    subgraph OLD_GEN["Thế hệ v1"]
+        K1["<font color='white'>v1:subject:001</font>"]
+        K2["<font color='white'>v1:subject:002</font>"]
+        K3["<font color='white'>148.321 keys cũ</font>"]
     end
 
     subgraph SWITCH["Chuyển đổi O(1)"]
-        SW["query_cache_generation: 1 ──► 2<br/>(Chỉ 1 lệnh Redis: SET query_cache_generation 2)"]
+        SW["<font color='white'>Generation: 1 -> 2<br/>(SET gen = 2, &lt;1ms)</font>"]
     end
 
-    subgraph NEW_GEN["Thế hệ mới (Generation = 2)"]
-        N1["v2:subject:uuid-1 (Cache Miss ──► Đọc trực tiếp Query DB mới)"]
+    subgraph NEW_GEN["Thế hệ v2"]
+        N1["<font color='white'>v2:subject:001<br/>(Miss -> Đọc DB mới)</font>"]
     end
 
-    OLD_GEN -.->|Tự động hết hạn qua TTL| DISCARD[("Tự giải phóng RAM")]
+    OLD_GEN -.->|"Hết hạn TTL"| DISCARD[("<font color='white'>Redis tự giải phóng</font>")]
     SWITCH --> NEW_GEN
 
-    style SWITCH fill:#fff9c4,stroke:#fbc02d
-    style NEW_GEN fill:#e8f5e9,stroke:#4caf50
+    style K1 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style K2 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style K3 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style SW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style N1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style DISCARD fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 1. **Cơ chế hoạt động**:
