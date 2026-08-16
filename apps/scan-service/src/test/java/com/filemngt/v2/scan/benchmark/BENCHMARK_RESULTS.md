@@ -6,6 +6,10 @@ Tài liệu này tổng hợp **bảng chỉ số tóm tắt (Executive Summary)
 
 ## 1. Bảng Tổng hợp Chỉ số Toàn cảnh (Summary Matrix)
 
+FT-049 scale qualification (1K → 1M repeated matrix) được **deferred**; các số liệu bên dưới không được coi là
+qualification theo phần cứng/SLO. Evidence hiện hành chỉ thuộc các benchmark feature tương ứng và giữ nguyên boundary
+scan-core, loại filesystem/Catalog I/O theo mô tả từng report.
+
 | Mã bài đo | Tên Hạng mục Đo | Phạm vi / Công nghệ | Workload | Thời gian đo | Tốc độ (Throughput) | Báo cáo Chi tiết |
 |---|---|---|:---:|:---:|:---:|:---:|
 | **`BENCH-01`** | **Legacy JDBC Batch Baseline** | JDBC Batch 50k / PostgreSQL | 1.000.000 diff | **43.45s – 84.65s** | ~23.000 files/s | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/01-legacy-jdbc-batch-baseline.md) |
@@ -46,5 +50,4 @@ Tài liệu này tổng hợp **bảng chỉ số tóm tắt (Executive Summary)
 1. 📜 **[01-legacy-jdbc-batch-baseline.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/01-legacy-jdbc-batch-baseline.md)**: Phân tích nguyên nhân điểm nghẽn 64.5s ở tầng JDBC batching.
 2. 💾 **[02-database-set-based-persistence.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/02-database-set-based-persistence.md)**: Phân rã chi phí ForeignKey, Unique Constraint, UUIDv7 và SQL Set-based.
 3. 🚀 **[03-scan-core-pipeline-benchmark.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/03-scan-core-pipeline-benchmark.md)**: Báo cáo phân tích chi tiết từng khâu Core Pipeline 1.000.000 files (37.96s / 26.343 files/s).
-
 

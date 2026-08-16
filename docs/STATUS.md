@@ -41,7 +41,7 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 - [FT-046](./features/046-scan-core-pipeline-optimization/01-brief.md): Scan-core phase evidence, cold/warm benchmark matrix và SQL diff qualification (`DONE — benchmark waiver accepted`; không phải cross-service SLO).
 - [FT-047](./features/047-scan-core-cold-path/01-brief.md): Cold root path bỏ materialize `scan_inventory_diff_stage`, vẫn giữ snapshot/retry safety (`DONE — benchmark waiver accepted`; không phải cross-service SLO).
 - [FT-048](./features/048-scan-core-pipelined-reconciliation/01-brief.md): Bounded producer-consumer overlap giữa parse và commit (`DONE — COLD qualified`; chọn queue capacity 1, giữ sequential fallback).
-- [FT-049](./features/049-scan-core-scale-qualification/01-brief.md): Scale ladder và qualification cuối cho `scan-core` (`READY`; chờ FT-046–048 evidence).
+- [FT-049](./features/049-scan-core-scale-qualification/01-brief.md): Scale ladder và qualification cuối cho `scan-core` (`DEFERRED — intentionally skipped`; evidence 1M hiện tại của FT-046–048 vẫn giữ nguyên scope).
 - Hot path persistence: [FT-028](./features/028-parallel-reconciliation-pipeline/03-plan.md) (parallel analyze, direct COPY), [FT-030](./features/030-scan-performance-telemetry/03-plan.md) (telemetry runtime), [FT-031](./features/031-scan-reconciliation-persistence-optimization/03-plan.md) (benchmark 1M file < 30s), [FT-032](./features/032-scan-review-queue/03-plan.md) & [FT-033](./features/033-scan-review-read-model/03-plan.md) (review queue/read model).
 
 ---
