@@ -10,13 +10,15 @@
 manual/learning/deep-dive/database-internals/
 ├── README.md                                 # [Hub] Bản đồ kiến trúc PostgreSQL Kernel
 ├── 01-wal-and-storage-engine-internals.md    # [Tầng Ghi] Buffer Pool, WAL, Checkpoint, LSN, Crash Recovery
-└── 02-anti-join-and-query-optimization.md    # [Tầng Đọc] Anti-Join, Hash Anti-Join, work_mem, EXPLAIN Plan
+├── 02-anti-join-and-query-optimization.md    # [Tầng Đọc] Anti-Join, Hash Anti-Join, work_mem, EXPLAIN Plan
+└── 03-unlogged-tables-and-transient-storage.md # [Tầng Tạm] UNLOGGED Tables, _init fork, Crash Truncation
 ```
 
 | Bài học | Tên tài liệu | Trọng tâm kỹ thuật cốt lõi | Vấn đề giải quyết |
 | :---: | :--- | :--- | :--- |
 | **01** | [Write-Ahead Logging (WAL) & Storage Engine](./01-wal-and-storage-engine-internals.md) | `Shared Buffers`, `Data Pages (8KB)`, `WAL`, `LSN`, `Checkpointer`, Write Coalescing và giải pháp Bounded Chunking (BT-09B). | Chống phình to WAL, I/O Freeze khi bulk insert 1M records. |
 | **02** | [Anti-Join & Hash Anti-Join Query Optimization](./02-anti-join-and-query-optimization.md) | Đại số quan hệ $A \setminus B$, cú pháp SQL `NOT EXISTS`, cơ chế 2 pha Build/Probe trong RAM, `work_mem`, Spill to Disk và `EXPLAIN ANALYZE`. | Giảm thời gian lọc độ lệch (Diff) 1M records từ 6.5s xuống < 1s. |
+| **03** | [UNLOGGED Tables & Transient Storage](./03-unlogged-tables-and-transient-storage.md) | Triệt tiêu WAL overhead, cơ chế `_init fork`, vòng đời khi Crash, so sánh với `TEMPORARY TABLE` và ứng dụng Staging 1M files. | Tăng tốc độ nạp dữ liệu tạm gấp 3–5 lần mà không gây ô nhiễm WAL. |
 
 ---
 
