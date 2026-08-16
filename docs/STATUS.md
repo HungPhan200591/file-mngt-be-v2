@@ -1,6 +1,6 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-15
+Updated: 2026-08-16
 
 ## Gate mới nhất — Production Readiness Review
 
@@ -38,6 +38,10 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 - [FT-038](./features/038-targeted-issue-recheck/01-brief.md) & [FT-039](./features/039-durable-bulk-decision/01-brief.md): Targeted issue recheck và Durable bulk decision job (`IMPLEMENTED — verification deferred`).
 - [FT-040](./features/040-primary-video-tag-ownership/01-brief.md), [FT-041](./features/041-scan-rerun-overwrite/01-brief.md), [FT-042](./features/042-primary-video-election/01-brief.md): Metadata repair, rerun overwrite và primary video election (`DONE`).
 - [FT-043](./features/043-video-gallery-throughput/01-brief.md): Video Gallery & throughput event/outbox batch acknowledgement (`DONE — targeted Query integration verified`).
+- [FT-046](./features/046-scan-core-pipeline-optimization/01-brief.md): Scan-core phase evidence, cold/warm benchmark matrix và SQL diff qualification (`READY`; prerequisite evidence cho BT-09G, không phải cross-service SLO).
+- [FT-047](./features/047-scan-core-cold-path/01-brief.md): Cold root path bỏ materialize `scan_inventory_diff_stage`, vẫn giữ snapshot/retry safety (`READY`; chờ FT-046 evidence).
+- [FT-048](./features/048-scan-core-pipelined-reconciliation/01-brief.md): Bounded producer-consumer overlap giữa parse và commit (`READY`; chờ FT-047 runtime evidence).
+- [FT-049](./features/049-scan-core-scale-qualification/01-brief.md): Scale ladder và qualification cuối cho `scan-core` (`READY`; chờ FT-046–048 evidence).
 - Hot path persistence: [FT-028](./features/028-parallel-reconciliation-pipeline/03-plan.md) (parallel analyze, direct COPY), [FT-030](./features/030-scan-performance-telemetry/03-plan.md) (telemetry runtime), [FT-031](./features/031-scan-reconciliation-persistence-optimization/03-plan.md) (benchmark 1M file < 30s), [FT-032](./features/032-scan-review-queue/03-plan.md) & [FT-033](./features/033-scan-review-read-model/03-plan.md) (review queue/read model).
 
 ---
