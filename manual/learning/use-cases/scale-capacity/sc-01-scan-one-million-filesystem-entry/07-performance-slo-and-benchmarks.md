@@ -43,7 +43,7 @@ production capacity.
 
 | Mã SLI | Nghiệp vụ | Target P95 | Guardrail P99 | Throughput tương đương | Trạng thái evidence |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`SLI-01`** | **Cold Scan 1M Files**: Walk → Staging → Parse → Proposal DB | **≤ 30s** | **≤ 45s** | **≥ 33.000 files/s** | Một run 25,763s; run lịch sử khác 41,18s; chưa đủ qualification |
+| **`SLI-01`** | **Cold Scan 1M Files**: Walk → Staging → Parse → Proposal DB | **≤ 30s** | **≤ 45s** | **≥ 33.000 files/s** | FT-048 cold run: 25,371s / 39.415 files/s; các run gần đây khoảng 25–26s; chưa đủ qualification P95/P99 |
 | **`SLI-02`** | **Warm Scan 1M Files**: periodic re-scan, 0 changed | **≤ 8s** | **≤ 12s** | **≥ 125.000 files/s** | Chưa đủ evidence lặp lại theo workload manifest |
 | **`SLI-03`** | **Approve 1M Records** tới `QUERY_DB_READY` | **≤ 30s** | **≤ 45s** | **≥ 33.000 records/s** | Target contract; chưa có runtime evidence |
 | **`SLI-04`** | **Search Ready 1M Records** qua Elasticsearch bulk async | **≤ 60s** | **≤ 90s** | **≥ 16.700 docs/s** | Async SLO riêng; chưa có runtime evidence |
