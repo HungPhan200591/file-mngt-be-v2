@@ -3,7 +3,6 @@ package com.filemngt.v2.scan.benchmark.preview;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;
-
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -28,12 +27,12 @@ import org.testcontainers.utility.DockerImageName;
 @Tag("benchmark")
 @Testcontainers
 @SpringBootTest(
-    properties = {
-        "scan.outbox.enabled=false",
-        "scan.bulk-decision.enabled=false",
-        "scan.issue-recheck.enabled=false",
-        "spring.task.scheduling.enabled=false"
-    })
+        properties = {
+            "scan.outbox.enabled=false",
+            "scan.bulk-decision.enabled=false",
+            "scan.issue-recheck.enabled=false",
+            "spring.task.scheduling.enabled=false"
+        })
 class SetBasedReconciliationWriteBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(SetBasedReconciliationWriteBenchmarkTest.class);
     private static final int ROW_COUNT = 1_000_000;
@@ -112,18 +111,18 @@ class SetBasedReconciliationWriteBenchmarkTest {
         long withUuidV7 = measureProposalVariant(runId, PROPOSAL_UUID_V7_SQL, "proposal UUIDv7", false, false);
 
         LOGGER.info(
-            "Invariant benchmark: baselineProposalMs={}, withForeignKeyMs={}, withoutUniqueMs={}, uuidV7Ms={}",
-            timing.proposalMillis(),
-            withForeignKey,
-            withoutUnique,
-            withUuidV7);
+                "Invariant benchmark: baselineProposalMs={}, withForeignKeyMs={}, withoutUniqueMs={}, uuidV7Ms={}",
+                timing.proposalMillis(),
+                withForeignKey,
+                withoutUnique,
+                withUuidV7);
         LOGGER.info(
-            "Set-based benchmark hoàn tất: rows={}, inventoryMs={}, proposalMs={}, issueMs={}, transactionMs={}",
-            ROW_COUNT,
-            timing.inventoryMillis(),
-            timing.proposalMillis(),
-            timing.issueMillis(),
-            timing.transactionMillis());
+                "Set-based benchmark hoàn tất: rows={}, inventoryMs={}, proposalMs={}, issueMs={}, transactionMs={}",
+                ROW_COUNT,
+                timing.inventoryMillis(),
+                timing.proposalMillis(),
+                timing.issueMillis(),
+                timing.transactionMillis());
     }
 
     private void resetTables() {
@@ -164,7 +163,7 @@ class SetBasedReconciliationWriteBenchmarkTest {
     }
 
     private long measureProposalVariant(
-        UUID runId, String proposalSql, String label, boolean addForeignKey, boolean dropUnique) {
+            UUID runId, String proposalSql, String label, boolean addForeignKey, boolean dropUnique) {
         jdbcTemplate.update("DELETE FROM scan_proposal");
         prepareProposalConstraints(addForeignKey);
         if (dropUnique) {
@@ -180,10 +179,10 @@ class SetBasedReconciliationWriteBenchmarkTest {
         jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT IF EXISTS " + PROPOSAL_FK);
         jdbcTemplate.execute("ALTER TABLE scan_proposal DROP CONSTRAINT IF EXISTS " + PROPOSAL_UNIQUE);
         jdbcTemplate.execute("ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_UNIQUE
-            + " UNIQUE (scan_run_id, source_relative_path)");
+                + " UNIQUE (scan_run_id, source_relative_path)");
         if (addForeignKey) {
             jdbcTemplate.execute("ALTER TABLE scan_proposal ADD CONSTRAINT " + PROPOSAL_FK
-                + " FOREIGN KEY (scan_run_id) REFERENCES scan_run(id) ON DELETE CASCADE");
+                    + " FOREIGN KEY (scan_run_id) REFERENCES scan_run(id) ON DELETE CASCADE");
         }
     }
 
@@ -195,10 +194,10 @@ class SetBasedReconciliationWriteBenchmarkTest {
 
     private ReconciliationTiming writeRows(UUID runId) {
         return new ReconciliationTiming(
-            execute("inventory", INVENTORY_SQL, runId),
-            execute("proposal", PROPOSAL_SQL, runId),
-            execute("issue", ISSUE_SQL, runId),
-            0L);
+                execute("inventory", INVENTORY_SQL, runId),
+                execute("proposal", PROPOSAL_SQL, runId),
+                execute("issue", ISSUE_SQL, runId),
+                0L);
     }
 
     private long execute(String target, String sql, UUID runId) {
@@ -217,8 +216,7 @@ class SetBasedReconciliationWriteBenchmarkTest {
     }
 
     private record ReconciliationTiming(
-        long inventoryMillis, long proposalMillis, long issueMillis,
-        long transactionMillis) {
+            long inventoryMillis, long proposalMillis, long issueMillis, long transactionMillis) {
         ReconciliationTiming withTransaction(long millis) {
             return new ReconciliationTiming(inventoryMillis, proposalMillis, issueMillis, millis);
         }
