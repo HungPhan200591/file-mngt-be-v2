@@ -50,12 +50,15 @@ com.filemngt.v2.<service>.benchmark/
 ├── 📦 fixture/                               <-- Cung cấp mock data & context fixtures
 │   └── SyntheticScanItemGenerator.java       <-- Generator sinh dữ liệu sạch tái sử dụng
 │
-├── 📦 pipeline/                              <-- Các bài benchmark kiến trúc hiện tại
-│   ├── ScanParallelAnalyzerBenchmarkTest.java <-- [PHASE 4] CPU Analyze trong RAM
-│   └── SetBasedReconciliationWriteBenchmarkTest.java <-- [PHASE 3 & 5] DB Persistence
+├── 📦 preview/                               <-- Scan preview/reconciliation benchmark
+│   ├── ScanCorePipelineBenchmarkTest.java    <-- Core pipeline
+│   ├── SetBasedReconciliationWriteBenchmarkTest.java <-- DB persistence
+│   └── legacy/                               <-- Legacy riêng của preview/reconciliation
+│       └── JdbcBatchReconciliationWriteBenchmarkTest.java
 │
-├── 📦 legacy/                                <-- Các bài benchmark đối chiếu công nghệ cũ
-│   └── JdbcBatchReconciliationWriteBenchmarkTest.java <-- Baseline JDBC cũ (84s / 1M)
+├── 📦 approval/                              <-- Scan approval decision/outbox benchmark
+│   └── legacy/                               <-- Legacy riêng của approval
+│       └── LegacyScanDecisionBatchBenchmarkIT.java
 │
 ├── 📂 results/                               <-- Báo cáo chi tiết từng lần đo
 │   ├── 01-legacy-jdbc-batch-baseline.md
@@ -72,11 +75,27 @@ com.filemngt.v2.<service>.benchmark/
 
 ### ⚙️ Nguyên tắc 5: Độc lập Môi trường & Clean Formatting
 - **Test Isolation**: Dọn dẹp bảng/state trước và sau mỗi test run (`resetTables()`), không phụ thuộc thứ tự chạy giữa các test.
+- **Reset benchmark PostgreSQL**: Với fixture chạy trên Testcontainer riêng, reset toàn bộ dataset bằng một lệnh `TRUNCATE TABLE ... CASCADE`, không dùng nhiều lệnh `DELETE FROM <table>` không có `WHERE`. Chỉ dùng `DELETE ... WHERE` cho reset theo scope hoặc các A/B variant cần giữ lại run/staging.
 - **Java SDK**: Sử dụng đúng JDK 25 Corretto của dự án (`$env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"`).
 - **Định dạng Code**: Luôn chạy `mvn spotless:apply` sau khi viết hoặc sửa code test Java.
 - **Phân loại Test**: Gắn tag `@Tag("benchmark")` cho các test nặng cần kích hoạt thủ công, tránh làm chậm CI/CD build mặc định.
 
-### 🛡️ Nguyên tắc 6: An toàn Maven CLI trên PowerShell
+### 🐘 Nguyên tắc 6: Testcontainers PostgreSQL API hiện hành
+
+- Dùng `org.testcontainers.postgresql.PostgreSQLContainer` từ artifact `testcontainers-postgresql`.
+- Theo pattern hiện hành của `ScanCorePipelineBenchmarkTest`:
+
+  ```java
+  import org.testcontainers.postgresql.PostgreSQLContainer;
+
+  @Container
+  static final PostgreSQLContainer POSTGRES =
+          new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
+  ```
+
+- Không dùng `org.testcontainers.containers.PostgreSQLContainer`; class này đã deprecated trong Testcontainers version của dự án.
+
+### 🛡️ Nguyên tắc 7: An toàn Maven CLI trên PowerShell
 
 - Khi gọi Maven từ PowerShell, **luôn quote toàn bộ argument bắt đầu bằng `-D`**. PowerShell nội suy ký tự `$` trong argument không được quote; ví dụ `-Dsurefire.failIfNoSpecifiedTests=false` có thể bị biến thành lifecycle phase `.failIfNoSpecifiedTests=false` trước khi tới Maven.
 - Dùng dạng an toàn:
@@ -103,5 +122,6 @@ com.filemngt.v2.<service>.benchmark/
 - [ ] Dữ liệu mock có sạch sẽ, chuẩn mực không?
 - [ ] Dữ liệu mock đã được chuyển vào class `fixture/` dùng chung chưa?
 - [ ] Test có thể chạy độc lập không phụ thuộc dữ liệu cũ trong DB không?
+- [ ] Benchmark PostgreSQL có dùng `org.testcontainers.postgresql.PostgreSQLContainer` và reset bằng `TRUNCATE ... CASCADE` đúng scope chưa?
 - [ ] Đã chạy `mvn spotless:apply` để định dạng chuẩn chưa?
 - [ ] Đã chạy thử qua Maven và xác nhận `BUILD SUCCESS` chưa?
