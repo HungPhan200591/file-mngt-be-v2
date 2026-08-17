@@ -11,8 +11,8 @@ Must Preserve: inventory semantics, chunk atomicity, lease fencing, staging clea
   - `apps/scan-service/src/main/java/.../ScanInventoryStageWriter.java` [MODIFY]
   - `apps/scan-service/src/main/java/.../ScanFileInventorySetWriter.java` [MODIFY]
   - `apps/scan-service/src/main/resources/db/migration/V21__add_inventory_diff_new_flag.sql` [NEW]
-  - `apps/scan-service/src/test/java/.../benchmark/pipeline/ScanCorePipelineBenchmarkTest.java` [MODIFY]
-  - `apps/scan-service/src/test/java/.../benchmark/pipeline/InventoryDiffQueryBenchmarkTest.java` [NEW]
+  - `apps/scan-service/src/test/java/.../benchmark/preview/ScanCorePipelineBenchmarkTest.java` [MODIFY]
+  - `apps/scan-service/src/test/java/.../benchmark/preview/InventoryDiffQueryBenchmarkTest.java` [NEW]
   - `apps/scan-service/src/test/java/.../benchmark/fixture/` [EXTEND]
   - `apps/scan-service/src/test/java/.../benchmark/results/` [ADD REPORT]
 - **Read on demand**: this Plan, [01-brief.md](./01-brief.md), [02-design.md](./02-design.md), scan-service `CONTEXT.md`, `03-CODING_RULES.md`.

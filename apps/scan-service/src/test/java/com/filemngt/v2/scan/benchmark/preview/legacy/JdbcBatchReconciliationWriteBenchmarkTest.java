@@ -1,4 +1,4 @@
-package com.filemngt.v2.scan.benchmark.legacy;
+package com.filemngt.v2.scan.benchmark.preview.legacy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,9 +17,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -68,8 +68,7 @@ class JdbcBatchReconciliationWriteBenchmarkTest {
             """;
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:18.0-alpine"));
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
 
     @Autowired
     JdbcTemplate jdbcTemplate;
@@ -99,12 +98,18 @@ class JdbcBatchReconciliationWriteBenchmarkTest {
     }
 
     private void resetTables() {
-        jdbcTemplate.update("DELETE FROM scan_proposal");
-        jdbcTemplate.update("DELETE FROM scan_issue");
-        jdbcTemplate.update("DELETE FROM scan_file_inventory");
-        jdbcTemplate.update("DELETE FROM scan_inventory_diff_stage");
-        jdbcTemplate.update("DELETE FROM scan_inventory_stage");
-        jdbcTemplate.update("DELETE FROM scan_run");
+        jdbcTemplate.update("""
+            TRUNCATE TABLE
+                scan_outbox_event,
+                scan_decision,
+                scan_proposal,
+                scan_issue,
+                scan_file_inventory,
+                scan_inventory_diff_stage,
+                scan_inventory_stage,
+                scan_run
+            CASCADE
+            """);
     }
 
     private void seedDiffStage(UUID runId) {

@@ -142,7 +142,7 @@ Kết quả đo trên môi trường chuẩn (**Desktop PC** - High-sustained TD
 ---
 
 - **Mã bài đo**: `BENCH-03-SCAN-CORE`
-- **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java)
+- **Class thực thi**: [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/preview/ScanCorePipelineBenchmarkTest.java)
 - **Workload**: 1.000.000 files (990.000 proposals, 10.000 issues, 40 chunks x 25k items)
 - **Môi trường đo**: PostgreSQL Testcontainers (`postgres:18.0-alpine`), Java 25, In-Memory Stream Cursor (Zero Disk I/O)
 

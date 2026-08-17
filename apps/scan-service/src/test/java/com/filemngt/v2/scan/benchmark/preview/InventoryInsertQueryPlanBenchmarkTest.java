@@ -1,4 +1,4 @@
-package com.filemngt.v2.scan.benchmark.pipeline;
+package com.filemngt.v2.scan.benchmark.preview;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

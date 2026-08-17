@@ -1,7 +1,7 @@
 # Benchmark 04 — Inventory Diff Query: Current vs LEFT JOIN
 
 - **Mã bài đo**: `BENCH-04-INVENTORY-DIFF-QUERY`
-- **Class thực thi**: [`InventoryDiffQueryBenchmarkTest.java`](../pipeline/InventoryDiffQueryBenchmarkTest.java)
+- **Class thực thi**: [`InventoryDiffQueryBenchmarkTest.java`](../preview/InventoryDiffQueryBenchmarkTest.java)
 - **Workload**: 1.000.000 rows trong `scan_inventory_stage` và inventory tương ứng
 - **Môi trường**: PostgreSQL Testcontainers (`postgres:18.0-alpine`), Java 25, 3 measurements/scenario
 - **Phạm vi**: chỉ đo phase SQL diff; không đại diện cho full Scan → Catalog → Query SLO

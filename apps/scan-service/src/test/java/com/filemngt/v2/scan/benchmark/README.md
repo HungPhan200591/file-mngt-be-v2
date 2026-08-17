@@ -12,12 +12,16 @@ com.filemngt.v2.scan.benchmark/
 │   ├── SyntheticScanItemGenerator.java    <-- Generator sinh dữ liệu sạch (10k -> 1.000.000+ files)
 │   └── InMemoryScanFileCursor.java         <-- Cursor fixture loại filesystem I/O
 │
-├── pipeline/                              <-- Các bài benchmark cho Scan Pipeline
+├── preview/                               <-- Scan preview/reconciliation pipeline
 │   ├── ScanCorePipelineBenchmarkTest.java <-- Scan core, loại filesystem và Catalog I/O
 │   └── SetBasedReconciliationWriteBenchmarkTest.java <-- [PHASE 3 & 5] PostgreSQL Direct COPY & SQL Set-based trên DB
 │
-├── legacy/                                <-- Các bài benchmark đối chiếu kiến trúc cũ (Baseline)
-│   └── JdbcBatchReconciliationWriteBenchmarkTest.java <-- [LEGACY] Baseline JDBC Batch truyền thống (84s / 1M)
+│   └── legacy/                            <-- Baseline cũ riêng của preview/reconciliation
+│       └── JdbcBatchReconciliationWriteBenchmarkTest.java <-- Legacy JDBC Batch (84s / 1M)
+│
+├── approval/                              <-- Scan approval decision/outbox
+│   └── legacy/                            <-- Baseline cũ riêng của approval batch
+│       └── LegacyScanDecisionBatchBenchmarkIT.java <-- Legacy JPA approve-all path
 │
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
@@ -54,22 +58,28 @@ ScanProperties.Root root = SyntheticScanItemGenerator.createDefaultVideoRoot();
 
 Tất cả các lệnh Maven chạy từ **thư mục gốc dự án** với JDK 25 Corretto:
 
-### 💾 1. Đo Database Set-based Persistence (1M rows trên PostgreSQL):
+### 💾 1. Preview: đo Database Set-based Persistence (1M rows trên PostgreSQL):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 mvn test -Pbenchmark -pl apps/scan-service -Dtest=SetBasedReconciliationWriteBenchmarkTest
 ```
 
-### 🐢 2. Đo Baseline cũ (JDBC Batching 50k - 1M rows):
+### 🐢 2. Preview legacy: đo JDBC Batching (50k - 1M rows):
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 mvn test -Pbenchmark -pl apps/scan-service -Dtest=JdbcBatchReconciliationWriteBenchmarkTest
 ```
 
-### 🚀 3. Đo Scan Service core pipeline, loại filesystem và Catalog I/O:
+### 🚀 3. Preview: đo Scan Service core pipeline, loại filesystem và Catalog I/O:
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 mvn test -Pbenchmark -pl apps/scan-service -Dtest=ScanCorePipelineBenchmarkTest
+```
+
+### ✅ 4. Approval legacy: đo approve-all decision/outbox path:
+```powershell
+$env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
+mvn test -Pbenchmark -pl apps/scan-service -Dtest=LegacyScanDecisionBatchBenchmarkIT
 ```
 
 Profile `benchmark` là bắt buộc. `mvn test` mặc định loại toàn bộ test gắn `@Tag("benchmark")` để

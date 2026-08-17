@@ -15,13 +15,13 @@ scan-core, loại filesystem/Catalog I/O theo mô tả từng report.
 | **`BENCH-01`** | **Legacy JDBC Batch Baseline** | JDBC Batch 50k / PostgreSQL | 1.000.000 diff | **43.45s – 84.65s** | ~23.000 files/s | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/01-legacy-jdbc-batch-baseline.md) |
 | **`BENCH-02`** | **Database Set-based Persistence** | Direct COPY + SQL Set-based | 1.000.000 diff | **18.67s – 19.34s** | ~53.000 rows/s | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/02-database-set-based-persistence.md) |
 | **`BENCH-03`** | **Scan Core End-to-End Pipeline** | Full Service (`scanService.start`) | 1.000.000 files | **< 25s (Cold: ~24.85s, Warm: ~8.11s)** | **~40.240 – 123.270 files/s** | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/03-scan-core-pipeline-benchmark.md) |
-| **`BENCH-04`** | **Scan Decision & Outbox Chunking** | Keyset 25k chunks / Tx boundary | 1.000.000 decisions | *(Đang triển khai)* | *(Pending FT-045)* | *(Sắp bổ sung)* |
+| **`BENCH-04`** | **Approval Decision & Outbox** | Legacy JPA approve-all baseline → chunked replacement | 25.000 decisions (calibration) | *(Chưa chạy)* | *(Pending FT-045)* | [Test approval legacy](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/approval/legacy/LegacyScanDecisionBatchBenchmarkIT.java) |
 
 ---
 
 ## 2. Bảng Phân Tích Chi Tiết Từng Khâu Core Pipeline (Cold Baseline < 25s, Total ≈ 24,850 ms)
 
-Đo đạc trên bài test [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/pipeline/ScanCorePipelineBenchmarkTest.java) với **1.000.000 files** (áp dụng FT-047 Direct Cold Bypass + FT-048 25k Pipelining trên Desktop PC):
+Đo đạc trên bài test [`ScanCorePipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/preview/ScanCorePipelineBenchmarkTest.java) với **1.000.000 files** (áp dụng FT-047 Direct Cold Bypass + FT-048 25k Pipelining trên Desktop PC):
 
 | Khâu thực thi | Chi tiết tác vụ | Thời gian (ms) | % Thời gian | Tốc độ tương đương |
 | :--- | :--- | :---: | :---: | :---: |
