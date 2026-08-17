@@ -35,11 +35,14 @@ services:
   kafka-volume-init:
     container_name: kafka-volume-init
     image: apache/kafka:3.9.0
+    user: root
     command: >
       sh -c "
+        chown -R 1000:1000 /tmp/kraft-combined-logs
         if [ ! -f /tmp/kraft-combined-logs/meta.properties ]; then
           /opt/kafka/bin/kafka-storage.sh format -t MkU3OEVBNTcwNTJENDM2Qk -c /opt/kafka/config/kraft/server.properties --standalone;
         fi
+        chown -R 1000:1000 /tmp/kraft-combined-logs
       "
     volumes:
       - kafka-data:/tmp/kraft-combined-logs
