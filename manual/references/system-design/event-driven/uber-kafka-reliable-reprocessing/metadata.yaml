@@ -1,0 +1,8 @@
+title: "Building Reliable Reprocessing and Dead Letter Queues with Apache Kafka"
+source_url: "https://www.uber.com/blog/reliable-reprocessing/"
+author: "Uber Engineering (Uber Insurance Engineering Team)"
+published_at: "2018-02-22"
+retrieved_at: "2026-08-17"
+tags: [kafka, event-driven, retry, dead-letter-queue, dlq, non-blocking, reprocessing, distributed-systems]
+status: complete
+completeness_note: "Full captured prose, headings, diagrams, failure modes and lessons learned translated faithfully with Mermaid architecture diagrams."

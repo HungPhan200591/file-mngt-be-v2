@@ -1,0 +1,8 @@
+title: "How Figma scaled to multiple databases"
+source_url: "https://www.figma.com/blog/how-figma-scaled-to-multiple-databases/"
+author: "Figma Infrastructure Team"
+published_at: "2023-04-04"
+retrieved_at: "2026-08-17"
+tags: [postgresql, scaling, partitioning, vertical-partitioning, sharding, pgbouncer, dbproxy, read-replicas]
+status: complete
+completeness_note: "Full captured prose, headings, diagrams, architectural progression and lessons learned translated faithfully with Mermaid diagrams."

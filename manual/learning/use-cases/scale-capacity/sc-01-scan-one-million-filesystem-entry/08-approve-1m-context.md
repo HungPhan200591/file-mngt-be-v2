@@ -16,6 +16,11 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 Catalog và Query phải giữ ownership database, bounded batch, at-least-once delivery,
 idempotency/version guard và terminal watermark.
 
+Kiến trúc cross-service chuẩn của workload nằm tại
+[04-SC-01-1M-scan-approve-end-to-end-architecture.md](../../../../../docs/architecture/04-SC-01-1M-scan-approve-end-to-end-architecture.md).
+Tài liệu này chỉ là context router; implementation source of truth vẫn là các FT-044/FT-045 và các lát
+BT-09 tương ứng.
+
 ## Trạng thái evidence
 
 - Cold scan/reconciliation 1M đã có historical local evidence; không suy ra approve capacity từ đó.
@@ -29,7 +34,7 @@ idempotency/version guard và terminal watermark.
 ## Owner và task đang mở
 
 - Break-task owner: [BT-09](./04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
-- **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
+- **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
 - **BT-09B**: Scan decision/outbox chunking (**`Active Focus`**).
 - **BT-09C**: Outbox drain và bounded relay.
 - **BT-09D–09E**: Catalog coalesce và Query bulk projection.

@@ -16,8 +16,16 @@
         * [📚 Deep-Dive: CQRS Lite, Read Projection & Dual-Store Search](/manual/learning/deep-dive/cqrs-read-projection/README.md)
         * **question-bank**
           * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: CQRS Lite, Read Projection & Dual-Store Search](/manual/learning/deep-dive/cqrs-read-projection/question-bank/00-cqrs-projection-questions.md)
+      * **database-internals**
+        * [📜 Deep-dive: Write-Ahead Logging (WAL) & Database Storage Engine Internals](/manual/learning/deep-dive/database-internals/01-wal-and-storage-engine-internals.md)
+        * [🧭 Deep-Dive: Bản chất Anti-Join & Hash Anti-Join từ First Principles đến Database Execution Plan](/manual/learning/deep-dive/database-internals/02-anti-join-and-query-optimization.md)
+        * [⚡ Deep-Dive: PostgreSQL UNLOGGED Tables & Transient Storage Internals](/manual/learning/deep-dive/database-internals/03-unlogged-tables-and-transient-storage.md)
+        * [🗄️ Deep-Dive: PostgreSQL Database Internals — Storage & Query Engine](/manual/learning/deep-dive/database-internals/README.md)
       * **durable-bounded-batch-pipeline**
         * [Core Reference — Durable Bounded Batch Pipeline](/manual/learning/deep-dive/durable-bounded-batch-pipeline/README.md)
+      * **media-asset-management-architecture**
+        * [Deep-Dive: Bối cảnh Nghiệp vụ Thực tế & Kinh tế học Phần cứng trong Hệ thống Media Ingestion](/manual/learning/deep-dive/media-asset-management-architecture/01-business-context-and-hardware-economics.md)
+        * [Deep-Dive: Giới hạn Vật lý Phần cứng & Cơ sở Thiết lập SLO cho 1 Triệu Bản Ghi](/manual/learning/deep-dive/media-asset-management-architecture/02-performance-slo-and-hardware-benchmarks.md)
       * **observability**
         * [📊 Observability Overview & Architecture](/manual/learning/deep-dive/observability/00-overview.md)
         * [📈 Metrics Deep-Dive: Prometheus & Grafana](/manual/learning/deep-dive/observability/01-metrics-prometheus-grafana.md)
@@ -81,19 +89,111 @@
           * [SC-01 — Full scan có inventory và khử trùng xuyên service](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/03-cross-service-deduplication.md)
           * [SC-01 — Break task triển khai](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md)
           * [SC-01 — UI/UX Solution Behavior (Trải nghiệm người dùng cho Quét 1 Triệu File)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/05-ui-ux-solution-behavior.md)
+          * [SC-01 — Phân tích bottleneck và hướng scale Kafka/cloud](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/06-performance-and-cloud-scaling.md)
+          * [SC-01 — Khung mục tiêu hiệu năng & Chỉ số SLO (Chính thức)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/07-performance-slo-and-benchmarks.md)
+          * [SC-01 — Approve 1M context tối thiểu](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/08-approve-1m-context.md)
+          * [SC-01 — Fixture và microbenchmark commands](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/09-fixture-and-microbenchmarks.md)
           * [Debug performance scan 1M](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/debug-performance.md)
           * [SC-01 — Scan một triệu filesystem entry](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md)
           * **question-bank**
             * [SC-01 — Question chain phỏng vấn](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/question-bank/01-question-chain.md)
+          * **references**
+            * [🧭 Deep-Dive: Toàn cảnh Kiến trúc & Data Pipeline Scan Preview 1.000.000 Files (< 30s)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/deep-dive-scan-preview-pipeline-under-30s.md)
+            * [Giải thích chi tiết: Master Pipeline Map toàn cảnh 7 lát cắt của BT-09](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/explain-bt09-master-pipeline-map.md)
+            * [Giải thích chi tiết BT-09A: Cơ chế Watermark, Completion Barrier & Cache Generation](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/explain-bt09a-watermark-and-completion-barrier.md)
+            * [📊 Giải thích chi tiết: Tại sao chọn Chunk Size 25.000 cho BT-09B? (Trade-off & Mathematical Proof)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/explain-bt09b-chunk-size-tradeoff-and-benchmark.md)
+            * [BT-09A capsule — Operation contract & watermark](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09a-watermark-and-contract.md)
+            * [Reference Capsule: BT-09B — Scan Decision & Outbox Chunking](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09b-scan-decision-chunking.md)
+            * [Reference Capsule: BT-09C — Outbox Drain & Bounded Relay](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09c-outbox-continuous-drain.md)
+            * [Reference Capsule: BT-09D — Catalog Batch Coalescing](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md)
+            * [Reference Capsule: BT-09E — Query Bulk Projection & Cache Generation](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09e-query-bulk-projection.md)
+            * [Reference Capsule: BT-09F — Failure Isolation & DLT Replay](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09f-dlt-and-replay-runbook.md)
+            * [Reference Capsule: BT-09G — Capacity Model & Benchmarking](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09g-capacity-and-benchmarking.md)
           * **summary**
             * [SC-01 — Summary: Issue, solution và câu chuyện phỏng vấn](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/summary/01-issues-and-solutions.md)
   * **operations**
+    * [Runbook Vận Hành Docker & Chuyển Đổi Chế Độ Phát Triển (BE & FE V2)](/manual/operations/docker-and-dev-modes.md)
     * [Docsify và GitHub Pages](/manual/operations/docsify-github-pages.md)
     * [Vận hành Backend V2 ở local](/manual/operations/local-runtime.md)
     * [Quan sát Backend V2 ở local](/manual/operations/observability-local.md)
     * [Bản đồ dự án Backend V2](/manual/operations/project-map.md)
     * [Hướng dẫn Vận hành Swagger UI & OpenAPI Contracts](/manual/operations/swagger-ui-openapi.md)
     * [Hướng dẫn chạy Test (Unit, Integration & E2E)](/manual/operations/testing-guide.md)
+  * **references**
+    * **system-design**
+      * [System Design Reference Corpus](/manual/references/system-design/INDEX.md)
+      * **distributed-databases**
+        * **espresso-distributed-document-store**
+          * [Claims](/manual/references/system-design/distributed-databases/espresso-distributed-document-store/claims.md)
+          * [Summary: Espresso](/manual/references/system-design/distributed-databases/espresso-distributed-document-store/summary.md)
+          * **raw**
+            * [Introducing Espresso - LinkedIn's hot new distributed document store](/manual/references/system-design/distributed-databases/espresso-distributed-document-store/raw/article.en.md)
+            * [Giới thiệu Espresso - distributed document store mới của LinkedIn](/manual/references/system-design/distributed-databases/espresso-distributed-document-store/raw/article.vi.md)
+        * **figma-scaled-postgresql**
+          * [Claims: Figma Scaled PostgreSQL](/manual/references/system-design/distributed-databases/figma-scaled-postgresql/claims.md)
+          * [Summary: Figma Scaled PostgreSQL](/manual/references/system-design/distributed-databases/figma-scaled-postgresql/summary.md)
+          * **raw**
+            * [How Figma scaled to multiple databases](/manual/references/system-design/distributed-databases/figma-scaled-postgresql/raw/article.en.md)
+            * [Cách Figma Mở rộng Quy mô sang Nhiều Cơ sở Dữ liệu PostgreSQL](/manual/references/system-design/distributed-databases/figma-scaled-postgresql/raw/article.vi.md)
+        * **notion-sharding-postgres**
+          * [Claims: Notion Sharding PostgreSQL](/manual/references/system-design/distributed-databases/notion-sharding-postgres/claims.md)
+          * [Summary: Notion Sharding PostgreSQL](/manual/references/system-design/distributed-databases/notion-sharding-postgres/summary.md)
+          * **raw**
+            * [Herding elephants: lessons learned from sharding Postgres at Notion](/manual/references/system-design/distributed-databases/notion-sharding-postgres/raw/article.en.md)
+            * [Dẫn dắt đàn Voi: Những Bài học Thực chiến từ việc Sharding PostgreSQL tại Notion](/manual/references/system-design/distributed-databases/notion-sharding-postgres/raw/article.vi.md)
+      * **event-driven**
+        * **databus-cdc**
+          * [Claims](/manual/references/system-design/event-driven/databus-cdc/claims.md)
+          * [Summary: Databus](/manual/references/system-design/event-driven/databus-cdc/summary.md)
+          * **raw**
+            * [Open sourcing Databus: LinkedIn's low latency change data capture system](/manual/references/system-design/event-driven/databus-cdc/raw/article.en.md)
+            * [Open source Databus: hệ thống change data capture độ trễ thấp của LinkedIn](/manual/references/system-design/event-driven/databus-cdc/raw/article.vi.md)
+        * **stripe-usage-billing**
+          * [Claims](/manual/references/system-design/event-driven/stripe-usage-billing/claims.md)
+          * [Summary: Fast path / slow path](/manual/references/system-design/event-driven/stripe-usage-billing/summary.md)
+          * **raw**
+            * [How we built it: Usage-based billing](/manual/references/system-design/event-driven/stripe-usage-billing/raw/article.en.md)
+            * [Cách Stripe xây dựng usage-based billing](/manual/references/system-design/event-driven/stripe-usage-billing/raw/article.vi.md)
+        * **uber-kafka-reliable-reprocessing**
+          * [Claims: Uber Kafka Reliable Reprocessing & DLQ](/manual/references/system-design/event-driven/uber-kafka-reliable-reprocessing/claims.md)
+          * [Summary: Uber Kafka Reliable Reprocessing & DLQ](/manual/references/system-design/event-driven/uber-kafka-reliable-reprocessing/summary.md)
+          * **raw**
+            * [Building Reliable Reprocessing and Dead Letter Queues with Apache Kafka](/manual/references/system-design/event-driven/uber-kafka-reliable-reprocessing/raw/article.en.md)
+            * [Xây dựng Kiến trúc Xử lý lại Bền vững và Dead Letter Queue với Apache Kafka](/manual/references/system-design/event-driven/uber-kafka-reliable-reprocessing/raw/article.vi.md)
+      * **migrations**
+        * **meta-messenger-storage**
+          * [Claims](/manual/references/system-design/migrations/meta-messenger-storage/claims.md)
+          * [Summary: Online migration](/manual/references/system-design/migrations/meta-messenger-storage/summary.md)
+          * **raw**
+            * [Migrating Messenger storage to optimize performance](/manual/references/system-design/migrations/meta-messenger-storage/raw/article.en.md)
+            * [Migration storage của Messenger để tối ưu performance](/manual/references/system-design/migrations/meta-messenger-storage/raw/article.vi.md)
+      * **reliability**
+        * **stripe-idempotency**
+          * [Claims](/manual/references/system-design/reliability/stripe-idempotency/claims.md)
+          * [Summary: Idempotency](/manual/references/system-design/reliability/stripe-idempotency/summary.md)
+          * **raw**
+            * [Designing robust and predictable APIs with idempotency](/manual/references/system-design/reliability/stripe-idempotency/raw/article.en.md)
+            * [Thiết kế API bền vững và dễ dự đoán bằng idempotency](/manual/references/system-design/reliability/stripe-idempotency/raw/article.vi.md)
+      * **search-indexes**
+        * **senseidb**
+          * [Claims](/manual/references/system-design/search-indexes/senseidb/claims.md)
+          * [Summary: SenseiDB](/manual/references/system-design/search-indexes/senseidb/summary.md)
+          * **raw**
+            * [Introducing SenseiDB 1.0: an open-source, distributed, realtime, semi-structured database](/manual/references/system-design/search-indexes/senseidb/raw/article.en.md)
+            * [Giới thiệu SenseiDB 1.0: database semi-structured phân tán, realtime, mã nguồn mở](/manual/references/system-design/search-indexes/senseidb/raw/article.vi.md)
+      * **storage**
+        * **dropbox-magic-pocket**
+          * [Claims: Dropbox Magic Pocket](/manual/references/system-design/storage/dropbox-magic-pocket/claims.md)
+          * [Summary: Dropbox Magic Pocket](/manual/references/system-design/storage/dropbox-magic-pocket/summary.md)
+          * **raw**
+            * [Inside the Magic Pocket: Dropbox's multi-exabyte storage system](/manual/references/system-design/storage/dropbox-magic-pocket/raw/article.en.md)
+            * [Khám phá Magic Pocket: Hệ thống Lưu trữ Quy mô Hàng Exabyte Tự phát triển của Dropbox](/manual/references/system-design/storage/dropbox-magic-pocket/raw/article.vi.md)
+        * **rocksdb**
+          * [Claims](/manual/references/system-design/storage/rocksdb/claims.md)
+          * [Summary: RocksDB](/manual/references/system-design/storage/rocksdb/summary.md)
+          * **raw**
+            * [Under the Hood: Building and open-sourcing RocksDB](/manual/references/system-design/storage/rocksdb/raw/article.en.md)
+            * [RocksDB: xây dựng và open source embedded storage engine](/manual/references/system-design/storage/rocksdb/raw/article.vi.md)
 * **docs**
   * [Trạng thái Backend V2](/docs/STATUS.md)
   * [Nợ kỹ thuật Backend V2](/docs/TECHNICAL_DEBT.md)
@@ -110,11 +210,17 @@
     * [Backend V2 — Tóm tắt](/docs/architecture/01-SUMMARY.md)
     * [Backend V2 — Kế hoạch và High Level Design](/docs/architecture/02-PLAN.md)
     * [Backend V2 — Coding rules](/docs/architecture/03-CODING_RULES.md)
+    * [SC-01 — Kiến trúc end-to-end cho Scan 1M và Approve 1M](/docs/architecture/04-SC-01-1M-scan-approve-end-to-end-architecture.md)
   * **contracts**
     * [Contracts](/docs/contracts/README.md)
     * **events**
+      * [`media.approval.watermark.v1`](/docs/contracts/events/media.approval.watermark.v1.md)
       * [`media.file.discovered.v1`](/docs/contracts/events/media.file.discovered.v1.md)
-      * [`media.subject.changed.v1`](/docs/contracts/events/media.subject.changed.v1.md)
+      * [`media.file.discovered.v2`](/docs/contracts/events/media.file.discovered.v2.md)
+      * [`media.file.removed.v1`](/docs/contracts/events/media.file.removed.v1.md)
+      * [`media.subject.changed.v1` — RETIRED](/docs/contracts/events/media.subject.changed.v1.md)
+      * [`media.subject.changed.v2`](/docs/contracts/events/media.subject.changed.v2.md)
+      * [`media.subject.deleted.v1`](/docs/contracts/events/media.subject.deleted.v1.md)
       * [Kafka event contracts](/docs/contracts/events/README.md)
     * **http**
       * [Gateway HTTP routing contract v1](/docs/contracts/http/gateway-routing-v1.md)
@@ -261,10 +367,89 @@
       * [FT-033 — Kế hoạch Scan review read model](/docs/features/033-scan-review-read-model/03-plan.md)
       * [Nền tảng tư duy tách Write Path và Read Path](/docs/features/033-scan-review-read-model/04-read-write-separation-mindset.md)
       * [FT-033 — Architecture Review Notes](/docs/features/033-scan-review-read-model/05-architecture-review.md)
+      * [FT-033 — Implementation architecture review](/docs/features/033-scan-review-read-model/06-implementation-review.md)
+      * [FT-033 — Review triển khai hiện tại](/docs/features/033-scan-review-read-model/07-current-implementation-review.md)
+      * [FT-033 — Scan review read model: giải thích, scale và cloud](/docs/features/033-scan-review-read-model/08-scale-and-cloud-rollout.md)
     * **034-catalog-batch-existence-api**
       * [FT-034 — Catalog batch existence API](/docs/features/034-catalog-batch-existence-api/01-brief.md)
       * [FT-034 — Catalog batch existence API — Design](/docs/features/034-catalog-batch-existence-api/02-design.md)
       * [FT-034 — Catalog batch existence API — Plan](/docs/features/034-catalog-batch-existence-api/03-plan.md)
+      * [FT-034 — Review triển khai hiện tại](/docs/features/034-catalog-batch-existence-api/04-current-implementation-review.md)
+      * [FT-034 — Catalog batch existence API: giải thích từ đầu, scale và cloud](/docs/features/034-catalog-batch-existence-api/05-scale-and-cloud-rollout.md)
+    * **035-scan-catalog-filtering**
+      * [FT-035 — Scan–Catalog filtering](/docs/features/035-scan-catalog-filtering/01-brief.md)
+      * [FT-035 — Scan–Catalog filtering — Design](/docs/features/035-scan-catalog-filtering/02-design.md)
+      * [FT-035 — Scan–Catalog filtering — Plan](/docs/features/035-scan-catalog-filtering/03-plan.md)
+      * [FT-035 — Review triển khai hiện tại](/docs/features/035-scan-catalog-filtering/04-current-implementation-review.md)
+      * [FT-035 — Scan–Catalog filtering: giải thích, scale và cloud](/docs/features/035-scan-catalog-filtering/05-scale-and-cloud-rollout.md)
+    * **036-event-contract-dlt-alignment**
+      * [FT-036 — Event contract/DLT alignment](/docs/features/036-event-contract-dlt-alignment/01-brief.md)
+      * [FT-036 — Event contract/DLT alignment — Design](/docs/features/036-event-contract-dlt-alignment/02-design.md)
+      * [FT-036 — Event contract/DLT alignment — Plan](/docs/features/036-event-contract-dlt-alignment/03-plan.md)
+      * [FT-036 — Review triển khai hiện tại](/docs/features/036-event-contract-dlt-alignment/04-current-implementation-review.md)
+      * [FT-036 — Event contract và DLT: giải thích, scale và cloud](/docs/features/036-event-contract-dlt-alignment/05-scale-and-cloud-rollout.md)
+    * **037-outbox-backlog-capacity**
+      * [FT-037 — Outbox backlog capacity](/docs/features/037-outbox-backlog-capacity/01-brief.md)
+      * [FT-037 — Outbox backlog capacity — Design](/docs/features/037-outbox-backlog-capacity/02-design.md)
+      * [FT-037 — Outbox backlog capacity — Plan](/docs/features/037-outbox-backlog-capacity/03-plan.md)
+      * [FT-037 — Review triển khai hiện tại](/docs/features/037-outbox-backlog-capacity/04-current-implementation-review.md)
+      * [FT-037 — Outbox backlog capacity: giải thích, scale và cloud](/docs/features/037-outbox-backlog-capacity/05-scale-and-cloud-rollout.md)
+    * **038-targeted-issue-recheck**
+      * [FT-038 — Targeted issue recheck](/docs/features/038-targeted-issue-recheck/01-brief.md)
+      * [FT-038 — Targeted issue recheck — Design](/docs/features/038-targeted-issue-recheck/02-design.md)
+      * [FT-038 — Targeted issue recheck — Plan](/docs/features/038-targeted-issue-recheck/03-plan.md)
+      * [FT-038 — Review triển khai hiện tại](/docs/features/038-targeted-issue-recheck/04-current-implementation-review.md)
+      * [FT-038 — Targeted issue recheck: giải thích, scale và cloud](/docs/features/038-targeted-issue-recheck/05-scale-and-cloud-rollout.md)
+    * **039-durable-bulk-decision**
+      * [FT-039 — Durable bulk decision](/docs/features/039-durable-bulk-decision/01-brief.md)
+      * [FT-039 — Durable bulk decision — Design](/docs/features/039-durable-bulk-decision/02-design.md)
+      * [FT-039 — Durable bulk decision — Plan](/docs/features/039-durable-bulk-decision/03-plan.md)
+      * [FT-039 — Review triển khai hiện tại](/docs/features/039-durable-bulk-decision/04-current-implementation-review.md)
+      * [FT-039 — Durable bulk decision: giải thích, scale và cloud](/docs/features/039-durable-bulk-decision/05-scale-and-cloud-rollout.md)
+    * **040-primary-video-tag-ownership**
+      * [FT-040 — Primary video tag ownership](/docs/features/040-primary-video-tag-ownership/01-brief.md)
+      * [FT-040 — Primary video tag ownership — Design](/docs/features/040-primary-video-tag-ownership/02-design.md)
+      * [FT-040 — Primary video tag ownership — Plan](/docs/features/040-primary-video-tag-ownership/03-plan.md)
+    * **041-scan-rerun-overwrite**
+      * [FT-041 — Scan rerun overwrite — Brief](/docs/features/041-scan-rerun-overwrite/01-brief.md)
+      * [FT-041 — Scan rerun overwrite — Design](/docs/features/041-scan-rerun-overwrite/02-design.md)
+      * [FT-041 — Scan rerun overwrite — Plan](/docs/features/041-scan-rerun-overwrite/03-plan.md)
+    * **042-primary-video-election**
+      * [FT-042 — Primary video election](/docs/features/042-primary-video-election/01-brief.md)
+      * [FT-042 — Primary video election — Design](/docs/features/042-primary-video-election/02-design.md)
+      * [FT-042 — Primary video election — Plan](/docs/features/042-primary-video-election/03-plan.md)
+    * **043-video-gallery-throughput**
+      * [FT-043 — Video Gallery và throughput event](/docs/features/043-video-gallery-throughput/01-brief.md)
+      * [FT-043 — Video Gallery và throughput event — Design](/docs/features/043-video-gallery-throughput/02-design.md)
+      * [FT-043 — Video Gallery và throughput event — Plan](/docs/features/043-video-gallery-throughput/03-plan.md)
+    * **044-approve-1m-operation-contract**
+      * [FT-044 — SC-01 BT-09A: Approve 1M Operation Contract & Watermark](/docs/features/044-approve-1m-operation-contract/01-brief.md)
+      * [FT-044 — Design: SC-01 BT-09A Operation Contract & Watermark](/docs/features/044-approve-1m-operation-contract/02-design.md)
+      * [FT-044 — Plan: SC-01 BT-09A Operation Contract & Watermark](/docs/features/044-approve-1m-operation-contract/03-plan.md)
+    * **045-scan-decision-chunking**
+      * [FT-045 — SC-01 BT-09B: Durable Scan Approval & Decision Chunking](/docs/features/045-scan-decision-chunking/01-brief.md)
+      * [FT-045 — Design: Durable Scan Approval & Decision Chunking](/docs/features/045-scan-decision-chunking/02-design.md)
+      * [FT-045 — Plan: Durable Scan Approval & Decision Chunking](/docs/features/045-scan-decision-chunking/03-plan.md)
+    * **046-scan-core-pipeline-optimization**
+      * [FT-046 — SC-01 Scan-Core Pipeline Optimization & Benchmark Evidence](/docs/features/046-scan-core-pipeline-optimization/01-brief.md)
+      * [FT-046 — Design: Scan-Core Pipeline Optimization & Benchmark Evidence](/docs/features/046-scan-core-pipeline-optimization/02-design.md)
+      * [FT-046 — Plan: Scan-Core Pipeline Optimization & Benchmark Evidence](/docs/features/046-scan-core-pipeline-optimization/03-plan.md)
+    * **047-scan-core-cold-path**
+      * [FT-047 — SC-01 Scan-Core Cold Path Without Diff Stage](/docs/features/047-scan-core-cold-path/01-brief.md)
+      * [FT-047 — Design: Scan-Core Cold Path Without Diff Stage](/docs/features/047-scan-core-cold-path/02-design.md)
+      * [FT-047 — Plan: Scan-Core Cold Path Without Diff Stage](/docs/features/047-scan-core-cold-path/03-plan.md)
+    * **048-scan-core-pipelined-reconciliation**
+      * [FT-048 — SC-01 Scan-Core Pipelined Reconciliation](/docs/features/048-scan-core-pipelined-reconciliation/01-brief.md)
+      * [FT-048 — Thiết kế: Phân tích & Đồng bộ Pipeline Gối đầu (Scan-Core Pipelined Reconciliation)](/docs/features/048-scan-core-pipelined-reconciliation/02-design.md)
+      * [FT-048 — Plan: Scan-Core Pipelined Reconciliation](/docs/features/048-scan-core-pipelined-reconciliation/03-plan.md)
+    * **049-scan-core-scale-qualification**
+      * [FT-049 — SC-01 Scan-Core Scale Qualification](/docs/features/049-scan-core-scale-qualification/01-brief.md)
+      * [FT-049 — Design: Scan-Core Scale Qualification](/docs/features/049-scan-core-scale-qualification/02-design.md)
+      * [FT-049 — Plan: Scan-Core Scale Qualification](/docs/features/049-scan-core-scale-qualification/03-plan.md)
+  * **reviews**
+    * [Backend V2 — Review chất lượng, kiến trúc và Production Readiness](/docs/reviews/2026-08-12-backend-quality-architecture-production-readiness.md)
+    * [Đánh giá throughput approve bulk — 5.000 records calibration cho SC-01](/docs/reviews/2026-08-13-approve-5000-query-performance-assessment.md)
+    * [LinkedIn xử lý pipeline dữ liệu lớn như thế nào?](/docs/reviews/2026-08-14-linkedin-large-scale-data-processing.md)
   * **templates**
     * [ADR-<number>: <decision>](/docs/templates/ADR.md)
     * [<Feature title>](/docs/templates/FEATURE_BRIEF.md)

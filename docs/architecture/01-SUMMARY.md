@@ -65,4 +65,6 @@ Quy ước triển khai Java nằm tại [03-CODING_RULES.md](./03-CODING_RULES.
 - Mỗi feature thêm một nhóm công nghệ có bài toán thật, không triển khai mọi công nghệ cùng lúc.
 - Elasticsearch phục vụ cả structured log và media search projection, nhưng tách logs data stream với media search index. Query là owner duy nhất của business search; Catalog/PostgreSQL vẫn là nguồn dữ liệu chuẩn.
 
-Chi tiết kiến trúc và phase nằm tại [02-PLAN.md](./02-PLAN.md).
+Chi tiết kiến trúc và phase nền tảng nằm tại [02-PLAN.md](./02-PLAN.md). Kiến trúc end-to-end riêng cho
+workload SC-01 được chốt ở [04-SC-01-1M-scan-approve-end-to-end-architecture.md](./04-SC-01-1M-scan-approve-end-to-end-architecture.md);
+đây là proposal chuẩn bị triển khai, không thay thế Plan/contract của từng BT-09.

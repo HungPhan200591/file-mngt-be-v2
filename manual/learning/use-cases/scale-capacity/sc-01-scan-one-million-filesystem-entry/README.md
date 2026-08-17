@@ -27,6 +27,7 @@ Review `approve 5.000` chỉ là calibration evidence; mục tiêu workload củ
 | Chi tiết Luồng & Điểm chạm | [02-architecture-touchpoints-and-flows.md](./02-architecture-touchpoints-and-flows.md) | Con người, on-demand |
 | Giải pháp Lọc trùng Xuyên Service | [03-cross-service-deduplication.md](./03-cross-service-deduplication.md) | Con người, on-demand |
 | Context approve 1M | [08-approve-1m-context.md](./08-approve-1m-context.md) | Context mặc định |
+| Kiến trúc end-to-end (canonical) | [04-SC-01-1M-scan-approve-end-to-end-architecture.md](../../../../../docs/architecture/04-SC-01-1M-scan-approve-end-to-end-architecture.md) | Architecture baseline, proposal |
 | Break task triển khai | [04-break-task.md](./04-break-task.md) | Router/owner, đọc đúng section |
 | Phương án UI/UX Solution Behavior | [05-ui-ux-solution-behavior.md](./05-ui-ux-solution-behavior.md) | Con người, on-demand |
 | Khảo sát Scale & Cloud | [06-performance-and-cloud-scaling.md](./06-performance-and-cloud-scaling.md) | Con người, on-demand |

@@ -1,0 +1,8 @@
+title: "Herding elephants: lessons learned from sharding Postgres at Notion"
+source_url: "https://www.notion.so/blog/sharding-postgres-at-notion"
+author: "Notion Infrastructure Team"
+published_at: "2021-10-06"
+retrieved_at: "2026-08-17"
+tags: [postgresql, sharding, horizontal-scaling, logical-shards, data-migration, zero-downtime, autovacuum, txid-wraparound]
+status: complete
+completeness_note: "Full captured prose, headings, architecture diagrams, logical sharding arithmetic and migration strategy translated faithfully with Mermaid diagrams."

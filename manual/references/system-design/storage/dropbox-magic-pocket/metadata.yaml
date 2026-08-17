@@ -1,0 +1,8 @@
+title: "Inside the Magic Pocket: Dropbox's multi-exabyte storage system"
+source_url: "https://dropbox.tech/infrastructure/inside-the-magic-pocket"
+author: "James Cowling (Dropbox Infrastructure Team)"
+published_at: "2016-05-25"
+retrieved_at: "2026-08-17"
+tags: [storage, blob, block-storage, metadata, immutability, erasure-coding, durability, distributed-systems]
+status: complete
+completeness_note: "Full captured prose, headings, data model, multi-zone architecture, block lifecycle and durability trade-offs translated faithfully with Mermaid diagrams."

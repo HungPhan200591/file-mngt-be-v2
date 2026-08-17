@@ -5,6 +5,26 @@ Status: **PROPOSAL — chuẩn bị triển khai, chưa phải production qualif
 Ngày: 2026-08-17  
 Owner: Scan, Catalog, Query và platform event pipeline
 
+Phân loại: đây là **kiến trúc chuẩn cấp cross-service** của workload SC-01, nên đặt tại
+`docs/architecture/`. Study pack của SC-01 chỉ định tuyến tới tài liệu này; không tạo bản sao trong
+`manual/`. Đặc tả implementation của từng lát vẫn thuộc feature tương ứng trong `docs/features/`.
+
+## Quan hệ với SC-01 và BT-09
+
+Tài liệu này là preparation/design baseline, không phải bằng chứng BT-09 đã hoàn tất và cũng không thay
+thế Plan của từng feature:
+
+| Phạm vi | Owner hiện hành | Trạng thái cần giữ |
+| --- | --- | --- |
+| BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
+| BT-09B — scan decision/outbox chunking | [FT-045](../features/045-scan-decision-chunking/03-plan.md) | Đang implementation; runtime qualification còn pending |
+| BT-09C → BT-09G — relay, Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED` theo dependency map |
+
+Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng
+đề xuất ở đây để ghi đè contract/Plan hoặc tuyên bố SLO đã đạt. Khi code khác proposal (ví dụ JDBC batch
+hiện tại thay vì COPY), phải cập nhật feature design/ADR và dùng BT-09G để qualification; benchmark cục bộ
+không tự nâng trạng thái feature.
+
 Tài liệu này thiết kế toàn bộ pipeline khi Scan xử lý và approve 1.000.000 records. Mục tiêu không phải tối đa hóa một con số throughput đơn lẻ, mà là chọn đúng tốc độ theo business:
 
 - API phải tiếp nhận operation nhanh và durable.
@@ -64,6 +84,8 @@ Source-of-truth liên quan:
 
 - [Backend V2 summary](01-SUMMARY.md)
 - [Backend V2 high-level plan](02-PLAN.md)
+- [FT-044 — operation contract](../features/044-approve-1m-operation-contract/02-design.md)
+- [FT-045 — scan decision/outbox chunking](../features/045-scan-decision-chunking/02-design.md)
 - [005 Scan approval outbox](../features/005-scan-approval-outbox/02-design.md)
 - [037 Outbox backlog capacity](../features/037-outbox-backlog-capacity/02-design.md)
 - [037 scale and cloud rollout](../features/037-outbox-backlog-capacity/05-scale-and-cloud-rollout.md)
@@ -549,5 +571,4 @@ correctness
 ~~~
 
 ApprovalDecisionChunkingBenchmarkTest chỉ là test cho một phase. Qualification đúng phải đo toàn timeline từ acceptedAt đến các watermark và phải chứng minh cả correctness lẫn capacity.
-
 
