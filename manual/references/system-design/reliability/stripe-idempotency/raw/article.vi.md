@@ -24,6 +24,26 @@ Nếu connection fail, retry có thể là lần đầu server nhìn thấy requ
 
 Stripe triển khai idempotency key cho mutation endpoint, gồm `POST`, qua header `Idempotency-Key`. Request lỗi có thể retry với cùng key mà không charge khách hàng hai lần.
 
+```mermaid
+flowchart TB
+    REQ(["Request client<br/>Idempotency-Key"]) --> GATE["API Gateway<br/>Stripe server"]
+    GATE -->|"Kiểm tra key"| STORE[("Bảng lưu trữ key<br/>Idempotency store")]
+    
+    STORE -->|"Đã có và đã xong"| CACHED(["Trả kết quả cache<br/>Không trừ tiền 2 lần"])
+    STORE -->|"Key mới toanh"| LOCK[/"Khóa key & xử lý"/]
+    
+    LOCK --> DB[("Cơ sở dữ liệu ACID<br/>Thực thi mutation")]
+    DB --> DONE(["Lưu cache kết quả<br/>Trả response thành công"])
+
+    style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style GATE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style STORE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style CACHED fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style LOCK fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style DONE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+```
+
 ## Là công dân tốt trong distributed system
 
 Retry an toàn chưa đủ; retry cũng phải có trách nhiệm. Lỗi transient có thể biến mất, nhưng incident trên server có thể kéo dài và retry sẽ làm suy giảm nặng hơn. Client nên dùng [exponential backoff](https://en.wikipedia.org/wiki/Exponential_backoff), chờ tăng theo `2^n` khi số lần lỗi tăng.

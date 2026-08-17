@@ -28,15 +28,23 @@ Trong mô hình này, chúng tôi muốn thực hiện đồng thời hai việc
 Mỗi chức năng này được cung cấp thông qua API của dịch vụ tương ứng. Khi nhận được yêu cầu đặt hàng, `Shop Service` sẽ phát (publish) một thông điệp `PreOrder` chứa các dữ liệu liên quan vào Kafka topic `PreOrder`. Từ đó, hai nhóm consumer tương ứng sẽ đọc sự kiện này để thực thi logic nghiệp vụ riêng và gọi dịch vụ đích (`Payment Service` và `Analytics Service`).
 
 ```mermaid
-flowchart LR
-    Client["Client Request"] --> Shop["Shop Service"]
-    Shop -->|Publish PreOrder Event| KafkaMain["Kafka Topic: PreOrder"]
+flowchart TB
+    REQ(["Yêu cầu đặt hàng<br/>Client request"]) --> SHOP["Shop Service<br/>Worker node"]
+    SHOP -->|"Phát sự kiện"| MAIN{{"Topic: PreOrder<br/>Kafka main"}}
     
-    KafkaMain -->|Consumer Group 1| PayWorker["Payment Listener"]
-    PayWorker -->|API Call| PayService["Payment Service"]
+    MAIN -->|"Nhóm tiêu thụ 1"| PAY["Payment Listener<br/>Consumer"]
+    PAY -->|"Gọi API"| PAY_SRV["Payment Service<br/>Dịch vụ thanh toán"]
     
-    KafkaMain -->|Consumer Group 2| AnalyticsWorker["Analytics Listener"]
-    AnalyticsWorker -->|API Call| AnalyticsService["Analytics Service"]
+    MAIN -->|"Nhóm tiêu thụ 2"| STAT["Analytics Listener<br/>Consumer"]
+    STAT -->|"Gọi API"| STAT_SRV["Analytics Service<br/>Dịch vụ phân tích"]
+
+    style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style SHOP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style MAIN fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style PAY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style PAY_SRV fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style STAT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style STAT_SRV fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 Một giải pháp nhanh và đơn giản nhất để triển khai retry là sử dụng vòng lặp phản hồi (feedback loop) ngay tại điểm gọi client. Ví dụ: nếu `Payment Service` bị tăng độ trễ và bắt đầu ném ra ngoại lệ timeout, `Shop Service` sẽ tiếp tục gọi lại `makePayment` theo một giới hạn số lần retry nhất định (kết hợp backoff) cho đến khi thành công hoặc chạm ngưỡng dừng.
@@ -70,31 +78,48 @@ Khi các yêu cầu tiếp tục thất bại sau nhiều lần thử, chúng t�
 Để giải quyết triệt để vấn đề nghẽn cổ chai của cơ chế retry đồng bộ, chúng tôi tách rời hoàn toàn luồng xử lý lỗi và retry ra khỏi luồng sự kiện chính bằng cách sử dụng **hệ thống các Retry Topics phân tầng kết hợp với Dead Letter Queue**.
 
 ```mermaid
-flowchart TD
-    subgraph PrimaryFlow["Luồng Sự kiện Chính (Real-time Flow)"]
-        MainTopic["Topic: PreOrder"] --> MainConsumer["Primary Consumer"]
-        MainConsumer -->|Xử lý thành công| CommitMain["Commit Offset & Tiếp tục"]
-        MainConsumer -->|Xử lý thất bại (Lần 1)| RouteRetry1["Đẩy sang Retry-1 Topic"]
-        RouteRetry1 --> CommitMainFast["Commit Offset trên Topic Chính ngay lập tức (Không chặn)"]
+flowchart TB
+    subgraph P_FLOW["Luồng sự kiện chính"]
+        TOPIC_MAIN{{"Topic: PreOrder<br/>Main stream"}} --> C_MAIN["Primary Consumer"]
+        C_MAIN -->|"Xử lý xong"| DONE_MAIN(["Commit offset<br/>Tiếp tục luồng"])
+        C_MAIN -->|"Lỗi lần 1"| T1_ROUTE[/"Chuyển sang retry"/]
+        T1_ROUTE --> COMMIT_FAST(["Commit offset<br/>Không chặn luồng"])
     end
 
-    subgraph RetryTier1["Tầng Thử Lại 1 (Delay: 5 phút)"]
-        Retry1Topic["Topic: PreOrder-Retry-5m"] --> Retry1Consumer["Retry Consumer 1 (Chờ 5m)"]
-        Retry1Consumer -->|Thử lại thành công| Done1["Xong"]
-        Retry1Consumer -->|Vẫn lỗi| RouteRetry2["Đẩy sang Retry-2 Topic"]
+    subgraph R_TIER1["Tầng thử lại 1 (Chờ 5 phút)"]
+        T1_ROUTE --> TOPIC_R1{{"Topic Retry 5m"}}
+        TOPIC_R1 --> C_R1["Retry Consumer 1"]
+        C_R1 -->|"Xong"| DONE_R1(["Hoàn tất"])
+        C_R1 -->|"Vẫn lỗi"| T2_ROUTE[/"Chuyển sang tier 2"/]
     end
 
-    subgraph RetryTier2["Tầng Thử Lại 2 (Delay: 15 phút)"]
-        Retry2Topic["Topic: PreOrder-Retry-15m"] --> Retry2Consumer["Retry Consumer 2 (Chờ 15m)"]
-        Retry2Consumer -->|Thử lại thành công| Done2["Xong"]
-        Retry2Consumer -->|Vượt quá Max Retries| RouteDLQ["Đẩy sang DLQ Topic"]
+    subgraph R_TIER2["Tầng thử lại 2 (Chờ 15 phút)"]
+        T2_ROUTE --> TOPIC_R2{{"Topic Retry 15m"}}
+        TOPIC_R2 --> C_R2["Retry Consumer 2"]
+        C_R2 -->|"Xong"| DONE_R2(["Hoàn tất"])
+        C_R2 -->|"Vượt ngưỡng"| DLQ_ROUTE[/"Chuyển sang DLQ"/]
     end
 
-    subgraph DLQSystem["Hàng đợi Chết & Xử lý Quản trị (DLQ)"]
-        DLQTopic["Topic: PreOrder-DLQ"] --> Alert["Cảnh báo Kỹ sư / Dashboard"]
-        DLQTopic --> Tooling["Admin Tool: Replay / Purge / Fix Data"]
-        Tooling -.->|Replay sau khi sửa bug| MainTopic
+    subgraph DLQ_TIER["Hàng đợi chết DLQ"]
+        DLQ_ROUTE --> TOPIC_DLQ{{"Topic: PreOrder DLQ"}}
+        TOPIC_DLQ --> ALERT(["Báo động kỹ sư"])
+        TOPIC_DLQ --> ADMIN["Công cụ admin<br/>Replay hoặc purge"]
+        ADMIN -.->|"Replay sau khi sửa"| TOPIC_MAIN
     end
+
+    style TOPIC_MAIN fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style C_MAIN fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style DONE_MAIN fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style COMMIT_FAST fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style TOPIC_R1 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style C_R1 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style DONE_R1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style TOPIC_R2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style C_R2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style DONE_R2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style TOPIC_DLQ fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style ALERT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style ADMIN fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ### 1. Các Retry Topic Phân tầng với Cơ chế Trì hoãn (Tiered Delayed Topics)

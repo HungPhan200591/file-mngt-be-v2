@@ -44,17 +44,25 @@ Chúng tôi chọn `workspace_id` (kiểu UUID) làm Partition Key:
 Notion đưa vào một tầng trừu tượng cực kỳ thông minh: **Logical Shards (Shard Logic) ánh xạ tới Physical Hosts (Máy chủ Vật lý)**.
 
 ```mermaid
-flowchart TD
-    Req["Request Client (Tạo/Đọc Block)"] --> App["Application Server (Node.js)"]
-    App --> Hash["Băm UUID: hash(workspace_id) % 480"]
+flowchart TB
+    REQ(["Client request<br/>Tạo hoặc đọc block"]) --> APP["Application server<br/>Node.js"]
+    APP --> HASH[/"Băm UUID<br/>hash mod 480"/]
     
-    Hash -->|ID = 0 .. 14| Host1["RDS Physical Host 1<br>(Chứa Logical Shard 0 .. 14)"]
-    Hash -->|ID = 15 .. 29| Host2["RDS Physical Host 2<br>(Chứa Logical Shard 15 .. 29)"]
-    Hash -->|ID = 465 .. 479| Host32["RDS Physical Host 32<br>(Chứa Logical Shard 465 .. 479)"]
+    HASH -->|"ID 0..14"| H1[("RDS Host 1<br/>15 logical shards")]
+    HASH -->|"ID 15..29"| H2[("RDS Host 2<br/>15 logical shards")]
+    HASH -->|"ID 465..479"| H32[("RDS Host 32<br/>15 logical shards")]
 
-    subgraph FutureScale["Khả năng mở rộng vô hạn (The Great Re-shard)"]
-        Host1 -.->|Tách bớt Shard sang Host mới| Host96["RDS Physical Host 96<br>(Mỗi host chỉ còn gánh 5 Shards)"]
+    subgraph SCALE["Khả năng mở rộng Re-shard"]
+        H1 -.->|"Tách shard"| H96[("RDS Host 96<br/>5 logical shards")]
     end
+
+    style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style APP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style HASH fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style H1 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style H2 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style H32 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style H96 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 * Chúng tôi chia dữ liệu thành **480 Logical Shards** (mỗi shard là một schema/database logic riêng biệt).

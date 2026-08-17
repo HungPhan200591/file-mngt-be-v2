@@ -20,11 +20,17 @@ Chúng tôi vẫn còn cách xa kịch bản tồi tệ đó, nhưng với tư c
 Chúng tôi bắt đầu bằng một số giải pháp tình thế ngắn hạn để có thêm một năm thời gian dự phòng, đồng thời đặt nền móng cho một phương pháp tiếp cận toàn diện hơn:
 
 ```mermaid
-flowchart LR
-    App["Application Backend<br>(Rails / Go)"] -->|Hàng nghìn kết nối| PgBouncer["PgBouncer<br>(Connection Pooler)"]
-    PgBouncer -->|Giữ kết nối ổn định| RDSPrimary["RDS PostgreSQL Primary<br>(r5.24xlarge)"]
-    RDSPrimary -.->|Streaming Replication| ReadReplica1["Read Replica 1"]
-    RDSPrimary -.->|Streaming Replication| ReadReplica2["Read Replica 2"]
+flowchart TB
+    APP["Application backend<br/>Rails hoặc Go"] -->|"Hàng nghìn kết nối"| POOL["PgBouncer<br/>Connection pooler"]
+    POOL -->|"Giữ kết nối ổn định"| PRI[("RDS Postgres Primary<br/>r5.24xlarge")]
+    PRI -.->|"Replication"| R1[("Read Replica 1")]
+    PRI -.->|"Replication"| R2[("Read Replica 2")]
+
+    style APP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style POOL fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style PRI fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style R1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style R2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 1. **Mở rộng theo chiều dọc (Vertical Scaling)**: Nâng cấp cơ sở dữ liệu lên loại instance lớn nhất có thể của AWS (từ `r5.12xlarge` lên `r5.24xlarge`) để tối đa hóa dung lượng CPU dự phòng.
@@ -79,16 +85,23 @@ Tất cả các logic liên kết này bắt buộc phải được chuyển lê
 Đối với những bảng dữ liệu khổng lồ không thể giải quyết trọn vẹn chỉ bằng việc tách dọc (những bảng chứa hàng trăm triệu bản ghi như metadata file, quyền truy cập), Figma áp dụng giải pháp Sharding theo chiều ngang.
 
 ```mermaid
-flowchart TD
-    App["Application Server<br>(Rails / Go)"] -->|Gửi câu lệnh SQL chuẩn| DBProxy["DBProxy (Viết bằng Go)<br>• Parse SQL ra AST<br>• Trích xuất Shard Key<br>• Lập Physical Query Plan"]
+flowchart TB
+    APP["Application server<br/>Rails hoặc Go"] -->|"Gửi câu SQL"| PROXY["DBProxy (Go)<br/>Parse SQL AST<br/>Trích shard key<br/>Lập query plan"]
     
-    DBProxy -->|Shard Key: org_1| Shard1["PgBouncer $\to$ RDS Shard 1"]
-    DBProxy -->|Shard Key: org_2| Shard2["PgBouncer $\to$ RDS Shard 2"]
-    DBProxy -->|Không có Shard Key (Scatter-Gather)| FanOut["Scatter-Gather:<br>Bắn song song tới tất cả Shards<br>Gom & Hợp nhất kết quả trong RAM"]
+    PROXY -->|"Shard org_1"| S1[("RDS Shard 1<br/>PgBouncer")]
+    PROXY -->|"Shard org_2"| S2[("RDS Shard 2<br/>PgBouncer")]
+    PROXY -->|"Scatter-gather<br/>Không có key"| FAN["Scatter-Gather<br/>Bắn đa shards<br/>Gom kết quả RAM"]
     
-    FanOut --> Shard1
-    FanOut --> Shard2
-    FanOut --> ShardN["PgBouncer $\to$ RDS Shard N"]
+    FAN --> S1
+    FAN --> S2
+    FAN --> SN[("RDS Shard N<br/>PgBouncer")]
+
+    style APP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style PROXY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style S1 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style S2 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style SN fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style FAN fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ### DBProxy: Bộ não điều phối truy vấn thông minh

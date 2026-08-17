@@ -43,20 +43,25 @@ Việc triển khai các giao thức đồng thuận phân tán phức tạp (nh
 ## Mô Hình Dữ Liệu: Khối (Blocks), Thùng (Buckets), và Tập hợp (Volumes)
 
 ```mermaid
-flowchart TD
-    File["Tệp tin của Người dùng (Ví dụ: 100MB Video)"] --> Split["Chia nhỏ thành các mảnh $\le$ 4MB"]
-    
-    Split --> B1["Block 1 (4MB)<br>Key: SHA-256 Hash"]
-    Split --> B2["Block 2 (4MB)<br>Key: SHA-256 Hash"]
-    Split --> BN["Block N (4MB)<br>Key: SHA-256 Hash"]
-    
-    B1 & B2 & BN --> Aggregate["Gom hàng trăm Blocks thành"]
-    
-    Aggregate --> Bucket["1GB Logical Bucket<br>(Thùng chứa logic)"]
-    
-    Bucket --> EC["Mã hóa Xóa (Erasure Coding) / Phân tán"]
-    
-    EC --> Vol["Volume trên các Storage Nodes vật lý<br>(Chia đều trên các tủ Rack HDD)"]
+flowchart TB
+    FILE(["File người dùng<br/>100MB video"]) --> SPLIT[/"Chia nhỏ khối<br/>tối đa 4MB"/]
+    SPLIT --> B1["Block 1 (4MB)<br/>SHA-256 Hash"]
+    SPLIT --> B2["Block 2 (4MB)<br/>SHA-256 Hash"]
+    SPLIT --> BN["Block N (4MB)<br/>SHA-256 Hash"]
+    B1 & B2 & BN --> AGG[/"Gom khối"/]
+    AGG --> BUCKET[("Bucket logic<br/>Dung lượng 1GB")]
+    BUCKET --> EC[/"Mã hóa xóa<br/>Erasure Code"/]
+    EC --> VOL[("Volume lưu trữ<br/>Đa máy chủ HDD")]
+
+    style FILE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style SPLIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style B1 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style B2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style BN fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style AGG fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style BUCKET fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style EC fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style VOL fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 1. **Khối (Block)**: Là đơn vị dữ liệu thô cơ bản, kích thước tối đa 4MB, đã được nén và mã hóa. Tên định danh (Key) của mỗi block chính là **Mã băm SHA-256** của chính nội dung khối đó (*Content-Addressable Storage - CAS*). Nhờ vậy, nếu 100 người dùng cùng tải lên 1 bài hát giống nhau, hệ thống chỉ lưu đúng 1 block duy nhất (Deduplication tự động).
@@ -70,14 +75,17 @@ flowchart TD
 Bên trong mỗi trung tâm dữ liệu (Zone), Magic Pocket được cấu trúc thành 4 thành phần tách biệt rõ ràng:
 
 ```mermaid
-flowchart TD
-    ClientReq["Yêu cầu Đọc / Ghi Tệp từ Client"] --> Frontend["Frontend Gateway (Không lưu trạng thái - Stateless)<br>• Tính mã băm SHA-256<br>• Kiểm tra chống trùng lặp (Deduplication)<br>• Điều phối luồng stream dữ liệu"]
-    
-    Frontend <-->|Kiểm tra & Ghi nhận vị trí| BlockIndex[("Block Index (Lưới MySQL Sharding)<br>Ánh xạ: SHA-256 Hash $\to$ Bucket ID + Offset")]
-    
-    Frontend <-->|Stream byte trực tiếp| StorageNodes["Storage Nodes (OSD Daemons)<br>• Nút lưu trữ đĩa HDD thuần túy<br>• Nhận lệnh put_block, get_block, fsync"]
-    
-    MasterCoordinator["Master Coordinator (Quản trị ngầm - Out of Data Path)<br>• Giám sát sức khỏe ổ cứng<br>• Tự động kích hoạt Repair khi ổ cứng hỏng<br>• Dọn rác (Garbage Collection)<br>• Gom Bucket để chạy Erasure Coding"] -.->|Điều khiển ngầm| StorageNodes
+flowchart TB
+    REQ(["Yêu cầu client<br/>Đọc hoặc Ghi"]) --> GATE["Frontend Gateway<br/>Stateless node"]
+    GATE -->|"Kiểm tra hash"| IDX[("Block Index<br/>MySQL Grid")]
+    GATE -->|"Stream byte"| OSD["Storage Nodes<br/>Ổ đĩa HDD thô"]
+    MASTER["Master Coordinator<br/>Quản trị ngầm"] -.->|"Sửa lỗi & dọn rác"| OSD
+
+    style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style GATE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style IDX fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style OSD fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style MASTER fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 1. **Cổng giao tiếp Frontend (Frontends - Stateless Gateways)**:
