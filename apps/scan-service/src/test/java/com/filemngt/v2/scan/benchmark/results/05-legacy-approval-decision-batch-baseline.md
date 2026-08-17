@@ -15,7 +15,7 @@
 | Legacy JPA | 25.000 proposals | Decision + outbox hoàn tất | 4.139 ms | 6.040 records/s | PASS |
 | FT-045 candidate | 25.000 proposals | 1 chunk; decision + outbox + checkpoint hoàn tất | 5.648 ms | 4.426 records/s | PASS |
 | Legacy JPA | 1.000.000 proposals | Crash trước khi ghi decision/outbox | Không có | Không có | BLOCKED |
-| FT-045 candidate | 1.000.000 proposals | Chưa có terminal result | Chưa có | Chưa có | PENDING |
+| FT-045 candidate | 1.000.000 proposals | 40 chunks; `APPROVAL_COMMITTED` và decision/outbox assertions hoàn tất | 148.794 ms | 6.721 records/s | PASS |
 
 Lần chạy 25k cũng có warmup 5.925 ms; số dùng để so sánh là measured run 4.139 ms.
 
@@ -44,6 +44,20 @@ Candidate đã loại bỏ giant `IN (...)` bằng keyset chunking, nhưng chunk
 
 Nguyên nhân hiệu năng đã xác định: candidate gửi toàn bộ 25.000 row trong một JDBC batch, trong khi legacy Hibernate dùng batch 500. Sau khi đổi thành `jdbc-batch-size=500`, tắt projection đúng policy và đưa event preparation ra ngoài transaction persistence, candidate hoàn tất workload 25k trong 5.648 ms.
 
+## Candidate FT-045 — workload 1M hoàn tất
+
+Candidate đã xử lý đủ **1.000.000 proposals** bằng `40 × 25.000` chunks trên laptop:
+
+```text
+rows=1000000
+chunkSize=25000
+jdbcBatchSize=500
+measuredMs=148794
+throughputPerSecond=6721
+```
+
+Thời gian tương đương khoảng **2 phút 28,8 giây**. Đây là số liệu end-to-end của candidate gồm accept operation, claim, keyset read, event preparation, decision/outbox persistence, checkpoint và completion. Không so sánh trực tiếp với legacy 1M vì legacy bị block trước persistence bởi giới hạn 65.535 bind parameters.
+
 ## Kết luận baseline
 
-`25k` là calibration run thành công, không được nội suy thành evidence 1M. Workload 1M chứng minh legacy implementation không scale đến bước idempotency lookup: nó cần loại bỏ giant `IN (...)` bằng chunked/keyset query hoặc set-based database operation trước khi có thể đo tiếp chi phí tạo và ghi decision/outbox.
+Legacy 1M không có runtime baseline vì bị block ở idempotency lookup. Candidate hiện đã có evidence 1M hoàn tất trong 148.794 giây ở môi trường laptop; cần giữ nguyên workload/hardware/config khi so sánh các tối ưu tiếp theo.
