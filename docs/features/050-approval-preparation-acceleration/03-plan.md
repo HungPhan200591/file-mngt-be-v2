@@ -33,10 +33,9 @@ event contract and bounded memory.
 8. Run targeted formatter/test/benchmark only when authorized; record measured result separately from the
    historical 121-second evidence.
 
-Preliminary benchmark evidence after the FT-050 acceleration changes (before the subsequent V24 cutoff change):
-`81,774 ms` for 1,000,000 rows,
-`copyEnabled=true`, `preparationParallelism=4`, PostgreSQL `18.0-alpine`, throughput `12,229 records/s`.
-This remains Scan-only evidence and must be rerun after V24 before marking runtime verification complete.
+Measured benchmark after FT-050 plus V24 cutoff: `64,086 ms` for 1,000,000 rows,
+`copyEnabled=true`, `preparationParallelism=4`, PostgreSQL `18.0-alpine`, throughput `15,604 records/s`.
+This remains Scan-only evidence; it does not qualify shard parallelism or the cross-service pipeline.
 
 ## 3. Verification
 

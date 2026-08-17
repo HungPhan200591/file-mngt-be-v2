@@ -67,9 +67,9 @@ Benchmark tại [ApprovalDecisionChunkingBenchmarkTest.java](../../apps/scan-ser
 - tắt Scan outbox publisher, review projection và worker phụ;
 - assert decision/outbox đủ số lượng sau khi Scan commit.
 
-Số đo lịch sử khoảng 121 giây chỉ là evidence cho **Scan approval persistence**. Bản FT-050 mới nhất đạt
-81.774 ms (81.774 milliseconds, khoảng 81,8 giây; 12.229 records/s) với PostgreSQL `COPY` và preparation parallelism 4.
-Các số đo này không bao gồm:
+Số đo lịch sử khoảng 121 giây chỉ là evidence cho **Scan approval persistence**. Bản FT-050 + V24 mới nhất đạt
+64.086 ms (64.086 milliseconds, khoảng 64,1 giây; 15.604 records/s) với PostgreSQL `COPY` và preparation
+parallelism 4. Các số đo này không bao gồm:
 
 ~~~text
 Kafka publish
@@ -242,8 +242,8 @@ Decision, outbox và checkpoint cùng transaction. Chunk lỗi rollback toàn ch
 | Cursor safety | Index `(scan_run_id, id)` + `proposal_cutoff_id` | Không nhận proposal sau accept |
 | Atomicity | Decision + outbox + checkpoint trong `REQUIRES_NEW` | Giữ nguyên invariant durable approval |
 
-Benchmark hiện có của FT-050: `81,774 ms`, `12,229 records/s` cho 1M records. Đây là evidence trước lần
-rerun sau migration V24; chưa dùng để kết luận `QUERY_DB_READY`.
+Benchmark hiện có của FT-050 + V24: `64,086 ms`, `15,604 records/s` cho 1M records. Đây là evidence của
+một DB writer với `shardCount=1`; chưa dùng để kết luận shard parallelism hoặc `QUERY_DB_READY`.
 
 ### Shard policy
 
