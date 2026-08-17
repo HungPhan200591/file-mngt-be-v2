@@ -76,6 +76,25 @@ com.filemngt.v2.<service>.benchmark/
 - **Định dạng Code**: Luôn chạy `mvn spotless:apply` sau khi viết hoặc sửa code test Java.
 - **Phân loại Test**: Gắn tag `@Tag("benchmark")` cho các test nặng cần kích hoạt thủ công, tránh làm chậm CI/CD build mặc định.
 
+### 🛡️ Nguyên tắc 6: An toàn Maven CLI trên PowerShell
+
+- Khi gọi Maven từ PowerShell, **luôn quote toàn bộ argument bắt đầu bằng `-D`**. PowerShell nội suy ký tự `$` trong argument không được quote; ví dụ `-Dsurefire.failIfNoSpecifiedTests=false` có thể bị biến thành lifecycle phase `.failIfNoSpecifiedTests=false` trước khi tới Maven.
+- Dùng dạng an toàn:
+
+  ```powershell
+  .\mvnw.cmd -pl apps/scan-service -am '-Dtest=ScanRunDecisionBatchTest' '-Dsurefire.failIfNoSpecifiedTests=false' test
+  ```
+
+- Với command dài hoặc có nhiều property, gom arguments vào array rồi splat để tránh shell parsing:
+
+  ```powershell
+  $mavenArgs = @('-pl', 'apps/scan-service', '-am', '-Dtest=ScanRunDecisionBatchTest', '-Dsurefire.failIfNoSpecifiedTests=false', 'test')
+  & .\mvnw.cmd @mavenArgs
+  ```
+
+- Không dùng backslash để escape `$` trong PowerShell. Nếu Maven báo `Unknown lifecycle phase` chứa phần sau `$`, dừng và chạy lại bằng quoted arguments/array; không kết luận đó là lỗi test.
+- Trước khi chạy, đặt `$env:JAVA_HOME` về Corretto 25 và kiểm tra output Maven có `release 25`.
+
 ---
 
 ## 2. Checklist Tự kiểm tra trước khi Bàn giao Test
