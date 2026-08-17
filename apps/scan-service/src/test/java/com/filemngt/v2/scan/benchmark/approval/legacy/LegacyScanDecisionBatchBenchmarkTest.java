@@ -24,8 +24,8 @@ import org.testcontainers.utility.DockerImageName;
 @Tag("benchmark")
 @Testcontainers
 @SpringBootTest(properties = {"scan.outbox.enabled=false", "scan.review-projection.enabled=false"})
-class LegacyScanDecisionBatchBenchmarkIT {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LegacyScanDecisionBatchBenchmarkIT.class);
+class LegacyScanDecisionBatchBenchmarkTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LegacyScanDecisionBatchBenchmarkTest.class);
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));

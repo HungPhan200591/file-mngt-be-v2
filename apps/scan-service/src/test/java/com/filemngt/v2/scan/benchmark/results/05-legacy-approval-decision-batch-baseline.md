@@ -1,6 +1,6 @@
 # Benchmark 05 — Legacy Approval Decision Batch Baseline (FT-045)
 
-- **Class thực thi**: [`LegacyScanDecisionBatchBenchmarkIT.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/approval/legacy/LegacyScanDecisionBatchBenchmarkIT.java)
+- **Class thực thi**: [`LegacyScanDecisionBatchBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/approval/legacy/LegacyScanDecisionBatchBenchmarkTest.java)
 - **Implementation đo**: `ScanDecisionService.decideAll(...)` → `ScanRunDecisionBatch.decideAll(...)`
 - **Workload mục tiêu**: 1.000.000 proposals, approve-all
 - **Môi trường**: Laptop người dùng, Java 25, PostgreSQL Testcontainers `postgres:18.0-alpine`
