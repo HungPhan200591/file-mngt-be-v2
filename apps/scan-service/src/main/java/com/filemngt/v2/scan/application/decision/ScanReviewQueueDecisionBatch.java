@@ -4,7 +4,10 @@ import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.review.ScanReviewProjectionReadStore;
+import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.approval.ApprovalOperationGuard;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
@@ -52,14 +55,14 @@ public class ScanReviewQueueDecisionBatch {
         var candidates = projection.candidates("PENDING", rootKey, search, scanRunId);
         if (candidates.isEmpty()) return 0;
         candidates.stream()
-                .map(candidate -> candidate.scanRunId())
+                .map(ScanReviewProjectionReadStore.Candidate::scanRunId)
                 .distinct()
                 .sorted()
-                .forEach(id -> runs.findByIdForUpdate(id));
+                .forEach(runs::findByIdForUpdate);
         approvalGuard.ensureInactive(
-                candidates.stream().map(candidate -> candidate.scanRunId()).toList());
+                candidates.stream().map(ScanReviewProjectionReadStore.Candidate::scanRunId).toList());
         var rootKeys = candidates.stream()
-                .map(candidate -> candidate.rootKey())
+                .map(ScanReviewProjectionReadStore.Candidate::rootKey)
                 .distinct()
                 .sorted()
                 .toList();
@@ -67,20 +70,20 @@ public class ScanReviewQueueDecisionBatch {
         var proposalById =
                 proposals
                         .findAllById(candidates.stream()
-                                .map(candidate -> candidate.proposalId())
+                                .map(ScanReviewProjectionReadStore.Candidate::proposalId)
                                 .toList())
                         .stream()
-                        .collect(Collectors.toMap(proposal -> proposal.id(), proposal -> proposal));
+                        .collect(Collectors.toMap(ScanProposalEntity::id, proposal -> proposal));
         var runById = runs
                 .findAllById(candidates.stream()
-                        .map(candidate -> candidate.scanRunId())
+                        .map(ScanReviewProjectionReadStore.Candidate::scanRunId)
                         .toList())
                 .stream()
-                .collect(Collectors.toMap(run -> run.id(), run -> run));
+                .collect(Collectors.toMap(ScanRunEntity::id, run -> run));
         var decidedIds =
                 decisions
                         .findAllById(candidates.stream()
-                                .map(candidate -> candidate.proposalId())
+                                .map(ScanReviewProjectionReadStore.Candidate::proposalId)
                                 .toList())
                         .stream()
                         .map(ScanDecisionEntity::proposalId)
@@ -109,21 +112,21 @@ public class ScanReviewQueueDecisionBatch {
         var candidates = projection.candidates("REJECTED", rootKey, search, scanRunId);
         if (candidates.isEmpty()) return 0;
         candidates.stream()
-                .map(candidate -> candidate.scanRunId())
+                .map(ScanReviewProjectionReadStore.Candidate::scanRunId)
                 .distinct()
                 .sorted()
-                .forEach(id -> runs.findByIdForUpdate(id));
+                .forEach(runs::findByIdForUpdate);
         approvalGuard.ensureInactive(
-                candidates.stream().map(candidate -> candidate.scanRunId()).toList());
+                candidates.stream().map(ScanReviewProjectionReadStore.Candidate::scanRunId).toList());
         candidates.stream()
-                .map(candidate -> candidate.rootKey())
+                .map(ScanReviewProjectionReadStore.Candidate::rootKey)
                 .distinct()
                 .sorted()
                 .forEach(projection::lock);
         var rejected =
                 decisions
                         .findAllById(candidates.stream()
-                                .map(candidate -> candidate.proposalId())
+                                .map(ScanReviewProjectionReadStore.Candidate::proposalId)
                                 .toList())
                         .stream()
                         .filter(decision -> "REJECT".equals(decision.decision()))
