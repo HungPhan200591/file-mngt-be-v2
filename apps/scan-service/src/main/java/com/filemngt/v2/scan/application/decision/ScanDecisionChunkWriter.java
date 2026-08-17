@@ -42,8 +42,7 @@ public class ScanDecisionChunkWriter {
             List<ScanOutboxEventEntity> events,
             long leaseSeconds) {
         decisions.assertLease(claim.operationId(), workerId);
-        decisions.insertDecisions(claim.operationId(), writes, approvalProperties.getJdbcBatchSize());
-        decisions.insertOutbox(claim.operationId(), batchId, events, approvalProperties.getJdbcBatchSize());
+        persistDecisionAndOutbox(claim.operationId(), batchId, writes, events);
         if (scanProperties.getReviewProjection().isEnabled()) {
             decisions.lockProjectionRoot(run.rootKey());
             decisions.updateProjection(
@@ -56,6 +55,17 @@ public class ScanDecisionChunkWriter {
                 writes.size(),
                 Instant.now().plusSeconds(leaseSeconds));
         return new ScanDecisionChunkExecutor.ChunkResult(lastProposalId, writes.size(), false);
+    }
+
+    private void persistDecisionAndOutbox(
+            UUID operationId, String batchId, List<DecisionWrite> writes, List<ScanOutboxEventEntity> events) {
+        if (approvalProperties.isCopyEnabled()) {
+            decisions.copyDecisions(operationId, writes);
+            decisions.copyOutbox(operationId, batchId, events);
+            return;
+        }
+        decisions.insertDecisions(operationId, writes, approvalProperties.getJdbcBatchSize());
+        decisions.insertOutbox(operationId, batchId, events, approvalProperties.getJdbcBatchSize());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)

@@ -17,7 +17,7 @@ thế Plan của từng feature:
 | Phạm vi | Owner hiện hành | Trạng thái cần giữ |
 | --- | --- | --- |
 | BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
-| BT-09B — scan decision/outbox chunking | [FT-045](../features/045-scan-decision-chunking/03-plan.md) | Đang implementation; runtime qualification còn pending |
+| BT-09B — scan decision/outbox chunking | [FT-050](../features/050-approval-preparation-acceleration/03-plan.md) | `IMPLEMENTED — VERIFY PENDING`; shard vẫn `shardCount=1` |
 | BT-09C → BT-09G — relay, Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED` theo dependency map |
 
 Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng
@@ -62,12 +62,14 @@ Benchmark tại [ApprovalDecisionChunkingBenchmarkTest.java](../../apps/scan-ser
 
 - seed 1.000.000 proposals trước thời điểm đo;
 - đo từ accept đến batches.process;
-- dùng 40 chunks x 25.000 và jdbcBatchSize=500;
+- dùng 40 chunks x 25.000, `copyEnabled=true`, `preparationParallelism=4`; `jdbcBatchSize=500` chỉ là fallback;
 - bật reWriteBatchedInserts=true;
 - tắt Scan outbox publisher, review projection và worker phụ;
 - assert decision/outbox đủ số lượng sau khi Scan commit.
 
-Số đo khoảng 121 giây chỉ là evidence cho **Scan approval persistence**. Nó không bao gồm:
+Số đo lịch sử khoảng 121 giây chỉ là evidence cho **Scan approval persistence**. Bản FT-050 mới nhất đạt
+81.774 ms (81.774 milliseconds, khoảng 81,8 giây; 12.229 records/s) với PostgreSQL `COPY` và preparation parallelism 4.
+Các số đo này không bao gồm:
 
 ~~~text
 Kafka publish
@@ -210,7 +212,9 @@ Preparation có thể song song:
 - sinh event ID;
 - bulk-validate DELETE_ASSET, tránh inventory lookup N+1.
 
-Queue phải bounded; không preload 1M payload vào memory.
+Preparation chia thành virtual-thread partition bị chặn bởi `preparationParallelism`, không tạo một task cho
+mỗi record. Queue phải bounded; không preload 1M payload vào memory. Khi accept operation, Scan lưu
+`proposalCutoffId` (max proposal id hiện hữu) và mọi page đều áp dụng `proposal.id <= proposalCutoffId`.
 
 ### Commit
 
@@ -219,24 +223,39 @@ Mỗi bounded chunk:
 ~~~text
 BEGIN
   assert lease/fence
-  COPY scan_decision
-  COPY scan_outbox_event
+  PostgreSQL bulk write (COPY mặc định, JDBC batch fallback)
   update cursor/counter/lease
 COMMIT
 ~~~
 
 Decision, outbox và checkpoint cùng transaction. Chunk lỗi rollback toàn chunk; retry không tạo business effect trùng.
 
+### Những phần BT-09B đã apply
+
+| Phần | Implementation hiện tại | Kết quả đã quan sát |
+| --- | --- | --- |
+| Bounded chunk | `chunkSize=25,000`, 40 chunks cho 1M | Giới hạn heap và rollback blast radius |
+| CPU preparation | Virtual-thread partitions, `preparationParallelism=4` | Giảm thời gian chuẩn bị/serialize |
+| DELETE validation | Một bulk inventory query/chunk | Loại bỏ N+1 lookup |
+| Durable write | PostgreSQL `COPY` decision + outbox | `copyEnabled=true` là hot path |
+| Fallback | JDBC batch `500` | Chỉ dùng khi `copy-enabled=false` |
+| Cursor safety | Index `(scan_run_id, id)` + `proposal_cutoff_id` | Không nhận proposal sau accept |
+| Atomicity | Decision + outbox + checkpoint trong `REQUIRES_NEW` | Giữ nguyên invariant durable approval |
+
+Benchmark hiện có của FT-050: `81,774 ms`, `12,229 records/s` cho 1M records. Đây là evidence trước lần
+rerun sau migration V24; chưa dùng để kết luận `QUERY_DB_READY`.
+
 ### Shard policy
 
 Shard là logical partition, không phải bốn business tables. Bảng scan_approval_operation_shard chỉ giữ range/partition, cursor, counter, lease và status; các row vẫn nằm trong scan_proposal, scan_decision, scan_outbox_event.
 
-Khởi đầu:
+Hiện trạng triển khai:
 
 - một DB writer;
 - nhiều CPU preparation workers;
 - shardCount=1;
-- benchmark tăng lên 2 và 4 shard chỉ khi PostgreSQL còn WAL/IOPS/lock/pool headroom.
+- chưa có shard ledger hoặc nhiều DB writer; benchmark tăng lên 2 và 4 shard chỉ khi PostgreSQL còn
+  WAL/IOPS/lock/pool headroom.
 
 Nếu nhiều shard cùng operation, chia theo aggregate identity hoặc range có snapshot. Không chia theo proposal_id nếu downstream không xử lý được event out-of-order của cùng subject.
 
@@ -442,7 +461,7 @@ PostgreSQL declarative partitioning là physical partitioning khác logical shar
 - Snapshot/cutoff.
 - Shard ledger, mặc định một shard.
 - Parallel preparation bounded.
-- COPY decision/outbox cùng chunk transaction.
+- COPY decision/outbox cùng chunk transaction; JDBC batch chỉ là rollback/A-B fallback.
 - Loại duplicate pending index sau query audit.
 - Benchmark 1/2/4 workers; ban đầu một DB writer.
 
@@ -571,4 +590,3 @@ correctness
 ~~~
 
 ApprovalDecisionChunkingBenchmarkTest chỉ là test cho một phase. Qualification đúng phải đo toàn timeline từ acceptedAt đến các watermark và phải chứng minh cả correctness lẫn capacity.
-

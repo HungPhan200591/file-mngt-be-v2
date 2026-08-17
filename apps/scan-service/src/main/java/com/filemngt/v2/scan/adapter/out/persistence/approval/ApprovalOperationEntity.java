@@ -15,6 +15,7 @@ public class ApprovalOperationEntity {
     private UUID id;
 
     private UUID scanRunId;
+    private UUID proposalCutoffId;
 
     @Column(length = 24)
     private String status;
@@ -47,12 +48,18 @@ public class ApprovalOperationEntity {
 
     protected ApprovalOperationEntity() {}
 
-    public ApprovalOperationEntity(UUID id, UUID scanRunId, long expectedRecordCount, Instant acceptedAt) {
+    public ApprovalOperationEntity(
+            UUID id, UUID scanRunId, UUID proposalCutoffId, long expectedRecordCount, Instant acceptedAt) {
         this.id = id;
         this.scanRunId = scanRunId;
+        this.proposalCutoffId = proposalCutoffId;
         this.expectedRecordCount = expectedRecordCount;
         this.acceptedAt = acceptedAt;
         status = "ACCEPTED";
+    }
+
+    public ApprovalOperationEntity(UUID id, UUID scanRunId, long expectedRecordCount, Instant acceptedAt) {
+        this(id, scanRunId, null, expectedRecordCount, acceptedAt);
     }
 
     public void claim(String owner, Instant until) {
@@ -89,6 +96,10 @@ public class ApprovalOperationEntity {
 
     public UUID scanRunId() {
         return scanRunId;
+    }
+
+    public UUID proposalCutoffId() {
+        return proposalCutoffId;
     }
 
     public String status() {

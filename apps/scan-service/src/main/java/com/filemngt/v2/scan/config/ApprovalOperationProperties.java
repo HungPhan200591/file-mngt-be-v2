@@ -19,6 +19,11 @@ public class ApprovalOperationProperties {
     @Min(1)
     private int jdbcBatchSize = 500;
 
+    private boolean copyEnabled = true;
+
+    @Min(1)
+    private int preparationParallelism = 4;
+
     @Min(1)
     private long leaseSeconds = 30;
 
@@ -58,6 +63,22 @@ public class ApprovalOperationProperties {
 
     public void setJdbcBatchSize(int jdbcBatchSize) {
         this.jdbcBatchSize = jdbcBatchSize;
+    }
+
+    public boolean isCopyEnabled() {
+        return copyEnabled;
+    }
+
+    public void setCopyEnabled(boolean copyEnabled) {
+        this.copyEnabled = copyEnabled;
+    }
+
+    public int getPreparationParallelism() {
+        return preparationParallelism;
+    }
+
+    public void setPreparationParallelism(int preparationParallelism) {
+        this.preparationParallelism = preparationParallelism;
     }
 
     public long getLeaseSeconds() {

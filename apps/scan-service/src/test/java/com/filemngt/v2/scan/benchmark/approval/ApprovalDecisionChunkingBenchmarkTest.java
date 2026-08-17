@@ -85,11 +85,13 @@ class ApprovalDecisionChunkingBenchmarkTest {
         assertThat(count("scan_decision", runId)).isEqualTo(proposalCount);
         assertThat(count("scan_outbox_event", runId)).isEqualTo(proposalCount);
         LOGGER.info(
-                "Chunked approval benchmark: rows={}, chunkSize={}, jdbcBatchSize={}, measuredMs={}, "
-                        + "throughputPerSecond={}, postgresImage={}",
+                "Chunked approval benchmark: rows={}, chunkSize={}, jdbcBatchSize={}, copyEnabled={}, "
+                        + "preparationParallelism={}, measuredMs={}, throughputPerSecond={}, postgresImage={}",
                 proposalCount,
                 operationProperties.getChunkSize(),
                 operationProperties.getJdbcBatchSize(),
+                operationProperties.isCopyEnabled(),
+                operationProperties.getPreparationParallelism(),
                 measuredMillis,
                 throughput(proposalCount, measuredMillis),
                 "postgres:18.0-alpine");

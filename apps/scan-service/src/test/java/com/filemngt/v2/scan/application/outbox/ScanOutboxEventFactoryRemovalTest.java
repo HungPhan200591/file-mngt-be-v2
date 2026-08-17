@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application.outbox;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,5 +51,27 @@ class ScanOutboxEventFactoryRemovalTest {
 
         assertThat(outbox.eventType()).isEqualTo("media.file.removed.v1");
         assertThat(outbox.partitionKey()).isEqualTo("jp-video:START-169.mp4");
+    }
+
+    @Test
+    void rejectsBulkValidatedStaleDeleteWithoutIndividualInventoryLookup() {
+        var serializer = mock(OutboxEventSerializer.class);
+        var inventory = mock(ScanFileInventoryRepository.class);
+        var factory = new ScanOutboxEventFactory(mock(ScanEvidenceCodec.class), serializer, inventory);
+        var proposal = new ScanProposalEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "missing.mp4",
+                ScanProfile.JOKE_VIDEO,
+                "DELETE_ASSET",
+                "jp:missing",
+                "missing.mp4",
+                null,
+                "{}");
+        var run = mock(ScanRunEntity.class);
+
+        assertThatThrownBy(() -> factory.createValidatedApproval(
+                        UUID.randomUUID(), proposal.scanRunId(), proposal, run, UUID.randomUUID(), "batch-1", false))
+                .isInstanceOf(ScanOutboxEventFactory.StaleRemovalProposalException.class);
     }
 }

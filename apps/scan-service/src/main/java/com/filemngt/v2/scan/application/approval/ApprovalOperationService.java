@@ -42,9 +42,14 @@ public class ApprovalOperationService {
             throw new InvalidRequestException("Chỉ approve scan run đã COMPLETED");
         }
         guard.ensureInactive(scanRunId);
-        long expected = decisions.countPending(scanRunId);
+        UUID proposalCutoffId = decisions.findProposalCutoff(scanRunId);
+        if (proposalCutoffId == null) {
+            throw new InvalidRequestException("Scan run không có proposal để approve");
+        }
+        long expected = decisions.countPending(scanRunId, proposalCutoffId);
         Instant acceptedAt = Instant.now();
-        var operation = operations.save(new ApprovalOperationEntity(UuidV7.next(), scanRunId, expected, acceptedAt));
+        var operation = operations.save(
+                new ApprovalOperationEntity(UuidV7.next(), scanRunId, proposalCutoffId, expected, acceptedAt));
         return new ApprovalOperationAcceptedView(
                 operation.id(), scanRunId, operation.status(), expected, operation.acceptedAt());
     }

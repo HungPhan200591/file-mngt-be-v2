@@ -29,7 +29,9 @@ class ApprovalOperationServiceTest {
         var guard = mock(ApprovalOperationGuard.class);
         var service = new ApprovalOperationService(runs, operations, decisions, guard);
         when(runs.findByIdForUpdate(scanRunId)).thenReturn(Optional.of(run));
-        when(decisions.countPending(scanRunId)).thenReturn(2L);
+        UUID cutoff = UUID.randomUUID();
+        when(decisions.findProposalCutoff(scanRunId)).thenReturn(cutoff);
+        when(decisions.countPending(scanRunId, cutoff)).thenReturn(2L);
         when(operations.save(any(ApprovalOperationEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var accepted = service.accept(scanRunId);

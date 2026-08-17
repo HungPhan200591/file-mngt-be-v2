@@ -1,14 +1,10 @@
 package com.filemngt.v2.scan.application.decision;
 
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository.DecisionWrite;
-import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.application.approval.ApprovalOperationClaim;
-import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
-import com.filemngt.v2.scan.domain.identity.UuidV7;
+import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -16,16 +12,19 @@ import org.springframework.stereotype.Service;
 @Service
 public class ScanDecisionChunkExecutor {
     private final ScanDecisionJdbcRepository decisions;
-    private final ScanOutboxEventFactory eventFactory;
+    private final ScanDecisionChunkPreparation preparation;
     private final ScanDecisionChunkWriter writer;
+    private final ApprovalOperationProperties properties;
 
     public ScanDecisionChunkExecutor(
             ScanDecisionJdbcRepository decisions,
-            ScanOutboxEventFactory eventFactory,
-            ScanDecisionChunkWriter writer) {
+            ScanDecisionChunkPreparation preparation,
+            ScanDecisionChunkWriter writer,
+            ApprovalOperationProperties properties) {
         this.decisions = decisions;
-        this.eventFactory = eventFactory;
+        this.preparation = preparation;
         this.writer = writer;
+        this.properties = properties;
     }
 
     public ChunkResult execute(
@@ -35,22 +34,25 @@ public class ScanDecisionChunkExecutor {
             int chunkSize,
             int batchOrdinal,
             long leaseSeconds) {
-        var rows = decisions.findPendingChunk(claim.scanRunId(), claim.lastProposalId(), chunkSize);
+        var rows = decisions.findPendingChunk(
+                claim.scanRunId(), claim.proposalCutoffId(), claim.lastProposalId(), chunkSize);
         if (rows.isEmpty()) return writer.complete(claim, workerId);
 
         Instant decidedAt = Instant.now();
         UUID lastProposalId = rows.getLast().id();
         String batchId = "scan-output-%05d".formatted(batchOrdinal);
-        var writes = new ArrayList<DecisionWrite>(rows.size());
-        var events = new ArrayList<ScanOutboxEventEntity>(rows.size());
-        for (var row : rows) {
-            UUID eventId = UuidV7.next();
-            writes.add(new DecisionWrite(row.id(), eventId, decidedAt));
-            events.add(
-                    eventFactory.create(eventId, claim.scanRunId(), row.toEntity(), run, claim.operationId(), batchId));
-        }
+        var prepared =
+                preparation.prepare(claim, run, batchId, rows, decidedAt, properties.getPreparationParallelism());
         return writer.persist(
-                claim, workerId, run, batchId, lastProposalId, decidedAt, writes, events, leaseSeconds);
+                claim,
+                workerId,
+                run,
+                batchId,
+                lastProposalId,
+                decidedAt,
+                prepared.writes(),
+                prepared.events(),
+                leaseSeconds);
     }
 
     public record ChunkResult(UUID lastProposalId, int committedCount, boolean completed) {

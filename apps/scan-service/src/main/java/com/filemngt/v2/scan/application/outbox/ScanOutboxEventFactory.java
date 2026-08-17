@@ -48,9 +48,32 @@ public class ScanOutboxEventFactory {
             ScanRunEntity run,
             UUID operationId,
             String batchId) {
+        return create(eventId, scanId, proposal, run, operationId, batchId, null);
+    }
+
+    /** Tạo event approval sau khi chunk đã bulk-validate trạng thái DELETE_ASSET. */
+    public ScanOutboxEventEntity createValidatedApproval(
+            UUID eventId,
+            UUID scanId,
+            ScanProposalEntity proposal,
+            ScanRunEntity run,
+            UUID operationId,
+            String batchId,
+            boolean deleteAssetStillMissing) {
+        return create(eventId, scanId, proposal, run, operationId, batchId, deleteAssetStillMissing);
+    }
+
+    private ScanOutboxEventEntity create(
+            UUID eventId,
+            UUID scanId,
+            ScanProposalEntity proposal,
+            ScanRunEntity run,
+            UUID operationId,
+            String batchId,
+            Boolean deleteAssetStillMissing) {
         var traceContext = KafkaTracingHeaderPropagation.captureOutboxTraceContext();
         if (ScanCandidateType.DELETE_ASSET.name().equals(proposal.candidateType())) {
-            validateStillMissing(proposal, run);
+            validateStillMissing(proposal, run, deleteAssetStillMissing);
             var event = removedEvent(eventId, scanId, proposal, run, operationId, batchId);
             return new ScanOutboxEventEntity(
                     eventId,
@@ -78,7 +101,13 @@ public class ScanOutboxEventFactory {
                 Instant.now());
     }
 
-    private void validateStillMissing(ScanProposalEntity proposal, ScanRunEntity run) {
+    private void validateStillMissing(ScanProposalEntity proposal, ScanRunEntity run, Boolean prevalidated) {
+        if (prevalidated != null) {
+            if (!prevalidated) {
+                throw new StaleRemovalProposalException(proposal.id());
+            }
+            return;
+        }
         boolean missing = inventory
                 .findByRootKeyAndSourceRelativePath(run.rootKey(), proposal.sourceRelativePath())
                 .map(item -> item.state() == ScanFileInventoryState.MISSING)

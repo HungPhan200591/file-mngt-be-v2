@@ -45,6 +45,7 @@ public class ApprovalOperationClaimService {
         return new ApprovalOperationClaim(
                 operation.id(),
                 operation.scanRunId(),
+                operation.proposalCutoffId(),
                 operation.expectedRecordCount(),
                 operation.scanCommittedRecordCount(),
                 operation.sourceBatchCount(),

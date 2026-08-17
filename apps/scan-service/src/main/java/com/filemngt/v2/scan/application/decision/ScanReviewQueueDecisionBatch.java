@@ -59,35 +59,34 @@ public class ScanReviewQueueDecisionBatch {
                 .distinct()
                 .sorted()
                 .forEach(runs::findByIdForUpdate);
-        approvalGuard.ensureInactive(
-                candidates.stream().map(ScanReviewProjectionReadStore.Candidate::scanRunId).toList());
+        approvalGuard.ensureInactive(candidates.stream()
+                .map(ScanReviewProjectionReadStore.Candidate::scanRunId)
+                .toList());
         var rootKeys = candidates.stream()
                 .map(ScanReviewProjectionReadStore.Candidate::rootKey)
                 .distinct()
                 .sorted()
                 .toList();
         rootKeys.forEach(projection::lock);
-        var proposalById =
-                proposals
-                        .findAllById(candidates.stream()
-                                .map(ScanReviewProjectionReadStore.Candidate::proposalId)
-                                .toList())
-                        .stream()
-                        .collect(Collectors.toMap(ScanProposalEntity::id, proposal -> proposal));
+        var proposalById = proposals
+                .findAllById(candidates.stream()
+                        .map(ScanReviewProjectionReadStore.Candidate::proposalId)
+                        .toList())
+                .stream()
+                .collect(Collectors.toMap(ScanProposalEntity::id, proposal -> proposal));
         var runById = runs
                 .findAllById(candidates.stream()
                         .map(ScanReviewProjectionReadStore.Candidate::scanRunId)
                         .toList())
                 .stream()
                 .collect(Collectors.toMap(ScanRunEntity::id, run -> run));
-        var decidedIds =
-                decisions
-                        .findAllById(candidates.stream()
-                                .map(ScanReviewProjectionReadStore.Candidate::proposalId)
-                                .toList())
-                        .stream()
-                        .map(ScanDecisionEntity::proposalId)
-                        .collect(Collectors.toSet());
+        var decidedIds = decisions
+                .findAllById(candidates.stream()
+                        .map(ScanReviewProjectionReadStore.Candidate::proposalId)
+                        .toList())
+                .stream()
+                .map(ScanDecisionEntity::proposalId)
+                .collect(Collectors.toSet());
         var newDecisions = new ArrayList<ScanDecisionEntity>();
         var newEvents = new ArrayList<ScanOutboxEventEntity>();
         Instant now = Instant.now();
@@ -116,21 +115,21 @@ public class ScanReviewQueueDecisionBatch {
                 .distinct()
                 .sorted()
                 .forEach(runs::findByIdForUpdate);
-        approvalGuard.ensureInactive(
-                candidates.stream().map(ScanReviewProjectionReadStore.Candidate::scanRunId).toList());
+        approvalGuard.ensureInactive(candidates.stream()
+                .map(ScanReviewProjectionReadStore.Candidate::scanRunId)
+                .toList());
         candidates.stream()
                 .map(ScanReviewProjectionReadStore.Candidate::rootKey)
                 .distinct()
                 .sorted()
                 .forEach(projection::lock);
-        var rejected =
-                decisions
-                        .findAllById(candidates.stream()
-                                .map(ScanReviewProjectionReadStore.Candidate::proposalId)
-                                .toList())
-                        .stream()
-                        .filter(decision -> "REJECT".equals(decision.decision()))
-                        .toList();
+        var rejected = decisions
+                .findAllById(candidates.stream()
+                        .map(ScanReviewProjectionReadStore.Candidate::proposalId)
+                        .toList())
+                .stream()
+                .filter(decision -> "REJECT".equals(decision.decision()))
+                .toList();
         decisions.deleteAll(rejected);
         var rejectedIds = rejected.stream().map(ScanDecisionEntity::proposalId).collect(Collectors.toSet());
         candidates.stream()
