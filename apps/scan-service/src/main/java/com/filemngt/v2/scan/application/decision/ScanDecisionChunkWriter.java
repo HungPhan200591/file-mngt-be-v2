@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.application.decision;
 
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationShardJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository.DecisionWrite;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
@@ -20,14 +21,17 @@ public class ScanDecisionChunkWriter {
     private final ScanDecisionJdbcRepository decisions;
     private final ApprovalOperationProperties approvalProperties;
     private final ScanProperties scanProperties;
+    private final ApprovalOperationShardJdbcRepository shards;
 
     public ScanDecisionChunkWriter(
             ScanDecisionJdbcRepository decisions,
             ApprovalOperationProperties approvalProperties,
-            ScanProperties scanProperties) {
+            ScanProperties scanProperties,
+            ApprovalOperationShardJdbcRepository shards) {
         this.decisions = decisions;
         this.approvalProperties = approvalProperties;
         this.scanProperties = scanProperties;
+        this.shards = shards;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
@@ -41,19 +45,29 @@ public class ScanDecisionChunkWriter {
             List<DecisionWrite> writes,
             List<ScanOutboxEventEntity> events,
             long leaseSeconds) {
-        decisions.assertLease(claim.operationId(), workerId);
+        if (claim.shardId() != null) shards.assertLease(claim.shardId(), workerId);
+        else decisions.assertLease(claim.operationId(), workerId);
         persistDecisionAndOutbox(claim.operationId(), batchId, writes, events);
         if (scanProperties.getReviewProjection().isEnabled()) {
             decisions.lockProjectionRoot(run.rootKey());
             decisions.updateProjection(
                     claim.operationId(), run.rootKey(), claim.lastProposalId(), lastProposalId, decidedAt);
         }
-        decisions.checkpoint(
-                claim.operationId(),
-                workerId,
-                lastProposalId,
-                writes.size(),
-                Instant.now().plusSeconds(leaseSeconds));
+        if (claim.shardId() != null) {
+            shards.checkpoint(
+                    claim.shardId(),
+                    claim.operationId(),
+                    lastProposalId,
+                    writes.size(),
+                    Instant.now().plusSeconds(leaseSeconds));
+        } else {
+            decisions.checkpoint(
+                    claim.operationId(),
+                    workerId,
+                    lastProposalId,
+                    writes.size(),
+                    Instant.now().plusSeconds(leaseSeconds));
+        }
         return new ScanDecisionChunkExecutor.ChunkResult(lastProposalId, writes.size(), false);
     }
 
@@ -70,8 +84,13 @@ public class ScanDecisionChunkWriter {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
     public ScanDecisionChunkExecutor.ChunkResult complete(ApprovalOperationClaim claim, String workerId) {
-        decisions.assertLease(claim.operationId(), workerId);
-        decisions.complete(claim.operationId(), workerId);
+        if (claim.shardId() != null) {
+            shards.assertLease(claim.shardId(), workerId);
+            shards.complete(claim.shardId(), claim.operationId(), workerId);
+        } else {
+            decisions.assertLease(claim.operationId(), workerId);
+            decisions.complete(claim.operationId(), workerId);
+        }
         return ScanDecisionChunkExecutor.ChunkResult.completedResult();
     }
 }

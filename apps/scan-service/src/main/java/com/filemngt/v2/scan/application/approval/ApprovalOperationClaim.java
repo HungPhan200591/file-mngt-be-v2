@@ -4,9 +4,12 @@ import java.util.UUID;
 
 /** Snapshot immutable được trả sau khi transaction claim đã commit. */
 public record ApprovalOperationClaim(
+        UUID shardId,
         UUID operationId,
         UUID scanRunId,
         UUID proposalCutoffId,
+        int shardNumber,
+        int shardCount,
         long expectedRecordCount,
         long committedRecordCount,
         int sourceBatchCount,
@@ -18,14 +21,27 @@ public record ApprovalOperationClaim(
             long committedRecordCount,
             int sourceBatchCount,
             UUID lastProposalId) {
-        this(operationId, scanRunId, null, expectedRecordCount, committedRecordCount, sourceBatchCount, lastProposalId);
+        this(
+                null,
+                operationId,
+                scanRunId,
+                null,
+                0,
+                1,
+                expectedRecordCount,
+                committedRecordCount,
+                sourceBatchCount,
+                lastProposalId);
     }
 
     public ApprovalOperationClaim withCursor(UUID cursor) {
         return new ApprovalOperationClaim(
+                shardId,
                 operationId,
                 scanRunId,
                 proposalCutoffId,
+                shardNumber,
+                shardCount,
                 expectedRecordCount,
                 committedRecordCount,
                 sourceBatchCount,

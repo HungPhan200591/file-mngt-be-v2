@@ -1,7 +1,11 @@
 package com.filemngt.v2.scan.application.approval;
 
 import com.filemngt.v2.scan.application.decision.ScanRunDecisionBatch;
+import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
+import jakarta.annotation.PreDestroy;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,21 +21,36 @@ public class ApprovalOperationWorker {
     private final ApprovalOperationClaimService claims;
     private final ApprovalOperationStateService states;
     private final ScanRunDecisionBatch batches;
-    private final String workerId = "approval-" + UuidV7.next();
+    private final ApprovalOperationProperties properties;
+    private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
 
     public ApprovalOperationWorker(
-            ApprovalOperationClaimService claims, ApprovalOperationStateService states, ScanRunDecisionBatch batches) {
+            ApprovalOperationClaimService claims,
+            ApprovalOperationStateService states,
+            ScanRunDecisionBatch batches,
+            ApprovalOperationProperties properties) {
         this.claims = claims;
         this.states = states;
         this.batches = batches;
+        this.properties = properties;
     }
 
     @Scheduled(fixedDelayString = "${scan.approval-operation.fixed-delay-ms:250}")
     public void processNext() {
-        claims.claim(workerId).ifPresent(this::process);
+        for (int index = 0; index < properties.getShardCount(); index++) {
+            workers.submit(() -> {
+                String workerId = "approval-" + UuidV7.next();
+                claims.claim(workerId).ifPresent(claim -> process(claim, workerId));
+            });
+        }
     }
 
-    private void process(ApprovalOperationClaim claim) {
+    @PreDestroy
+    void shutdown() {
+        workers.close();
+    }
+
+    private void process(ApprovalOperationClaim claim, String workerId) {
         try {
             batches.process(claim, workerId);
         } catch (RuntimeException failure) {
@@ -40,7 +59,7 @@ public class ApprovalOperationWorker {
                     claim.operationId(),
                     claim.scanRunId(),
                     failure.getClass().getSimpleName());
-            states.retryOrFail(claim.operationId(), workerId, failure);
+            states.retryOrFail(claim, workerId, failure);
         }
     }
 }

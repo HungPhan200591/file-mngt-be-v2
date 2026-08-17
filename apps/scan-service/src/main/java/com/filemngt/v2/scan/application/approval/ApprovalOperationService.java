@@ -2,6 +2,7 @@ package com.filemngt.v2.scan.application.approval;
 
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationShardJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ApprovalOperationAcceptedView;
@@ -9,6 +10,7 @@ import com.filemngt.v2.scan.application.dto.ApprovalOperationStatusView;
 import com.filemngt.v2.scan.application.exception.ApprovalOperationNotFoundException;
 import com.filemngt.v2.scan.application.exception.InvalidRequestException;
 import com.filemngt.v2.scan.application.exception.ScanRunNotFoundException;
+import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
 import com.filemngt.v2.scan.domain.scan.ScanRunStatus;
 import java.time.Instant;
@@ -23,16 +25,22 @@ public class ApprovalOperationService {
     private final ApprovalOperationRepository operations;
     private final ScanDecisionJdbcRepository decisions;
     private final ApprovalOperationGuard guard;
+    private final ApprovalOperationShardJdbcRepository shards;
+    private final ApprovalOperationProperties properties;
 
     public ApprovalOperationService(
             ScanRunRepository runs,
             ApprovalOperationRepository operations,
             ScanDecisionJdbcRepository decisions,
-            ApprovalOperationGuard guard) {
+            ApprovalOperationGuard guard,
+            ApprovalOperationShardJdbcRepository shards,
+            ApprovalOperationProperties properties) {
         this.runs = runs;
         this.operations = operations;
         this.decisions = decisions;
         this.guard = guard;
+        this.shards = shards;
+        this.properties = properties;
     }
 
     @Transactional
@@ -48,8 +56,9 @@ public class ApprovalOperationService {
         }
         long expected = decisions.countPending(scanRunId, proposalCutoffId);
         Instant acceptedAt = Instant.now();
-        var operation = operations.save(
+        var operation = operations.saveAndFlush(
                 new ApprovalOperationEntity(UuidV7.next(), scanRunId, proposalCutoffId, expected, acceptedAt));
+        shards.initialize(operation.id(), scanRunId, proposalCutoffId, properties.getShardCount());
         return new ApprovalOperationAcceptedView(
                 operation.id(), scanRunId, operation.status(), expected, operation.acceptedAt());
     }

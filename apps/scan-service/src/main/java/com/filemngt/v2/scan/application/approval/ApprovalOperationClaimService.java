@@ -1,7 +1,6 @@
 package com.filemngt.v2.scan.application.approval;
 
-import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationShardJdbcRepository;
 import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import java.time.Instant;
 import java.util.Optional;
@@ -11,44 +10,41 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 /** Claim/reclaim operation trong transaction ngắn bằng `SKIP LOCKED`. */
 public class ApprovalOperationClaimService {
-    private final ApprovalOperationRepository operations;
     private final ApprovalOperationProperties properties;
+    private final ApprovalOperationShardJdbcRepository shards;
 
     public ApprovalOperationClaimService(
-            ApprovalOperationRepository operations, ApprovalOperationProperties properties) {
-        this.operations = operations;
+            ApprovalOperationProperties properties, ApprovalOperationShardJdbcRepository shards) {
         this.properties = properties;
+        this.shards = shards;
     }
 
     @Transactional
     public Optional<ApprovalOperationClaim> claim(String workerId) {
         Instant now = Instant.now();
-        var operation = operations.lockNext(now).stream().findFirst();
-        if (operation.isEmpty()) return Optional.empty();
-        var value = operation.get();
-        if (expired(value, now) || value.attemptCount() >= properties.getMaxAttempts()) {
-            value.fail("APPROVAL_DEADLINE_EXCEEDED", "Approval operation vượt retry/deadline budget");
+        var shard = shards
+                .claimNext(
+                        workerId,
+                        now,
+                        properties.getLeaseSeconds(),
+                        properties.getTotalDeadlineSeconds(),
+                        properties.getMaxAttempts())
+                .stream()
+                .findFirst();
+        if (shard.isEmpty()) {
+            shards.finalizeReadyOperations();
             return Optional.empty();
         }
-        value.claim(workerId, now.plusSeconds(properties.getLeaseSeconds()));
-        return Optional.of(snapshot(value));
-    }
-
-    private boolean expired(ApprovalOperationEntity operation, Instant now) {
-        return !operation
-                .acceptedAt()
-                .plusSeconds(properties.getTotalDeadlineSeconds())
-                .isAfter(now);
-    }
-
-    private ApprovalOperationClaim snapshot(ApprovalOperationEntity operation) {
-        return new ApprovalOperationClaim(
-                operation.id(),
-                operation.scanRunId(),
-                operation.proposalCutoffId(),
-                operation.expectedRecordCount(),
-                operation.scanCommittedRecordCount(),
-                operation.sourceBatchCount(),
-                operation.lastProposalId());
+        return Optional.of(new ApprovalOperationClaim(
+                shard.get().shardId(),
+                shard.get().operationId(),
+                shard.get().scanRunId(),
+                shard.get().proposalCutoffId(),
+                shard.get().shardNumber(),
+                shard.get().shardCount(),
+                shard.get().expectedRecordCount(),
+                shard.get().committedRecordCount(),
+                0,
+                shard.get().lastProposalId()));
     }
 }

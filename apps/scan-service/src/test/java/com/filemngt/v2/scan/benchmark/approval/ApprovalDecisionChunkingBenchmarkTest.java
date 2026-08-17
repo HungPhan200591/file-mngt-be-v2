@@ -8,6 +8,7 @@ import com.filemngt.v2.scan.application.decision.ScanRunDecisionBatch;
 import com.filemngt.v2.scan.benchmark.fixture.ApprovalDecisionBenchmarkFixture;
 import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -75,23 +76,48 @@ class ApprovalDecisionChunkingBenchmarkTest {
 
         long measuredStarted = System.nanoTime();
         var accepted = operations.accept(runId);
-        var claim = claims.claim(workerId).orElseThrow();
-        batches.process(claim, workerId);
+        try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
+            var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (int shard = 0; shard < operationProperties.getShardCount(); shard++) {
+                int shardNumber = shard;
+                futures.add(workers.submit(() -> {
+                    String shardWorkerId = workerId + "-" + shardNumber;
+                    var claim = claims.claim(shardWorkerId).orElseThrow();
+                    batches.process(claim, shardWorkerId);
+                }));
+            }
+            for (var future : futures) {
+                future.get();
+            }
+            claims.claim(workerId + "-finalizer");
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Approval benchmark bị gián đoạn", exception);
+        } catch (java.util.concurrent.ExecutionException exception) {
+            throw new IllegalStateException("Approval benchmark shard thất bại", exception.getCause());
+        }
         long measuredMillis = elapsedMillis(measuredStarted);
 
         var status = operations.status(accepted.operationId());
+        LOGGER.info(
+                "Approval shard state: {}",
+                jdbcTemplate.queryForList(
+                        "SELECT shard_number, status, expected_record_count, committed_record_count "
+                                + "FROM scan_approval_operation_shard WHERE operation_id = ? ORDER BY shard_number",
+                        accepted.operationId()));
         assertThat(status.status()).isEqualTo("APPROVAL_COMMITTED");
         assertThat(status.scanCommittedRecordCount()).isEqualTo(proposalCount);
         assertThat(count("scan_decision", runId)).isEqualTo(proposalCount);
         assertThat(count("scan_outbox_event", runId)).isEqualTo(proposalCount);
         LOGGER.info(
                 "Chunked approval benchmark: rows={}, chunkSize={}, jdbcBatchSize={}, copyEnabled={}, "
-                        + "preparationParallelism={}, measuredMs={}, throughputPerSecond={}, postgresImage={}",
+                        + "preparationParallelism={}, shardCount={}, measuredMs={}, throughputPerSecond={}, postgresImage={}",
                 proposalCount,
                 operationProperties.getChunkSize(),
                 operationProperties.getJdbcBatchSize(),
                 operationProperties.isCopyEnabled(),
                 operationProperties.getPreparationParallelism(),
+                operationProperties.getShardCount(),
                 measuredMillis,
                 throughput(proposalCount, measuredMillis),
                 "postgres:18.0-alpine");

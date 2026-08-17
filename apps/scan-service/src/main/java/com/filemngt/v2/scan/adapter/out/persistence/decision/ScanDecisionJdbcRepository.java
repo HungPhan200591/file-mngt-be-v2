@@ -67,13 +67,16 @@ public class ScanDecisionJdbcRepository {
         return count == null ? 0 : count;
     }
 
-    public List<ProposalRow> findPendingChunk(UUID scanRunId, UUID cutoffId, UUID cursor, int limit) {
+    public List<ProposalRow> findPendingChunk(
+            UUID scanRunId, UUID cutoffId, UUID cursor, int limit, int shardNumber, int shardCount) {
         String sql = cursor == null
-                ? SELECT_FIELDS + " AND proposal.id <= ? ORDER BY proposal.id LIMIT ?"
-                : SELECT_FIELDS + " AND proposal.id <= ? AND proposal.id > ? ORDER BY proposal.id LIMIT ?";
+                ? SELECT_FIELDS
+                        + " AND proposal.id <= ? AND mod(abs(hashtext(proposal.id::text)), ?) = ? ORDER BY proposal.id LIMIT ?"
+                : SELECT_FIELDS
+                        + " AND proposal.id <= ? AND proposal.id > ? AND mod(abs(hashtext(proposal.id::text)), ?) = ? ORDER BY proposal.id LIMIT ?";
         Object[] arguments = cursor == null
-                ? new Object[] {scanRunId, cutoffId, limit}
-                : new Object[] {scanRunId, cutoffId, cursor, limit};
+                ? new Object[] {scanRunId, cutoffId, shardCount, shardNumber, limit}
+                : new Object[] {scanRunId, cutoffId, cursor, shardCount, shardNumber, limit};
         return jdbcTemplate.query(sql, (result, row) -> proposalRow(result), arguments);
     }
 

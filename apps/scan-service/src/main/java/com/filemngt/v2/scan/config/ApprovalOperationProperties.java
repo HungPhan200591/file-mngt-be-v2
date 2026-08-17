@@ -25,6 +25,9 @@ public class ApprovalOperationProperties {
     private int preparationParallelism = 4;
 
     @Min(1)
+    private int shardCount = 1;
+
+    @Min(1)
     private long leaseSeconds = 30;
 
     @Min(1)
@@ -75,6 +78,14 @@ public class ApprovalOperationProperties {
 
     public int getPreparationParallelism() {
         return preparationParallelism;
+    }
+
+    public int getShardCount() {
+        return shardCount;
+    }
+
+    public void setShardCount(int shardCount) {
+        this.shardCount = shardCount;
     }
 
     public void setPreparationParallelism(int preparationParallelism) {

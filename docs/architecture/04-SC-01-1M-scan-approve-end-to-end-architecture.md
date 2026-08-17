@@ -17,7 +17,7 @@ thế Plan của từng feature:
 | Phạm vi | Owner hiện hành | Trạng thái cần giữ |
 | --- | --- | --- |
 | BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
-| BT-09B — scan decision/outbox chunking | [FT-050](../features/050-approval-preparation-acceleration/03-plan.md) | `IMPLEMENTED — VERIFY PENDING`; shard vẫn `shardCount=1` |
+| BT-09B — scan decision/outbox chunking | [FT-051](../features/051-logical-approval-sharding/01-brief.md) | `IMPLEMENTED — SMOKE VERIFIED`; default `shardCount=1`, benchmark 1M cho 2/4 shard còn pending |
 | BT-09C → BT-09G — relay, Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED` theo dependency map |
 
 Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng

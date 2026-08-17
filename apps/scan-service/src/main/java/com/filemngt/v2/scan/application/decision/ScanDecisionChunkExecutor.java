@@ -35,7 +35,12 @@ public class ScanDecisionChunkExecutor {
             int batchOrdinal,
             long leaseSeconds) {
         var rows = decisions.findPendingChunk(
-                claim.scanRunId(), claim.proposalCutoffId(), claim.lastProposalId(), chunkSize);
+                claim.scanRunId(),
+                claim.proposalCutoffId(),
+                claim.lastProposalId(),
+                chunkSize,
+                claim.shardNumber(),
+                claim.shardCount());
         if (rows.isEmpty()) return writer.complete(claim, workerId);
 
         Instant decidedAt = Instant.now();

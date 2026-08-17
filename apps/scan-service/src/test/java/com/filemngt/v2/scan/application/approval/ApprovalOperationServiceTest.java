@@ -8,9 +8,11 @@ import static org.mockito.Mockito.when;
 
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationShardJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import com.filemngt.v2.scan.domain.scan.ScanProfile;
 import java.time.Instant;
 import java.util.Optional;
@@ -27,7 +29,9 @@ class ApprovalOperationServiceTest {
         var operations = mock(ApprovalOperationRepository.class);
         var decisions = mock(ScanDecisionJdbcRepository.class);
         var guard = mock(ApprovalOperationGuard.class);
-        var service = new ApprovalOperationService(runs, operations, decisions, guard);
+        var shards = mock(ApprovalOperationShardJdbcRepository.class);
+        var service = new ApprovalOperationService(
+                runs, operations, decisions, guard, shards, new ApprovalOperationProperties());
         when(runs.findByIdForUpdate(scanRunId)).thenReturn(Optional.of(run));
         UUID cutoff = UUID.randomUUID();
         when(decisions.findProposalCutoff(scanRunId)).thenReturn(cutoff);
