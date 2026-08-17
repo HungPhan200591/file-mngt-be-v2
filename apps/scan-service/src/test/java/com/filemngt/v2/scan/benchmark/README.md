@@ -25,7 +25,10 @@ com.filemngt.v2.scan.benchmark/
 │
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
-│   └── 02-database-set-based-persistence.md
+│   ├── 02-database-set-based-persistence.md
+│   ├── 03-scan-core-pipeline-benchmark.md
+│   ├── 04-inventory-diff-query-benchmark.md
+│   └── 05-legacy-approval-decision-batch-baseline.md
 │
 ├── BENCHMARK_RESULTS.md                   <-- Dashboard tổng hợp chỉ số của tất cả các lần đo
 └── README.md                              <-- Chỉ mục điều hướng & CLI cheat sheet

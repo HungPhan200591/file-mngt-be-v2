@@ -50,7 +50,7 @@ class LegacyScanDecisionBatchBenchmarkIT {
 
     @Test
     void measuresLegacyApproveAllDecisionBatch() {
-        int proposalCount = Integer.getInteger("legacy.benchmark.row-count", 25_000);
+        int proposalCount = Integer.getInteger("legacy.benchmark.row-count", 1_000_000);
         UUID runId = LegacyScanDecisionBenchmarkFixture.seed(jdbcTemplate, proposalCount);
 
         long warmupStarted = System.nanoTime();
