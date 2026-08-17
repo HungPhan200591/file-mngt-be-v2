@@ -1,0 +1,86 @@
+package com.filemngt.v2.scan.config;
+
+import jakarta.validation.constraints.Min;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+@ConfigurationProperties(prefix = "scan.approval-operation")
+@Validated
+/** Giới hạn vận hành riêng cho durable approval operation; không dùng lại lease của scan preview. */
+public class ApprovalOperationProperties {
+    private boolean enabled = true;
+
+    @Min(1)
+    private long fixedDelayMs = 250;
+
+    @Min(1)
+    private int chunkSize = 25_000;
+
+    @Min(1)
+    private int jdbcBatchSize = 500;
+
+    @Min(1)
+    private long leaseSeconds = 30;
+
+    @Min(1)
+    private int maxAttempts = 5;
+
+    @Min(1)
+    private long totalDeadlineSeconds = 120;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public long getFixedDelayMs() {
+        return fixedDelayMs;
+    }
+
+    public void setFixedDelayMs(long fixedDelayMs) {
+        this.fixedDelayMs = fixedDelayMs;
+    }
+
+    public int getChunkSize() {
+        return chunkSize;
+    }
+
+    public void setChunkSize(int chunkSize) {
+        this.chunkSize = chunkSize;
+    }
+
+    public int getJdbcBatchSize() {
+        return jdbcBatchSize;
+    }
+
+    public void setJdbcBatchSize(int jdbcBatchSize) {
+        this.jdbcBatchSize = jdbcBatchSize;
+    }
+
+    public long getLeaseSeconds() {
+        return leaseSeconds;
+    }
+
+    public void setLeaseSeconds(long leaseSeconds) {
+        this.leaseSeconds = leaseSeconds;
+    }
+
+    public int getMaxAttempts() {
+        return maxAttempts;
+    }
+
+    public void setMaxAttempts(int maxAttempts) {
+        this.maxAttempts = maxAttempts;
+    }
+
+    public long getTotalDeadlineSeconds() {
+        return totalDeadlineSeconds;
+    }
+
+    public void setTotalDeadlineSeconds(long totalDeadlineSeconds) {
+        this.totalDeadlineSeconds = totalDeadlineSeconds;
+    }
+}

@@ -6,8 +6,11 @@ import com.filemngt.v2.scan.adapter.in.web.dto.DecisionRequest;
 import com.filemngt.v2.scan.adapter.in.web.dto.IssueRecheckAccepted;
 import com.filemngt.v2.scan.adapter.in.web.dto.StartScanRequest;
 import com.filemngt.v2.scan.adapter.in.web.sse.ScanRunSseStreamAdapter;
+import com.filemngt.v2.scan.application.approval.ApprovalOperationService;
 import com.filemngt.v2.scan.application.bulk.BulkDecisionJobService;
 import com.filemngt.v2.scan.application.decision.ScanDecisionService;
+import com.filemngt.v2.scan.application.dto.ApprovalOperationAcceptedView;
+import com.filemngt.v2.scan.application.dto.ApprovalOperationStatusView;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueIssueView;
 import com.filemngt.v2.scan.application.dto.ReviewQueueProposalView;
@@ -52,6 +55,7 @@ public class ScanController {
     private final ScanDecisionService decisions;
     private final IssueRecheckService rechecks;
     private final BulkDecisionJobService bulkJobs;
+    private final ApprovalOperationService approvalOperations;
     private final ScanRunSseStreamAdapter streams;
 
     public ScanController(
@@ -60,12 +64,14 @@ public class ScanController {
             ScanDecisionService decisions,
             IssueRecheckService rechecks,
             BulkDecisionJobService bulkJobs,
+            ApprovalOperationService approvalOperations,
             ScanRunSseStreamAdapter streams) {
         this.service = service;
         this.queries = queries;
         this.decisions = decisions;
         this.rechecks = rechecks;
         this.bulkJobs = bulkJobs;
+        this.approvalOperations = approvalOperations;
         this.streams = streams;
     }
 
@@ -254,15 +260,16 @@ public class ScanController {
         decisions.reopen(scanId, proposalId);
     }
 
-    /**
-     * API ra quyết định hàng loạt (APPROVE / REJECT) cho TOÀN BỘ proposals của đợt scan.
-     * POST /api/v2/scans/{scanId}/decisions
-     */
-    @PostMapping("/{scanId}/decisions")
-    public BatchDecisionResponse decideAll(@PathVariable UUID scanId, @Valid @RequestBody DecisionRequest request) {
-        LOGGER.info("HTTP POST /api/v2/scans/{}/decisions -> Batch Decision: {}", scanId, request.decision());
-        int count = decisions.decideAll(scanId, request.decision());
-        return new BatchDecisionResponse(scanId, request.decision(), count);
+    @PostMapping("/runs/{scanRunId}/approve")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApprovalOperationAcceptedView approve(@PathVariable UUID scanRunId) {
+        LOGGER.info("HTTP POST /api/v2/scans/runs/{}/approve", scanRunId);
+        return approvalOperations.accept(scanRunId);
+    }
+
+    @GetMapping("/operations/{operationId}/status")
+    public ApprovalOperationStatusView approvalStatus(@PathVariable UUID operationId) {
+        return approvalOperations.status(operationId);
     }
 
     private int valid(int page, int size) {

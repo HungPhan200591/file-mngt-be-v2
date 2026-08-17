@@ -37,13 +37,26 @@ public class ScanOutboxEventFactory {
 
     /** Tạo bản ghi outbox hoàn chỉnh từ proposal đã được duyệt. */
     public ScanOutboxEventEntity create(UUID eventId, UUID scanId, ScanProposalEntity proposal, ScanRunEntity run) {
+        return create(eventId, scanId, proposal, run, null, null);
+    }
+
+    /** Tạo outbox thuộc approval operation; metadata durable phục vụ completion và replay. */
+    public ScanOutboxEventEntity create(
+            UUID eventId,
+            UUID scanId,
+            ScanProposalEntity proposal,
+            ScanRunEntity run,
+            UUID operationId,
+            String batchId) {
         var traceContext = KafkaTracingHeaderPropagation.captureOutboxTraceContext();
         if (ScanCandidateType.DELETE_ASSET.name().equals(proposal.candidateType())) {
             validateStillMissing(proposal, run);
-            var event = removedEvent(eventId, scanId, proposal, run);
+            var event = removedEvent(eventId, scanId, proposal, run, operationId, batchId);
             return new ScanOutboxEventEntity(
                     eventId,
                     proposal.id(),
+                    operationId,
+                    batchId,
                     event.eventType(),
                     removedPartitionKey(event),
                     serializer.serialize(event),
@@ -51,10 +64,12 @@ public class ScanOutboxEventFactory {
                     traceContext.traceparent(),
                     Instant.now());
         }
-        var event = discoveredEvent(eventId, scanId, proposal, run);
+        var event = discoveredEvent(eventId, scanId, proposal, run, operationId, batchId);
         return new ScanOutboxEventEntity(
                 eventId,
                 proposal.id(),
+                operationId,
+                batchId,
                 event.eventType(),
                 partitionKey(event),
                 serializer.serialize(event),
@@ -73,11 +88,19 @@ public class ScanOutboxEventFactory {
         }
     }
 
-    private MediaFileRemovedV1 removedEvent(UUID eventId, UUID scanId, ScanProposalEntity proposal, ScanRunEntity run) {
+    private MediaFileRemovedV1 removedEvent(
+            UUID eventId,
+            UUID scanId,
+            ScanProposalEntity proposal,
+            ScanRunEntity run,
+            UUID operationId,
+            String batchId) {
         return new MediaFileRemovedV1(
                 eventId,
                 REMOVED_EVENT_TYPE,
                 Instant.now(),
+                operationId,
+                batchId,
                 scanId,
                 proposal.id(),
                 run.rootKey(),
@@ -85,12 +108,19 @@ public class ScanOutboxEventFactory {
     }
 
     private MediaFileDiscoveredV2 discoveredEvent(
-            UUID eventId, UUID scanId, ScanProposalEntity proposal, ScanRunEntity run) {
+            UUID eventId,
+            UUID scanId,
+            ScanProposalEntity proposal,
+            ScanRunEntity run,
+            UUID operationId,
+            String batchId) {
         var semantic = evidenceCodec.readSemantic(proposal.evidence());
         return new MediaFileDiscoveredV2(
                 eventId,
                 DISCOVERED_EVENT_TYPE,
                 Instant.now(),
+                operationId,
+                batchId,
                 scanId,
                 proposal.id(),
                 ScanRegion.from(proposal.profile()).name(),

@@ -1,21 +1,14 @@
 package com.filemngt.v2.scan.application.decision;
 
-import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /** Điều phối các biến thể batch để facade quyết định không phải biết chi tiết từng batch owner. */
 @Component
 public class ScanDecisionBatchCoordinator {
-    private final ScanRunDecisionBatch runBatch;
     private final ScanReviewQueueDecisionBatch queueBatch;
 
-    public ScanDecisionBatchCoordinator(ScanRunDecisionBatch runBatch, ScanReviewQueueDecisionBatch queueBatch) {
-        this.runBatch = runBatch;
+    public ScanDecisionBatchCoordinator(ScanReviewQueueDecisionBatch queueBatch) {
         this.queueBatch = queueBatch;
-    }
-
-    public int decideAll(UUID scanId, String decision) {
-        return runBatch.decideAll(scanId, decision);
     }
 
     public int decideQueue(String rootKey, String search, String decision) {

@@ -1,15 +1,22 @@
 package com.filemngt.v2.scan.adapter.out.persistence.run;
 
 import com.filemngt.v2.scan.domain.scan.ScanRunStatus;
+import jakarta.persistence.LockModeType;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /** Repository ownership của aggregate scan run. */
 public interface ScanRunRepository extends JpaRepository<ScanRunEntity, UUID> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select run from ScanRunEntity run where run.id = :runId")
+    Optional<ScanRunEntity> findByIdForUpdate(@Param("runId") UUID runId);
+
     /** Tìm scan đang chạy của một root để ngăn người dùng tạo run song song. */
     List<ScanRunEntity> findByRootKeyAndStatus(String rootKey, ScanRunStatus status);
 

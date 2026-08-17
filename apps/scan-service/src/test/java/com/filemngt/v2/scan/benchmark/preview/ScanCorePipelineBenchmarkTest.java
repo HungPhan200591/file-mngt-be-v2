@@ -71,7 +71,7 @@ import org.testcontainers.utility.DockerImageName;
             "scan.review-projection.enabled=false",
             "scan.bulk-decision.enabled=false",
             "scan.issue-recheck.enabled=false",
-            "spring.task.scheduling.enabled=false"
+            "scan.approval-operation.enabled=false"
         })
 class ScanCorePipelineBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCorePipelineBenchmarkTest.class);

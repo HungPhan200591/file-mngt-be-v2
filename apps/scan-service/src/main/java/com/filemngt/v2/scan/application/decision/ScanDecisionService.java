@@ -7,6 +7,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventReposi
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.application.approval.ApprovalOperationGuard;
 import com.filemngt.v2.scan.application.dto.DecisionView;
 import com.filemngt.v2.scan.application.exception.DecisionConflictException;
 import com.filemngt.v2.scan.application.exception.InvalidRequestException;
@@ -41,6 +42,7 @@ public class ScanDecisionService {
     private final ScanOutboxEventFactory eventFactory;
     private final ScanReviewDecisionProjection projection;
     private final ScanDecisionBatchCoordinator batchCoordinator;
+    private final ApprovalOperationGuard approvalGuard;
 
     public ScanDecisionService(
             ScanRunRepository runs,
@@ -49,7 +51,8 @@ public class ScanDecisionService {
             ScanOutboxEventRepository outbox,
             ScanOutboxEventFactory eventFactory,
             ScanReviewDecisionProjection projection,
-            ScanDecisionBatchCoordinator batchCoordinator) {
+            ScanDecisionBatchCoordinator batchCoordinator,
+            ApprovalOperationGuard approvalGuard) {
         this.runs = runs;
         this.proposals = proposals;
         this.decisions = decisions;
@@ -57,13 +60,15 @@ public class ScanDecisionService {
         this.eventFactory = eventFactory;
         this.projection = projection;
         this.batchCoordinator = batchCoordinator;
+        this.approvalGuard = approvalGuard;
     }
 
     @Transactional
     /** Ghi một quyết định; lặp lại cùng quyết định là idempotent, quyết định khác gây xung đột. */
     public DecisionView decide(UUID scanId, UUID proposalId, String decision) {
         var proposal = findProposal(scanId, proposalId);
-        var run = runs.findById(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
+        var run = runs.findByIdForUpdate(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
+        approvalGuard.ensureInactive(scanId);
         projection.lock(run.rootKey());
         var existing = decisions.findById(proposalId);
         if (existing.isPresent()) {
@@ -88,12 +93,6 @@ public class ScanDecisionService {
     }
 
     @Transactional
-    /** Áp dụng một quyết định cho các proposal chưa được quyết định của một scan run. */
-    public int decideAll(UUID scanId, String decision) {
-        return batchCoordinator.decideAll(scanId, decision);
-    }
-
-    @Transactional
     /** Duyệt/từ chối toàn bộ proposal PENDING theo filter queue trong một transaction. */
     public int decideReviewQueue(String state, String rootKey, String search, String decision) {
         if (!"PENDING".equals(state)) {
@@ -103,6 +102,14 @@ public class ScanDecisionService {
             return batchCoordinator.decideQueue(rootKey, search, decision);
         }
         var candidates = proposals.findReviewQueueForDecision(state, rootKey, search);
+        var candidateRunIds = candidates.stream()
+                .map(ScanProposalEntity::scanRunId)
+                .distinct()
+                .sorted()
+                .toList();
+        candidateRunIds.forEach(id -> runs.findByIdForUpdate(id));
+        approvalGuard.ensureInactive(
+                candidates.stream().map(ScanProposalEntity::scanRunId).collect(Collectors.toSet()));
         var decided = decisions
                 .findAllById(candidates.stream().map(ScanProposalEntity::id).toList())
                 .stream()
@@ -138,6 +145,14 @@ public class ScanDecisionService {
             return batchCoordinator.reopenQueue(rootKey, search);
         }
         var candidates = proposals.findReviewQueueForDecision("REJECTED", rootKey, search);
+        var candidateRunIds = candidates.stream()
+                .map(ScanProposalEntity::scanRunId)
+                .distinct()
+                .sorted()
+                .toList();
+        candidateRunIds.forEach(id -> runs.findByIdForUpdate(id));
+        approvalGuard.ensureInactive(
+                candidates.stream().map(ScanProposalEntity::scanRunId).collect(Collectors.toSet()));
         var runsById = runs
                 .findAllById(
                         candidates.stream().map(ScanProposalEntity::scanRunId).toList())
@@ -165,7 +180,8 @@ public class ScanDecisionService {
     @Transactional
     public void reopen(UUID scanId, UUID proposalId) {
         findProposal(scanId, proposalId);
-        var run = runs.findById(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
+        var run = runs.findByIdForUpdate(scanId).orElseThrow(() -> new ScanRunNotFoundException(scanId));
+        approvalGuard.ensureInactive(scanId);
         projection.lock(run.rootKey());
         var existing = decisions.findById(proposalId);
         if (existing.isEmpty()) return;

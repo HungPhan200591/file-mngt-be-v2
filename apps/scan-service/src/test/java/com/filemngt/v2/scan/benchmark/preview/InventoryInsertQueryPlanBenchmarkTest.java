@@ -31,7 +31,7 @@ import org.testcontainers.utility.DockerImageName;
             "scan.review-projection.enabled=false",
             "scan.bulk-decision.enabled=false",
             "scan.issue-recheck.enabled=false",
-            "spring.task.scheduling.enabled=false"
+            "scan.approval-operation.enabled=false"
         })
 class InventoryInsertQueryPlanBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(InventoryInsertQueryPlanBenchmarkTest.class);

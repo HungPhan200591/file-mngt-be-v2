@@ -8,6 +8,8 @@ public record MediaFileRemovedV1(
         UUID eventId,
         String eventType,
         Instant occurredAt,
+        UUID operationId,
+        String batchId,
         UUID scanId,
         UUID proposalId,
         String storageKey,

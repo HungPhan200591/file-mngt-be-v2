@@ -13,6 +13,8 @@ public record MediaFileDiscoveredV2(
         UUID eventId,
         String eventType,
         Instant timestamp,
+        UUID operationId,
+        String batchId,
         UUID scanRunId,
         UUID proposalId,
         String region,

@@ -1,5 +1,7 @@
 package com.filemngt.v2.scan.adapter.in.web.error;
 
+import com.filemngt.v2.scan.application.exception.ApprovalOperationConflictException;
+import com.filemngt.v2.scan.application.exception.ApprovalOperationNotFoundException;
 import com.filemngt.v2.scan.application.exception.CatalogRegistryUnavailableException;
 import com.filemngt.v2.scan.application.exception.DecisionConflictException;
 import com.filemngt.v2.scan.application.exception.InvalidRequestException;
@@ -21,12 +23,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ScanExceptionHandler {
     private static final URI SCAN_ROOT_UNAVAILABLE_TYPE = URI.create("urn:filemngt:problem:scan-root-unavailable");
 
-    @ExceptionHandler({ScanRunNotFoundException.class, ProposalNotFoundException.class})
+    @ExceptionHandler({
+        ScanRunNotFoundException.class,
+        ProposalNotFoundException.class,
+        ApprovalOperationNotFoundException.class
+    })
     ProblemDetail notFound(RuntimeException e) {
         return problem(HttpStatus.NOT_FOUND, e);
     }
 
-    @ExceptionHandler(ScanRunAlreadyRunningException.class)
+    @ExceptionHandler({ScanRunAlreadyRunningException.class, ApprovalOperationConflictException.class})
     ProblemDetail conflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e);
     }

@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.adapter.out.persistence.outbox;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PostLoad;
@@ -21,6 +22,11 @@ public class ScanOutboxEventEntity implements Persistable<UUID> {
     private boolean isNew = true;
 
     private UUID proposalId;
+    private UUID operationId;
+
+    @Column(length = 64)
+    private String batchId;
+
     private String eventType;
     private String partitionKey;
     private String payload;
@@ -44,8 +50,24 @@ public class ScanOutboxEventEntity implements Persistable<UUID> {
             String correlationId,
             String traceparent,
             Instant createdAt) {
+        this(id, proposalId, null, null, eventType, partitionKey, payload, correlationId, traceparent, createdAt);
+    }
+
+    public ScanOutboxEventEntity(
+            UUID id,
+            UUID proposalId,
+            UUID operationId,
+            String batchId,
+            String eventType,
+            String partitionKey,
+            String payload,
+            String correlationId,
+            String traceparent,
+            Instant createdAt) {
         this.id = id;
         this.proposalId = proposalId;
+        this.operationId = operationId;
+        this.batchId = batchId;
         this.eventType = eventType;
         this.partitionKey = partitionKey;
         this.payload = payload;
@@ -56,6 +78,18 @@ public class ScanOutboxEventEntity implements Persistable<UUID> {
 
     public UUID id() {
         return id;
+    }
+
+    public UUID proposalId() {
+        return proposalId;
+    }
+
+    public UUID operationId() {
+        return operationId;
+    }
+
+    public String batchId() {
+        return batchId;
     }
 
     public String eventType() {

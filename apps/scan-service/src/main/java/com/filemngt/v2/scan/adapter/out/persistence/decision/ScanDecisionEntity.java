@@ -22,14 +22,20 @@ public class ScanDecisionEntity implements Persistable<UUID> {
 
     private String decision;
     private UUID eventId;
+    private UUID operationId;
     private Instant decidedAt;
 
     protected ScanDecisionEntity() {}
 
     public ScanDecisionEntity(UUID proposalId, String decision, UUID eventId, Instant decidedAt) {
+        this(proposalId, decision, eventId, null, decidedAt);
+    }
+
+    public ScanDecisionEntity(UUID proposalId, String decision, UUID eventId, UUID operationId, Instant decidedAt) {
         this.proposalId = proposalId;
         this.decision = decision;
         this.eventId = eventId;
+        this.operationId = operationId;
         this.decidedAt = decidedAt;
     }
 
@@ -43,6 +49,10 @@ public class ScanDecisionEntity implements Persistable<UUID> {
 
     public UUID eventId() {
         return eventId;
+    }
+
+    public UUID operationId() {
+        return operationId;
     }
 
     public Instant decidedAt() {

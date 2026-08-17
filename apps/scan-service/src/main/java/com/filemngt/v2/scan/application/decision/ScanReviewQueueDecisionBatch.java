@@ -6,6 +6,7 @@ import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
+import com.filemngt.v2.scan.application.approval.ApprovalOperationGuard;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxEventFactory;
 import com.filemngt.v2.scan.domain.identity.UuidV7;
 import java.time.Instant;
@@ -27,6 +28,7 @@ public class ScanReviewQueueDecisionBatch {
     private final ScanOutboxEventRepository outbox;
     private final ScanOutboxEventFactory eventFactory;
     private final ScanReviewDecisionProjection projection;
+    private final ApprovalOperationGuard approvalGuard;
 
     public ScanReviewQueueDecisionBatch(
             ScanProposalRepository proposals,
@@ -34,19 +36,28 @@ public class ScanReviewQueueDecisionBatch {
             ScanDecisionRepository decisions,
             ScanOutboxEventRepository outbox,
             ScanOutboxEventFactory eventFactory,
-            ScanReviewDecisionProjection projection) {
+            ScanReviewDecisionProjection projection,
+            ApprovalOperationGuard approvalGuard) {
         this.proposals = proposals;
         this.runs = runs;
         this.decisions = decisions;
         this.outbox = outbox;
         this.eventFactory = eventFactory;
         this.projection = projection;
+        this.approvalGuard = approvalGuard;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int decide(String rootKey, String search, UUID scanRunId, String decision) {
         var candidates = projection.candidates("PENDING", rootKey, search, scanRunId);
         if (candidates.isEmpty()) return 0;
+        candidates.stream()
+                .map(candidate -> candidate.scanRunId())
+                .distinct()
+                .sorted()
+                .forEach(id -> runs.findByIdForUpdate(id));
+        approvalGuard.ensureInactive(
+                candidates.stream().map(candidate -> candidate.scanRunId()).toList());
         var rootKeys = candidates.stream()
                 .map(candidate -> candidate.rootKey())
                 .distinct()
@@ -97,6 +108,13 @@ public class ScanReviewQueueDecisionBatch {
     public int reopen(String rootKey, String search, UUID scanRunId) {
         var candidates = projection.candidates("REJECTED", rootKey, search, scanRunId);
         if (candidates.isEmpty()) return 0;
+        candidates.stream()
+                .map(candidate -> candidate.scanRunId())
+                .distinct()
+                .sorted()
+                .forEach(id -> runs.findByIdForUpdate(id));
+        approvalGuard.ensureInactive(
+                candidates.stream().map(candidate -> candidate.scanRunId()).toList());
         candidates.stream()
                 .map(candidate -> candidate.rootKey())
                 .distinct()

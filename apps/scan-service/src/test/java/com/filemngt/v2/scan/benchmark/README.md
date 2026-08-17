@@ -20,8 +20,7 @@ com.filemngt.v2.scan.benchmark/
 │       └── JdbcBatchReconciliationWriteBenchmarkTest.java <-- Legacy JDBC Batch (84s / 1M)
 │
 ├── approval/                              <-- Scan approval decision/outbox
-│   └── legacy/                            <-- Baseline cũ riêng của approval batch
-│       └── LegacyScanDecisionBatchBenchmarkTest.java <-- Legacy JPA approve-all path
+│   └── ApprovalDecisionChunkingBenchmarkTest.java <-- FT-045 bounded chunk candidate
 │
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
@@ -82,7 +81,7 @@ mvn test -Pbenchmark -pl apps/scan-service -Dtest=ScanCorePipelineBenchmarkTest
 ### ✅ 4. Approval legacy: đo approve-all decision/outbox path:
 ```powershell
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-mvn test -Pbenchmark -pl apps/scan-service -Dtest=LegacyScanDecisionBatchBenchmarkTest
+mvn test -Pbenchmark -pl apps/scan-service -Dtest=ApprovalDecisionChunkingBenchmarkTest
 ```
 
 Profile `benchmark` là bắt buộc. `mvn test` mặc định loại toàn bộ test gắn `@Tag("benchmark")` để

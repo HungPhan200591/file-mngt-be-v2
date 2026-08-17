@@ -39,7 +39,8 @@
 are never emitted. `eventId` is the idempotency key and is deduplicated by Catalog in the same transaction
 as canonical state changes.
 
-`operationId` và `batchId` là required cho approve operation. Chúng phải nằm trong payload/outbox để
+`operationId` và `batchId` là required cho approve operation và nullable cho single decision legacy.
+Chúng phải nằm trong payload/outbox để
 completion counter và replay không phụ thuộc transient Kafka headers. Catalog đếm unique input theo
 `(operationId, eventId)` và đối chiếu `expectedRecordCount` từ `media.approval.watermark.v1`.
 

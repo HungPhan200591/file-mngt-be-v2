@@ -1,9 +1,12 @@
-package com.filemngt.v2.scan.benchmark.approval.legacy;
+package com.filemngt.v2.scan.benchmark.approval;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.filemngt.v2.scan.application.decision.ScanDecisionService;
-import com.filemngt.v2.scan.benchmark.fixture.LegacyScanDecisionBenchmarkFixture;
+import com.filemngt.v2.scan.application.approval.ApprovalOperationClaimService;
+import com.filemngt.v2.scan.application.approval.ApprovalOperationService;
+import com.filemngt.v2.scan.application.decision.ScanRunDecisionBatch;
+import com.filemngt.v2.scan.benchmark.fixture.ApprovalDecisionBenchmarkFixture;
+import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -20,12 +23,19 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** Baseline integration benchmark cho implementation legacy approve-all. */
+/** Benchmark candidate FT-045 cho durable approval operation và bounded chunk processing. */
 @Tag("benchmark")
 @Testcontainers
-@SpringBootTest(properties = {"scan.outbox.enabled=false", "scan.review-projection.enabled=false"})
-class LegacyScanDecisionBatchBenchmarkTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LegacyScanDecisionBatchBenchmarkTest.class);
+@SpringBootTest(
+        properties = {
+            "scan.outbox.enabled=false",
+            "scan.review-projection.enabled=false",
+            "scan.bulk-decision.enabled=false",
+            "scan.issue-recheck.enabled=false",
+            "scan.approval-operation.enabled=false"
+        })
+class ApprovalDecisionChunkingBenchmarkTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApprovalDecisionChunkingBenchmarkTest.class);
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
@@ -34,11 +44,20 @@ class LegacyScanDecisionBatchBenchmarkTest {
     JdbcTemplate jdbcTemplate;
 
     @Autowired
-    ScanDecisionService decisions;
+    ApprovalOperationService operations;
+
+    @Autowired
+    ApprovalOperationClaimService claims;
+
+    @Autowired
+    ScanRunDecisionBatch batches;
+
+    @Autowired
+    ApprovalOperationProperties operationProperties;
 
     @BeforeEach
     void resetDatabase() {
-        LegacyScanDecisionBenchmarkFixture.reset(jdbcTemplate);
+        ApprovalDecisionBenchmarkFixture.reset(jdbcTemplate);
     }
 
     @DynamicPropertySource
@@ -49,53 +68,45 @@ class LegacyScanDecisionBatchBenchmarkTest {
     }
 
     @Test
-    void measuresLegacyApproveAllDecisionBatch() {
-        int proposalCount = Integer.getInteger("legacy.benchmark.row-count", 1_000_000);
-        UUID runId = LegacyScanDecisionBenchmarkFixture.seed(jdbcTemplate, proposalCount);
-
-        long warmupStarted = System.nanoTime();
-        assertThat(decisions.decideAll(runId, "APPROVE")).isEqualTo(proposalCount);
-        long warmupMillis = elapsedMillis(warmupStarted);
-
-        LegacyScanDecisionBenchmarkFixture.reset(jdbcTemplate);
-        runId = LegacyScanDecisionBenchmarkFixture.seed(jdbcTemplate, proposalCount);
-        long usedHeapBefore = usedHeapBytes();
+    void measuresChunkedApprovalDecisionBatch() {
+        int proposalCount = Integer.getInteger("approval.benchmark.row-count", 1_000_000);
+        UUID runId = ApprovalDecisionBenchmarkFixture.seed(jdbcTemplate, proposalCount);
+        String workerId = "benchmark-worker";
 
         long measuredStarted = System.nanoTime();
-        int decided = decisions.decideAll(runId, "APPROVE");
+        var accepted = operations.accept(runId);
+        var claim = claims.claim(workerId).orElseThrow();
+        batches.process(claim, workerId);
         long measuredMillis = elapsedMillis(measuredStarted);
-        long usedHeapAfter = usedHeapBytes();
 
-        assertThat(decided).isEqualTo(proposalCount);
+        var status = operations.status(accepted.operationId());
+        assertThat(status.status()).isEqualTo("APPROVAL_COMMITTED");
+        assertThat(status.scanCommittedRecordCount()).isEqualTo(proposalCount);
         assertThat(count("scan_decision", runId)).isEqualTo(proposalCount);
         assertThat(count("scan_outbox_event", runId)).isEqualTo(proposalCount);
         LOGGER.info(
-                "Legacy decision baseline: rows={}, warmupMs={}, measuredMs={}, "
-                        + "throughputPerSecond={}, heapDeltaMiB={}, postgresImage={}",
+                "Chunked approval benchmark: rows={}, chunkSize={}, jdbcBatchSize={}, measuredMs={}, "
+                        + "throughputPerSecond={}, postgresImage={}",
                 proposalCount,
-                warmupMillis,
+                operationProperties.getChunkSize(),
+                operationProperties.getJdbcBatchSize(),
                 measuredMillis,
                 throughput(proposalCount, measuredMillis),
-                (usedHeapAfter - usedHeapBefore) / (1024.0 * 1024.0),
                 "postgres:18.0-alpine");
     }
 
     private long count(String table, UUID runId) {
-        return jdbcTemplate.queryForObject(
+        Long count = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM " + table + " event "
                         + "JOIN scan_proposal proposal ON proposal.id = event.proposal_id "
                         + "WHERE proposal.scan_run_id = ?",
                 Long.class,
                 runId);
+        return count == null ? 0L : count;
     }
 
     private long elapsedMillis(long started) {
         return (System.nanoTime() - started) / 1_000_000L;
-    }
-
-    private long usedHeapBytes() {
-        Runtime runtime = Runtime.getRuntime();
-        return runtime.totalMemory() - runtime.freeMemory();
     }
 
     private long throughput(int rows, long millis) {
