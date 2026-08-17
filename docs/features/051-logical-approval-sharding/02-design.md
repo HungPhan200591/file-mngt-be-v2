@@ -19,4 +19,5 @@ operation
 ```
 
 Trade-off: shard tăng concurrent PostgreSQL writes và có thể giảm elapsed time, nhưng có thể làm WAL, index,
-FK, disk IOPS hoặc connection pool thành bottleneck. Vì vậy default vẫn là `shardCount=1`.
+FK, disk IOPS hoặc connection pool thành bottleneck. Benchmark hiện tại chọn `shardCount=4` làm default;
+giảm về `1` là rollback knob khi production headroom không đủ.

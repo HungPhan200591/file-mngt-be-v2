@@ -17,7 +17,7 @@ thế Plan của từng feature:
 | Phạm vi | Owner hiện hành | Trạng thái cần giữ |
 | --- | --- | --- |
 | BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
-| BT-09B — scan decision/outbox chunking | [FT-051](../features/051-logical-approval-sharding/01-brief.md) | `IMPLEMENTED — SMOKE VERIFIED`; default `shardCount=1`, benchmark 1M cho 2/4 shard còn pending |
+| BT-09B — scan decision/outbox chunking | [FT-051](../features/051-logical-approval-sharding/01-brief.md) | `IMPLEMENTED — shardCount=4 DEFAULT`; production qualification vẫn pending |
 | BT-09C → BT-09G — relay, Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED` theo dependency map |
 
 Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng
@@ -242,8 +242,22 @@ Decision, outbox và checkpoint cùng transaction. Chunk lỗi rollback toàn ch
 | Cursor safety | Index `(scan_run_id, id)` + `proposal_cutoff_id` | Không nhận proposal sau accept |
 | Atomicity | Decision + outbox + checkpoint trong `REQUIRES_NEW` | Giữ nguyên invariant durable approval |
 
-Benchmark hiện có của FT-050 + V24: `64,086 ms`, `15,604 records/s` cho 1M records. Đây là evidence của
-một DB writer với `shardCount=1`; chưa dùng để kết luận shard parallelism hoặc `QUERY_DB_READY`.
+Benchmark historical của FT-050 + V24: `64,086 ms`, `15,604 records/s` cho 1M records với một DB writer
+(`shardCount=1`); không dùng số này thay cho shard-4 hoặc `QUERY_DB_READY`.
+
+### Evidence logical shard 1M
+
+| `shardCount` | `measuredMs` | `throughputPerSecond` | Trạng thái |
+| ---: | ---: | ---: | --- |
+| 1 | 71,475 | 13,991 | Pass; single-writer baseline |
+| 2 | 40,643 | 24,604 | Pass; ~1.76x shard 1 |
+| 4 | 30,759 | 32,511 | Pass; ~2.32x shard 1, candidate hiện tại |
+| 8 | timeout | — | Fail; transaction timeout tại shard checkpoint |
+
+Đây là bằng chứng Scan approval persistence trên PostgreSQL `18.0-alpine`, `COPY`,
+`preparationParallelism=4`, chunk `25,000`. Kết quả xác nhận không phải cứ tăng worker là nhanh hơn:
+`shardCount=4` đang là điểm cân bằng; shard 8 đã làm DB/transaction lane contention vượt ngưỡng. Không kéo dài
+transaction timeout chỉ để biến lần chạy shard 8 thành pass.
 
 ### Shard policy
 
@@ -253,9 +267,9 @@ Hiện trạng triển khai:
 
 - một DB writer;
 - nhiều CPU preparation workers;
-- shardCount=1;
-- chưa có shard ledger hoặc nhiều DB writer; benchmark tăng lên 2 và 4 shard chỉ khi PostgreSQL còn
-  WAL/IOPS/lock/pool headroom.
+- shardCount=4 (runtime default hiện tại);
+- đã có shard ledger và nhiều bounded shard workers; `shardCount=4` là runtime default theo benchmark hiện tại.
+  `shardCount=8` không đạt do transaction timeout; không tăng thêm nếu chưa có WAL/IOPS/lock/pool evidence.
 
 Nếu nhiều shard cùng operation, chia theo aggregate identity hoặc range có snapshot. Không chia theo proposal_id nếu downstream không xử lý được event out-of-order của cùng subject.
 

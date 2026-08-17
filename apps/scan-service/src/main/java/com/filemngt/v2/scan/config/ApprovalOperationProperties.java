@@ -25,7 +25,7 @@ public class ApprovalOperationProperties {
     private int preparationParallelism = 4;
 
     @Min(1)
-    private int shardCount = 1;
+    private int shardCount = 4;
 
     @Min(1)
     private long leaseSeconds = 30;
