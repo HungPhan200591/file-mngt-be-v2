@@ -1,61 +1,52 @@
-# FT-045 — Plan: Scan Decision & Outbox Chunking (BT-09B)
+# FT-045 — Plan: Durable Scan Approval & Decision Chunking
 
-Status: `IN-REVIEW`  
-Owner: `scan-service`  
-Must Preserve: Idempotency invariant, Transactional Outbox atomicity, `scan_db` ownership.
+Status: `READY`
+Owner: `scan-service`
+Must preserve: transactional outbox atomicity, operation cardinality, lease fencing, `scan_db` ownership.
 
+## 1. Execution capsule
 
----
+- **Owner**: `apps/scan-service/`; shared payload type tại `platform/event-contracts/`.
+- **Scope**:
+  - Migration `V22__add_scan_approval_operation.sql`.
+  - Approval operation persistence/service/worker/status DTO.
+  - `ScanRunDecisionBatch` orchestration và `ScanDecisionChunkExecutor` transaction boundary.
+  - JDBC keyset read + decision/outbox/projection/checkpoint write.
+  - Scan controller endpoints đã chốt trong OpenAPI.
+  - `MediaFileDiscoveredV2`/`MediaFileRemovedV1` operation metadata và callsites.
+  - Unit + PostgreSQL Testcontainers integration tests.
+- **Read on demand**:
+  - [Brief](./01-brief.md), [Design](./02-design.md).
+  - [FT-044 handoff](../044-approve-1m-operation-contract/03-plan.md).
+  - [BT-09B capsule](../../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09b-scan-decision-chunking.md).
 
-## 1. Execution Capsule
+## 2. Implementation steps
 
-- **Owner**: `apps/scan-service/`
-- **Scope / Files**:
-  - `apps/scan-service/src/main/java/com/filemngt/v2/scan/adapter/out/persistence/decision/ScanDecisionJdbcRepository.java` [NEW]
-  - `apps/scan-service/src/main/java/com/filemngt/v2/scan/application/decision/ScanDecisionChunkExecutor.java` [NEW]
-  - `apps/scan-service/src/main/java/com/filemngt/v2/scan/application/decision/ScanRunDecisionBatch.java` [MODIFY]
-  - `apps/scan-service/src/test/java/com/filemngt/v2/scan/application/decision/ScanRunDecisionBatchTest.java` [MODIFY/NEW]
-- **Read on Demand**:
-  - [`01-brief.md`](./01-brief.md)
-  - [`02-design.md`](./02-design.md)
-  - [`ref-bt09b-scan-decision-chunking.md`](../../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09b-scan-decision-chunking.md)
+1. Tạo schema operation, active/claim index và operation metadata trên decision/outbox.
+2. Tạo approval service: lock run, validate `COMPLETED`, count pending, commit `ACCEPTED`, status query.
+3. Tạo claim/retry state service và scheduled worker với operation lease/deadline riêng.
+4. Refactor `ScanRunDecisionBatch` thành non-transactional orchestrator; chunk executor là bean riêng
+   `REQUIRES_NEW`.
+5. Tạo JDBC repository khớp schema thật; batch insert decision/outbox, set-based projection update và
+   conditional checkpoint/finalization.
+6. Bổ sung `operationId`/`batchId` vào event contract/factory/outbox entity; giữ nullable cho single decision.
+7. Wire API `POST approve`/`GET status`; loại bỏ run-wide endpoint đồng bộ cũ không còn trong OpenAPI.
+8. Guard single decision/reopen trước active approval operation.
 
----
+## 3. Verification matrix
 
-## 2. Implementation Steps
+- Unit: accept/status mapping, duplicate active operation, worker retry/fail, batch orchestration.
+- Integration: `0`, `1`, full, exact-multiple, partial; atomic rollback decision/outbox/checkpoint;
+  reclaim từ cursor; operation metadata; opposite/concurrent conflict; cardinality gate.
+- Contract: producer payload deserialize ở Catalog; partition key và event type không đổi.
+- Static: Palantir format, file <500 dòng, `git diff --check`, link/schema/source-of-truth audit.
 
-### Bước 1: Tạo `ScanDecisionJdbcRepository`
-- Sử dụng `JdbcTemplate` với batch update để thực thi các câu lệnh SQL trực tiếp.
-- Phương thức `findProposalChunk(scanId, cursorId, chunkSize)`: Đọc danh sách proposal dưới dạng DTO nhẹ (không hydrate entity).
-- Phương thức `batchInsertDecisions(decisions)`: Batch insert vào `scan_decision`.
-- Phương thức `batchInsertOutboxEvents(events)`: Batch insert vào `scan_outbox_event`.
+Không coi unit mock là bằng chứng transaction. Runtime benchmark/P95/P99 và continuous relay thuộc
+BT-09C/BT-09G, không phải completion gate của FT-045.
 
-### Bước 2: Tạo `ScanDecisionChunkExecutor`
-- Đánh dấu `@Transactional(propagation = Propagation.REQUIRES_NEW)`.
-- Xử lý trọn gói 1 chunk 25.000 bản ghi:
-  1. Đọc 25k records theo cursor.
-  2. Lọc bỏ các proposal đã quyết định (nếu có).
-  3. Sinh payload event và thực thi batch insert DB.
-  4. Trả về kết quả `ChunkResult` (số lượng thành công, ID cuối cùng, cờ `isLastChunk`).
+## 4. Rollback
 
-### Bước 3: Tái cấu trúc `ScanRunDecisionBatch`
-- Thay thế logic `findByScanRunId()` + `saveAll()` cũ bằng vòng lặp điều phối `ScanDecisionChunkExecutor`.
-- Giữ nguyên cơ chế lock phân vùng `projection.lock(run.rootKey())`.
-- Cập nhật state/watermark sau khi tất cả các chunks hoàn tất.
-
-### Bước 4: Viết Unit & Slice Tests
-- Viết test kiểm tra:
-  - Chia đúng 40 chunks khi có 1.000.000 records (hoặc tỉ lệ tương đương ở scale test).
-  - Hoạt động Idempotent khi chạy lại đợt duyệt.
-  - Ghi đúng atomic cả Decision và Outbox Event.
-
----
-
-## 3. Verification & Evidence
-- Chạy unit test suite của `scan-service`: `ScanRunDecisionBatchTest`.
-- Xác minh không có Entity nào bị nạp vào Hibernate Persistence Context trong suốt tiến trình duyệt.
-
----
-
-## 4. Rollback Plan
-- Nếu phát sinh vấn đề tương thích, revert lại `ScanRunDecisionBatch.java` về commit trước đó; database schema của `scan_db` không thay đổi.
+- Revert API/worker/payload producer cùng nhau; không để operation active chạy qua hai runtime version.
+- Migration append-only: nếu cần rollback sau khi đã áp dụng, tạo migration mới để vô hiệu hóa/drop artifact;
+  không sửa `V22`.
+- Local study topic/data có thể reset theo compatibility decision FT-044; không dual-publish.
