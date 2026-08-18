@@ -95,11 +95,12 @@ public class ScanOutboxPublisher {
                 }
                 LOGGER.debug("Published outbox event eventId={} topic={}", event.id(), event.eventType());
             } catch (Exception exception) {
+                var root = unwrap(exception);
                 if (claims == null) {
-                    event.failed(exception);
+                    event.failed(root instanceof Exception ex ? ex : exception);
                     events.save(event);
                 } else {
-                    events.markFailed(event.id(), owner, errorMessage(exception));
+                    events.markFailed(event.id(), owner, errorMessage(root instanceof Exception ex ? ex : exception));
                     metrics.failed();
                 }
                 LOGGER.warn(
@@ -120,14 +121,27 @@ public class ScanOutboxPublisher {
         try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
                 event.correlationId(), event.traceparent(), tracer, propagator)) {
             CompletionStage<Void> acknowledgement;
-            if (claims == null) {
-                messages.publish(event.eventType(), event.partitionKey(), event.payload());
-                acknowledgement = CompletableFuture.completedFuture(null);
-            } else {
-                acknowledgement = messages.publishAsync(event.eventType(), event.partitionKey(), event.payload());
+            try {
+                if (claims == null) {
+                    messages.publish(event.eventType(), event.partitionKey(), event.payload());
+                    acknowledgement = CompletableFuture.completedFuture(null);
+                } else {
+                    acknowledgement = messages.publishAsync(event.eventType(), event.partitionKey(), event.payload());
+                }
+            } catch (Exception exception) {
+                acknowledgement = CompletableFuture.failedFuture(exception);
             }
             return new DispatchedEvent(event, acknowledgement);
         }
+    }
+
+    private static Throwable unwrap(Throwable throwable) {
+        if ((throwable instanceof java.util.concurrent.CompletionException
+                        || throwable instanceof java.util.concurrent.ExecutionException)
+                && throwable.getCause() != null) {
+            return throwable.getCause();
+        }
+        return throwable;
     }
 
     private record DispatchedEvent(
