@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application.outbox;
 
 import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
+import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxMetrics;
 import io.micrometer.tracing.Tracer;
@@ -10,8 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 @Component
 @ConditionalOnProperty(name = "scan.outbox.enabled", havingValue = "true", matchIfMissing = true)
@@ -68,7 +74,8 @@ public class ScanOutboxPublisher {
     /** Publish các event chưa gửi và lưu một lần toàn bộ trạng thái publish/failure đã thay đổi. */
     public void publishPending() {
         var pendingEvents = claims == null
-                ? events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()
+                ? events.findByPublishedAtIsNullOrderByCreatedAtAsc(
+                        PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "createdAt")))
                 : claims.claim(owner, batchSize);
         if (pendingEvents.isEmpty()) {
             return;
@@ -109,13 +116,13 @@ public class ScanOutboxPublisher {
         LOGGER.info("Published Scan outbox batch claimed={} succeeded={}", dispatched.size(), publishedIds.size());
     }
 
-    private DispatchedEvent dispatch(com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity event) {
+    private DispatchedEvent dispatch(ScanOutboxEventEntity event) {
         try (var ignored = KafkaTracingHeaderPropagation.restoreOutboxTraceContext(
                 event.correlationId(), event.traceparent(), tracer, propagator)) {
-            java.util.concurrent.CompletionStage<Void> acknowledgement;
+            CompletionStage<Void> acknowledgement;
             if (claims == null) {
                 messages.publish(event.eventType(), event.partitionKey(), event.payload());
-                acknowledgement = java.util.concurrent.CompletableFuture.completedFuture(null);
+                acknowledgement = CompletableFuture.completedFuture(null);
             } else {
                 acknowledgement = messages.publishAsync(event.eventType(), event.partitionKey(), event.payload());
             }
@@ -124,8 +131,8 @@ public class ScanOutboxPublisher {
     }
 
     private record DispatchedEvent(
-            com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity event,
-            java.util.concurrent.CompletionStage<Void> acknowledgement) {}
+            ScanOutboxEventEntity event,
+            CompletionStage<Void> acknowledgement) {}
 
     private String errorMessage(Exception exception) {
         String message = exception.getMessage();

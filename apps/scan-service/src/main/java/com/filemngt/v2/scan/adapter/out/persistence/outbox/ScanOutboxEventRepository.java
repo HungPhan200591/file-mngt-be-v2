@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,8 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Repository ownership của transactional outbox, chỉ dùng trong Scan Service. */
 public interface ScanOutboxEventRepository extends JpaRepository<ScanOutboxEventEntity, UUID> {
-    /** Lấy batch nhỏ event cũ nhất chưa publish để scheduler gửi theo thứ tự tạo. */
-    List<ScanOutboxEventEntity> findTop20ByPublishedAtIsNullOrderByCreatedAtAsc();
+    /** Lấy số lượng event chưa publish do caller giới hạn, theo thứ tự tạo. */
+    List<ScanOutboxEventEntity> findByPublishedAtIsNullOrderByCreatedAtAsc(Pageable pageable);
 
     @Query(
             value =

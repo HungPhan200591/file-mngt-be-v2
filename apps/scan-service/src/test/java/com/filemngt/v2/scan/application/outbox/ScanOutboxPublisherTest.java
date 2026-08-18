@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 class ScanOutboxPublisherTest {
 
@@ -22,7 +24,9 @@ class ScanOutboxPublisherTest {
         ScanOutboxEventRepository events = mock(ScanOutboxEventRepository.class);
         OutboxMessagePublisher messages = mock(OutboxMessagePublisher.class);
         ScanOutboxEventEntity event = event();
-        when(events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()).thenReturn(List.of(event));
+        when(events.findByPublishedAtIsNullOrderByCreatedAtAsc(
+                        PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "createdAt"))))
+                .thenReturn(List.of(event));
 
         new ScanOutboxPublisher(events, messages, Tracer.NOOP, Propagator.NOOP).publishPending();
 
@@ -38,7 +42,9 @@ class ScanOutboxPublisherTest {
         ScanOutboxEventRepository events = mock(ScanOutboxEventRepository.class);
         OutboxMessagePublisher messages = mock(OutboxMessagePublisher.class);
         ScanOutboxEventEntity event = event();
-        when(events.findTop20ByPublishedAtIsNullOrderByCreatedAtAsc()).thenReturn(List.of(event));
+        when(events.findByPublishedAtIsNullOrderByCreatedAtAsc(
+                        PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "createdAt"))))
+                .thenReturn(List.of(event));
         doThrow(new IllegalStateException("broker unavailable"))
                 .when(messages)
                 .publish(event.eventType(), event.partitionKey(), event.payload());
