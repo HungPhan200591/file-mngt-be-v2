@@ -5,7 +5,7 @@ ADLC trong repository này là quy trình phát triển do AI hỗ trợ nhưng 
 ## Luồng chuẩn
 
 1. **Brief** — vấn đề, phạm vi, acceptance criteria, out-of-scope.
-2. **Design** — service owner, model, API/event, data ownership, performance và failure mode.
+2. **Design** — service owner, model, API/event, data ownership, performance và failure mode. Với module mới: vẽ High Level Design tổng quan. Với refactor/optimize: bắt buộc vẽ 2 sơ đồ Mermaid (As-Is hiện tại và To-Be đích) kèm so sánh và phân tích trade-offs.
 3. **Plan** — thứ tự file/module, migration, verification, rollout/rollback.
 4. **Implement** — Agent chỉ làm theo plan `READY`.
 5. **Verify** — static/integration/contract/manual tùy phạm vi.
