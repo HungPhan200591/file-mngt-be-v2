@@ -40,7 +40,7 @@ public class ScanOutboxPublisher {
             Tracer tracer,
             Propagator propagator,
             @Value("${scan.outbox.instance-id:${HOSTNAME:scan-publisher}}") String owner,
-            @Value("${scan.outbox.batch-size:20}") int batchSize) {
+            @Value("${scan.outbox.batch-size:500}") int batchSize) {
         this.events = events;
         this.claims = claims;
         this.messages = messages;
