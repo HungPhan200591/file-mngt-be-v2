@@ -6,41 +6,47 @@
 
 ## 🧭 1. Bản Đồ Tổng Thể Kiến Trúc PostgreSQL Engine
 
-Trước khi tìm hiểu các kỹ thuật tối ưu, hãy nhìn vào **đường đi của một câu lệnh SQL từ lúc vào CSDL đến khi ghi xuống đĩa**:
+Trước khi tìm hiểu các kỹ thuật tối ưu, hãy nhìn vào **Bản đồ không gian 3 tầng (Query ➔ Memory ➔ Disk)** của PostgreSQL:
 
 ```mermaid
-flowchart TB
-    SQL["Client SQL Query<br/>(SELECT / INSERT / COPY)"] --> PARSER["1. Parser & Rewriter<br/>(Phân tích cú pháp & AST)"]
-    PARSER --> PLANNER["2. Query Optimizer / Planner<br/>(Tạo cây thực thi Execution Plan)"]
-    PLANNER --> EXECUTOR["3. Query Executor<br/>(Thực thi giải thuật Join / Scan)"]
+flowchart LR
+    subgraph QUERY_LAYER["1. TẦNG XỬ LÝ TRUY VẤN"]
+        direction TB
+        SQL["Client SQL Query<br/>(SELECT/INSERT/COPY)"] --> PARSER["Parser &amp; Rewriter<br/>(Cây cú pháp AST)"]
+        PARSER --> PLANNER["Query Optimizer<br/>(Execution Plan)"]
+        PLANNER --> EXECUTOR["Query Executor<br/>(Join/Scan Engine)"]
+    end
 
-    subgraph MEMORY_LAYER["TẦNG BỘ NHỚ RAM (Shared Buffers & Process Memory)"]
-        direction LR
+    subgraph MEM_LAYER["2. TẦNG BỘ NHỚ RAM (Shared Buffers)"]
+        direction TB
         WORK_MEM["work_mem<br/>(Hash / Sort trong RAM)"]
-        BUFFER_POOL["Buffer Pool (Shared Buffers)<br/>Quản lý các Data Pages 8KB"]
+        BUFFER_POOL["Buffer Pool<br/>(Data Pages 8KB)"]
         WAL_BUFFERS["WAL Buffers<br/>(Hàng đợi nhật ký ghi)"]
     end
 
-    EXECUTOR --> MEMORY_LAYER
-
-    subgraph STORAGE_LAYER["TẦNG LƯU TRỮ VẬT LÝ TRÊN ĐĨA (Disk Storage)"]
-        direction LR
+    subgraph DISK_LAYER["3. TẦNG LƯU TRỮ ĐĨA (Storage)"]
+        direction TB
         DISK_DATA[("Data Files (.db)<br/>Random I/O")]
-        DISK_WAL[("WAL Files (.wal)<br/>Sequential Append I/O")]
+        DISK_WAL[("WAL Files (.wal)<br/>Sequential Append")]
     end
 
-    BUFFER_POOL -.->|"Checkpointer flush (Chậm)"| DISK_DATA
-    WAL_BUFFERS -->|"WALWriter fsync (Siêu nhanh)"| DISK_WAL
-
+    EXECUTOR -->|"1. Nạp/Sửa RAM"| BUFFER_POOL
+    EXECUTOR -.->|"Hash Join"| WORK_MEM
+    EXECUTOR -->|"2. Log Commit"| WAL_BUFFERS
+    WAL_BUFFERS -->|"🚀 Fast fsync"| DISK_WAL
+    BUFFER_POOL -.->|"🐢 Checkpoint Flush"| DISK_DATA
+    style QUERY_LAYER fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style SQL fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style PARSER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style PLANNER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style EXECUTOR fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style MEM_LAYER fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style WORK_MEM fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style BUFFER_POOL fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style WAL_BUFFERS fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style WAL_BUFFERS fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DISK_LAYER fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
     style DISK_DATA fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style DISK_WAL fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style DISK_WAL fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -51,11 +57,10 @@ flowchart TB
 
 ### 1️⃣ Data Page (Khối 8KB) & Cấu Trúc Slotted Page
 - **Bản chất**: PostgreSQL **không bao giờ đọc/ghi từng byte lẻ trên đĩa**. Đơn vị nhỏ nhất mà CSDL trao đổi với ổ đĩa là một khối **Data Page có kích thước cố định $8\text{ KB}$ (8192 bytes)**.
-- **Cấu trúc bên trong 1 Data Page 8KB (Slotted Page)**:
-  - **PageHeader (24 bytes)**: Lưu metadata của trang, LSN (Log Sequence Number) mới nhất, con trỏ vùng trống.
-  - **ItemPointers / Line Pointers (4 bytes mỗi dòng)**: Mảng các con trỏ trỏ vào vị trí byte thực tế của từng dòng dữ liệu trong trang.
-  - **Free Space**: Khoảng trống ở giữa trang để chèn thêm dòng mới.
-  - **Tuples (Dữ liệu thực tế)**: Chứa dữ liệu của các dòng, được xếp **từ đáy trang ngược lên đỉnh**.
+- **Cơ chế Slotted Page (2 Đầu Co Giãn)**:
+  - **Phía trên phát triển xuống $\downarrow$**: `PageHeader (24 bytes)` và mảng `ItemPointers (4 bytes/dòng)` trỏ vào vị trí byte của từng tuple.
+  - **Ở giữa**: `Free Space` để chèn thêm dòng mới.
+  - **Phía dưới phát triển lên $\uparrow$**: Các `Tuples (Dữ liệu thực tế)` xếp từ đáy trang ngược lên đỉnh.
 - **Tuple Header Overhead (~24 bytes/row)**:
   - Mỗi dòng dữ liệu (Tuple) luôn mang theo 24 bytes metadata ẩn:
     - `xmin`: Transaction ID tạo ra dòng này.
@@ -64,16 +69,15 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    subgraph PAGE_8KB["Cấu trúc 1 Data Page 8KB trong PostgreSQL"]
+    subgraph PAGE_8KB["Cấu trúc Slotted Page 8KB trong PostgreSQL"]
         direction TB
-        HEADER["PageHeader (24 bytes) - Quản lý trang & LSN"]
-        PTRS["ItemPointers: [Ptr 1 (4B)] [Ptr 2 (4B)] [Ptr 3 (4B)] ➔ (Phát triển xuống)"]
-        FREE["─── Vùng Trống (Free Space) ───"]
-        TUPLES["Tuples: [Row 3] [Row 2] [Row 1] ➔ (Phát triển từ đáy lên)"]
-        
+        HEADER["PageHeader (24B) ➔ Metadata &amp; LSN mới nhất"]
+        PTRS["ItemPointers ➔ [Ptr 1] [Ptr 2] [Ptr 3] (Phát triển xuống ↓)"]
+        FREE["─── Free Space (Vùng trống co giãn) ───"]
+        TUPLES["Tuples ➔ [Row 3] [Row 2] [Row 1] (Phát triển từ đáy lên ↑)<br/>Mỗi Row gánh Header 24B (xmin, xmax, t_ctid)"]
         HEADER --> PTRS --> FREE --> TUPLES
     end
-
+    style PAGE_8KB fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style HEADER fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style PTRS fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style FREE fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
@@ -91,32 +95,38 @@ flowchart TD
   4. Tiến trình chạy ngầm **Checkpointer** sau vài phút mới gom hàng ngàn Dirty Pages để xả (Flush) một lần xuống file dữ liệu trên đĩa.
 
 ```mermaid
-flowchart TD
-    subgraph RAM_BUFFER["TẦNG RAM: Buffer Pool (Shared Buffers)"]
-        direction TB
-        REQ["1. UPDATE / INSERT"] --> LOOKUP{"Trang 8KB<br/>đã có trong RAM?"}
-        LOOKUP -->|"Chưa có (Cache Miss)"| LOAD_PAGE["Đọc Data Page 8KB<br/>từ Đĩa vào RAM"]
-        LOOKUP -->|"Đã có (Cache Hit)"| DIRECT["Truy cập trực tiếp"]
-        LOAD_PAGE --> MUTATE["2. Sửa Byte trong RAM<br/>➔ Trở thành DIRTY PAGE"]
-        DIRECT --> MUTATE
+flowchart LR
+    subgraph CLIENT_APP["1. ỨNG DỤNG"]
+        REQ["Lệnh UPDATE / INSERT"]
     end
 
-    subgraph DISK_LAYER["TẦNG ĐĨA CỨNG (Data Files on Disk)"]
+    subgraph BUFFER_POOL["2. RAM: BUFFER POOL (Shared Buffers)"]
         direction TB
-        CHECKPOINT["Checkpointer Thread<br/>(Chạy ngầm sau vài phút)"]
-        DATA_FILE[("Data File (.db)<br/>Ghi Flush hàng ngàn trang")]
-        CHECKPOINT --> DATA_FILE
+        CACHE_CHECK{"Đã có trong RAM?"}
+        LOAD_RAM["Nạp Page 8KB từ Đĩa"]
+        MUTATE["Sửa Byte trên RAM<br/>➔ DIRTY PAGE"]
+        CACHE_CHECK -->|"Miss"| LOAD_RAM --> MUTATE
+        CACHE_CHECK -->|"Hit"| MUTATE
     end
 
-    MUTATE -.->|"Không ghi đĩa ngay<br/>(Tránh Random I/O)"| CHECKPOINT
+    subgraph DISK_STORE["3. ĐĨA CỨNG (Data Files)"]
+        direction TB
+        CHECKPOINT["Checkpointer Thread<br/>(Gom ngầm sau vài phút)"]
+        DISK_PAGES[("Data Files (.db)<br/>Flush hàng ngàn trang")]
+        CHECKPOINT --> DISK_PAGES
+    end
 
+    REQ --> CACHE_CHECK
+    MUTATE -.->|"Không ghi đĩa ngay<br/>(Bypass Random I/O)"| CHECKPOINT
+    style CLIENT_APP fill:#1565C0,stroke:#fff,stroke-width:2px,color:#fff
     style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style LOOKUP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style LOAD_PAGE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style DIRECT fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style BUFFER_POOL fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style CACHE_CHECK fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style LOAD_RAM fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style MUTATE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DISK_STORE fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
     style CHECKPOINT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DATA_FILE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style DISK_PAGES fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -132,32 +142,34 @@ flowchart TD
   - Tiến trình ngầm **AutoVACUUM** định kỳ phải quét dọn các Dead Tuples này để giải phóng khoảng trống (Free Space) trong trang 8KB cho dòng mới dùng lại.
 
 ```mermaid
-flowchart TD
-    subgraph MVCC_BEFORE["1. TRƯỚC KHI UPDATE (Dòng ban đầu)"]
+flowchart LR
+    subgraph PHASE1["1. BAN ĐẦU (TxID = 100)"]
         direction TB
-        OLD_ROW["Tuple cũ (xmin=100, xmax=0)<br/>Giá trị: status = 'PENDING'"]
+        ROW_V1["Tuple V1 (Live)<br/>xmin=100, xmax=0<br/>status = 'PENDING'"]
     end
 
-    subgraph MVCC_AFTER["2. SAU KHI UPDATE (TxID = 200)"]
+    subgraph PHASE2["2. SAU UPDATE (TxID = 200)"]
         direction TB
-        DEAD_ROW["Tuple cũ (xmin=100, xmax=200)<br/>➔ DEAD TUPLE (Rác)<br/>Vẫn chiếm 8KB Data Page"]
-        NEW_ROW["Tuple mới (xmin=200, xmax=0)<br/>➔ LIVE TUPLE<br/>Giá trị: status = 'APPROVED'"]
-        DEAD_ROW -.->|"t_ctid trỏ tới"| NEW_ROW
+        ROW_DEAD["🛑 Tuple V1 (Dead)<br/>xmin=100, xmax=200<br/>(Rác chiếm 8KB)"]
+        ROW_V2["⚡ Tuple V2 (Live)<br/>xmin=200, xmax=0<br/>status = 'APPROVED'"]
+        ROW_DEAD -.->|"t_ctid trỏ tới"| ROW_V2
     end
 
-    subgraph MVCC_VACUUM["3. SAU KHI AUTOVACUUM DỌN DẸP"]
+    subgraph PHASE3["3. SAU AUTOVACUUM"]
         direction TB
-        FREE_SPACE["Vùng trống (Free Space)<br/>Tái sử dụng cho INSERT mới"]
-        LIVE_ONLY["Tuple sống duy nhất<br/>status = 'APPROVED'"]
+        FREE_SPACE["🧹 Vùng trống (Free Space)<br/>Tái sinh cho INSERT mới"]
+        ROW_LIVE["⚡ Tuple V2 duy nhất<br/>status = 'APPROVED'"]
     end
 
-    MVCC_BEFORE --> MVCC_AFTER --> MVCC_VACUUM
-
-    style OLD_ROW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style DEAD_ROW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style NEW_ROW fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    PHASE1 --> PHASE2 --> PHASE3
+    style PHASE1 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style ROW_V1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style PHASE2 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style ROW_DEAD fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style ROW_V2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style PHASE3 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style FREE_SPACE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style LIVE_ONLY fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style ROW_LIVE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -168,29 +180,30 @@ flowchart TD
 - **Bí quyết tốc độ**: Ghi WAL là **Sequential I/O (Ghi nối tiếp vào cuối file)** nên cực nhanh ($< 0.5\text{ ms}$), trong khi ghi Data Page là **Random I/O (Tìm trang bất kỳ trên đĩa)** tốn tới $5 - 10\text{ ms}$.
 
 ```mermaid
-flowchart TD
-    subgraph COMMIT_PATH["ĐƯỜNG GHI COMMIT NHANH (Hot Path &lt; 0.5ms)"]
+flowchart LR
+    subgraph HOT_PATH["🚀 ĐƯỜNG GHI COMMIT NHANH (< 0.5ms)"]
         direction TB
-        TX_COMMIT["1. Ứng dụng COMMIT"] --> WAL_BUF["2. Ghi Record nhỏ vào WAL Buffer"]
+        TX["1. App COMMIT"] --> WAL_BUF["2. Ghi byte nhỏ vào WAL Buffer"]
         WAL_BUF --> WAL_FSYNC["3. Ghi nối đuôi (Sequential)<br/>vào file .wal + fsync()"]
-        WAL_FSYNC --> ACK(["4. Trả về Thành công (ACK)"])
+        WAL_FSYNC --> ACK(["4. Trả ACK Thành Công"])
     end
 
-    subgraph FLUSH_PATH["ĐƯỜNG GHI DATA PAGE CHẬM (Background Flush)"]
+    subgraph SLOW_PATH["🐢 ĐƯỜNG XẢ DATA PAGE CHẬM (Vài Phút Sau)"]
         direction TB
-        DIRTY_P["Dirty Pages 8KB<br/>nằm tạm trên RAM"] --> CHK_THREAD["Checkpointer định kỳ gom hàng ngàn trang"]
-        CHK_THREAD --> DISK_FLUSH[("Ghi Random I/O xuống<br/>Data Files (.db)")]
+        DIRTY["Dirty Pages 8KB<br/>nằm tạm trên RAM"] --> CHK["Checkpointer gom hàng ngàn trang"]
+        CHK --> FLUSH[("Ghi Random I/O<br/>vào Data Files (.db)")]
     end
 
-    TX_COMMIT -.-> DIRTY_P
-
-    style TX_COMMIT fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    TX -.-> DIRTY
+    style HOT_PATH fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style TX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style WAL_BUF fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style WAL_FSYNC fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style ACK fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style DIRTY_P fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style CHK_THREAD fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DISK_FLUSH fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style SLOW_PATH fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
+    style DIRTY fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style CHK fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style FLUSH fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -204,28 +217,30 @@ Dưới đây là bảng phân tích sâu: **Giải pháp đó làm gì, bypass 
 ### 🚀 Solution 1: PostgreSQL `COPY` Protocol (Thay vì JDBC Batch Insert)
 
 ```mermaid
-flowchart TD
-    subgraph OLD_WAY["Cách truyền thống: JDBC Batch INSERT"]
+flowchart LR
+    subgraph OLD_WAY["🛑 CÁCH TRUYỀN THỐNG: JDBC Batch (14k/s)"]
         direction TB
-        A1["Java: Lặp qua từng DTO"] --> A2["SQL Parser & Planner<br/>Parse câu lệnh INSERT"]
-        A2 --> A3["Type Casting & Parameter Binding<br/>(statement.setObject...)"]
+        A1["Java: Lặp qua từng DTO"] --> A2["SQL Parser &amp; Planner<br/>Parse câu lệnh INSERT"]
+        A2 --> A3["Statement Parameter Binding<br/>(statement.setObject...)"]
         A3 --> A4["Ghi từng tuple vào Data Page"]
     end
 
-    subgraph NEW_WAY["Cách tối ưu V2: PostgreSQL COPY Stream"]
+    subgraph NEW_WAY["🚀 CÁCH TỐI ƯU V2: PostgreSQL COPY (32.5k/s)"]
         direction TB
-        B1["Java: Format mảng byte CSV/Binary"] --> B2["Bỏ qua Parser & Planner<br/>(Bypass hoàn toàn AST)"]
-        B2 --> B3["Stream thẳng byte vào Page Formatter"]
+        B1["Java: Format mảng byte CSV"] --> B2["⚡ BYPASS Parser &amp; Planner<br/>(Bỏ qua hoàn toàn AST)"]
+        B2 --> B3["Stream byte trực tiếp vào Page Formatter"]
         B3 --> B4["Nạp hàng loạt Tuple vào Data Page"]
     end
 
+    style OLD_WAY fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style A1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style B1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style A2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style A3 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style B2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style A4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style NEW_WAY fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style B1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style B2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style B3 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style A4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style B4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
@@ -243,25 +258,27 @@ flowchart TD
 ### 📄 Solution 2: Keyset Pagination (Cursor) Thay vì `OFFSET / LIMIT`
 
 ```mermaid
-flowchart TD
-    subgraph OFFSET_WAY["OFFSET 900.000 LIMIT 25.000 (Chậm O(N))"]
+flowchart LR
+    subgraph OFFSET_WAY["🛑 OFFSET 900.000 (Chậm O(N))"]
         direction TB
-        O1["B-Tree Index Scan"] --> O2["Đọc 900.000 dòng từ đĩa vào RAM"]
-        O2 --> O3["Vứt bỏ 900.000 dòng vừa đọc<br/>(Lãng phí Disk I/O khổng lồ)"]
-        O3 --> O4["Chỉ lấy 25.000 dòng cuối cùng"]
+        O1["B-Tree Index Scan"] --> O2["Đọc 900k dòng từ Đĩa vào RAM"]
+        O2 --> O3["Vứt bỏ 900k dòng vừa đọc<br/>(Lãng phí Disk I/O khổng lồ)"]
+        O3 --> O4["Chỉ lấy 25k dòng cuối"]
     end
 
-    subgraph KEYSET_WAY["WHERE (scan_run_id, id) > cursor LIMIT 25.000 (Nhanh O(log N))"]
+    subgraph KEYSET_WAY["🚀 KEYSET CURSOR (Nhanh O(log N))"]
         direction TB
         K1["B-Tree Index Seek O(log N)<br/>Nhảy thẳng tới vị trí cursor"]
-        K1 --> K2["Đọc đúng 25.000 dòng liên tiếp"]
+        K1 --> K2["Đọc đúng 25k dòng liên tiếp"]
         K2 --> K3["Trả kết quả ngay lập tức<br/>(Zero lãng phí Disk I/O)"]
     end
 
+    style OFFSET_WAY fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style O1 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style O2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style O3 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style O4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style KEYSET_WAY fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style K1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style K2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style K3 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
@@ -279,18 +296,28 @@ flowchart TD
 ### 🔍 Solution 3: Hash Anti-Join (`NOT EXISTS`) Thay vì `NOT IN`
 
 ```mermaid
-flowchart TD
-    subgraph HASH_ANTI_JOIN["Giải thuật Hash Anti-Join trong RAM work_mem"]
+flowchart LR
+    subgraph STAGE_BUILD["1. BUILD PHASE (RAM work_mem)"]
         direction TB
-        STAGE1["1. Build Phase:<br/>Đọc bảng B nạp vào Hash Table trong RAM work_mem (Key = file_hash)"]
-        STAGE2["2. Probe Phase:<br/>Quét bảng A 1 lần. Với mỗi dòng, tra cứu Hash Table O(1)"]
-        STAGE3["Nếu tìm thấy trong Hash Table ➔ Loại bỏ<br/>Nếu KHÔNG tìm thấy ➔ Giữ lại (Changed/New File)"]
-        STAGE1 --> STAGE2 --> STAGE3
+        B1["Đọc toàn bộ bảng B<br/>(Inventory đã biết)"] --> B2["Tạo Hash Table trong RAM<br/>Key = file_hash"]
     end
 
-    style STAGE1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style STAGE2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style STAGE3 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    subgraph STAGE_PROBE["2. PROBE PHASE (Quét 1 Lần)"]
+        direction TB
+        P1["Quét từng dòng bảng A<br/>(Inventory vừa quét)"] --> P2{"Tra cứu Hash Table O(1)"}
+        P2 -->|"Tìm thấy"| P3["Bỏ qua (Trùng lặp)"]
+        P2 -->|"Không thấy"| P4["⚡ Giữ lại (File Mới / Sửa)"]
+    end
+
+    STAGE_BUILD --> STAGE_PROBE
+    style STAGE_BUILD fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style B1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style B2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style STAGE_PROBE fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style P1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style P2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style P3 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style P4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 - **Bản chất**: Dùng phép trừ đại số quan hệ $A \setminus B$ bằng cú pháp `WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.key = a.key)`.
@@ -315,14 +342,15 @@ flowchart LR
 
     subgraph UNLOGGED_FLOW["2. Bảng UNLOGGED Staging"]
         direction TB
-        U_RAM["Ghi Dirty Page trong RAM"] --> U_BYPASS["Bypass 100% Ghi WAL &amp; fsync()"]
+        U_RAM["Ghi Dirty Page trong RAM"] --> U_BYPASS["⚡ BYPASS 100% Ghi WAL &amp; fsync()"]
         U_BYPASS --> U_ACK(["Xác nhận Commit ngay lập tức"])
     end
 
+    style LOGGED_FLOW fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style L_RAM fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style L_WAL fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style L_ACK fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-
+    style UNLOGGED_FLOW fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style U_RAM fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style U_BYPASS fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style U_ACK fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
@@ -340,27 +368,36 @@ flowchart LR
 ### 🧩 Solution 5: Bounded Chunking (25k rows) & Logical Sharding (FT-050 / FT-051)
 
 ```mermaid
-flowchart TB
-    REQ["1.000.000 Proposals"] --> SHARD_SPLIT["Hash Partition: mod(hash(id), 4)"]
-
-    subgraph SHARDS["4 Logical Shard Workers (Virtual Threads)"]
+flowchart LR
+    subgraph INTAKE["1. INTAKE"]
         direction TB
-        S0["Shard 0: Chunks 25k ➔ COPY ➔ Shard Checkpoint"]
-        S1["Shard 1: Chunks 25k ➔ COPY ➔ Shard Checkpoint"]
-        S2["Shard 2: Chunks 25k ➔ COPY ➔ Shard Checkpoint"]
-        S3["Shard 3: Chunks 25k ➔ COPY ➔ Shard Checkpoint"]
+        REQ["1.000.000 Proposals"] --> HASH["Hash Sharding<br/>mod(hash(id), 4)"]
     end
 
-    SHARD_SPLIT --> S0 & S1 & S2 & S3
-    S0 & S1 & S2 & S3 --> AGG{"Tất cả Shard Hoàn Tất?"}
-    AGG -->|"Yes"| COMMIT(["Parent: APPROVAL_COMMITTED"])
+    subgraph WORKERS["2. 4 LOGICAL SHARD WORKERS (Virtual Threads)"]
+        direction TB
+        S0["Shard 0: 25k Chunks ➔ COPY"]
+        S1["Shard 1: 25k Chunks ➔ COPY"]
+        S2["Shard 2: 25k Chunks ➔ COPY"]
+        S3["Shard 3: 25k Chunks ➔ COPY"]
+    end
 
+    subgraph CONVERGE["3. HỘI TỤ (Commit)"]
+        direction TB
+        AGG{"Tất cả Shards<br/>COMPLETED?"} --> COMMIT(["APPROVAL_COMMITTED<br/>(30.8 giây cho 1M files)"])
+    end
+
+    HASH --> S0 & S1 & S2 & S3
+    S0 & S1 & S2 & S3 --> AGG
+    style INTAKE fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SHARD_SPLIT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style HASH fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style WORKERS fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style S0 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style S1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style S2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style S3 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style CONVERGE fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
     style AGG fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
