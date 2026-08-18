@@ -30,6 +30,7 @@ Scenario thật → Deep-dive → Summary → Question bank → failure test / e
 | Database Internals (Storage & Query) | [Deep-dive](./deep-dive/database-internals/README.md) | Chưa xác nhận | — | WAL, Buffer Pool, Anti-Join, work_mem & EXPLAIN |
 | UC-01 — Scan → Catalog ingestion | [Study pack](./use-cases/core-flows/uc-01-scan-to-catalog-canonical-ingestion/README.md) | Chưa xác nhận | — | Ownership, outbox và idempotent consumer |
 | SC-01 — Scan 1M filesystem entry | [Study pack](./use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/README.md) | Chưa xác nhận | — | Lease, checkpoint, chunk commit và backpressure |
+| Flash Sale & Inventory Reservation | [Deep-dive](./deep-dive/high-concurrency-inventory-reservation/README.md) | Chưa xác nhận | — | Two-Phase Stock, Seat Lease, Delayed Queue & Compensation |
 
 ## Lộ trình core theo dependency
 
