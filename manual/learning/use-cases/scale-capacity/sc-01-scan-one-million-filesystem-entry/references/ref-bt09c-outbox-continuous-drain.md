@@ -1,40 +1,39 @@
-# Reference Capsule: BT-09C — Outbox Drain & Bounded Relay
+# Reference Capsule: BT-09C — Outbox Continuous Drain
 
-> Trích xuất từ: `docs/reviews/2026-08-13-approve-5000-query-performance-assessment.md` (Section 2 & P1) & `2026-08-12-backend-quality-architecture-production-readiness.md` (TD-013).
-> Phạm vi: Áp dụng cho Relay worker chuyển event từ outbox table sang Kafka.
+> Execution owner: [FT-052](../../../../../../docs/features/052-outbox-continuous-drain/03-plan.md).
+> Architecture owner: [section 8 — Scan outbox và Kafka](../../../../../../docs/architecture/04-SC-01-1M-scan-approve-end-to-end-architecture.md#8-scan-outbox-và-kafka).
 
----
+## Baseline source hiện tại
 
-## 1. Vấn đề của Outbox Relay cũ
+- `ScanOutboxPublisher` chạy `fixedDelay=50 ms`, claim tối đa 500 record theo `(created_at, id)`.
+- Publisher đã gọi `publishAsync()` cho cả wave trước khi duyệt acknowledgement; bottleneck không còn là
+  publish tuần tự thuần túy như review cũ.
+- Refill vẫn chờ wave hiện tại được duyệt xong và method kết thúc; mỗi wave vẫn chịu scheduler delay.
+- Application window, claim size và lease chưa được tách; lease 30 giây và send timeout 5 giây đang hard-code.
+- Success được conditional bulk mark theo owner; failure mark từng record. Ack thành công nhưng DB mark lỗi có
+  thể publish lại và phải được consumer dedupe bằng `eventId`.
 
-- **`@Scheduled(fixedDelay = 5000)`**: Sau mỗi batch lại bắt buộc sleep 5 giây dù hàng đợi outbox đang có hàng trăm ngàn records chờ drain.
-- **Publish tuần tự (Blocking I/O)**: Gửi từng message rồi block chờ Kafka acknowledgement (`join()` / `get()`) làm throughput bị nghẽn ở mức vài chục msg/s.
-- **Lease Timeout**: Claim một batch quá lớn có nguy cơ giữ DB lock hoặc vượt quá thời hạn lease (30s) trước khi nhận đủ Kafka acks.
+## Thiết kế đã chốt cho FT-052
 
----
+1. **Continuous refill**: khi backlog còn dữ liệu, completion giải phóng slot nào thì claim/refill slot đó;
+   idle delay chỉ dùng khi queue rỗng, breaker mở hoặc time slice yield.
+2. **Bounded application in-flight**: claim không vượt free slots; callback ghi vào completion queue bounded,
+   không mở DB transaction trên Kafka callback thread.
+3. **Lease budget**: producer delivery timeout + acknowledgement slack + conditional-mark budget + safety
+   margin phải nhỏ hơn lease; invalid config fail fast.
+4. **Producer ordering guard**: explicit idempotence, `acks=all`, retries dương,
+   `max.in.flight.requests.per.connection <= 5`; giữ partition key và dispatch order `(createdAt, id)`.
+5. **Backpressure**: oldest pending age, pending count, in-flight saturation và failure/ack latency dùng
+   hysteresis để pause/resume bulk approval claim; interactive lane không bị chặn.
+6. **At-least-once**: publish ngoài DB transaction, conditional mark theo owner, duplicate sau crash/reclaim là
+   hợp lệ và downstream phải dedupe/version-guard.
 
-## 2. Thiết kế Continuous Drain & Bounded In-Flight
+## Capacity/evidence gate
 
-```mermaid
-flowchart TD
-    START(["Drain Loop Trigger"]) --> CLAIM["Claim Bounded Batch (1.000 events)<br/>SELECT ... FOR UPDATE SKIP LOCKED"]
-    CLAIM --> CHECK_EMPTY{"Có event không?"}
-    CHECK_EMPTY -->|Không| SLEEP["Backoff Sleep (1s)"] --> START
-    CHECK_EMPTY -->|Có| ASYNC_SEND["Gửi bất đồng bộ tới Kafka<br/>(KafkaProducer.send với CompletableFuture)"]
-    ASYNC_SEND --> WAIT_BATCH["Chờ Batch Acks với Timeout (ví dụ: 5s)"]
-    WAIT_BATCH --> BULK_UPDATE[("Bulk update trạng thái PUBLISHED<br/>hoặc DELETE đã gửi thành công")]
-    BULK_UPDATE --> CHECK_FULL{"Batch vừa rồi đầy (1.000 items)?"}
-    CHECK_FULL -->|Đầy (còn backlog)| DRAIN_AGAIN["Tiếp tục vòng lặp ngay lập tức<br/>(Không sleep)"] --> CLAIM
-    CHECK_FULL -->|Không đầy (hết backlog)| SLEEP
-```
-
----
-
-## 3. Các quy tắc điều phối bắt buộc
-
-1. **Continuous Drain (Xả liên tục)**: Khi số lượng record claim được bằng đúng kích thước `batchSize`, lập tức kích hoạt chu kỳ claim tiếp theo mà không chờ fixed delay timer.
-2. **Async Fan-Out + Bounded In-Flight**:
-   - Sử dụng Kafka Producer bất đồng bộ và gom Future theo batch.
-   - Giới hạn số lượng event đang bay trên mạng (In-Flight Buffer, ví dụ: tối đa 2.000 - 5.000 messages) để tránh tràn bộ nhớ socket/heap.
-3. **Partition Key Consistency**: Bắt buộc gán partition key theo `subjectIdentity` (hoặc `rootKey`) để các event của cùng một aggregate luôn vào cùng một Kafka partition, đảm bảo thứ tự xử lý downstream.
-4. **Lease Budget Protection**: Timeout cho toàn bộ quá trình gửi + ack một batch phải nhỏ hơn nhiều so với thời hạn lease (Timeout = 5s vs Lease = 30s).
+- Relay chạy chồng lấp với FT-051; không đặt mục tiêu phi thực tế là drain một prefilled backlog 1M trong 4 giây.
+- Baseline FT-051 khoảng 32.511 outbox record/s; candidate relay target là tối thiểu 39.000 record/s với 1,2
+  headroom, cần benchmark xác nhận.
+- Tail target là `<= 4s` từ final outbox commit tới final broker ack/conditional mark cho workload 1M.
+- Bắt buộc đo prefilled và overlapped profile: p50/p95/p99 ack, publish rate, max pending/oldest age, in-flight,
+  DB mark time, broker failure, lease reclaim, duplicate và graceful shutdown.
+- Chưa có runtime evidence thì không kết luận đạt `SLI-03` hay production-ready.

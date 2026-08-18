@@ -35,8 +35,8 @@ BT-09 tương ứng.
 
 - Break-task owner: [BT-09](./04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
 - **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
-- **BT-09B**: Scan decision/outbox chunking (**`Active Focus`**).
-- **BT-09C**: Outbox drain và bounded relay.
+- **BT-09B**: Scan decision/outbox chunking (**`IMPLEMENTED — verification deferred`**, FT-045/050/051).
+- **BT-09C**: Outbox drain và bounded relay (**`READY`** — [FT-052](../../../../../docs/features/052-outbox-continuous-drain/03-plan.md)).
 - **BT-09D–09E**: Catalog coalesce và Query bulk projection.
 - **BT-09F–09G**: Failure evidence và scale ladder 1K → 5K → 50K → 250K → 1M.
 

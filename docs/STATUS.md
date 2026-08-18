@@ -1,6 +1,6 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-17
+Updated: 2026-08-18
 
 ## Gate mới nhất — Production Readiness Review
 
@@ -21,8 +21,8 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 
 ### Roadmap triển khai BT-09 theo thứ tự:
 1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
-2. **`BT-09B — Scan decision/outbox` (IMPLEMENTING — FT-045 durable baseline, FT-050 acceleration code/docs; verification deferred)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded virtual-thread preparation, COPY/JDBC fallback và operation metadata; preliminary benchmark đạt 81,774 ms cho 1M nhưng chưa có runtime qualification đầy đủ.
-3. **`BT-09C — Outbox drain`**: Drain liên tục, bounded in-flight, deadline/backpressure, lease budget và partition ordering.
+2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
+3. **`BT-09C — Outbox drain` (`READY`, [FT-052](./features/052-outbox-continuous-drain/03-plan.md))**: Continuous refill, bounded application in-flight, deadline/backpressure, lease budget, producer ordering guard và tail-drain evidence; implementation chưa bắt đầu.
 
 4. **`BT-09D — Catalog batch/coalesce`**: Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject (giảm event amplification).
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
@@ -80,7 +80,7 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Giai đoạn hiện tại (Active Focus — P0)**: Triển khai **`BT-09B — Scan decision & outbox chunking`** (viết logic chunking `REQUIRES_NEW`, JDBC batching/set-based SQL, kiểm soát WAL và connection pool).
-2. **Giai đoạn tiếp theo của BT-09**: Triển khai lần lượt **`BT-09C`** (Outbox drain) → **`BT-09D`** (Catalog coalesce) → **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**.
+1. **Giai đoạn hiện tại (Active Focus — P0)**: Triển khai [**`FT-052 / BT-09C — Outbox Continuous Drain`**](./features/052-outbox-continuous-drain/03-plan.md); giữ `TD-013` active tới khi có crash/reclaim, duplicate, broker-failure và capacity evidence.
+2. **Giai đoạn tiếp theo của BT-09**: Triển khai lần lượt **`BT-09D`** (Catalog coalesce) → **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**; BT-09B vẫn cần qualification nhưng không chặn bắt đầu relay chạy chồng lấp.
 3. **Giai đoạn sau khi thông luồng SC-01**: Thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
 4. **Giai đoạn phát triển tính năng mới (New Features)**: Triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.
