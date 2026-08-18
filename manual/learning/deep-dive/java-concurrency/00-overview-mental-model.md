@@ -12,6 +12,8 @@ Bức tranh toàn cảnh về cách các khái niệm Concurrency trong Java tư
 
 *(💡 Gợi ý: Bạn có thể click đúp vào file [assets/java-concurrency-mental-model.drawio.svg](assets/java-concurrency-mental-model.drawio.svg) trong IntelliJ để mở trình biên tập Draw.io kéo thả trực quan).*
 
+> 📖 **Đọc chuyên đề tiếp theo:** [🔒 Chuyên khảo Toàn diện về Các loại Lock trong Java (synchronized, ReentrantLock, StampedLock, Semaphore...)](./01-java-locks-deep-dive.md)
+
 ---
 
 ## D0 — Problem: Tại sao Concurrency trong Java lại "rối rắm"?
