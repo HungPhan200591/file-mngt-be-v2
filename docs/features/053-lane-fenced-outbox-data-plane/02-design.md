@@ -9,42 +9,9 @@ Contract impact: không đổi REST/Kafka payload/topic
 
 ### Kiến trúc hiện tại — FT-052 per-event lease/JPA data plane
 
-```mermaid
-flowchart LR
-    subgraph DB["[1] PostgreSQL"]
-        direction TB
-        PENDING[("Pending outbox")]
-        ROWLEASE["Lease từng row"]
-        MARK["Mark theo ID list"]
-    end
-    subgraph APP["[2] Relay app"]
-        direction TB
-        CLAIM["JPA hydrate 500"]
-        WINDOW["Sliding window 500"]
-        COUNT["Exact count polling"]
-    end
-    subgraph BROKER["[3] Kafka"]
-        direction TB
-        TOPIC{{"Discovery topic"}}
-    end
-    PENDING -->|"[1] Lock + select"| CLAIM
-    CLAIM -->|"[2] saveAll lease"| ROWLEASE
-    CLAIM -->|"[3] Dispatch"| WINDOW
-    WINDOW -->|"[4] Publish"| TOPIC
-    TOPIC -.->|"[5] Ack"| WINDOW
-    WINDOW -->|"[6] One DB lane"| MARK
-    COUNT -->|"Hot-loop tax"| PENDING
-    style DB fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
-    style PENDING fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style ROWLEASE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style MARK fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style APP fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
-    style CLAIM fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style WINDOW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style COUNT fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
-    style BROKER fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
-    style TOPIC fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-```
+![FT-052 As-Is JPA Per-Event Lease](./assets/as-is-ft052-jpa-data-plane.drawio.svg)
+
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/as-is-ft052-jpa-data-plane.drawio.svg](./assets/as-is-ft052-jpa-data-plane.drawio.svg) trong IntelliJ để mở trình biên tập Draw.io kéo thả trực quan).*
 
 FT-052 sửa control loop nhưng chưa đổi hình dạng I/O. Với 1M event, relay vẫn ghi lease một lần và ghi
 published một lần trên từng row, đồng thời tạo entity/dirty-check overhead. Immediate-ack benchmark chỉ đạt
@@ -52,47 +19,9 @@ published một lần trên từng row, đồng thời tạo entity/dirty-check 
 
 ### Kiến trúc đích — virtual lane lease + native data plane
 
-```mermaid
-flowchart LR
-    subgraph DB["[1] PostgreSQL"]
-        direction TB
-        EVENTS[("Pending outbox")]
-        LANES[("64 lane ledgers")]
-        INDEX["Partial lane index"]
-        FENCED["Fenced batch mark"]
-    end
-    subgraph APP["[2] Relay engine"]
-        direction TB
-        ACQUIRE["Acquire lane lease"]
-        WORKERS["Bounded lane workers"]
-        DTO["Native JDBC records"]
-        COMPLETE[("Completion queues")]
-    end
-    subgraph BROKER["[3] Kafka"]
-        direction TB
-        TOPIC{{"Discovery topic"}}
-    end
-    LANES -->|"[1] Owner + fence"| ACQUIRE
-    ACQUIRE -->|"[2] Assign lane"| WORKERS
-    INDEX -->|"[3] Keyset fetch"| DTO
-    EVENTS --> INDEX
-    DTO -->|"[4] Publish"| TOPIC
-    TOPIC -.->|"[5] Ack"| COMPLETE
-    COMPLETE -->|"[6] Group by lane"| FENCED
-    FENCED -.->|"[7] Refill"| WORKERS
-    style DB fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
-    style EVENTS fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style LANES fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style INDEX fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style FENCED fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style APP fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
-    style ACQUIRE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKERS fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style DTO fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style COMPLETE fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style BROKER fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
-    style TOPIC fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-```
+![FT-053 To-Be Lane-Fenced Outbox Data Plane](./assets/to-be-ft053-lane-fenced-relay.drawio.svg)
+
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/to-be-ft053-lane-fenced-relay.drawio.svg](./assets/to-be-ft053-lane-fenced-relay.drawio.svg) trong IntelliJ để mở trình biên tập Draw.io kéo thả trực quan).*
 
 ## Quyết định và so sánh
 
