@@ -73,7 +73,12 @@ Mọi số liệu trong dashboard đều có bằng chứng thực nghiệm đ�
 | Thế hệ kiến trúc | Cơ chế thực thi | Workload 25k | Workload 1M | Throughput (25k) | Trạng thái & Đánh giá |
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | **Thế hệ 1 (Legacy Wave)** | `SKIP LOCKED` theo đợt (batch 500) + Fixed Delay 50ms | 6.579 ms | ❌ **Treo ~6 min** | 3.800 events/s | Lãng phí 2.450 ms khoảng chết (49 wave × 50ms) |
-| **Thế hệ 2 (FT-052 Continuous Drain)**| **Sliding Window 500** + Continuous Refill + Pressure Gate | **4.641 ms** | ❌ **Treo / Aborted** | ⚡ **5.387 events/s** | **Throughput tăng +41,8%** (25k); 1M bị nghẽn do JPA entity & count polling $\to$ đang lập phương án tối ưu Native JDBC |
+| **Thế hệ 2 (FT-052 Continuous Drain)**| **Sliding Window 500** + Continuous Refill + Pressure Gate | **4.641 ms** | ❌ **Treo / Aborted** | ⚡ **5.387 events/s** | **Throughput tăng +41,8%** (25k); 1M bị nghẽn do JPA entity, per-event lease và count polling; successor là FT-053 lane-fenced data plane |
+
+**Qualification gate đang mở — chưa phải kết quả đo:** [FT-053 Lane-Fenced Outbox Data Plane](file:///d:/Personal/file-management/v2/file-mngt-be-v2/docs/features/053-lane-fenced-outbox-data-plane/03-plan.md)
+thay per-event JPA lease bằng 64 virtual lane có owner/fence, native JDBC compact fetch và set-based mark.
+Hard floor là 1M `>= 30.000 records/s` (`<= 33.334 ms`) trên cả isolated immediate-ack và real-Kafka profile.
+Không đưa target này vào cột Optimized trước khi có runtime evidence.
 
 ---
 

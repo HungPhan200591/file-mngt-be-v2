@@ -1,6 +1,6 @@
 # FT-052 — Plan: Outbox Continuous Drain & Bounded Relay
 
-Status: `IMPLEMENTED — verification pending`
+Status: `IMPLEMENTED — performance gate failed; superseded by FT-053`
 Owner: `apps/scan-service/`  
 Debt: `TD-013` (chỉ xóa khỏi backlog sau implementation + runtime evidence)  
 Must preserve: transactional decision/outbox, at-least-once delivery, event ID dedupe, partition key,
@@ -114,3 +114,8 @@ Qualification target cho baseline local hiện tại:
   `apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/06-ft052-legacy-outbox-wave-baseline.md`.
 - Chưa có targeted Testcontainers, broker outage/crash/reclaim test hoặc candidate capacity evidence; không suy ra
   production readiness hay xóa `TD-013`.
+- Candidate 25k chỉ đạt `5.387 records/s`; workload 1M không hoàn tất trong phiên đo. FT-052 đã chứng minh lợi
+  ích của continuous refill nhưng không đạt capacity target vì hot path vẫn dùng JPA hydration, per-event lease
+  `saveAll()`, một DB mark lane và benchmark hot-loop `count(*)`.
+- Successor [FT-053](../053-lane-fenced-outbox-data-plane/03-plan.md) thay data plane bằng lane-level lease/fence,
+  native JDBC fetch và set-based mark; hard floor qualification là `>= 30.000 records/s` ở workload 1M.

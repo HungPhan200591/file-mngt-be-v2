@@ -57,5 +57,7 @@ wave/fixed-delay overhead; claim vẫn hydrate JPA entity, `saveAll()` lease cho
 `markPublishedBatch()` theo một DB lane. Candidate benchmark còn gọi `countByPublishedAtIsNull()` trong
 outer loop, nên cần tách polling khỏi relay timing trước khi qualification.
 
-Next optimization: phase timing → native JDBC claim-and-lease `UPDATE ... RETURNING` → scale claim/window
-`500/2.000/5.000` → evaluate multiple owner-fenced lanes → real Kafka/capacity evidence.
+Successor đã chốt tại [FT-053 — Lane-Fenced Outbox Data Plane](../../../../../../../../../../../docs/features/053-lane-fenced-outbox-data-plane/03-plan.md): phase timing → lane-level lease/fence → native JDBC compact fetch →
+set-based fenced mark → bounded multi-worker qualification. Native per-event `UPDATE ... RETURNING` chỉ còn là
+bridge/A-B candidate vì vẫn ghi lease trên toàn bộ 1M row. Hard floor FT-053 là `>= 30.000 records/s` ở 1M;
+real Kafka và overlap với FT-051 phải được đo riêng.

@@ -18,7 +18,8 @@ thế Plan của từng feature:
 | --- | --- | --- |
 | BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
 | BT-09B — scan decision/outbox chunking | [FT-051](../features/051-logical-approval-sharding/01-brief.md) | `IMPLEMENTED — shardCount=4 DEFAULT`; production qualification vẫn pending |
-| BT-09C → BT-09G — relay, Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED` theo dependency map |
+| BT-09C — Scan outbox relay | [FT-053](../features/053-lane-fenced-outbox-data-plane/01-brief.md) | `READY`; FT-052 implementation không đạt performance gate |
+| BT-09D → BT-09G — Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED` theo dependency map |
 
 Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng
 đề xuất ở đây để ghi đè contract/Plan hoặc tuyên bố SLO đã đạt. Khi code khác proposal (ví dụ JDBC batch
@@ -275,16 +276,21 @@ Nếu nhiều shard cùng operation, chia theo aggregate identity hoặc range c
 
 ## 8. Scan outbox và Kafka
 
-Giữ mô hình:
+FT-052 giữ lease trên từng event và đã triển khai continuous refill, nhưng runtime evidence chỉ đạt
+`5.387 records/s` ở 25k; workload 1M không hoàn tất trong phiên đo. Target BT-09C hiện hành thuộc
+[FT-053](../features/053-lane-fenced-outbox-data-plane/02-design.md):
 
 ~~~text
-claim bounded batch
-→ lease commit ngắn
-→ publish Kafka ngoài transaction
-→ conditional mark published theo owner
+claim virtual lane bằng owner + fence token
+→ native read pending event của lane, không ghi lease từng row
+→ publish Kafka ngoài transaction bằng bounded lane workers
+→ conditional batch mark theo lane owner + fence token
 ~~~
 
 Đây là at-least-once có chủ ý. Consumer dedupe theo event ID; không coi broker ack cộng DB mark là exactly-once.
+Hard floor qualification là 1M event `>= 30.000 records/s` (`<= 33.334 ms`) trên isolated và real-Kafka
+profile. Khi relay chạy chồng lấp approval, capacity vẫn phải lớn hơn `p95OutboxCommitRate × 1,2` hoặc pressure
+gate phải chứng minh backlog bounded; 25k không phải evidence thay thế 1M.
 
 Metrics bắt buộc:
 
