@@ -9,48 +9,9 @@
 
 Toàn bộ pipeline Scan Preview được điều phối dựa trên **1 Trục xương sống chính (Backbone 6 Phase)** và **4 Nhánh rẽ phụ (Ancillary Lanes)**:
 
-```mermaid
-flowchart TD
-    START(["Khởi tạo Scan 1M<br/>POST /previews"])
-    
-    subgraph BACKBONE["Trục xương sống chính (Backbone Pipeline)"]
-        direction TB
-        S1["[Phase 1] Cấp Lease<br/>Khóa độc quyền<br/>rootKey (60s)"]
-        S2["[Phase 2] Discovery<br/>Stream COPY 1M<br/>(2 Segments 500k)"]
-        S3["[Phase 3] Set Diff<br/>SQL Anti-Join lọc<br/>changed files"]
-        S4["[Phase 4] Parallel<br/>8 Virtual Threads<br/>(25k items/page)"]
-        S5["[Phase 5] Direct COPY<br/>Ghi proposal + issue<br/>(Binary Stream)"]
-        S6["[Phase 6] Complete<br/>Cập nhật COMPLETED<br/>&amp; Dọn Staging"]
-        
-        S1 --> S2 --> S3 --> S4 --> S5 --> S6
-    end
+![Trục xương sống Backbone và 4 Nhánh rẽ phụ](./assets/deep-dive-scan-preview-pipeline-under-30s/01-backbone-and-ancillary-lanes.drawio.svg)
 
-    subgraph SIDE_BRANCHES["4 Nhánh rẽ phụ (Ancillary Lanes)"]
-        direction TB
-        B1["[Nhánh 1] SSE Stream<br/>Bắn tiến độ realtime<br/>cho giao diện UI"]
-        B2["[Nhánh 2] Catalog<br/>Micro-batch 500<br/>kiểm tra trùng lặp"]
-        B3["[Nhánh 3] Heartbeat<br/>Gia hạn lease 60s<br/>chống zombie worker"]
-        B4["[Nhánh 4] Review Queue<br/>Dựng ngầm Gen 2<br/>&amp; Swap tức thì"]
-    end
-
-    START --> S1
-    S2 -.->|"Bắn tiến độ"| B1
-    S4 -.->|"Kiểm tra trùng"| B2
-    S2 & S5 -.->|"Gia hạn lease"| B3
-    S6 ==>|"Enqueue Task"| B4
-
-    style START fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style S1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style S2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style S3 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style S4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style S5 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style S6 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style B1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style B2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style B3 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
-    style B4 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/deep-dive-scan-preview-pipeline-under-30s/01-backbone-and-ancillary-lanes.drawio.svg](./assets/deep-dive-scan-preview-pipeline-under-30s/01-backbone-and-ancillary-lanes.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 ### 📋 Bảng tra cứu các Chặng trên Trục xương sống:
 
@@ -87,90 +48,9 @@ flowchart TD
 
 Đi sâu vào bên trong Worker, dưới đây là **bóc tách vi phẫu từng luồng xử lý (Thread / I/O / Queue / DB)**:
 
-```mermaid
-flowchart TD
-    subgraph PHASE_1_HTTP["Chặng 1: HTTP API (Sync &lt; 10ms)"]
-        direction TB
-        REQ["[1] Nhận Request<br/>POST /previews"]
-        SNAP["[2] Fetch Registry<br/>(Sync Catalog)"]
-        LEASE["[3] Cấp Lease DB<br/>(Sync Fencing)"]
-        RESP["[4] Trả HTTP 202<br/>(Bàn giao Worker)"]
-        
-        REQ --> SNAP --> LEASE --> RESP
-    end
+![Bản đồ Vi phẫu Sync Async Parallel](./assets/deep-dive-scan-preview-pipeline-under-30s/02-sync-async-parallel-model.drawio.svg)
 
-    subgraph PHASE_2_DISCOVERY["Chặng 2: Discovery 1M (Producer-Consumer)"]
-        direction TB
-        T1["Thread 1: Walker<br/>Đọc đĩa liên tục<br/>(Producer I/O)"]
-        Q(("Queue đệm<br/>(Cap 1.000)"))
-        T2["Thread 2: COPY<br/>Ghi UNLOGGED<br/>scan_inventory_stage"]
-        
-        T1 -->|"queue.put()"| Q
-        Q -->|"queue.take()"| T2
-    end
-
-    subgraph PHASE_3_DIFF["Chặng 3: Set-based Diff (Sync DB Call)"]
-        SQL["SQL Hash Anti-Join<br/>Trừ tập hợp trên DB<br/>(Sync đợi DB)"]
-    end
-
-    subgraph PHASE_4_ANALYZE["Chặng 4: Parallel Analyzer (Virtual Threads)"]
-        direction TB
-        SPLIT["Chia 8 Partitions<br/>(25k items/page<br/>~3.125/thread)"]
-        V1["Virtual Thread 1<br/>(Parse Regex CPU)"]
-        V2["Virtual Thread 2<br/>(Parse Regex CPU)"]
-        V8["Virtual Thread 8<br/>(Parse Regex CPU)"]
-        CAT["Catalog Check<br/>(Sync HTTP 500<br/>trên mỗi luồng)"]
-        JOIN["Join Barrier<br/>(Đợi 8 luồng xong)"]
-
-        SPLIT --> V1 & V2 & V8
-        V1 & V2 & V8 <--> CAT
-        V1 & V2 & V8 --> JOIN
-    end
-
-    subgraph PHASE_5_PERSIST["Chặng 5: Commit DB (Sync Local Transaction)"]
-        direction TB
-        TX["Transaction Cục bộ<br/>@Transactional<br/>(REQUIRES_NEW)"]
-        COPY_P["Direct COPY<br/>vào scan_proposal<br/>(Nhị phân)"]
-        COPY_I["Direct COPY<br/>vào scan_issue<br/>(Nhị phân)"]
-        INV_UP["Cập nhật<br/>scan_file_inventory<br/>&amp; Checkpoint"]
-
-        TX --> COPY_P --> COPY_I --> INV_UP
-    end
-
-    subgraph PHASE_6_BRANCHES["Chặng 6: Các luồng rẽ nhánh nền (Async Lanes)"]
-        direction TB
-        SSE["SSE Progress Hub<br/>Bắn % cho UI<br/>(Async non-blocking)"]
-        PROJ["Projection Worker<br/>Dựng ngầm &amp; Swap<br/>(@Scheduled độc lập)"]
-    end
-
-    RESP ==>|"Kích hoạt luồng nền"| T1
-    T2 ==>|"Discovery xong 1M"| SQL
-    SQL ==>|"Có changed set"| SPLIT
-    JOIN ==>|"Gom xong kết quả"| TX
-    TX -.->|"Bắn tiến độ"| SSE
-    TX ==>|"Hoàn tất Run"| PROJ
-
-    style REQ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SNAP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style LEASE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style RESP fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style T1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style Q fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style T2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style SQL fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SPLIT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style V1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style V2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style V8 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style CAT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style JOIN fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style TX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style COPY_P fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style COPY_I fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style INV_UP fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SSE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style PROJ fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/deep-dive-scan-preview-pipeline-under-30s/02-sync-async-parallel-model.drawio.svg](./assets/deep-dive-scan-preview-pipeline-under-30s/02-sync-async-parallel-model.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 ### 📊 Bảng phân tích chi tiết cơ chế Sync / Async / Concurrent:
 
@@ -207,7 +87,6 @@ flowchart TD
 >    - **Tại sao gọi như vậy**: Tránh tình trạng "luồng mồ côi" (Orphan thread) chạy lạc trôi không ai quản lý khi gặp lỗi.
 >    - **Cách liên tưởng**: *"Tổ đội đặc nhiệm chia 8 mũi tấn công và hẹn gặp nhau tại chốt tập kết (Join Barrier). Đúng giờ, đủ quân số 8 người mới cùng rút quân"*.
 
-
 ---
 
 ## 3. Chi tiết các Nhánh rẽ phụ (Ancillary Lanes)
@@ -231,29 +110,9 @@ flowchart TD
 
 ## 4. Luồng con A: Discovery & Staging Stream (Bí quyết nạp 1M file trong 1,8s)
 
-```mermaid
-flowchart TD
-    DISK[("Ổ cứng Filesystem<br/>(1.000.000 files)")]
-    
-    DISK --> WALK["Files.walkFileTree<br/>(Đọc I/O liên tục)"]
-    
-    WALK --> QUEUE(("Queue đệm<br/>(Cap 1.000)"))
-    
-    QUEUE --> SEGMENT{"Chia 2 Segments<br/>(500k rows/seg)"}
-    
-    SEGMENT --> COPY1["PostgreSQL COPY #1<br/>(500k rows nhị phân)"]
-    SEGMENT --> COPY2["PostgreSQL COPY #2<br/>(500k rows nhị phân)"]
-    
-    COPY1 & COPY2 --> STAGE[("scan_inventory_stage<br/>(Bảng UNLOGGED)")]
+![Sub-flow A Discovery Stream COPY](./assets/deep-dive-scan-preview-pipeline-under-30s/03-subflow-a-discovery-stream-copy.drawio.svg)
 
-    style DISK fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style WALK fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style QUEUE fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style SEGMENT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style COPY1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style COPY2 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style STAGE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/deep-dive-scan-preview-pipeline-under-30s/03-subflow-a-discovery-stream-copy.drawio.svg](./assets/deep-dive-scan-preview-pipeline-under-30s/03-subflow-a-discovery-stream-copy.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 ### 🔍 Cơ chế kỹ thuật:
 1. **Không dùng JDBC `INSERT`**: Việc chạy 1.000.000 lệnh INSERT sẽ mất $> 40\text{ giây}$. Thay vào đó, hệ thống dùng giao thức nhị phân **PostgreSQL `COPY`** đổ trực tiếp vào bảng.
@@ -277,36 +136,9 @@ flowchart TD
 
 ## 5. Luồng con B: Set-based Diff & Parallel Java Analyzer
 
-```mermaid
-flowchart TD
-    STAGE[("scan_inventory_stage<br/>(1M files vừa quét)")]
-    INV[("scan_file_inventory<br/>(Dữ liệu quét trước)")]
-    
-    STAGE & INV --> SQL_DIFF["SQL Set-based Diff<br/>(Trừ tập hợp trên DB)"]
-    
-    SQL_DIFF --> DIFF_TABLE[("scan_inventory_diff_stage<br/>(Chỉ chứa file MỚI / ĐỔI)")]
-    
-    DIFF_TABLE --> CHUNK_READ["Đọc Bounded Page<br/>(25.000 items/page)"]
-    
-    CHUNK_READ --> SPLIT["Chia 8 Phân vùng<br/>(~3.125 items/thread)"]
-    
-    SPLIT --> V1["Virtual Thread #1<br/>(Parse Regex CPU)"]
-    SPLIT --> V2["Virtual Thread #2<br/>(Parse Regex CPU)"]
-    SPLIT --> V8["Virtual Thread #8<br/>(Parse Regex CPU)"]
-    
-    V1 & V2 & V8 --> MERGE["Gom kết quả<br/>(ScanChunk Analyzer)"]
+![Sub-flow B Diff and Parallel Analyzer](./assets/deep-dive-scan-preview-pipeline-under-30s/04-subflow-b-diff-parallel-analyzer.drawio.svg)
 
-    style STAGE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style INV fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SQL_DIFF fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DIFF_TABLE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style CHUNK_READ fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style SPLIT fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style V1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style V2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style V8 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style MERGE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/deep-dive-scan-preview-pipeline-under-30s/04-subflow-b-diff-parallel-analyzer.drawio.svg](./assets/deep-dive-scan-preview-pipeline-under-30s/04-subflow-b-diff-parallel-analyzer.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 ### 🔍 Cơ chế kỹ thuật:
 1. **Phép trừ tập hợp trên Database**: Thay vì kéo 1M file lên Java để so sánh từng file, Database tự chạy 1 câu SQL so khớp fingerprint (`file_size_bytes` + `modified_at`). Nếu file không đổi $\implies$ Bỏ qua ngay lập tức.
@@ -330,31 +162,9 @@ flowchart TD
 
 ## 6. Luồng con C: Direct COPY Persistence & Atomic Checkpoint
 
-```mermaid
-flowchart TD
-    ANALYZE["Kết quả phân tích<br/>từ Java (RAM)<br/>(Proposals &amp; Issues)"]
-    
-    subgraph TX["Transaction Cục bộ<br/>@Transactional(REQUIRES_NEW)"]
-        direction TB
-        C1["[1] Direct COPY<br/>vào scan_proposal<br/>(Ghi nhị phân)"]
-        C2["[2] Direct COPY<br/>vào scan_issue<br/>(Ghi file lỗi/mơ hồ)"]
-        C3["[3] Cập nhật<br/>scan_file_inventory<br/>(Cold / Warm Path)"]
-        C4["[4] Ghi Checkpoint<br/>+ Lease Fence<br/>vào scan_run"]
-        
-        C1 --> C2 --> C3 --> C4
-    end
+![Sub-flow C Direct COPY Persistence](./assets/deep-dive-scan-preview-pipeline-under-30s/05-subflow-c-direct-copy-persistence.drawio.svg)
 
-    ANALYZE --> TX
-    TX --> COMMIT[("Commit DB Page<br/>(25.000 items)")]
-
-    style ANALYZE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style TX fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style C1 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style C2 fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style C3 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style C4 fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
-    style COMMIT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/deep-dive-scan-preview-pipeline-under-30s/05-subflow-c-direct-copy-persistence.drawio.svg](./assets/deep-dive-scan-preview-pipeline-under-30s/05-subflow-c-direct-copy-persistence.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 > [!TIP]
 > ### 💡 Từ điển Thuật ngữ & Mental Model (Persistence & Checkpoint)
@@ -377,36 +187,9 @@ flowchart TD
 
 Sau khi Scan hoàn tất, luồng Review Projection chạy ngầm hoàn toàn độc lập:
 
-```mermaid
-flowchart TD
-    COMPLETE["Scan hoàn tất 100%<br/>(Status = COMPLETED)"]
-    
-    COMPLETE --> ENQUEUE["Đẩy 1 Task vào DB:<br/>scan_review_proj_task"]
-    
-    ENQUEUE --> WORKER["Worker @Scheduled<br/>(Chu kỳ 1s/lần)<br/>Bốc Task xử lý ngầm"]
-    
-    WORKER --> BUILD["Dựng ngầm Gen 2:<br/>INSERT review_proposal<br/>WHERE gen = 2"]
-    
-    BUILD --> LOCK["lockRoot(rootKey)<br/>SELECT FOR UPDATE"]
-    
-    LOCK --> REFRESH["Cập nhật quyết định<br/>đã duyệt từ trước"]
-    
-    REFRESH --> SWAP["Tráo thế hệ O(1):<br/>UPDATE projection_root<br/>SET current_gen = 2"]
-    
-    SWAP --> CLEANUP["Dọn rác thế hệ cũ:<br/>DELETE WHERE gen &lt; 2"]
-    
-    SWAP --> UI["Admin UI xem ngay:<br/>Review Queue Gen 2!"]
+![Sub-flow D Review Projection Swap](./assets/deep-dive-scan-preview-pipeline-under-30s/06-subflow-d-review-projection-swap.drawio.svg)
 
-    style COMPLETE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style ENQUEUE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style WORKER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style BUILD fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-    style LOCK fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style REFRESH fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style SWAP fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style CLEANUP fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
-    style UI fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/deep-dive-scan-preview-pipeline-under-30s/06-subflow-d-review-projection-swap.drawio.svg](./assets/deep-dive-scan-preview-pipeline-under-30s/06-subflow-d-review-projection-swap.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 > [!TIP]
 > ### 💡 Từ điển Thuật ngữ & Mental Model (Review Projection & Generation Swap)

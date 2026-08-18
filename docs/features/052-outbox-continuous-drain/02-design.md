@@ -21,49 +21,9 @@ gọi `publishAsync()` cho cả wave, rồi `join()` từng future và bulk mark
 
 Sơ đồ không gian tương tác giữa Database, Application Worker và Kafka Broker trong kiến trúc cũ:
 
-```mermaid
-flowchart LR
-    subgraph DB_SPACE["1. DATABASE (scan_db)"]
-        direction TB
-        OUTBOX_OLD[("scan_outbox_event<br/>(Backlog > 1M records)")]
-        MARK_OLD[("Bulk Mark Success<br/>(Batch 500 IDs)")]
-    end
+![FT-052 As-Is Wave Barrier & Fixed Delay](./assets/as-is-wave-barrier.drawio.svg)
 
-    subgraph WORKER_SPACE["2. OUTBOX WORKER (Mô hình Wave Barrier)"]
-        direction TB
-        WAKE_OLD(["Scheduler Wake"]) --> CLAIM_OLD["Claim Wave (500 records)<br/>FOR UPDATE SKIP LOCKED"]
-        CLAIM_OLD --> SEND_OLD["Async Kafka Dispatch<br/>(500 Futures in RAM)"]
-        SEND_OLD --> BARRIER_OLD{"🛑 WAVE BARRIER<br/>Chờ đủ 500 Acks<br/>(1 ack chậm = cả wave chờ)"}
-        BARRIER_OLD --> FLUSH_OLD["Kích hoạt Bulk Mark"]
-        FLUSH_OLD --> DELAY_OLD["💤 Fixed Delay 50ms<br/>(Khoảng chết lãng phí)"]
-        DELAY_OLD -.->|"Hết 50ms"| WAKE_OLD
-    end
-
-    subgraph BROKER_SPACE["3. BROKER (Kafka)"]
-        direction TB
-        TOPIC_OLD{{"media.file.discovered.v2<br/>(Kafka Partitions)"}}
-    end
-
-    OUTBOX_OLD -->|"1. Claim 500"| CLAIM_OLD
-    SEND_OLD -->|"2. Send Batch"| TOPIC_OLD
-    TOPIC_OLD -.->|"3. Broker Acks"| BARRIER_OLD
-    FLUSH_OLD -->|"4. Update DB"| MARK_OLD
-
-    style DB_SPACE fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX_OLD fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style MARK_OLD fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-
-    style WORKER_SPACE fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
-    style WAKE_OLD fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CLAIM_OLD fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SEND_OLD fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style BARRIER_OLD fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style FLUSH_OLD fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style DELAY_OLD fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
-
-    style BROKER_SPACE fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
-    style TOPIC_OLD fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/as-is-wave-barrier.drawio.svg](./assets/as-is-wave-barrier.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 | Thành phần | Hành vi hiện tại | Throughput tax/risk |
 | --- | --- | --- |
@@ -79,49 +39,9 @@ flowchart LR
 
 Sơ đồ đường ống băng chuyền liên tục (Sliding Window Ring): Loại bỏ hoàn toàn Wave Barrier và Fixed Delay, refill tức thì khi có slot trống:
 
-```mermaid
-flowchart LR
-    subgraph DB_TOBE["1. DATABASE (scan_db)"]
-        direction TB
-        OUTBOX_NEW[("scan_outbox_event<br/>(Durable Backlog)")]
-        MARK_NEW[("Conditional Batch Mark<br/>(Flush theo interval)")]
-    end
+![FT-052 To-Be Continuous Sliding Window & Continuous Refill](./assets/to-be-continuous-drain.drawio.svg)
 
-    subgraph ENGINE_TOBE["2. CONTINUOUS DRAIN ENGINE (Sliding Window)"]
-        direction TB
-        GATE_NEW{"🛡️ Pressure Gate<br/>(Hysteresis Check)"} -->|"Intake Open"| CALC_NEW["Tính Free Slots<br/>= MaxInFlight - Current"]
-        CALC_NEW --> REFILL_NEW["Refill Ngay Lập Tức<br/>Claim đúng số Free Slots"]
-        REFILL_NEW --> DISPATCH_NEW["Ordered Async Dispatch<br/>(Non-blocking Send)"]
-        DISPATCH_NEW --> QUEUE_NEW{{"⚡ Bounded Completion Queue<br/>(Lock-free Ring Buffer)"}}
-        QUEUE_NEW --> FLUSHER_NEW["Background Batch Flusher"]
-        FLUSHER_NEW -.->|"Giải phóng slot"| CALC_NEW
-    end
-
-    subgraph BROKER_TOBE["3. BROKER (Kafka)"]
-        direction TB
-        TOPIC_NEW{{"media.file.discovered.v2<br/>(Multi-Partition Parallel)"}}
-    end
-
-    OUTBOX_NEW -->|"1. Claim Free Slots"| REFILL_NEW
-    DISPATCH_NEW -->|"2. Continuous Stream"| TOPIC_NEW
-    TOPIC_NEW -.->|"3. Async Callback Acks"| QUEUE_NEW
-    FLUSHER_NEW -->|"4. Async Flush"| MARK_NEW
-
-    style DB_TOBE fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
-    style OUTBOX_NEW fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style MARK_NEW fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-
-    style ENGINE_TOBE fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
-    style GATE_NEW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style CALC_NEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style REFILL_NEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style DISPATCH_NEW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style QUEUE_NEW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style FLUSHER_NEW fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-
-    style BROKER_TOBE fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
-    style TOPIC_NEW fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
-```
+*(💡 Gợi ý: Bạn có thể click đúp vào file [assets/to-be-continuous-drain.drawio.svg](./assets/to-be-continuous-drain.drawio.svg) trong IntelliJ để chỉnh sửa kéo thả trực quan).*
 
 | Component | Trách nhiệm |
 | --- | --- |
