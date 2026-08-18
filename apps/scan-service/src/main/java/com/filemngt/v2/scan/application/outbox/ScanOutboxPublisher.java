@@ -6,6 +6,8 @@ import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventReposi
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxMetrics;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,9 +17,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 
 @Component
 @ConditionalOnProperty(name = "scan.outbox.enabled", havingValue = "true", matchIfMissing = true)
@@ -144,9 +143,7 @@ public class ScanOutboxPublisher {
         return throwable;
     }
 
-    private record DispatchedEvent(
-            ScanOutboxEventEntity event,
-            CompletionStage<Void> acknowledgement) {}
+    private record DispatchedEvent(ScanOutboxEventEntity event, CompletionStage<Void> acknowledgement) {}
 
     private String errorMessage(Exception exception) {
         String message = exception.getMessage();

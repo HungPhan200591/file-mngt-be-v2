@@ -22,12 +22,16 @@ com.filemngt.v2.scan.benchmark/
 ├── approval/                              <-- Scan approval decision/outbox
 │   └── ApprovalDecisionChunkingBenchmarkTest.java <-- FT-045 bounded chunk candidate
 │
+├── outbox/                                <-- FT-052 outbox relay
+│   └── ScanOutboxWaveBaselineBenchmarkTest.java <-- Legacy wave baseline
+│
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
 │   ├── 02-database-set-based-persistence.md
 │   ├── 03-scan-core-pipeline-benchmark.md
 │   ├── 04-inventory-diff-query-benchmark.md
 │   └── 05-legacy-approval-decision-batch-baseline.md
+│   └── 06-ft052-legacy-outbox-wave-baseline.md
 │
 ├── BENCHMARK_RESULTS.md                   <-- Dashboard tổng hợp chỉ số của tất cả các lần đo
 └── README.md                              <-- Chỉ mục điều hướng & CLI cheat sheet
@@ -86,3 +90,10 @@ mvn test -Pbenchmark -pl apps/scan-service -Dtest=ApprovalDecisionChunkingBenchm
 
 Profile `benchmark` là bắt buộc. `mvn test` mặc định loại toàn bộ test gắn `@Tag("benchmark")` để
 không đưa workload 1M records vào test suite/CI thông thường.
+
+### 📤 5. FT-052: đo legacy outbox wave baseline (25k + 1M):
+
+```powershell
+$env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
+mvn test -Pbenchmark -pl apps/scan-service -Dtest=ScanOutboxWaveBaselineBenchmarkTest
+```

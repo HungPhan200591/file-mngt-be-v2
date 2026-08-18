@@ -1,6 +1,6 @@
 # 📊 Scan Service Benchmark Results Dashboard
 
-Tài liệu này tổng hợp **bảng chỉ số tóm tắt (Executive Summary)** của tất cả các đợt đo đạc hiệu năng trên hệ thống `scan-service` cho tải trọng **1.000.000 bản ghi**. Chi tiết phương pháp, biểu đồ và phân tích chuyên sâu được dẫn link trực tiếp tới từng báo cáo riêng biệt.
+Tài liệu này tổng hợp **bảng chỉ số tóm tắt (Executive Summary)** của các đợt đo đạc hiệu năng trên hệ thống `scan-service`. Chi tiết phương pháp, biểu đồ và phân tích chuyên sâu được dẫn link trực tiếp tới từng báo cáo riêng biệt.
 
 ---
 
@@ -16,6 +16,7 @@ scan-core, loại filesystem/Catalog I/O theo mô tả từng report.
 | **`BENCH-02`** | **Database Set-based Persistence** | Direct COPY + SQL Set-based | 1.000.000 diff | **18.67s – 19.34s** | ~53.000 rows/s | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/02-database-set-based-persistence.md) |
 | **`BENCH-03`** | **Scan Core End-to-End Pipeline** | Full Service (`scanService.start`) | 1.000.000 files | **< 25s (Cold: ~24.85s, Warm: ~8.11s)** | **~40.240 – 123.270 files/s** | [👉 Xem chi tiết](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/03-scan-core-pipeline-benchmark.md) |
 | **`BENCH-04`** | **Approval Decision & Outbox** | Legacy JPA baseline → FT-045 bounded chunk candidate | 25k + 1M measured | **Legacy 25k: 4.139s; candidate 25k: 5.648s; candidate 1M: 148.794s** | **Candidate 1M: 6.721 records/s** | [Benchmark report](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/05-legacy-approval-decision-batch-baseline.md) · [Candidate test](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/approval/ApprovalDecisionChunkingBenchmarkTest.java) |
+| **`BENCH-05`** | **FT-052 Legacy Outbox Wave Baseline** | `SKIP LOCKED` + immediate ack + conditional batch mark + fixed delay | 25k measured; 1M aborted | **25k: 6.579s; 1M: aborted ~6 min** | **25k: 3.800 records/s** | [Benchmark report](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/06-ft052-legacy-outbox-wave-baseline.md) · [Baseline test](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/outbox/ScanOutboxWaveBaselineBenchmarkTest.java) |
 
 ---
 
