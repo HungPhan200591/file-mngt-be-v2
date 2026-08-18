@@ -61,7 +61,7 @@ public class ScanOutboxPublisher {
         this.tracer = tracer;
         this.propagator = propagator;
         this.owner = "legacy-test";
-        this.batchSize = 20;
+        this.batchSize = 500;
     }
 
     @Scheduled(fixedDelayString = "${scan.outbox.fixed-delay-ms:1000}")
