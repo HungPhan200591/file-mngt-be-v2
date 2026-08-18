@@ -24,6 +24,7 @@ Scenario thật → Deep-dive → Summary → Question bank → failure test / e
 | Scan preview và approval | [Scan service](./deep-dive/scan-service/00-overview.md) | Chưa xác nhận | — | Discovery/review, proposal và issue |
 | Transactional Outbox | [Deep-dive](./deep-dive/transactional-outbox/README.md) | Chưa xác nhận | — | Local transaction, relay, duplicate và DLT |
 | Virtual Threads | [Deep-dive](./deep-dive/virtual-threads/00-overview.md) | Chưa xác nhận | — | Pinning, no-pooling và throttling |
+| Java Concurrency & Async | [Deep-dive](./deep-dive/java-concurrency/00-overview-mental-model.md) | Chưa xác nhận | — | CompletableFuture, ThreadPool, Locks & Memory |
 | CQRS Read Projection | [Deep-dive](./deep-dive/cqrs-read-projection/README.md) | Chưa xác nhận | — | Version guard, hydration và reconciliation |
 | Observability | [Deep-dive](./deep-dive/observability/README.md) | Chưa xác nhận | — | Metrics, logs, trace và incident flow |
 | Database Internals (Storage & Query) | [Deep-dive](./deep-dive/database-internals/README.md) | Chưa xác nhận | — | WAL, Buffer Pool, Anti-Join, work_mem & EXPLAIN |
