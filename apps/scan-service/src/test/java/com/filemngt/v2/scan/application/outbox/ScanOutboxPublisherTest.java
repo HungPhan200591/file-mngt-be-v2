@@ -25,7 +25,7 @@ class ScanOutboxPublisherTest {
         OutboxMessagePublisher messages = mock(OutboxMessagePublisher.class);
         ScanOutboxEventEntity event = event();
         when(events.findByPublishedAtIsNullOrderByCreatedAtAsc(
-                        PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "createdAt"))))
+                        PageRequest.of(0, 500, Sort.by(Sort.Direction.ASC, "createdAt"))))
                 .thenReturn(List.of(event));
 
         new ScanOutboxPublisher(events, messages, Tracer.NOOP, Propagator.NOOP).publishPending();
@@ -34,7 +34,7 @@ class ScanOutboxPublisherTest {
         assertThat(event.attemptCount()).isZero();
         assertThat(event.lastError()).isNull();
         verify(messages).publish(event.eventType(), event.partitionKey(), event.payload());
-        verify(events).saveAll(List.of(event));
+        verify(events).save(event);
     }
 
     @Test
@@ -43,7 +43,7 @@ class ScanOutboxPublisherTest {
         OutboxMessagePublisher messages = mock(OutboxMessagePublisher.class);
         ScanOutboxEventEntity event = event();
         when(events.findByPublishedAtIsNullOrderByCreatedAtAsc(
-                        PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "createdAt"))))
+                        PageRequest.of(0, 500, Sort.by(Sort.Direction.ASC, "createdAt"))))
                 .thenReturn(List.of(event));
         doThrow(new IllegalStateException("broker unavailable"))
                 .when(messages)
@@ -54,7 +54,7 @@ class ScanOutboxPublisherTest {
         assertThat(event.publishedAt()).isNull();
         assertThat(event.attemptCount()).isOne();
         assertThat(event.lastError()).contains("broker unavailable");
-        verify(events).saveAll(List.of(event));
+        verify(events).save(event);
     }
 
     private ScanOutboxEventEntity event() {
