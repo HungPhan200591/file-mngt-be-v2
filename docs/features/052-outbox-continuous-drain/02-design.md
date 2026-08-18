@@ -17,22 +17,52 @@ gọi `publishAsync()` cho cả wave, rồi `join()` từng future và bulk mark
 - failure mark còn theo từng record và chưa có pressure gate bảo vệ approval producer;
 - metrics chưa có in-flight, acknowledgement latency, publish rate, lease mismatch và tail-drain.
 
-### 1.1. As-Is
+### 1.1. Kiến trúc hiện tại (As-Is — Mô hình Wave Barrier & Fixed Delay)
+
+Sơ đồ không gian tương tác giữa Database, Application Worker và Kafka Broker trong kiến trúc cũ:
 
 ```mermaid
-flowchart TD
-    WAKE_OLD(["Scheduler wake"]) --> CLAIM_OLD["Claim wave<br/>up to 500"]
-    CLAIM_OLD --> SEND_OLD["Dispatch async<br/>whole wave"]
-    SEND_OLD --> WAIT_OLD["Walk futures<br/>wave barrier"]
-    WAIT_OLD --> MARK_OLD[("Bulk mark<br/>success")]
-    MARK_OLD --> DELAY_OLD["Fixed delay<br/>50 ms"]
-    DELAY_OLD --> WAKE_OLD
+flowchart LR
+    subgraph DB_SPACE["1. DATABASE (scan_db)"]
+        direction TB
+        OUTBOX_OLD[("scan_outbox_event<br/>(Backlog > 1M records)")]
+        MARK_OLD[("Bulk Mark Success<br/>(Batch 500 IDs)")]
+    end
+
+    subgraph WORKER_SPACE["2. OUTBOX WORKER (Mô hình Wave Barrier)"]
+        direction TB
+        WAKE_OLD(["Scheduler Wake"]) --> CLAIM_OLD["Claim Wave (500 records)<br/>FOR UPDATE SKIP LOCKED"]
+        CLAIM_OLD --> SEND_OLD["Async Kafka Dispatch<br/>(500 Futures in RAM)"]
+        SEND_OLD --> BARRIER_OLD{"🛑 WAVE BARRIER<br/>Chờ đủ 500 Acks<br/>(1 ack chậm = cả wave chờ)"}
+        BARRIER_OLD --> FLUSH_OLD["Kích hoạt Bulk Mark"]
+        FLUSH_OLD --> DELAY_OLD["💤 Fixed Delay 50ms<br/>(Khoảng chết lãng phí)"]
+        DELAY_OLD -.->|"Hết 50ms"| WAKE_OLD
+    end
+
+    subgraph BROKER_SPACE["3. BROKER (Kafka)"]
+        direction TB
+        TOPIC_OLD{{"media.file.discovered.v2<br/>(Kafka Partitions)"}}
+    end
+
+    OUTBOX_OLD -->|"1. Claim 500"| CLAIM_OLD
+    SEND_OLD -->|"2. Send Batch"| TOPIC_OLD
+    TOPIC_OLD -.->|"3. Broker Acks"| BARRIER_OLD
+    FLUSH_OLD -->|"4. Update DB"| MARK_OLD
+
+    style DB_SPACE fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
+    style OUTBOX_OLD fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style MARK_OLD fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+
+    style WORKER_SPACE fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style WAKE_OLD fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style CLAIM_OLD fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style SEND_OLD fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style WAIT_OLD fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style MARK_OLD fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style BARRIER_OLD fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style FLUSH_OLD fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style DELAY_OLD fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+
+    style BROKER_SPACE fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style TOPIC_OLD fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 | Thành phần | Hành vi hiện tại | Throughput tax/risk |
@@ -43,31 +73,54 @@ flowchart TD
 | Lease | 30 giây hard-code | Không chứng minh deadline luôn nằm trong lease |
 | Failure | Release từng event sau terminal failure | Có duplicate hợp lệ; thiếu breaker/backpressure |
 
-## 2. Kiến trúc đích
+---
 
-Coordinator giữ một cửa sổ application in-flight bounded. Nó claim đúng số slot trống, dispatch theo thứ tự
-outbox, nhận completion vào queue bounded, batch-persist kết quả rồi refill ngay. Scheduler chỉ là wake-up/idle
-backoff; khi backlog còn dữ liệu, một time slice drain không ngủ giữa các refill.
+### 1.2. Kiến trúc đích (To-Be — Continuous Sliding Window & Continuous Refill)
+
+Sơ đồ đường ống băng chuyền liên tục (Sliding Window Ring): Loại bỏ hoàn toàn Wave Barrier và Fixed Delay, refill tức thì khi có slot trống:
 
 ```mermaid
-flowchart TD
-    WAKE_NEW(["Drain wake"]) --> GATE_NEW{"Pressure gate<br/>allows intake?"}
-    GATE_NEW -->|"Yes"| SLOT_NEW["Compute free<br/>in-flight slots"]
-    SLOT_NEW --> CLAIM_NEW["Claim only<br/>free slots"]
-    CLAIM_NEW --> SEND_NEW["Ordered async<br/>Kafka send"]
-    SEND_NEW --> DONE_NEW{{"Bounded<br/>completion queue"}}
-    DONE_NEW --> MARK_NEW[("Conditional<br/>batch mark")]
-    MARK_NEW -->|"Backlog remains"| SLOT_NEW
-    MARK_NEW -->|"Idle or yield"| IDLE_NEW["Idle backoff<br/>or reschedule"]
-    GATE_NEW -->|"No"| IDLE_NEW
-    style WAKE_NEW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style GATE_NEW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style SLOT_NEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style CLAIM_NEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SEND_NEW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
-    style DONE_NEW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+flowchart LR
+    subgraph DB_TOBE["1. DATABASE (scan_db)"]
+        direction TB
+        OUTBOX_NEW[("scan_outbox_event<br/>(Durable Backlog)")]
+        MARK_NEW[("Conditional Batch Mark<br/>(Flush theo interval)")]
+    end
+
+    subgraph ENGINE_TOBE["2. CONTINUOUS DRAIN ENGINE (Sliding Window)"]
+        direction TB
+        GATE_NEW{"🛡️ Pressure Gate<br/>(Hysteresis Check)"} -->|"Intake Open"| CALC_NEW["Tính Free Slots<br/>= MaxInFlight - Current"]
+        CALC_NEW --> REFILL_NEW["Refill Ngay Lập Tức<br/>Claim đúng số Free Slots"]
+        REFILL_NEW --> DISPATCH_NEW["Ordered Async Dispatch<br/>(Non-blocking Send)"]
+        DISPATCH_NEW --> QUEUE_NEW{{"⚡ Bounded Completion Queue<br/>(Lock-free Ring Buffer)"}}
+        QUEUE_NEW --> FLUSHER_NEW["Background Batch Flusher"]
+        FLUSHER_NEW -.->|"Giải phóng slot"| CALC_NEW
+    end
+
+    subgraph BROKER_TOBE["3. BROKER (Kafka)"]
+        direction TB
+        TOPIC_NEW{{"media.file.discovered.v2<br/>(Multi-Partition Parallel)"}}
+    end
+
+    OUTBOX_NEW -->|"1. Claim Free Slots"| REFILL_NEW
+    DISPATCH_NEW -->|"2. Continuous Stream"| TOPIC_NEW
+    TOPIC_NEW -.->|"3. Async Callback Acks"| QUEUE_NEW
+    FLUSHER_NEW -->|"4. Async Flush"| MARK_NEW
+
+    style DB_TOBE fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
+    style OUTBOX_NEW fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style MARK_NEW fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style IDLE_NEW fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+
+    style ENGINE_TOBE fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style GATE_NEW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style CALC_NEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style REFILL_NEW fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style DISPATCH_NEW fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style QUEUE_NEW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style FLUSHER_NEW fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+
+    style BROKER_TOBE fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style TOPIC_NEW fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 | Component | Trách nhiệm |
