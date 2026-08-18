@@ -4,9 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxMetrics;
+import com.filemngt.v2.scan.application.outbox.OutboxInFlightWindow;
 import com.filemngt.v2.scan.application.outbox.OutboxMessagePublisher;
 import com.filemngt.v2.scan.application.outbox.ScanOutboxClaimService;
-import com.filemngt.v2.scan.application.outbox.ScanOutboxPublisher;
+import com.filemngt.v2.scan.application.outbox.ScanOutboxDrainCoordinator;
 import com.filemngt.v2.scan.benchmark.fixture.OutboxDrainBenchmarkFixture;
 import com.filemngt.v2.scan.config.OutboxDrainProperties;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -27,7 +28,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** Baseline FT-052 cho legacy wave relay với acknowledgement tức thì và fixed delay giữa các wave. */
+/** Candidate FT-052 benchmark cùng fixture legacy, loại fixed delay nhưng vẫn không thay Kafka broker thật. */
 @Tag("benchmark")
 @Testcontainers
 @SpringBootTest(
@@ -37,10 +38,9 @@ import org.testcontainers.utility.DockerImageName;
             "scan.issue-recheck.enabled=false",
             "scan.approval-operation.enabled=false"
         })
-class ScanOutboxWaveBaselineBenchmarkTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ScanOutboxWaveBaselineBenchmarkTest.class);
-    private static final int BATCH_SIZE = 500;
-    private static final long FIXED_DELAY_MILLIS = 50;
+class ScanOutboxContinuousDrainBenchmarkTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanOutboxContinuousDrainBenchmarkTest.class);
+    private static final int WINDOW_SIZE = 500;
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
@@ -67,58 +67,55 @@ class ScanOutboxWaveBaselineBenchmarkTest {
     }
 
     @Test
-    void measuresLegacyWaveDrainForTwentyFiveThousandEvents() throws InterruptedException {
-        measureLegacyWaveDrain(25_000);
+    void measuresContinuousDrainForTwentyFiveThousandEvents() {
+        measureContinuousDrain(25_000);
     }
 
     @Test
-    void measuresLegacyWaveDrainForOneMillionEvents() throws InterruptedException {
-        measureLegacyWaveDrain(1_000_000);
+    void measuresContinuousDrainForOneMillionEvents() {
+        measureContinuousDrain(1_000_000);
     }
 
-    private void measureLegacyWaveDrain(int eventCount) throws InterruptedException {
+    private void measureContinuousDrain(int eventCount) {
         OutboxDrainBenchmarkFixture.seedPendingOutbox(jdbcTemplate, eventCount);
-        ScanOutboxPublisher publisher = publisher();
-        int waveCount = (eventCount + BATCH_SIZE - 1) / BATCH_SIZE;
+        ScanOutboxDrainCoordinator coordinator = coordinator();
 
         long started = System.nanoTime();
-        for (int wave = 0; wave < waveCount; wave++) {
-            publisher.publishPending();
-            if (wave + 1 < waveCount) Thread.sleep(FIXED_DELAY_MILLIS);
+        while (events.countByPublishedAtIsNull() > 0) {
+            coordinator.drainTimeSlice();
         }
         long elapsedMillis = (System.nanoTime() - started) / 1_000_000L;
 
         assertThat(events.countByPublishedAtIsNull()).isZero();
         LOGGER.info(
-                "FT-052 legacy wave baseline: events={}, batchSize={}, fixedDelayMs={}, waves={}, "
-                        + "elapsedMs={}, throughputPerSecond={}",
+                "FT-052 continuous drain candidate: events={}, maxInFlight={}, claimSize={}, elapsedMs={}, throughputPerSecond={}",
                 eventCount,
-                BATCH_SIZE,
-                FIXED_DELAY_MILLIS,
-                waveCount,
+                WINDOW_SIZE,
+                WINDOW_SIZE,
                 elapsedMillis,
                 throughput(eventCount, elapsedMillis));
     }
 
-    private ScanOutboxPublisher publisher() {
-        OutboxMessagePublisher immediateAcknowledgement = (topic, key, payload) -> {};
+    private ScanOutboxDrainCoordinator coordinator() {
         OutboxDrainProperties properties = new OutboxDrainProperties();
-        properties.setContinuousDrainEnabled(false);
-        properties.setMaxInFlightEvents(BATCH_SIZE);
-        ScanOutboxMetrics metrics = new ScanOutboxMetrics(
-                new SimpleMeterRegistry(),
-                events,
-                new com.filemngt.v2.scan.application.outbox.OutboxInFlightWindow(properties));
-        return new ScanOutboxPublisher(
-                events,
+        properties.setMaxInFlightEvents(WINDOW_SIZE);
+        properties.setClaimSize(WINDOW_SIZE);
+        properties.setDrainTimeSliceMs(100);
+        properties.setIdleDelayMs(1);
+        properties.setCompletionFlushSize(WINDOW_SIZE);
+        OutboxInFlightWindow window = new OutboxInFlightWindow(properties);
+        ScanOutboxMetrics metrics = new ScanOutboxMetrics(new SimpleMeterRegistry(), events, window);
+        OutboxMessagePublisher immediateAcknowledgement = (topic, key, payload) -> {};
+        return new ScanOutboxDrainCoordinator(
                 claims,
+                events,
                 immediateAcknowledgement,
+                window,
+                properties,
                 metrics,
                 Tracer.NOOP,
                 Propagator.NOOP,
-                "outbox-wave-baseline",
-                BATCH_SIZE,
-                properties);
+                "outbox-continuous-drain");
     }
 
     private long throughput(int eventCount, long elapsedMillis) {

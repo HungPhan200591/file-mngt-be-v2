@@ -1,6 +1,6 @@
 # FT-052 — Plan: Outbox Continuous Drain & Bounded Relay
 
-Status: `READY`  
+Status: `IMPLEMENTED — verification pending`
 Owner: `apps/scan-service/`  
 Debt: `TD-013` (chỉ xóa khỏi backlog sau implementation + runtime evidence)  
 Must preserve: transactional decision/outbox, at-least-once delivery, event ID dedupe, partition key,
@@ -105,3 +105,12 @@ Qualification target cho baseline local hiện tại:
 - `docs/STATUS.md` chỉ giữ FT-052 active/verification gate, không append lịch sử benchmark đã DONE.
 - Architecture/event contract/ADR hiện không cần cập nhật vì boundary và payload không đổi.
 
+## 6. Implementation snapshot — 2026-08-18
+
+- Đã có typed outbox/pressure properties, lease-budget fail-fast, Kafka idempotence/order configuration,
+  continuous coordinator/window/completion queue, conditional batch mark, breaker, metrics và bulk-only pressure gate.
+- `SCAN_OUTBOX_CONTINUOUS_DRAIN_ENABLED=false` giữ legacy `ScanOutboxPublisher` để rollback/A-B.
+- Đã thêm focused unit tests và benchmark candidate cùng fixture legacy; baseline 25k nằm tại
+  `apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/06-ft052-legacy-outbox-wave-baseline.md`.
+- Chưa có targeted Testcontainers, broker outage/crash/reclaim test hoặc candidate capacity evidence; không suy ra
+  production readiness hay xóa `TD-013`.

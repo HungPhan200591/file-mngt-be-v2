@@ -2,6 +2,7 @@ package com.filemngt.v2.scan.adapter.out.messaging;
 
 import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import com.filemngt.v2.scan.application.outbox.OutboxMessagePublisher;
+import com.filemngt.v2.scan.config.OutboxDrainProperties;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -9,11 +10,12 @@ import org.springframework.stereotype.Component;
 @Component
 /** Adapter Kafka publish payload outbox tới topic đã được factory gắn vào event type. */
 public class KafkaOutboxMessagePublisher implements OutboxMessagePublisher {
-    private static final long SEND_TIMEOUT_SECONDS = 5;
     private final KafkaTemplate<String, String> kafka;
+    private final OutboxDrainProperties properties;
 
-    public KafkaOutboxMessagePublisher(KafkaTemplate<String, String> kafka) {
+    public KafkaOutboxMessagePublisher(KafkaTemplate<String, String> kafka, OutboxDrainProperties properties) {
         this.kafka = kafka;
+        this.properties = properties;
     }
 
     @Override
@@ -28,6 +30,6 @@ public class KafkaOutboxMessagePublisher implements OutboxMessagePublisher {
         KafkaTracingHeaderPropagation.injectTracingHeaders(record);
         return kafka.send(record)
                 .thenApply(result -> (Void) null)
-                .orTimeout(SEND_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+                .orTimeout(properties.acknowledgementDeadlineMs(), java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 }

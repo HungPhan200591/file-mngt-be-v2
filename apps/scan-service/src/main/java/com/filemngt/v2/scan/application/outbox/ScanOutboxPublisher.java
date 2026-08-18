@@ -4,6 +4,7 @@ import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxMetrics;
+import com.filemngt.v2.scan.config.OutboxDrainProperties;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +36,7 @@ public class ScanOutboxPublisher {
     private final Propagator propagator;
     private final String owner;
     private final int batchSize;
+    private final OutboxDrainProperties properties;
 
     @Autowired
     public ScanOutboxPublisher(
@@ -45,7 +47,8 @@ public class ScanOutboxPublisher {
             Tracer tracer,
             Propagator propagator,
             @Value("${scan.outbox.instance-id:${HOSTNAME:scan-publisher}}") String owner,
-            @Value("${scan.outbox.batch-size:500}") int batchSize) {
+            @Value("${scan.outbox.claim-size:500}") int batchSize,
+            OutboxDrainProperties properties) {
         this.events = events;
         this.claims = claims;
         this.messages = messages;
@@ -54,6 +57,7 @@ public class ScanOutboxPublisher {
         this.propagator = propagator;
         this.owner = owner;
         this.batchSize = batchSize;
+        this.properties = properties;
     }
 
     /** Compatibility constructor for focused unit tests that predate leased claiming. */
@@ -67,11 +71,15 @@ public class ScanOutboxPublisher {
         this.propagator = propagator;
         this.owner = "legacy-test";
         this.batchSize = 500;
+        this.properties = null;
     }
 
     @Scheduled(fixedDelayString = "${scan.outbox.fixed-delay-ms:1000}")
     /** Publish các event chưa gửi và lưu một lần toàn bộ trạng thái publish/failure đã thay đổi. */
     public void publishPending() {
+        if (properties != null && properties.isContinuousDrainEnabled()) {
+            return;
+        }
         var pendingEvents = claims == null
                 ? events.findByPublishedAtIsNullOrderByCreatedAtAsc(
                         PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "createdAt")))

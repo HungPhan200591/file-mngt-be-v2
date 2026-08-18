@@ -24,6 +24,7 @@ com.filemngt.v2.scan.benchmark/
 │
 ├── outbox/                                <-- FT-052 outbox relay
 │   └── ScanOutboxWaveBaselineBenchmarkTest.java <-- Legacy wave baseline
+│   └── ScanOutboxContinuousDrainBenchmarkTest.java <-- Continuous-drain candidate
 │
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
@@ -97,3 +98,5 @@ không đưa workload 1M records vào test suite/CI thông thường.
 $env:JAVA_HOME = "$HOME\.jdks\corretto-25.0.4"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 mvn test -Pbenchmark -pl apps/scan-service -Dtest=ScanOutboxWaveBaselineBenchmarkTest
 ```
+
+Sau FT-052, thay test bằng `ScanOutboxContinuousDrainBenchmarkTest` và giữ nguyên workload/fixture để đối chiếu.

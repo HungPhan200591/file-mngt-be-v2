@@ -1,6 +1,7 @@
 package com.filemngt.v2.scan.application.approval;
 
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationShardJdbcRepository;
+import com.filemngt.v2.scan.application.outbox.OutboxPressureGate;
 import com.filemngt.v2.scan.config.ApprovalOperationProperties;
 import java.time.Instant;
 import java.util.Optional;
@@ -12,15 +13,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApprovalOperationClaimService {
     private final ApprovalOperationProperties properties;
     private final ApprovalOperationShardJdbcRepository shards;
+    private final OutboxPressureGate pressureGate;
 
     public ApprovalOperationClaimService(
-            ApprovalOperationProperties properties, ApprovalOperationShardJdbcRepository shards) {
+            ApprovalOperationProperties properties,
+            ApprovalOperationShardJdbcRepository shards,
+            OutboxPressureGate pressureGate) {
         this.properties = properties;
         this.shards = shards;
+        this.pressureGate = pressureGate;
     }
 
     @Transactional
     public Optional<ApprovalOperationClaim> claim(String workerId) {
+        if (!pressureGate.allowBulkClaim()) {
+            return Optional.empty();
+        }
         Instant now = Instant.now();
         var shard = shards
                 .claimNext(

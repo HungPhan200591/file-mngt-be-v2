@@ -31,6 +31,12 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        "[acks]": all
+        "[enable.idempotence]": true
+        "[retries]": 2147483647
+        "[max.in.flight.requests.per.connection]": 5
+        "[delivery.timeout.ms]": ${SCAN_OUTBOX_PRODUCER_DELIVERY_TIMEOUT_MS:3000}
     template:
       observation-enabled: true
 
@@ -48,8 +54,29 @@ scan:
     total-deadline-seconds: ${SCAN_APPROVAL_OPERATION_TOTAL_DEADLINE_SECONDS:120}
   outbox:
     enabled: ${SCAN_OUTBOX_ENABLED:true}
+    continuous-drain-enabled: ${SCAN_OUTBOX_CONTINUOUS_DRAIN_ENABLED:true}
+    scheduler-delay-ms: ${SCAN_OUTBOX_SCHEDULER_DELAY_MS:1}
+    drain-time-slice-ms: ${SCAN_OUTBOX_DRAIN_TIME_SLICE_MS:100}
+    idle-delay-ms: ${SCAN_OUTBOX_IDLE_DELAY_MS:50}
+    max-in-flight-events: ${SCAN_OUTBOX_MAX_IN_FLIGHT_EVENTS:500}
+    claim-size: ${SCAN_OUTBOX_CLAIM_SIZE:${SCAN_OUTBOX_BATCH_SIZE:500}}
+    lease-seconds: ${SCAN_OUTBOX_LEASE_SECONDS:30}
+    producer-delivery-timeout-ms: ${SCAN_OUTBOX_PRODUCER_DELIVERY_TIMEOUT_MS:3000}
+    acknowledgement-slack-ms: ${SCAN_OUTBOX_ACKNOWLEDGEMENT_SLACK_MS:500}
+    conditional-mark-budget-ms: ${SCAN_OUTBOX_CONDITIONAL_MARK_BUDGET_MS:500}
+    safety-margin-ms: ${SCAN_OUTBOX_SAFETY_MARGIN_MS:500}
+    completion-flush-size: ${SCAN_OUTBOX_COMPLETION_FLUSH_SIZE:500}
+    completion-flush-interval-ms: ${SCAN_OUTBOX_COMPLETION_FLUSH_INTERVAL_MS:50}
+    shutdown-grace-ms: ${SCAN_OUTBOX_SHUTDOWN_GRACE_MS:5000}
+    pressure:
+      enabled: ${SCAN_OUTBOX_PRESSURE_ENABLED:true}
+      sample-interval-ms: ${SCAN_OUTBOX_PRESSURE_SAMPLE_INTERVAL_MS:1000}
+      high-pending-age-ms: ${SCAN_OUTBOX_PRESSURE_HIGH_PENDING_AGE_MS:30000}
+      low-pending-age-ms: ${SCAN_OUTBOX_PRESSURE_LOW_PENDING_AGE_MS:10000}
+      high-in-flight-events: ${SCAN_OUTBOX_PRESSURE_HIGH_IN_FLIGHT_EVENTS:450}
+      low-in-flight-events: ${SCAN_OUTBOX_PRESSURE_LOW_IN_FLIGHT_EVENTS:250}
+      stable-window-ms: ${SCAN_OUTBOX_PRESSURE_STABLE_WINDOW_MS:5000}
     fixed-delay-ms: ${SCAN_OUTBOX_FIXED_DELAY_MS:50}
-    batch-size: ${SCAN_OUTBOX_BATCH_SIZE:500}
     instance-id: ${SCAN_OUTBOX_INSTANCE_ID:${HOSTNAME:scan-publisher}}
   lease-duration-seconds: ${SCAN_LEASE_DURATION_SECONDS:60}
   reconciliation-statement-timeout-seconds: ${SCAN_RECONCILIATION_STATEMENT_TIMEOUT_SECONDS:30}

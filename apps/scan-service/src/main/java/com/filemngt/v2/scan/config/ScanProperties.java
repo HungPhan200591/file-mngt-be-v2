@@ -38,8 +38,6 @@ public class ScanProperties {
 
     private ReviewProjection reviewProjection = new ReviewProjection();
 
-    private Outbox outbox = new Outbox();
-
     private BulkDecision bulkDecision = new BulkDecision();
 
     private IssueRecheck issueRecheck = new IssueRecheck();
@@ -124,14 +122,6 @@ public class ScanProperties {
         this.reviewProjection = reviewProjection == null ? new ReviewProjection() : reviewProjection;
     }
 
-    public Outbox getOutbox() {
-        return outbox;
-    }
-
-    public void setOutbox(Outbox outbox) {
-        this.outbox = outbox == null ? new Outbox() : outbox;
-    }
-
     public BulkDecision getBulkDecision() {
         return bulkDecision;
     }
@@ -146,50 +136,6 @@ public class ScanProperties {
 
     public void setIssueRecheck(IssueRecheck issueRecheck) {
         this.issueRecheck = issueRecheck == null ? new IssueRecheck() : issueRecheck;
-    }
-
-    public static class Outbox {
-        private boolean enabled = true;
-
-        private String instanceId = "scan-publisher";
-
-        @Min(1)
-        private int batchSize = 20;
-
-        @Min(1)
-        private long fixedDelayMs = 1_000;
-
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        public String getInstanceId() {
-            return instanceId;
-        }
-
-        public void setInstanceId(String instanceId) {
-            this.instanceId = instanceId;
-        }
-
-        public int getBatchSize() {
-            return batchSize;
-        }
-
-        public void setBatchSize(int batchSize) {
-            this.batchSize = batchSize;
-        }
-
-        public long getFixedDelayMs() {
-            return fixedDelayMs;
-        }
-
-        public void setFixedDelayMs(long fixedDelayMs) {
-            this.fixedDelayMs = fixedDelayMs;
-        }
     }
 
     public static class BulkDecision {
