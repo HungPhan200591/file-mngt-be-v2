@@ -43,3 +43,19 @@ production hoặc Kafka capacity evidence.
 Workload 1M không hoàn tất trong phiên đo và không được nội suy từ kết quả 25k. Sau khi FT-052 triển khai,
 cần chạy lại ít nhất 25k và 1M với cùng fixture/config để so sánh; nếu 1M tiếp tục quá lâu, cần ghi rõ
 failure boundary và nguyên nhân trước khi kết luận performance.
+
+## Candidate FT052 — 25k checkpoint
+
+Candidate continuous drain đo cùng fixture với `maxInFlight=500`, `claimSize=500` và immediate acknowledgement:
+
+| Workload | Thời gian candidate | Throughput candidate | So với legacy |
+|---:|---:|---:|---:|
+| `25.000` | `4.641 ms` | `5.387 records/s` | nhanh hơn `29,5%`, throughput cao hơn `41,8%` |
+
+Kết quả vẫn thấp hơn target local khoảng `39.000 records/s`. Nguyên nhân hiện tại là candidate mới loại
+wave/fixed-delay overhead; claim vẫn hydrate JPA entity, `saveAll()` lease cho từng wave và conditional
+`markPublishedBatch()` theo một DB lane. Candidate benchmark còn gọi `countByPublishedAtIsNull()` trong
+outer loop, nên cần tách polling khỏi relay timing trước khi qualification.
+
+Next optimization: phase timing → native JDBC claim-and-lease `UPDATE ... RETURNING` → scale claim/window
+`500/2.000/5.000` → evaluate multiple owner-fenced lanes → real Kafka/capacity evidence.
