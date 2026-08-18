@@ -13,14 +13,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "scan.outbox.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnExpression(
+        "${scan.outbox.enabled:true} and !${scan.outbox.continuous-drain-enabled:true} and !${scan.outbox.lane-relay-enabled:false}")
 /**
  * Publish transactional outbox theo lịch và chỉ cập nhật trạng thái sau từng lần broker phản hồi.
  * Batch bị giới hạn để một lần lỗi broker không giữ transaction hay memory quá lâu.

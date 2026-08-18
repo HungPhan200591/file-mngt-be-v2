@@ -25,6 +25,7 @@ com.filemngt.v2.scan.benchmark/
 ├── outbox/                                <-- FT-052 outbox relay
 │   └── ScanOutboxWaveBaselineBenchmarkTest.java <-- Legacy wave baseline
 │   └── ScanOutboxContinuousDrainBenchmarkTest.java <-- Continuous-drain candidate
+│   └── ScanOutboxLaneRelayBenchmarkTest.java <-- FT-053 lane-fenced candidate
 │
 ├── results/                               <-- Báo cáo đo đạc chi tiết của từng bài benchmark
 │   ├── 01-legacy-jdbc-batch-baseline.md
@@ -33,6 +34,7 @@ com.filemngt.v2.scan.benchmark/
 │   ├── 04-inventory-diff-query-benchmark.md
 │   └── 05-legacy-approval-decision-batch-baseline.md
 │   └── 06-ft052-legacy-outbox-wave-baseline.md
+│   └── 07-ft053-lane-fenced-outbox-relay.md
 │
 ├── BENCHMARK_RESULTS.md                   <-- Dashboard tổng hợp chỉ số của tất cả các lần đo
 └── README.md                              <-- Chỉ mục điều hướng & CLI cheat sheet
@@ -100,3 +102,13 @@ mvn test -Pbenchmark -pl apps/scan-service -Dtest=ScanOutboxWaveBaselineBenchmar
 ```
 
 Sau FT-052, thay test bằng `ScanOutboxContinuousDrainBenchmarkTest` và giữ nguyên workload/fixture để đối chiếu.
+
+### 📤 6. FT-053: đo native lane-fenced outbox relay (25k + 1M):
+
+```powershell
+./mvnw.cmd -Pbenchmark -pl apps/scan-service '-Dtest=ScanOutboxLaneRelayBenchmarkTest' test
+```
+
+FT-053 dùng 64 lane logic nhưng chỉ 4 worker mặc định; profile hiện hành dùng immediate acknowledgement để đo
+application/PostgreSQL data plane. Đọc `results/07-ft053-lane-fenced-outbox-relay.md` trước khi suy ra Kafka
+capacity hoặc production SLO.

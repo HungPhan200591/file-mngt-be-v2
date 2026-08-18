@@ -18,7 +18,7 @@ public class OutboxLeaseBudgetPolicy {
 
     @PostConstruct
     void validateAtStartup() {
-        if (properties.isContinuousDrainEnabled()) {
+        if (properties.isContinuousDrainEnabled() || properties.isLaneRelayEnabled()) {
             validate();
         }
     }
@@ -36,6 +36,9 @@ public class OutboxLeaseBudgetPolicy {
                 || pressure.getLowInFlightEvents() > pressure.getHighInFlightEvents()
                 || pressure.getHighInFlightEvents() > properties.getMaxInFlightEvents()) {
             throw new IllegalStateException("scan.outbox pressure watermark không hợp lệ");
+        }
+        if (properties.isLaneRelayEnabled() && properties.getLaneWorkerConcurrency() > properties.getLaneCount()) {
+            throw new IllegalStateException("scan.outbox lane worker concurrency vượt lane count cố định");
         }
     }
 }

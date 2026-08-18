@@ -43,6 +43,10 @@ Mỗi event được ánh xạ bằng fixed deterministic hash của `partition_
 trong khi `workerConcurrency` là runtime tuning độc lập. Nhờ vậy có thể chạy 2, 4 hoặc 8 physical workers mà
 không remap backlog hay đổi Kafka key.
 
+`64` ở đây là số **lane logic**, không phải 64 virtual thread. Default chỉ có 4 worker task hoạt động đồng
+thời; mỗi worker claim một lane ledger, xử lý một bounded page rồi có thể nhận lane khác. Lane count tạo độ mịn
+phân phối/fairness, còn worker concurrency quyết định lượng lease đang active tại một thời điểm.
+
 Không thêm business shard/table. Event vẫn nằm trong `scan_outbox_event`; lane chỉ là relay scheduling unit.
 Partial expression index candidate:
 

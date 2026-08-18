@@ -22,7 +22,7 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 ### Roadmap triển khai BT-09 theo thứ tự:
 1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
 2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
-3. **`BT-09C — Outbox drain` (`FT-052 implemented nhưng performance gate failed`; [FT-053 `READY`](./features/053-lane-fenced-outbox-data-plane/03-plan.md))**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất trong phiên đo. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; hard floor là `>= 30.000 records/s` ở 1M, vẫn còn crash/reclaim, broker-failure và real-Kafka capacity evidence.
+3. **`BT-09C — Outbox drain` (`FT-053 IMPLEMENTED — qualification pending`)**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; immediate-ack 1M đạt `8.264 ms`/`121.007 records/s`. Đây chưa là real-Kafka, representative payload, repeated-run, crash/reclaim hoặc production evidence.
 
 4. **`BT-09D — Catalog batch/coalesce`**: Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject (giảm event amplification).
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
@@ -80,7 +80,7 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Giai đoạn hiện tại (Active Focus — P0)**: Triển khai và qualify [**`FT-053 / BT-09C — Lane-Fenced Outbox Data Plane`**](./features/053-lane-fenced-outbox-data-plane/03-plan.md); giữ `TD-013` active tới khi 1M đạt `>= 30.000 records/s` trên isolated + real-Kafka profile và có crash/reclaim, duplicate, broker-failure evidence.
+1. **Giai đoạn hiện tại (Active Focus — P0)**: Qualify [**`FT-053 / BT-09C — Lane-Fenced Outbox Data Plane`**](./features/053-lane-fenced-outbox-data-plane/03-plan.md); isolated immediate-ack 1M đã vượt floor, nhưng giữ `TD-013` active tới khi real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence pass.
 2. **Giai đoạn tiếp theo của BT-09**: Triển khai lần lượt **`BT-09D`** (Catalog coalesce) → **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**; BT-09B vẫn cần qualification nhưng không chặn bắt đầu relay chạy chồng lấp.
 3. **Giai đoạn sau khi thông luồng SC-01**: Thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
 4. **Giai đoạn phát triển tính năng mới (New Features)**: Triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.

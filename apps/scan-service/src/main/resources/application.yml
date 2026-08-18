@@ -55,6 +55,11 @@ scan:
   outbox:
     enabled: ${SCAN_OUTBOX_ENABLED:true}
     continuous-drain-enabled: ${SCAN_OUTBOX_CONTINUOUS_DRAIN_ENABLED:true}
+    lane-relay-enabled: ${SCAN_OUTBOX_LANE_RELAY_ENABLED:false}
+    lane-count: ${SCAN_OUTBOX_LANE_COUNT:64}
+    lane-worker-concurrency: ${SCAN_OUTBOX_LANE_WORKER_CONCURRENCY:4}
+    lane-fetch-size: ${SCAN_OUTBOX_LANE_FETCH_SIZE:2000}
+    lane-max-in-flight-events: ${SCAN_OUTBOX_LANE_MAX_IN_FLIGHT_EVENTS:5000}
     scheduler-delay-ms: ${SCAN_OUTBOX_SCHEDULER_DELAY_MS:1}
     drain-time-slice-ms: ${SCAN_OUTBOX_DRAIN_TIME_SLICE_MS:100}
     idle-delay-ms: ${SCAN_OUTBOX_IDLE_DELAY_MS:50}

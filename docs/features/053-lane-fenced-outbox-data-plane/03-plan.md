@@ -1,6 +1,6 @@
 # FT-053 — Lane-Fenced Outbox Data Plane — Plan
 
-Status: `READY`
+Status: `IMPLEMENTED — qualification pending`
 Design: [02-design.md](./02-design.md)
 Debt: `TD-013` — giữ active tới khi correctness và 1M capacity gates đều pass
 
@@ -57,8 +57,8 @@ Debt: `TD-013` — giữ active tới khi correctness và 1M capacity gates đ�
    ```
 
 5. Chỉ release slot sau durable mark hoặc failure transition. Late callback từ fence cũ phải no-op có metric.
-6. Giữ FT-052 coordinator sau `SCAN_OUTBOX_LANE_RELAY_ENABLED=false`; startup fail-fast nếu legacy, FT-052 và
-   FT-053 cùng được enable.
+6. `SCAN_OUTBOX_LANE_RELAY_ENABLED=true` route scheduler độc quyền sang FT-053; FT-052/legacy không được tạo
+   cùng lúc. Tắt flag sẽ quay về FT-052 hoặc legacy theo flag hiện hành.
 
 ### [P3] Backpressure, observability và vận hành
 
@@ -138,7 +138,8 @@ Chỉ chạy khi người dùng cấp quyền test/build/benchmark.
 - [x] Tạo Brief/Design/Plan FT-053.
 - [x] Cập nhật `docs/STATUS.md`, SC-01 architecture section 8, `TD-013`, FT-052 handoff và benchmark dashboard
   để route sang gate mới.
-- [ ] Khi triển khai: cập nhật migration/runbook/config reference và benchmark result chi tiết.
+- [x] Đã triển khai migration V26, native lane relay/config/scheduler, rollback mutual exclusion, integration
+  fence test và immediate-ack benchmark result chi tiết.
 - [ ] Khi qualification pass: cập nhật dashboard bằng số đo thật, chuyển Plan `DONE`, distill STATUS và chỉ khi
   correctness evidence đầy đủ mới xóa `TD-013`.
 - Event contract/ADR hiện không cần đổi vì topic, payload, ownership và consistency model được giữ nguyên.

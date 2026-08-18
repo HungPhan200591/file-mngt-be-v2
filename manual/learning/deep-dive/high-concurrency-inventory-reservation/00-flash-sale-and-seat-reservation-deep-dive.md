@@ -36,6 +36,12 @@ Tại sao các hệ thống thông thường lập tức sập hoặc bán âm k
 >    - **Nghĩa tiếng Anh thuần**: `Delayed` (trì hoãn/hẹn giờ); `Compensation` (hành động đền bù/hoàn nguyên).
 >    - **Trong ngữ cảnh hệ thống**: Kỹ thuật bắn 1 tin nhắn vào hàng đợi hẹn giờ (Delayed Queue / Time Wheel) đúng bằng thời gian giữ chỗ (15 phút). Sau 15 phút, worker thức dậy kiểm tra đơn hàng, nếu chưa trả tiền thì tự động trả hàng về kho.
 >    - **💡 Cách liên tưởng**: *"Giống như bạn hẹn chuông báo thức 15 phút sau khi luộc trứng. Chuông reo bạn ra kiểm tra, nếu bếp chưa tắt thì bạn tự tay tắt bếp."*
+>
+> 4. **DECR / INCR & DECRBY / INCRBY (Toán tử Tăng / Giảm số lượng nguyên tử trong RAM)**:
+>    - **Nghĩa tiếng Anh thuần**: `DECR` = viết tắt của *Decrement* (giảm đi 1); `INCR` = viết tắt của *Increment* (tăng lên 1); `BY` = theo một lượng tùy chọn (vd: `DECRBY key 5` là trừ 5).
+>    - **Trong ngữ cảnh hệ thống**: Là các câu lệnh thao tác trực tiếp lên số nguyên (Signed 64-bit Integer) trong RAM của Redis. Do Redis chạy đơn luồng (*Single-threaded Event Loop*), mỗi lệnh `DECR`/`INCR` đều có tính **Nguyên tử tuyệt đối (Atomic)**: Không bao giờ có hiện tượng 2 luồng cùng tranh nhau giảm một giá trị cùng lúc gây mất mát dữ liệu (*Lost Update*).
+>    - **Tại sao lại dùng DECR thay vì GET rồi SET**: Nếu client Java dùng `GET` $\rightarrow$ tính toán trừ 1 $\rightarrow$ `SET`, 1.000 request cùng `GET` sẽ thấy cùng một con số 100 và cùng ghi đè 99. Lệnh `DECR` đẩy toàn bộ hành động giảm số lượng vào chạy trực tiếp bên trong RAM của Redis server.
+>    - **💡 Cách liên tưởng**: *"Giống như nút bấm máy đếm số người ra/vào cổng: Bảo vệ cứ bấm 'Tách' một cái là số đếm trên tay tự động nhảy tăng/giảm đúng 1 đơn vị, bất kể có bao nhiêu người đi qua nhanh thế nào."*
 
 ---
 

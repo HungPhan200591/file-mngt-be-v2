@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.config;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -10,6 +11,20 @@ import org.springframework.validation.annotation.Validated;
 public class OutboxDrainProperties {
     private boolean enabled = true;
     private boolean continuousDrainEnabled = true;
+    private boolean laneRelayEnabled;
+
+    @Min(64)
+    @Max(64)
+    private int laneCount = 64;
+
+    @Min(1)
+    private int laneWorkerConcurrency = 4;
+
+    @Min(1)
+    private int laneFetchSize = 2_000;
+
+    @Min(1)
+    private int laneMaxInFlightEvents = 5_000;
 
     @Min(1)
     private int maxInFlightEvents = 500;
@@ -64,6 +79,46 @@ public class OutboxDrainProperties {
 
     public void setContinuousDrainEnabled(boolean continuousDrainEnabled) {
         this.continuousDrainEnabled = continuousDrainEnabled;
+    }
+
+    public boolean isLaneRelayEnabled() {
+        return laneRelayEnabled;
+    }
+
+    public void setLaneRelayEnabled(boolean laneRelayEnabled) {
+        this.laneRelayEnabled = laneRelayEnabled;
+    }
+
+    public int getLaneCount() {
+        return laneCount;
+    }
+
+    public void setLaneCount(int laneCount) {
+        this.laneCount = laneCount;
+    }
+
+    public int getLaneWorkerConcurrency() {
+        return laneWorkerConcurrency;
+    }
+
+    public void setLaneWorkerConcurrency(int laneWorkerConcurrency) {
+        this.laneWorkerConcurrency = laneWorkerConcurrency;
+    }
+
+    public int getLaneFetchSize() {
+        return laneFetchSize;
+    }
+
+    public void setLaneFetchSize(int laneFetchSize) {
+        this.laneFetchSize = laneFetchSize;
+    }
+
+    public int getLaneMaxInFlightEvents() {
+        return laneMaxInFlightEvents;
+    }
+
+    public void setLaneMaxInFlightEvents(int laneMaxInFlightEvents) {
+        this.laneMaxInFlightEvents = laneMaxInFlightEvents;
     }
 
     public int getMaxInFlightEvents() {
