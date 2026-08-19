@@ -2,6 +2,7 @@ package com.filemngt.v2.scan.adapter.out.persistence.decision;
 
 import static com.filemngt.v2.scan.adapter.out.persistence.copy.PostgresCsvCopy.field;
 
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalWatermarkJdbcStore;
 import com.filemngt.v2.scan.adapter.out.persistence.copy.PostgresCsvCopy;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
@@ -37,9 +38,11 @@ public class ScanDecisionJdbcRepository {
             """;
 
     private final JdbcTemplate jdbcTemplate;
+    private final ApprovalWatermarkJdbcStore watermarks;
 
-    public ScanDecisionJdbcRepository(JdbcTemplate jdbcTemplate) {
+    public ScanDecisionJdbcRepository(JdbcTemplate jdbcTemplate, ApprovalWatermarkJdbcStore watermarks) {
         this.jdbcTemplate = jdbcTemplate;
+        this.watermarks = watermarks;
     }
 
     public long countPending(UUID scanRunId) {
@@ -198,14 +201,24 @@ public class ScanDecisionJdbcRepository {
     }
 
     public void complete(UUID operationId, String workerId) {
-        int updated = jdbcTemplate.update("""
-                UPDATE scan_approval_operation
-                SET status = 'APPROVAL_COMMITTED', approval_committed_at = now(), finished_at = now(),
-                    lease_owner = NULL, lease_until = NULL
-                WHERE id = ? AND status = 'RUNNING' AND lease_owner = ? AND lease_until > now()
-                  AND scan_committed_record_count = expected_record_count
+        int updated = watermarks.completeAndEmitWatermark("""
+                update scan_approval_operation
+                set status = 'APPROVAL_COMMITTED', approval_committed_at = now(), finished_at = now(),
+                    lease_owner = null, lease_until = null,
+                    expected_discovery_record_count = coalesce(expected_discovery_record_count, expected_record_count)
+                where id = ? and status = 'RUNNING' and lease_owner = ? and lease_until > now()
+                  and scan_committed_record_count = expected_record_count
                 """, operationId, workerId);
-        if (updated != 1) throw new ApprovalOperationLeaseLostException(operationId);
+        if (updated == 1 || isAlreadyCommitted(operationId)) return;
+        throw new ApprovalOperationLeaseLostException(operationId);
+    }
+
+    private boolean isAlreadyCommitted(UUID operationId) {
+        Boolean committed = jdbcTemplate.queryForObject(
+                "select status = 'APPROVAL_COMMITTED' from scan_approval_operation where id = ?",
+                Boolean.class,
+                operationId);
+        return Boolean.TRUE.equals(committed);
     }
 
     private ProposalRow proposalRow(java.sql.ResultSet result) throws java.sql.SQLException {

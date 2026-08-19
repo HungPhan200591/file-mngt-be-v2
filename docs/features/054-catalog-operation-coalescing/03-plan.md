@@ -1,8 +1,10 @@
 # FT-054 — Operation-Scoped Catalog Coalescing — Plan
 
-Status: `READY`
+Status: `IMPLEMENTING`
 
 Design: [02-design.md](./02-design.md)
+
+Runbook: [04-runbook.md](./04-runbook.md)
 
 Workstream: `SC-01 / BT-09D`
 
@@ -246,6 +248,10 @@ Ba run chỉ là benchmark acceptance cho feature. SC-01 P95/P99 vẫn cần sam
 - [x] Route `docs/STATUS.md` và SC-01 context từ BT-09C/FT-053 sang BT-09D/FT-054.
 - [x] Sửa watermark sample `CATALOG_COMMITTED` thành `stageSequence=20`.
 - [x] Cập nhật SC-01 architecture/catalog capsule để không route về poll-local in-memory coalescing.
-- [ ] Khi implementation bắt đầu: cập nhật event contracts nếu code-level field validation phát hiện mismatch.
+- [x] Khi implementation bắt đầu: cập nhật shared event contracts (`MediaApprovalWatermarkV1`, `MediaSubjectChangedV2`).
+- [x] Additive schema, Scan `APPROVAL_COMMITTED` watermark outbox bridge, operation batch ingest và equality gate đã được triển khai.
+- [x] Source candidate cho native canonical page finalizer, lane lease/fence, one-final-snapshot v2, stage-20 watermark, DLT/input watchdog, output pressure gate và native continuous relay đã hoàn thiện.
+- [x] Focused contract/lane/mutual-exclusion test source, candidate `CatalogOperationCoalescingBenchmarkTest` và runbook đã được thêm; chưa chạy theo execution gate.
+- [ ] Còn mở: migration/Testcontainers, focused unit/integration, real-Kafka relay, fault/crash/reclaim và warm 25k/1M qualification. Không ghi claim pass trước evidence thật.
 - [ ] Chỉ khi toàn bộ gate pass: chuyển Plan `DONE`, distill STATUS và ghi benchmark evidence thật.
 - Không cần ADR mới: database ownership, eventual consistency và transactional outbox boundary không đổi.

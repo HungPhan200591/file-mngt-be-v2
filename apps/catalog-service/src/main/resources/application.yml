@@ -25,6 +25,9 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
+      properties:
+        max.poll.records: ${CATALOG_OPERATION_MAX_POLL_RECORDS:2000}
+        max.partition.fetch.bytes: ${CATALOG_OPERATION_MAX_POLL_BYTES:16777216}
     template:
       observation-enabled: true
     listener:
@@ -36,7 +39,38 @@ catalog:
     fixed-delay-ms: ${CATALOG_OUTBOX_FIXED_DELAY_MS:50}
     batch-size: ${CATALOG_OUTBOX_BATCH_SIZE:500}
     instance-id: ${CATALOG_OUTBOX_INSTANCE_ID:${HOSTNAME:catalog-publisher}}
+    operation-relay:
+      enabled: ${CATALOG_OUTBOX_OPERATION_RELAY_ENABLED:false}
+      lane-count: 64
+      worker-count: ${CATALOG_OUTBOX_OPERATION_RELAY_WORKERS:4}
+      fetch-size: ${CATALOG_OUTBOX_OPERATION_RELAY_FETCH_SIZE:2000}
+      lease-seconds: ${CATALOG_OUTBOX_OPERATION_RELAY_LEASE_SECONDS:30}
+      idle-backoff-millis: ${CATALOG_OUTBOX_OPERATION_RELAY_IDLE_BACKOFF_MS:5}
+      maximum-failure-backoff-millis: ${CATALOG_OUTBOX_OPERATION_RELAY_MAX_FAILURE_BACKOFF_MS:5000}
+      scheduler-delay-ms: ${CATALOG_OUTBOX_OPERATION_RELAY_DELAY_MS:1}
+      instance-id: ${CATALOG_OUTBOX_OPERATION_RELAY_INSTANCE_ID:${HOSTNAME:catalog-operation-relay}}
+      pause-threshold: ${CATALOG_OUTBOX_OPERATION_RELAY_PAUSE_THRESHOLD:100000}
+      resume-threshold: ${CATALOG_OUTBOX_OPERATION_RELAY_RESUME_THRESHOLD:50000}
+      pressure-sample-ms: ${CATALOG_OUTBOX_OPERATION_RELAY_PRESSURE_SAMPLE_MS:1000}
+  operation:
+    finalizer-enabled: ${CATALOG_OPERATION_FINALIZER_ENABLED:false}
+    instance-id: ${CATALOG_OPERATION_INSTANCE_ID:${HOSTNAME:catalog-finalizer}}
+    worker-count: ${CATALOG_OPERATION_WORKER_COUNT:4}
+    subject-page-size: ${CATALOG_OPERATION_SUBJECT_PAGE_SIZE:500}
+    lease-seconds: ${CATALOG_OPERATION_LEASE_SECONDS:30}
+    statement-timeout-ms: ${CATALOG_OPERATION_STATEMENT_TIMEOUT_MS:20000}
+    finalizer-delay-ms: ${CATALOG_OPERATION_FINALIZER_DELAY_MS:10}
+    maximum-snapshot-bytes: ${CATALOG_OPERATION_MAXIMUM_SNAPSHOT_BYTES:921600}
+    missing-input-deadline-seconds: ${CATALOG_OPERATION_MISSING_INPUT_DEADLINE_SECONDS:300}
+    watchdog-delay-ms: ${CATALOG_OPERATION_WATCHDOG_DELAY_MS:30000}
   kafka:
+    operation-consumer:
+      enabled: ${CATALOG_OPERATION_CONSUMER_ENABLED:false}
+      max-poll-records: ${CATALOG_OPERATION_MAX_POLL_RECORDS:2000}
+      max-poll-bytes: ${CATALOG_OPERATION_MAX_POLL_BYTES:16777216}
+      slice-records: ${CATALOG_OPERATION_SLICE_RECORDS:2000}
+      slice-bytes: ${CATALOG_OPERATION_SLICE_BYTES:16777216}
+      concurrency: ${CATALOG_OPERATION_CONSUMER_CONCURRENCY:4}
     consumer:
       enabled: ${CATALOG_KAFKA_CONSUMER_ENABLED:true}
       concurrency: ${CATALOG_KAFKA_CONSUMER_CONCURRENCY:8}

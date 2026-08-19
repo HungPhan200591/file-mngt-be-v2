@@ -4,12 +4,14 @@ import com.filemngt.v2.catalog.application.CatalogFileDiscoveryService;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@ConditionalOnProperty(name = "catalog.kafka.operation-consumer.enabled", havingValue = "false", matchIfMissing = true)
 public class MediaFileDiscoveredConsumer {
     private final ObjectMapper json;
     private final CatalogFileDiscoveryService service;

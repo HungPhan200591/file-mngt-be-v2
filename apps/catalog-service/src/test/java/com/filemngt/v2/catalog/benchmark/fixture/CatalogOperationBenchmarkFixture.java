@@ -21,6 +21,10 @@ public final class CatalogOperationBenchmarkFixture {
     public static void reset(JdbcTemplate jdbcTemplate) {
         jdbcTemplate.execute("""
                 TRUNCATE TABLE
+                    catalog_operation_lane,
+                    catalog_operation_subject,
+                    catalog_discovery_stage,
+                    catalog_approval_operation,
                     catalog_dead_letter_event,
                     catalog_outbox_event,
                     catalog_processed_event,
@@ -74,6 +78,14 @@ public final class CatalogOperationBenchmarkFixture {
 
     public static long outboxCount(JdbcTemplate jdbcTemplate) {
         return count(jdbcTemplate, "SELECT count(*) FROM catalog_outbox_event");
+    }
+
+    public static UUID operationId() {
+        return OPERATION_ID;
+    }
+
+    public static UUID scanRunId() {
+        return SCAN_RUN_ID;
     }
 
     private static long count(JdbcTemplate jdbcTemplate, String sql) {

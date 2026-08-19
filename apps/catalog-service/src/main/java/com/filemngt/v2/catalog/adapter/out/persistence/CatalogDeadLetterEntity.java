@@ -19,6 +19,9 @@ public class CatalogDeadLetterEntity {
     private String eventKey;
     private String payload;
     private String errorDetail;
+    private UUID operationId;
+    private String failureCode;
+    private String resolutionState;
     private Instant receivedAt;
 
     protected CatalogDeadLetterEntity() {}
@@ -31,6 +34,8 @@ public class CatalogDeadLetterEntity {
             String eventKey,
             String payload,
             String errorDetail,
+            UUID operationId,
+            String failureCode,
             Instant receivedAt) {
         this.id = id;
         this.originalTopic = originalTopic;
@@ -39,6 +44,9 @@ public class CatalogDeadLetterEntity {
         this.eventKey = eventKey;
         this.payload = payload;
         this.errorDetail = errorDetail;
+        this.operationId = operationId;
+        this.failureCode = failureCode;
+        this.resolutionState = "UNRESOLVED";
         this.receivedAt = receivedAt;
     }
 
@@ -72,5 +80,17 @@ public class CatalogDeadLetterEntity {
 
     public Instant receivedAt() {
         return receivedAt;
+    }
+
+    public UUID operationId() {
+        return operationId;
+    }
+
+    public String failureCode() {
+        return failureCode;
+    }
+
+    public String resolutionState() {
+        return resolutionState;
     }
 }

@@ -3,6 +3,7 @@
 ## FT-054
 
 - Legacy baseline: [CatalogLegacyRecordProcessingBenchmarkTest](./legacy/CatalogLegacyRecordProcessingBenchmarkTest.java)
+- Candidate: [CatalogOperationCoalescingBenchmarkTest](./operation/CatalogOperationCoalescingBenchmarkTest.java)
 - Result report: [01-ft054-legacy-catalog-record-baseline.md](./results/01-ft054-legacy-catalog-record-baseline.md)
 - Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
 

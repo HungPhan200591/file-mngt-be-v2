@@ -11,9 +11,11 @@ import org.springframework.stereotype.Repository;
 /** Ledger logical shard; business rows vẫn nằm trong các bảng Scan hiện hành. */
 public class ApprovalOperationShardJdbcRepository {
     private final JdbcTemplate jdbc;
+    private final ApprovalWatermarkJdbcStore watermarks;
 
-    public ApprovalOperationShardJdbcRepository(JdbcTemplate jdbc) {
+    public ApprovalOperationShardJdbcRepository(JdbcTemplate jdbc, ApprovalWatermarkJdbcStore watermarks) {
         this.jdbc = jdbc;
+        this.watermarks = watermarks;
     }
 
     public void initialize(UUID operationId, UUID scanRunId, UUID cutoffId, int shardCount) {
@@ -82,10 +84,11 @@ public class ApprovalOperationShardJdbcRepository {
     }
 
     public void finalizeReadyOperations() {
-        jdbc.update("""
+        watermarks.completeAndEmitWatermark("""
                 UPDATE scan_approval_operation operation
                 SET status = 'APPROVAL_COMMITTED', approval_committed_at = now(), finished_at = now(),
                     lease_owner = NULL, lease_until = NULL,
+                    expected_discovery_record_count = coalesce(operation.expected_discovery_record_count, operation.expected_record_count),
                     scan_committed_record_count = (
                         SELECT coalesce(sum(shard.committed_record_count), 0)
                         FROM scan_approval_operation_shard shard
@@ -130,7 +133,7 @@ public class ApprovalOperationShardJdbcRepository {
                 WHERE id = ? AND operation_id = ? AND status = 'RUNNING' AND lease_owner = ?
                 """, shardId, operationId, workerId);
         if (updated != 1) throw new IllegalStateException("Approval shard lease lost: " + shardId);
-        jdbc.update("""
+        watermarks.completeAndEmitWatermark("""
                 UPDATE scan_approval_operation operation
                 SET status = 'APPROVAL_COMMITTED', approval_committed_at = now(), finished_at = now(),
                     lease_owner = NULL, lease_until = NULL

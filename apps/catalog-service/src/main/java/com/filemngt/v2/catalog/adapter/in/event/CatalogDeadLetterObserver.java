@@ -4,6 +4,7 @@ import com.filemngt.v2.catalog.application.CatalogDeadLetterService;
 import com.filemngt.v2.catalog.application.CatalogOutboxMetrics;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 @ConditionalOnProperty(name = "catalog.kafka.dlt-observer.enabled", havingValue = "true", matchIfMissing = true)
@@ -21,10 +23,13 @@ public class CatalogDeadLetterObserver {
 
     private final CatalogDeadLetterService service;
     private final CatalogOutboxMetrics metrics;
+    private final ObjectMapper json;
 
-    public CatalogDeadLetterObserver(CatalogDeadLetterService service, CatalogOutboxMetrics metrics) {
+    public CatalogDeadLetterObserver(
+            CatalogDeadLetterService service, CatalogOutboxMetrics metrics, ObjectMapper json) {
         this.service = service;
         this.metrics = metrics;
+        this.json = json;
     }
 
     @KafkaListener(
@@ -39,7 +44,9 @@ public class CatalogDeadLetterObserver {
                     headerLong(record, KafkaHeaders.DLT_ORIGINAL_OFFSET, record.offset()),
                     record.key(),
                     record.value(),
-                    headerString(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE, null)));
+                    headerString(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE, null),
+                    operationId(record.value()),
+                    "CATALOG_INPUT_DLT"));
             if (recorded) {
                 metrics.deadLetterReceived();
             }
@@ -50,6 +57,16 @@ public class CatalogDeadLetterObserver {
                     record.partition(),
                     record.offset(),
                     exception);
+            throw exception;
+        }
+    }
+
+    private UUID operationId(String payload) {
+        try {
+            String value = json.readTree(payload).path("operationId").asText(null);
+            return value == null ? null : UUID.fromString(value);
+        } catch (Exception exception) {
+            return null;
         }
     }
 
