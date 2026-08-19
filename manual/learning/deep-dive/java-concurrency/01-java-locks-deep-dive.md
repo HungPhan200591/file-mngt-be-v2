@@ -12,6 +12,8 @@ Bức tranh tổng thể về 3 Không gian Khóa trong Java được trực qua
 
 *(💡 Gợi ý: Bạn có thể click đúp vào file [assets/java-locks-evolution-architecture.drawio.svg](assets/java-locks-evolution-architecture.drawio.svg) trong IntelliJ để mở trình biên tập Draw.io kéo thả trực quan).*
 
+> 📖 **Đọc chuyên đề tiếp theo:** [🏛️ Khóa Phân Tán: PostgreSQL Lease vs. Redis Redlock & Tranh Luận Martin Kleppmann vs. Antirez](./02-distributed-locks-redis-vs-db-lease.md)
+
 ---
 
 ## D0 — Problem: Tại sao Java lại cần nhiều loại Lock đến vậy?

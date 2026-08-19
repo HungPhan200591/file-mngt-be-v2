@@ -17,12 +17,22 @@
         * **question-bank**
           * [🎯 Ngân Hàng Câu Hỏi Phỏng Vấn: CQRS Lite, Read Projection & Dual-Store Search](/manual/learning/deep-dive/cqrs-read-projection/question-bank/00-cqrs-projection-questions.md)
       * **database-internals**
+        * [🗄️ Master Deep-Dive: Bản Đồ Nền Tảng DB Engine & Cẩm Nang Giải Pháp Tối Ưu](/manual/learning/deep-dive/database-internals/00-postgresql-engine-mental-model-and-optimization-playbook.md)
         * [📜 Deep-dive: Write-Ahead Logging (WAL) & Database Storage Engine Internals](/manual/learning/deep-dive/database-internals/01-wal-and-storage-engine-internals.md)
         * [🧭 Deep-Dive: Bản chất Anti-Join & Hash Anti-Join từ First Principles đến Database Execution Plan](/manual/learning/deep-dive/database-internals/02-anti-join-and-query-optimization.md)
         * [⚡ Deep-Dive: PostgreSQL UNLOGGED Tables & Transient Storage Internals](/manual/learning/deep-dive/database-internals/03-unlogged-tables-and-transient-storage.md)
+        * [🗄️ Deep-Dive: Giới Hạn Vật Lý RDBMS vs Kiến Trúc Xử Lý Triệu Records/Giây (1M+ Records/s)](/manual/learning/deep-dive/database-internals/04-rdbms-limits-vs-million-records-per-second.md)
+        * [🗄️ Deep-Dive: Bí Mật Dưới Nắp Ca-pô của ACID — Cơ Chế & Kiến Trúc Bên Trong Cơ Sở Dữ Liệu](/manual/learning/deep-dive/database-internals/05-acid-internals-and-implementation-mechanisms.md)
         * [🗄️ Deep-Dive: PostgreSQL Database Internals — Storage & Query Engine](/manual/learning/deep-dive/database-internals/README.md)
       * **durable-bounded-batch-pipeline**
         * [Core Reference — Durable Bounded Batch Pipeline](/manual/learning/deep-dive/durable-bounded-batch-pipeline/README.md)
+      * **high-concurrency-inventory-reservation**
+        * [Deep-Dive: Kiến Trúc Giữ Chỗ & Trừ Tồn Kho Đồng Thời Cao (Flash Sale & Seat Reservation)](/manual/learning/deep-dive/high-concurrency-inventory-reservation/00-flash-sale-and-seat-reservation-deep-dive.md)
+        * [High Concurrency Inventory Reservation & Flash Sale](/manual/learning/deep-dive/high-concurrency-inventory-reservation/README.md)
+      * **java-concurrency**
+        * [🧠 Java Concurrency: The Ultimate Mental Model & Architectural Guide](/manual/learning/deep-dive/java-concurrency/00-overview-mental-model.md)
+        * [🔒 Java Locks Deep-Dive: From `synchronized` to `StampedLock` & Modern Concurrency](/manual/learning/deep-dive/java-concurrency/01-java-locks-deep-dive.md)
+        * [🏛️ Distributed Locks: PostgreSQL-backed Lease vs. Redis Redlock & The Great Debate](/manual/learning/deep-dive/java-concurrency/02-distributed-locks-redis-vs-db-lease.md)
       * **media-asset-management-architecture**
         * [Deep-Dive: Bối cảnh Nghiệp vụ Thực tế & Kinh tế học Phần cứng trong Hệ thống Media Ingestion](/manual/learning/deep-dive/media-asset-management-architecture/01-business-context-and-hardware-economics.md)
         * [Deep-Dive: Giới hạn Vật lý Phần cứng & Cơ sở Thiết lập SLO cho 1 Triệu Bản Ghi](/manual/learning/deep-dive/media-asset-management-architecture/02-performance-slo-and-hardware-benchmarks.md)
@@ -51,6 +61,7 @@
         * [🔄 Approval Ingestion Flow & Transactional Outbox Integration](/manual/learning/deep-dive/scan-service/02-approval-and-outbox-flow.md)
         * [💡 Scan Service: Technical Assessment & Improvement Ideas](/manual/learning/deep-dive/scan-service/03-improvements-and-ideas.md)
         * [⚡ Kafka Integration Deep-Dive trong Scan Service](/manual/learning/deep-dive/scan-service/04-kafka-integration-deep-dive.md)
+        * [⚡ Deep-Dive Kiến trúc Outbox Relay: FT-053 (Lane-Fenced) vs FT-052 (JPA Per-Event Lease)](/manual/learning/deep-dive/scan-service/05-ft053-lane-fenced-outbox-vs-ft052-deep-dive.md)
       * **transactional-outbox**
         * [📦 Transactional Outbox Pattern: Overview & Fundamentals](/manual/learning/deep-dive/transactional-outbox/00-overview.md)
         * [🏗️ Outbox Architecture & Implementation Details](/manual/learning/deep-dive/transactional-outbox/01-architecture-implementation.md)
@@ -104,7 +115,7 @@
             * [📊 Giải thích chi tiết: Tại sao chọn Chunk Size 25.000 cho BT-09B? (Trade-off & Mathematical Proof)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/explain-bt09b-chunk-size-tradeoff-and-benchmark.md)
             * [BT-09A capsule — Operation contract & watermark](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09a-watermark-and-contract.md)
             * [Reference Capsule: BT-09B — Scan Decision & Outbox Chunking](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09b-scan-decision-chunking.md)
-            * [Reference Capsule: BT-09C — Outbox Drain & Bounded Relay](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09c-outbox-continuous-drain.md)
+            * [Reference Capsule: BT-09C — Outbox Continuous Drain](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09c-outbox-continuous-drain.md)
             * [Reference Capsule: BT-09D — Catalog Batch Coalescing](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md)
             * [Reference Capsule: BT-09E — Query Bulk Projection & Cache Generation](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09e-query-bulk-projection.md)
             * [Reference Capsule: BT-09F — Failure Isolation & DLT Replay](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09f-dlt-and-replay-runbook.md)
@@ -446,6 +457,21 @@
       * [FT-049 — SC-01 Scan-Core Scale Qualification](/docs/features/049-scan-core-scale-qualification/01-brief.md)
       * [FT-049 — Design: Scan-Core Scale Qualification](/docs/features/049-scan-core-scale-qualification/02-design.md)
       * [FT-049 — Plan: Scan-Core Scale Qualification](/docs/features/049-scan-core-scale-qualification/03-plan.md)
+    * **050-approval-preparation-acceleration**
+      * [FT-050 — SC-01 BT-09B: Approval Preparation & Persistence Acceleration](/docs/features/050-approval-preparation-acceleration/01-brief.md)
+      * [FT-050 — Design: Approval Preparation & Persistence Acceleration](/docs/features/050-approval-preparation-acceleration/02-design.md)
+      * [FT-050 — Plan: Approval Preparation & Persistence Acceleration](/docs/features/050-approval-preparation-acceleration/03-plan.md)
+    * **051-logical-approval-sharding**
+      * [FT-051 — SC-01 BT-09B: Logical Approval Sharding](/docs/features/051-logical-approval-sharding/01-brief.md)
+      * [FT-051 — Design: Logical Approval Sharding](/docs/features/051-logical-approval-sharding/02-design.md)
+    * **052-outbox-continuous-drain**
+      * [FT-052 — SC-01 BT-09C: Outbox Continuous Drain](/docs/features/052-outbox-continuous-drain/01-brief.md)
+      * [FT-052 — Design: Outbox Continuous Drain & Bounded Relay](/docs/features/052-outbox-continuous-drain/02-design.md)
+      * [FT-052 — Plan: Outbox Continuous Drain & Bounded Relay](/docs/features/052-outbox-continuous-drain/03-plan.md)
+    * **053-lane-fenced-outbox-data-plane**
+      * [FT-053 — Lane-Fenced Outbox Data Plane](/docs/features/053-lane-fenced-outbox-data-plane/01-brief.md)
+      * [FT-053 — Lane-Fenced Outbox Data Plane — Design](/docs/features/053-lane-fenced-outbox-data-plane/02-design.md)
+      * [FT-053 — Lane-Fenced Outbox Data Plane — Plan](/docs/features/053-lane-fenced-outbox-data-plane/03-plan.md)
   * **reviews**
     * [Backend V2 — Review chất lượng, kiến trúc và Production Readiness](/docs/reviews/2026-08-12-backend-quality-architecture-production-readiness.md)
     * [Đánh giá throughput approve bulk — 5.000 records calibration cho SC-01](/docs/reviews/2026-08-13-approve-5000-query-performance-assessment.md)
