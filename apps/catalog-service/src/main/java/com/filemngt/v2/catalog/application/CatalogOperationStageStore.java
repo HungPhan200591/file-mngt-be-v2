@@ -107,7 +107,9 @@ public class CatalogOperationStageStore {
                 watermark.eventId(),
                 correlationId,
                 traceparent,
-                watermark.occurredAt());
+                watermark.occurredAt() != null
+                        ? java.sql.Timestamp.from(watermark.occurredAt())
+                        : java.sql.Timestamp.from(Instant.now()));
         if (accepted == 0) rejectConflictingManifest(watermark);
         dltGate.synchronize(watermark.operationId());
         if ("APPROVAL_COMMITTED".equals(watermark.stage())) evaluateGate(watermark.operationId());
@@ -188,9 +190,9 @@ public class CatalogOperationStageStore {
                     when expected_removal_record_count <> 0 then 'UNSUPPORTED_MIXED_CATALOG_OPERATION'
                     when received_record_count > expected_discovery_record_count then 'CATALOG_INPUT_CARDINALITY_MISMATCH'
                     else failure_code end,
-                  updated_at = ? where operation_id = ?
+                  updated_at = now() where operation_id = ?
                   and status in ('INGESTING', 'READY_TO_COALESCE')
-                """, Instant.now(), operationId);
+                """, operationId);
         if (ready == 0) return;
         jdbc.update("""
                 insert into catalog_operation_lane(operation_id, lane_id)
@@ -216,9 +218,9 @@ public class CatalogOperationStageStore {
         if (conflicts != null && conflicts > 0) {
             jdbc.update("""
                     update catalog_approval_operation
-                    set status = 'BLOCKED', failure_code = 'CATALOG_MANIFEST_CONFLICT', updated_at = ?
+                    set status = 'BLOCKED', failure_code = 'CATALOG_MANIFEST_CONFLICT', updated_at = now()
                     where operation_id = ? and status <> 'CATALOG_COMMITTED'
-                    """, Instant.now(), watermark.operationId());
+                    """, watermark.operationId());
             throw new IllegalArgumentException("approval watermark conflicts with durable operation manifest");
         }
     }
