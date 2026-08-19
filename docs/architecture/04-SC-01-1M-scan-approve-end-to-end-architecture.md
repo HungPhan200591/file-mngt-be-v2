@@ -314,26 +314,29 @@ outbox age tăng
 
 Catalog là owner duy nhất của subject, asset, actress, studio và tag.
 
-Target flow:
+Target flow được chốt chi tiết tại
+[FT-054](../features/054-catalog-operation-coalescing/02-design.md). Coalesce phải bao phủ toàn operation,
+không chỉ một Kafka poll:
 
 ~~~text
-Kafka batch
-→ validate schema/version
-→ dedupe eventId
-→ group by region + subjectType + identityKey
-→ set-based load affected subjects/assets/master data
-→ merge deterministic final state
-→ bulk upsert canonical DB
-→ một final subject snapshot cho mỗi affected subject
-→ commit processed events + outbox + stage counter
+Kafka batch → bounded COPY/set-based dedupe vào durable staging
+→ manifest + exact counter equality gate
+→ freeze unique subject workset theo operation
+→ 64 logical lane merge deterministic final state
+→ native bulk canonical write + one version mỗi changed subject
+→ một final subject snapshot v2 cho mỗi (operationId, subjectId)
+→ native continuous Catalog outbox relay
+→ CATALOG_COMMITTED khi exact subject/outbox/DLT gate pass
 ~~~
 
-Coalescing cần thiết vì 1M file events có thể chỉ tạo ít hơn nhiều subject snapshots. Nó giảm aggregate load/save, outbox amplification và Query input.
+Durable staging cần thiết vì cùng subject có thể nằm ở nhiều poll/batchId và completion manifest có thể đến
+trước hoặc sau data. Coalescing giảm aggregate load/save, outbox amplification và Query input mà không giữ
+toàn bộ 1M event trong Java heap.
 
 Trade-off:
 
 - nhanh hơn và ít DB transaction hơn;
-- tốn memory và merge logic;
+- thêm staging/WAL, operation ledger và deterministic merge logic;
 - phải định nghĩa conflict/election deterministic;
 - phải có version guard để event cũ không ghi đè state mới.
 

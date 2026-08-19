@@ -49,6 +49,11 @@ Required: `eventId`, `eventType`, `occurredAt`, `operationId`, `batchId`, `subje
 `subjectVersion`, `region`, `subjectType`, `identityKey`, `actressNames`, `tagNames`, `assets`.
 Payload không chứa absolute filesystem path.
 
+`batchId` do Catalog tạo theo bounded output chunk và phải durable trong outbox. Serialized payload có
+hard envelope mặc định `<= 900 KiB` để còn headroom dưới Kafka message limit; subject vượt envelope phải
+được Catalog ghi `BLOCKED`/`SUBJECT_SNAPSHOT_TOO_LARGE`, không tự chia một v2 full snapshot thành nhiều
+message thiếu contract.
+
 ## Semantics tối ưu cho approve 1M
 
 - Event là full final snapshot, không phải delta.

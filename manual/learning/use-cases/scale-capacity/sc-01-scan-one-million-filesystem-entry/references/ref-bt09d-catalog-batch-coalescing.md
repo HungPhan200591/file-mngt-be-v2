@@ -1,39 +1,50 @@
-# Reference Capsule: BT-09D — Catalog Batch Coalescing
+# Reference Capsule: BT-09D — Catalog Operation Coalescing
 
-> Trích xuất từ: `docs/reviews/2026-08-13-approve-5000-query-performance-assessment.md` (Section 3 & P0) & `2026-08-14-linkedin-large-scale-data-processing.md` (Section 2).
-> Phạm vi: Áp dụng cho Catalog Service consumer khi nhận hàng loạt event `media.file.discovered.v2`.
+> Implementation owner: [FT-054](../../../../../../docs/features/054-catalog-operation-coalescing/03-plan.md).
+> Phạm vi: `media.file.discovered.v2` → canonical Catalog → `media.subject.changed.v2` + `CATALOG_COMMITTED`.
 
----
+## Vấn đề
 
-## 1. Vấn đề: Event & Write Amplification tại Catalog
+Catalog hiện xử lý từng event bằng một listener/transaction JPA, load và flush aggregate rồi tạo snapshot v1.
+Với 1M input, cost transaction/version/outbox gần `O(events)`; cùng subject qua nhiều poll vẫn bị ghi nhiều lần.
+Catalog outbox hiện còn fixed delay giữa các claim nên giảm event count nhưng chưa đủ bảo đảm relay budget.
 
-- **Hiện trạng nguy hiểm**: 1.000.000 file discovered đến Catalog. Nếu Catalog xử lý từng event trong 1 transaction riêng:
-  - 1.000.000 DB transactions độc lập.
-  - Một subject chứa 50 ảnh/video sẽ bị `SELECT -> UPDATE -> COMMIT` 50 lần liên tiếp, gây lock contention nặng nề trên cùng 1 row `media_subject`.
-  - Catalog lại phát ngược ra 1.000.000 event `subject.changed.v1` sang Kafka, làm nghẽn tiếp Query Service.
+Coalesce trong RAM của một Kafka poll là solution nửa vời vì poll không phải operation boundary. Manifest có
+thể đến trước/sau data và một subject có thể trải qua nhiều poll/batchId.
 
----
+## Target one-shot của FT-054
 
-## 2. Giải pháp: In-Memory Batch Coalescing (Samza Model)
-
-```mermaid
-flowchart TD
-    KAFKA[("Kafka: media.file.discovered.v2")] --> BATCH_LISTEN["@KafkaListener nhận Batch (500 records)"]
-    BATCH_LISTEN --> GROUP["Group theo subjectIdentity<br/>(JOKE: code, USE: normalized basename/folder)"]
-    GROUP --> COALESCE["Áp dụng tuần tự các mutation của các asset<br/>vào cùng một aggregate subject trong RAM"]
-    COALESCE --> VERSION["Tăng subjectVersion đúng 1 lần cho mỗi subject"]
-    VERSION --> BULK_UPSERT[("Bulk Upsert Catalog DB (chỉ N subject duy nhất)")]
-    BULK_UPSERT --> OUTBOX[("Ghi Outbox đúng N event subject.changed.v2<br/>(1 snapshot cuối cùng cho mỗi subject)")]
+```text
+Scan transactional APPROVAL_COMMITTED watermark
+→ Catalog batch listener, bounded theo records + bytes
+→ temp COPY + durable stage ON CONFLICT(eventId) DO NOTHING
+→ operation ledger + exact received/expected equality gate
+→ freeze unique subject workset
+→ 64 logical lane native canonical merge
+→ one subjectVersion + one final snapshot v2 mỗi changed subject
+→ native continuous Catalog outbox relay
+→ CATALOG_COMMITTED khi input/subject/outbox/DLT count đều exact
 ```
 
----
+## Invariants
 
-## 3. Các quy tắc kỹ thuật
+1. Staging là logged/durable; không giữ 1M event trong Java heap.
+2. Dedupe input theo `eventId`; unique output theo `(operationId, subjectId)`.
+3. Subject reducer deterministic theo Kafka source order; giữ primary election, tags và tombstone semantics.
+4. Canonical write, final outbox và lane checkpoint atomic trong `catalog_db`.
+5. Manifest/data reorder hội tụ bằng equality gate; unresolved DLT cấm `CATALOG_COMMITTED`.
+6. Output relay dùng lane lease/fence + native fetch/mark + bounded async send; fixed-delay publisher chỉ rollback.
+7. Query implementation không thuộc FT-054; output contract duy nhất là `media.subject.changed.v2`.
 
-1. **Kafka Batch Consumer**: Cấu hình listener dạng `List<ConsumerRecord<String, DiscoveredFilePayload>>`.
-2. **Coalesce theo Subject Identity**:
-   - Nếu trong batch 500 file có 20 file thuộc cùng một Album/Video subject, toàn bộ 20 asset này được gộp vào aggregate subject trong RAM.
-   - Chỉ thực hiện 1 lần ghi DB và phát sinh đúng **1 event snapshot cuối cùng** cho subject đó.
-   - **Giảm tải (De-amplification)**: Giảm từ 1.000.000 event xuống chỉ còn ~100.000 - 300.000 event downstream.
-3. **Bulk Upsert DB**: Dùng JDBC batch hoặc native SQL cho bảng `media_subject` và `media_asset`, tránh gọi Hibernate `save()` lặp từng record.
-4. **Idempotency & Version Guard**: Kiểm tra `processed_event` và tăng `version` aggregate để ngăn chặn ghi đè trùng lặp.
+## Gate không được đẩy sang feature khác
+
+- 1M representative input, 100k subject × 10 asset: canonical phase `<= 10s`, `>= 100k records/s`.
+- Broker-ack + durable mark toàn bộ final snapshot: `<= 2s` trên qualification profile.
+- Data loss, duplicate canonical effect, unresolved DLT: `0`.
+- Nếu chưa đạt, tiếp tục profile/tối ưu SQL, index, lane, chunk và producer window trong FT-054;
+  không tạo FT mới chỉ để hoàn tất throughput BT-09D.
+
+## Evidence boundary
+
+Stripe fast-path/slow-path và Uber Kafka DLT/idempotency hỗ trợ pattern ledger/replay/failure isolation,
+nhưng không chứng minh throughput. Chỉ benchmark project với payload/schema/hardware/Kafka thật đóng gate.

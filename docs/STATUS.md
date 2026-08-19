@@ -1,6 +1,6 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-18
+Updated: 2026-08-19
 
 ## Gate mới nhất — Production Readiness Review
 
@@ -24,7 +24,7 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
 3. **`BT-09C — Outbox drain` (`FT-053 IMPLEMENTED — qualification pending`)**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; immediate-ack 1M đạt `8.264 ms`/`121.007 records/s`. Đây chưa là real-Kafka, representative payload, repeated-run, crash/reclaim hoặc production evidence.
 
-4. **`BT-09D — Catalog batch/coalesce`**: Batch consumer, group theo subject identity, áp dụng mutation theo thứ tự và phát snapshot cuối cùng theo subject (giảm event amplification).
+4. **`BT-09D — Catalog batch/coalesce` (`FT-054 READY`)**: [FT-054](./features/054-catalog-operation-coalescing/03-plan.md) đã chốt one-shot operation-wide durable staging, equality gate, native canonical merge, one-final-snapshot v2 và continuous Catalog relay. Feature chỉ `DONE` khi canonical 1M `<= 10s`, relay `<= 2s` cùng correctness/failure gate; không tách thêm FT chỉ để hoàn tất throughput BT-09D.
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
 6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
 7. **`BT-09G — Scale ladder`**: Chạy benchmark scale ladder 1K → 5K → 50K → 250K → 1M đo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool.
@@ -80,7 +80,8 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Giai đoạn hiện tại (Active Focus — P0)**: Qualify [**`FT-053 / BT-09C — Lane-Fenced Outbox Data Plane`**](./features/053-lane-fenced-outbox-data-plane/03-plan.md); isolated immediate-ack 1M đã vượt floor, nhưng giữ `TD-013` active tới khi real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence pass.
-2. **Giai đoạn tiếp theo của BT-09**: Triển khai lần lượt **`BT-09D`** (Catalog coalesce) → **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**; BT-09B vẫn cần qualification nhưng không chặn bắt đầu relay chạy chồng lấp.
-3. **Giai đoạn sau khi thông luồng SC-01**: Thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
-4. **Giai đoạn phát triển tính năng mới (New Features)**: Triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.
+1. **Feature sẵn sàng triển khai tiếp theo:** [**`FT-054 / BT-09D — Operation-Scoped Catalog Coalescing`**](./features/054-catalog-operation-coalescing/03-plan.md), Plan `READY`; triển khai trọn batch ingest → canonical coalesce → final v2 outbox/relay → `CATALOG_COMMITTED` trong cùng feature.
+2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
+3. **Sau khi FT-054 đạt gate:** triển khai **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi FT-054 mới đúng semantics nhưng chưa đạt throughput gate.
+4. **Giai đoạn sau khi thông luồng SC-01:** thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
+5. **Giai đoạn phát triển tính năng mới:** triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.

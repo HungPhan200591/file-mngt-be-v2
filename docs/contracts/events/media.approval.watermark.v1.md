@@ -39,8 +39,10 @@ project status nhận lại event không được cộng vào SLI và cũng khô
   "operationId": "019ffb4f-2222-7aaa-8bbb-222222222222",
   "scanRunId": "019ffb4f-3333-7aaa-8bbb-333333333333",
   "stage": "CATALOG_COMMITTED",
-  "stageSequence": 30,
+  "stageSequence": 20,
   "expectedRecordCount": 1000000,
+  "expectedDiscoveryRecordCount": 1000000,
+  "expectedRemovalRecordCount": 0,
   "scanCommittedRecordCount": 1000000,
   "catalogProcessedRecordCount": 1000000,
   "expectedSubjectCount": 148321,
@@ -56,7 +58,10 @@ project status nhận lại event không được cộng vào SLI và cũng khô
 Required chung: `eventId`, `eventType`, `operationId`, `scanRunId`, `stage`, `stageSequence`,
 `expectedRecordCount`, `unresolvedDltCount`, `occurredAt`.
 
-- `APPROVAL_COMMITTED` yêu cầu `scanCommittedRecordCount` và `sourceBatchCount`.
+- `APPROVAL_COMMITTED` yêu cầu `scanCommittedRecordCount`, `sourceBatchCount`,
+  `expectedDiscoveryRecordCount` và
+  `expectedRemovalRecordCount`; tổng hai field phải bằng `expectedRecordCount`. BT-09D/FT-054 chỉ qualify
+  discovery-only workload và chuyển mixed operation sang `BLOCKED/UNSUPPORTED_MIXED_CATALOG_OPERATION`.
 - `CATALOG_COMMITTED` yêu cầu `catalogProcessedRecordCount`, `expectedSubjectCount` và `outputBatchCount`.
 - `QUERY_DB_READY` yêu cầu `expectedSubjectCount = projectedSubjectCount`.
 - `BLOCKED`/`FAILED` yêu cầu `failureCode`; không đưa exception message/path vào metric label hay payload public.
