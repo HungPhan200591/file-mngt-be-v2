@@ -2,6 +2,20 @@
 
 Tài liệu deep-dive toàn diện về **Concurrency & Multithreading trong Java** (từ Java 8 đến Java 21 / JDK 25): Định hình lại tư duy từ gốc, giải mã bản chất các tầng trừu tượng, phân biệt rạch ròi giữa *Thread Execution*, *Async Pipeline*, *Locks*, *Atomics* và *Memory Models*, kèm sơ đồ kiến trúc trực quan.
 
+> [!TIP]
+> ### 🎙️ Audio Đàm Đạo Võ Học: Tuyệt Kỹ Đa Luồng Java Kiếm Hiệp (NotebookLM)
+> 
+> * **Nghe trên Docsify / Web Browser:**
+>   <audio controls style="width: 100%; margin-top: 8px;">
+>     <source src="manual/learning/deep-dive/java-concurrency/assets/concurrency-wuxia-podcast.m4a" type="audio/mp4">
+>     <source src="manual/learning/deep-dive/java-concurrency/assets/concurrency-wuxia-podcast.m4a" type="audio/x-m4a">
+>     <source src="./assets/concurrency-wuxia-podcast.m4a" type="audio/mp4">
+>   </audio>
+> 
+> * **Nghe trong Markdown Preview IDE:** 👉 [🎧 **Bấm vào đây để mở nghe file Audio** (Click to Play)](./assets/concurrency-wuxia-podcast.m4a)
+> 
+> *(💡 Vừa xem sơ đồ vừa nghe 2 MC AI đàm đạo về 3 Realm, Virtual Threads, Thread Pinning theo phong cách kiếm hiệp).*
+
 ---
 
 ## 🗺️ Bản đồ Không gian Tổng thể (Spatial Architecture)
