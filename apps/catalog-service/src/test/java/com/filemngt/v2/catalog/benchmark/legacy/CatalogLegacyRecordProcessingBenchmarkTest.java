@@ -68,7 +68,7 @@ class CatalogLegacyRecordProcessingBenchmarkTest {
 
     @Test
     @Order(2)
-    @Timeout(value = 2, unit = TimeUnit.MINUTES)
+    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresLegacyCatalogRecordProcessingForOneMillionEvents() {
         measureLegacyPath(1_000_000);
     }
@@ -77,6 +77,9 @@ class CatalogLegacyRecordProcessingBenchmarkTest {
         warmUpAndReset();
         long processingNanos = 0;
         for (int index = 0; index < eventCount; index++) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new IllegalStateException("Benchmark execution interrupted");
+            }
             var event = CatalogOperationBenchmarkFixture.discoveryEvent(index);
             long started = System.nanoTime();
             discoveryService.handleV2(event);
