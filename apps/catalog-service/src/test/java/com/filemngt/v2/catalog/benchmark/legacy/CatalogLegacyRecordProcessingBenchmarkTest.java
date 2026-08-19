@@ -62,6 +62,7 @@ class CatalogLegacyRecordProcessingBenchmarkTest {
 
     @Test
     @Order(1)
+    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresLegacyCatalogRecordProcessingForTwentyFiveThousandEvents() {
         measureLegacyPath(25_000);
     }

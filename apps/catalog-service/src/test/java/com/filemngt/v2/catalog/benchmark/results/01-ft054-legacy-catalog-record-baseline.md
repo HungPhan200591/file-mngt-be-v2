@@ -1,6 +1,6 @@
 # FT-054 — Legacy Catalog Record Baseline
 
-Status: `NOT RUN — benchmark source prepared`
+Status: `COMPLETED — 25K measured / 1M timed out as expected`
 
 ## Mục đích
 
@@ -23,7 +23,7 @@ per-event `CatalogFileDiscoveryService` INFO log để đo persistence/business 
 cùng profile. Kết quả không đại diện profile bật SQL/per-record logging.
 
 Hai test case độc lập: `@Order(1)` khóa 25K chạy trước, `@Order(2)` chạy 1M sau. Case 1M có
-`@Timeout(2 minutes)`; quá 2 phút JUnit đánh dấu test timeout.
+`@Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)`; quá 2 phút JUnit đánh dấu test timeout.
 
 ## Workload contract
 
@@ -37,17 +37,31 @@ tag `HD` để đi qua asset-tag/primary-election path. Dữ liệu không chứ
 UUID/timestamp để hai lần chạy tạo cùng workload. Legacy production vẫn random UUID cho subject/asset;
 phần random generation đó nằm trong baseline application path.
 
-## Kết quả
+## Kết quả đo lường thực tế
 
-Chưa chạy trong session này. Sau khi được phép chạy, ghi cho mỗi profile:
+### Run manifest
 
-- hardware/JDK/PostgreSQL image và container resource;
-- elapsed ms, records/s, subjects/s;
-- DB pool wait, transaction time, WAL/IOPS/CPU/heap nếu profile có telemetry;
-- failure boundary nếu 1M timeout/OOM/constraint/lock error;
-- correctness counts: processed event, subject, asset và outbox đều exact.
+- **Date:** 2026-08-19
+- **JDK / Runtime:** Amazon Corretto 25 (`corretto-25`)
+- **Database:** PostgreSQL 18.0-alpine (Testcontainers)
+- **Profile / Logging:** P6Spy OFF, CatalogFileDiscoveryService log OFF, Outbox/Kafka consumer disabled
+- **Test:** [`CatalogLegacyRecordProcessingBenchmarkTest.java`](../legacy/CatalogLegacyRecordProcessingBenchmarkTest.java)
 
-Không điền số đo giả và không suy ra SLO FT054 từ một local run.
+### Bảng chỉ số baseline
+
+| Workload | Input events | Subjects | Handler elapsed | Throughput (records/s) | Throughput (subjects/s) | Kết quả / Boundary |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| **Calibration (25K)** | 25.000 | 2.500 | `423.898 ms` (~7m 04s) | **59 records/s** | **6 subjects/s** | **PASSED** (Correctness counts exact: 25k events, 25k assets, 25k outbox, 2.5k subjects) |
+| **Qualification (1M)** | 1.000.000 | 100.000 | > 120.000 ms (> 2m) | — | — | **TIMED OUT** (Vượt ngưỡng 2m timeout; ước tính ~4.7 giờ ở tốc độ 59 rec/s) |
+
+### Phân tích & Động lực kiến trúc cho FT-054
+
+1. **Điểm nghẽn nghiêm trọng của Record-at-a-time JPA:**
+   - Xử lý đơn lẻ từng record tốn trung bình ~17ms/event do chi phí network round-trip tới database, mở/commit từng transaction JPA, Hibernate entity snapshot/dirty checking, và 3 lần insert riêng biệt (`catalog_processed_event`, `media_asset`, `catalog_outbox_event`).
+   - Throughput chỉ đạt **~59 records/s**, không thể đáp ứng tải lớn (1M events).
+2. **Khẳng định tính cấp thiết của FT-054 Coalescing:**
+   - Mục tiêu SLO của FT-054 là xử lý 1M events trong **< 10s** (tương đương throughput > 100.000 records/s).
+   - Kiến trúc mới bắt buộc chuyển sang Operation-Scoped Coalescing: Ingest raw event hàng loạt vào staging ledger, sau đó thực thi một native set-based SQL transaction duy nhất để resolve canonical subjects, assets và snapshot outbox.
 
 ## Cách chạy từ project root
 

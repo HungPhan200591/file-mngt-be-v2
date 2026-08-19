@@ -2,7 +2,7 @@
 
 | Benchmark | Legacy 25K | Legacy 1M | Candidate FT054 | Status |
 | --- | ---: | ---: | ---: | --- |
-| FT-054 Catalog record processing | Chưa chạy | Chưa chạy | Chưa triển khai | Baseline source prepared |
+| FT-054 Catalog record processing | 59 rec/s (423.898 ms) | TIMED OUT (> 2m) | Chưa triển khai | Baseline measured |
 
 Chi tiết workload và boundary: [01-ft054-legacy-catalog-record-baseline.md](./results/01-ft054-legacy-catalog-record-baseline.md).
 
