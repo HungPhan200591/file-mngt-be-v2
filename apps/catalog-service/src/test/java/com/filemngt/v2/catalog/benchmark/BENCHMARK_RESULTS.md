@@ -1,0 +1,11 @@
+# Catalog Service Benchmark Results Dashboard
+
+| Benchmark | Legacy 25K | Legacy 1M | Candidate FT054 | Status |
+| --- | ---: | ---: | ---: | --- |
+| FT-054 Catalog record processing | Chưa chạy | Chưa chạy | Chưa triển khai | Baseline source prepared |
+
+Chi tiết workload và boundary: [01-ft054-legacy-catalog-record-baseline.md](./results/01-ft054-legacy-catalog-record-baseline.md).
+
+Test: [`CatalogLegacyRecordProcessingBenchmarkTest.java`](./legacy/CatalogLegacyRecordProcessingBenchmarkTest.java).
+
+Không ghi claim throughput hoặc SLO trước khi có run manifest và số đo thật.

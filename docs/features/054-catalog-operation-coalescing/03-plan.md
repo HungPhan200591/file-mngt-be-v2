@@ -157,16 +157,20 @@ SLO budget: Catalog canonical `10s` + Catalog relay `2s`
    - 1M input / 1M subjects làm worst amplification;
    - 1M input / 1 hot subject làm hot-key/byte-boundary;
    - duplicate 10%, manifest-first/data-first và representative p50/p95 payload.
-2. Đo ingest, dedupe, workset, canonical merge, snapshot build, outbox insert, broker ack và mark riêng.
-3. Tuning matrix trong cùng FT-054:
+2. Chạy baseline legacy trước khi thêm candidate FT-054 bằng
+   [`CatalogLegacyRecordProcessingBenchmarkTest`](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/legacy/CatalogLegacyRecordProcessingBenchmarkTest.java)
+   trên đúng hai workload 25K và 1M; ghi kết quả vào
+   [`01-ft054-legacy-catalog-record-baseline.md`](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/01-ft054-legacy-catalog-record-baseline.md).
+3. Đo ingest, dedupe, workset, canonical merge, snapshot build, outbox insert, broker ack và mark riêng.
+4. Tuning matrix trong cùng FT-054:
    - internal slice `500 / 2k / 5k` và byte cap `8 / 16 / 32 MiB`;
    - finalizer workers `1 / 2 / 4 / 8`;
    - subject page `500 / 2k / 5k`;
    - relay fetch/flush `500 / 2k / 5k` và in-flight theo producer memory budget.
-4. Loại candidate vượt heap, transaction timeout, lease budget, DB pool, lock/WAL hoặc producer buffer.
-5. Chọn cấu hình nhỏ nhất đạt toàn bộ gate; ghi hardware/config, SQL plan, min/median/max và saturation evidence
+5. Loại candidate vượt heap, transaction timeout, lease budget, DB pool, lock/WAL hoặc producer buffer.
+6. Chọn cấu hình nhỏ nhất đạt toàn bộ gate; ghi hardware/config, SQL plan, min/median/max và saturation evidence
    vào result/dashboard. Không tăng timeout để che hot path.
-6. Nếu chưa đạt, dùng phase evidence tối ưu tiếp native SQL/index/chunk/lane/serialization trong FT-054 rồi
+7. Nếu chưa đạt, dùng phase evidence tối ưu tiếp native SQL/index/chunk/lane/serialization trong FT-054 rồi
    chạy lại 25k → 1M. Không mở feature throughput kế tiếp.
 
 ## Kiểm tra
