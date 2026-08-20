@@ -1,29 +1,25 @@
 # Reference Capsule: BT-09D — Catalog Operation Coalescing
 
-> Implementation owner: [FT-054](../../../../../../docs/features/054-catalog-operation-coalescing/03-plan.md).
+> Implementation owners: Phân rã thành 4 sub-tasks mở Feature riêng (FT-054 monolithic **`CLOSED — QUALIFICATION FAILED`**).
 > Phạm vi: `media.file.discovered.v2` → canonical Catalog → `media.subject.changed.v2` + `CATALOG_COMMITTED`.
 
-## Vấn đề
+## Vấn đề & Bằng chứng Baseline Telemetry (25K records)
 
-Catalog hiện xử lý từng event bằng một listener/transaction JPA, load và flush aggregate rồi tạo snapshot v1.
-Với 1M input, cost transaction/version/outbox gần `O(events)`; cùng subject qua nhiều poll vẫn bị ghi nhiều lần.
-Catalog outbox hiện còn fixed delay giữa các claim nên giảm event count nhưng chưa đủ bảo đảm relay budget.
+FT-054 monolithic one-shot đã thất bại ở ngưỡng 1M (timeout) và 25K chỉ đạt 5.200 rec/s. Telemetry bóc tách micro-phases chỉ rõ các điểm nghẽn vật lý:
+1. **Ingest SQL (`stageSql` 1.211ms / 66% ingest time)**: 13 phép parse JSONB lặp lại trong SQL CTE + tính MD5 hash từng row.
+2. **Finalizer DDL Storm (`avg 144ms / page` $\times$ 64 pages = 9.240ms CPU)**: 7 `CREATE TEMPORARY TABLE` + 4 `INDEX` + 4 `ANALYZE` mỗi page gây bão Catalog Lock.
+3. **Lock Contention (`acquire 2.054ms`)**: 4 workers liên tục nhả và tranh chấp lease lock sau từng page nhỏ.
 
-Coalesce trong RAM của một Kafka poll là solution nửa vời vì poll không phải operation boundary. Manifest có
-thể đến trước/sau data và một subject có thể trải qua nhiều poll/batchId.
-
-## Target one-shot của FT-054
+## 4 Lát cắt tối ưu độc lập (BT-09D1 .. BT-09D4)
 
 ```text
-Scan transactional APPROVAL_COMMITTED watermark
-→ Catalog batch listener, bounded theo records + bytes
-→ temp COPY + durable stage ON CONFLICT(eventId) DO NOTHING
-→ operation ledger + exact received/expected equality gate
-→ freeze unique subject workset
-→ 64 logical lane native canonical merge
-→ one subjectVersion + one final snapshot v2 mỗi changed subject
-→ native continuous Catalog outbox relay
-→ CATALOG_COMMITTED khi input/subject/outbox/DLT count đều exact
+BT-09D1 (Fast Ingest Path): Typed TSV/CSV COPY + Java Precalculated Lane Hash + Direct Stage CTE
+  ↓
+BT-09D2 (CTE Canonical Merge): Pure Memory CTE (Xóa sạch DDL Temp Tables) + Bypass before_hash cho New Subject
+  ↓
+BT-09D3 (Continuous Lane Drain): Worker Drain toàn bộ pages trong 1 Claim + Zero Acquire Lock Contention
+  ↓
+BT-09D4 (Relay & 1M Qualification): Continuous Sliding Window Outbox Relay 64 Lanes + 1M End-to-End Gate
 ```
 
 ## Invariants
@@ -34,17 +30,11 @@ Scan transactional APPROVAL_COMMITTED watermark
 4. Canonical write, final outbox và lane checkpoint atomic trong `catalog_db`.
 5. Manifest/data reorder hội tụ bằng equality gate; unresolved DLT cấm `CATALOG_COMMITTED`.
 6. Output relay dùng lane lease/fence + native fetch/mark + bounded async send; fixed-delay publisher chỉ rollback.
-7. Query implementation không thuộc FT-054; output contract duy nhất là `media.subject.changed.v2`.
+7. Query implementation không thuộc BT-09D; output contract duy nhất là `media.subject.changed.v2`.
 
-## Gate không được đẩy sang feature khác
+## Target Performance & Gates cho từng lát
 
-- 1M representative input, 100k subject × 10 asset: canonical phase `<= 10s`, `>= 100k records/s`.
-- Broker-ack + durable mark toàn bộ final snapshot: `<= 2s` trên qualification profile.
-- Data loss, duplicate canonical effect, unresolved DLT: `0`.
-- Nếu chưa đạt, tiếp tục profile/tối ưu SQL, index, lane, chunk và producer window trong FT-054;
-  không tạo FT mới chỉ để hoàn tất throughput BT-09D.
-
-## Evidence boundary
-
-Stripe fast-path/slow-path và Uber Kafka DLT/idempotency hỗ trợ pattern ledger/replay/failure isolation,
-nhưng không chứng minh throughput. Chỉ benchmark project với payload/schema/hardware/Kafka thật đóng gate.
+- **BT-09D1**: `stageSql` giảm từ 1.211ms xuống `< 150ms` (25k); Ingest 1M `<= 3-4s` (`>= 250.000 rec/s`).
+- **BT-09D2**: Stored proc latency giảm từ 144ms/page xuống `< 5ms/page`; merge 100k subjects `<= 4-5s`.
+- **BT-09D3**: Zero acquire lock contention; drain 64 lanes mượt mà không deadlock.
+- **BT-09D4**: Relay <= 2s; Toàn bộ pipeline 1M records hoàn tất trong `<= 25-30s` (Throughput 30k-40k rec/s). Data loss `0`, duplicate canonical effect `0`, unresolved DLT `0`.

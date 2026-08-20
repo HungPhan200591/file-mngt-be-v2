@@ -1,6 +1,6 @@
 # FT-054 — Operation-Scoped Catalog Coalescing — Plan
 
-Status: `QUALIFICATION FAILED`
+Status: `CLOSED — QUALIFICATION FAILED`
 
 Design: [02-design.md](./02-design.md)
 
@@ -8,7 +8,7 @@ Runbook: [04-runbook.md](./04-runbook.md)
 
 Workstream: `SC-01 / BT-09D`
 
-SLO budget: Catalog canonical `10s` + Catalog relay `2s`
+Kết luận: **`FT-054 ĐÃ ĐÓNG (FAIL)`**. Candidate monolithic one-shot FT-054 không đạt throughput qualification 1M (25k chỉ đạt 5.200 rec/s; 1M bị timeout do DDL lock storm và JSONB SQL parsing). Đã hoàn thành Task 1 trang bị Telemetry bóc tách micro-phases làm baseline chuẩn xác. Quyết định kiến trúc: **Hủy bỏ hướng tiếp cận one-shot, phân rã BT-09D thành 4 sub-tasks (BT-09D1..D4) để triển khai và nghiệm thu qua các Feature (FT) độc lập.**
 
 ## Execution capsule
 
