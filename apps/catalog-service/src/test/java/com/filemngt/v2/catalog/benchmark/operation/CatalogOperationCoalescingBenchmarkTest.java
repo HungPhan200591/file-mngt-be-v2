@@ -125,7 +125,7 @@ class CatalogOperationCoalescingBenchmarkTest {
         var finalizerSnap = finalizerTelemetry != null ? finalizerTelemetry.snapshot() : null;
 
         LOGGER.info(
-                "FT-054 candidate phases: events={}, subjects={}, prepareMs={}, stageIngestMs={}, "
+                "FT-055 typed ingest phases: events={}, subjects={}, prepareMs={}, stageIngestMs={}, "
                         + "watermarkBuildMs={}, watermarkPersistMs={}, finalizerWaitMs={}, totalMs={}, recordsPerSecond={}\n"
                         + "  -> [INGEST DETAIL] {}\n"
                         + "  -> [FINALIZER DETAIL] {}",
@@ -224,18 +224,15 @@ class CatalogOperationCoalescingBenchmarkTest {
 
     private void logOperationDiagnostics() {
         String operationStatus = status();
-        Long received = count(
-                "select received_record_count from catalog_approval_operation where operation_id = ?");
-        Long completed = count(
-                "select completed_subject_count from catalog_approval_operation where operation_id = ?");
-        Long snapshots = count(
-                "select final_snapshot_count from catalog_approval_operation where operation_id = ?");
+        Long received = count("select received_record_count from catalog_approval_operation where operation_id = ?");
+        Long completed = count("select completed_subject_count from catalog_approval_operation where operation_id = ?");
+        Long snapshots = count("select final_snapshot_count from catalog_approval_operation where operation_id = ?");
         Integer pendingLanes = jdbc.queryForObject(
                 "select count(*) from catalog_operation_lane where operation_id = ? and status <> 'COMPLETED'",
                 Integer.class,
                 CatalogOperationBenchmarkFixture.operationId());
         LOGGER.warn(
-                "FT-054 candidate timeout diagnostics operationStatus={}, received={}, completedSubjects={}, "
+                "FT-055 typed ingest timeout diagnostics operationStatus={}, received={}, completedSubjects={}, "
                         + "finalSnapshots={}, pendingLanes={}",
                 operationStatus,
                 received,

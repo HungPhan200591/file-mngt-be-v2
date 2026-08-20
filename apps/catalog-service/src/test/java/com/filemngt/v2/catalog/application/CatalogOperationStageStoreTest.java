@@ -12,4 +12,12 @@ class CatalogOperationStageStoreTest {
     void stableLaneMatchesPostgreSqlMd5GoldenVectors(String subjectKey, int expectedLane) {
         assertThat(CatalogOperationLaneHash.stableLane(subjectKey)).isEqualTo(expectedLane);
     }
+
+    @ParameterizedTest
+    @CsvSource({"JOKE:VIDEO:CODE-001, 50", "USE:ALBUM:ALBUM-001, 16", "JOKE:VIDEO:CODE-999, 31"})
+    void stableLaneIsConsistentAcrossMultipleCallsForSameKey(String subjectKey, int expectedLane) {
+        // Kiểm tra idempotency: gọi nhiều lần cùng key phải cho cùng kết quả
+        assertThat(CatalogOperationLaneHash.stableLane(subjectKey)).isEqualTo(expectedLane);
+        assertThat(CatalogOperationLaneHash.stableLane(subjectKey)).isEqualTo(expectedLane);
+    }
 }

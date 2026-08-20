@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Thu thập và thống kê timing từng micro-phase của Catalog Ingest Path:
- * Java JSON serialization, PostgreSQL streaming COPY, và CTE Ingest SQL.
+ * Java field mapping, PostgreSQL streaming COPY, và CTE Ingest SQL.
  */
 @Component
 public class CatalogOperationIngestTelemetry {
@@ -17,16 +17,15 @@ public class CatalogOperationIngestTelemetry {
 
     private final AtomicInteger sliceCount = new AtomicInteger();
     private final AtomicLong totalRecords = new AtomicLong();
-    private final AtomicLong totalSerializeNanos = new AtomicLong();
+    private final AtomicLong totalMappingNanos = new AtomicLong();
     private final AtomicLong totalCopyNanos = new AtomicLong();
     private final AtomicLong totalStageInsertNanos = new AtomicLong();
     private final AtomicLong totalIngestNanos = new AtomicLong();
 
-    public void recordSlice(
-            int records, long serializeNanos, long copyNanos, long stageInsertNanos, long totalNanos) {
+    public void recordSlice(int records, long mappingNanos, long copyNanos, long stageInsertNanos, long totalNanos) {
         sliceCount.incrementAndGet();
         totalRecords.addAndGet(records);
-        totalSerializeNanos.addAndGet(serializeNanos);
+        totalMappingNanos.addAndGet(mappingNanos);
         totalCopyNanos.addAndGet(copyNanos);
         totalStageInsertNanos.addAndGet(stageInsertNanos);
         totalIngestNanos.addAndGet(totalNanos);
@@ -34,7 +33,7 @@ public class CatalogOperationIngestTelemetry {
         LOGGER.atDebug()
                 .addKeyValue("event", "catalog.ingest.slice")
                 .addKeyValue("records", records)
-                .addKeyValue("serializeMs", toMillis(serializeNanos))
+                .addKeyValue("mappingMs", toMillis(mappingNanos))
                 .addKeyValue("copyMs", toMillis(copyNanos))
                 .addKeyValue("stageInsertMs", toMillis(stageInsertNanos))
                 .addKeyValue("totalMs", toMillis(totalNanos))
@@ -44,7 +43,7 @@ public class CatalogOperationIngestTelemetry {
     public void reset() {
         sliceCount.set(0);
         totalRecords.set(0);
-        totalSerializeNanos.set(0);
+        totalMappingNanos.set(0);
         totalCopyNanos.set(0);
         totalStageInsertNanos.set(0);
         totalIngestNanos.set(0);
@@ -54,7 +53,7 @@ public class CatalogOperationIngestTelemetry {
         return new Snapshot(
                 sliceCount.get(),
                 totalRecords.get(),
-                toMillis(totalSerializeNanos.get()),
+                toMillis(totalMappingNanos.get()),
                 toMillis(totalCopyNanos.get()),
                 toMillis(totalStageInsertNanos.get()),
                 toMillis(totalIngestNanos.get()));
@@ -67,15 +66,15 @@ public class CatalogOperationIngestTelemetry {
     public record Snapshot(
             int sliceCount,
             long totalRecords,
-            long serializeMillis,
+            long mappingMillis,
             long copyMillis,
             long stageInsertMillis,
             long totalMillis) {
         @Override
         public String toString() {
             return String.format(
-                    "IngestSnapshot[slices=%d, records=%d, total=%dms (serialize=%dms, copy=%dms, stageSql=%dms)]",
-                    sliceCount, totalRecords, totalMillis, serializeMillis, copyMillis, stageInsertMillis);
+                    "IngestSnapshot[slices=%d, records=%d, total=%dms (mapping=%dms, copy=%dms, stageSql=%dms)]",
+                    sliceCount, totalRecords, totalMillis, mappingMillis, copyMillis, stageInsertMillis);
         }
     }
 }

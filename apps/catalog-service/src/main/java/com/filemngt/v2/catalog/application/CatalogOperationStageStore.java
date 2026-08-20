@@ -2,9 +2,12 @@ package com.filemngt.v2.catalog.application;
 
 import com.filemngt.v2.catalog.adapter.out.persistence.operation.CatalogOperationCopyWriter;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationDltGateStore;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationLaneHash;
 import com.filemngt.v2.contracts.events.MediaApprovalWatermarkV1;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
@@ -13,7 +16,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
-import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
 import tools.jackson.databind.ObjectMapper;
 
 /** Native durable batch ingest; một bounded slice chỉ tạo một set-based staging round trip. */
@@ -54,7 +56,8 @@ public class CatalogOperationStageStore {
             throw new IllegalArgumentException("events and source coordinates must have equal cardinality");
         }
         var operationScanRuns = new LinkedHashMap<UUID, UUID>();
-        var input = new java.util.ArrayList<StageInput>(events.size());
+        var input = new ArrayList<CatalogOperationCopyWriter.TypedIngestRow>(events.size());
+        long mappingStarted = System.nanoTime();
         for (int i = 0; i < events.size(); i++) {
             var event = events.get(i);
             UUID previous = operationScanRuns.putIfAbsent(event.operationId(), event.scanRunId());
@@ -62,7 +65,9 @@ public class CatalogOperationStageStore {
                 throw new IllegalArgumentException("operation slice mixes scanRunId values");
             }
             var coordinate = coordinates.get(i);
-            input.add(new StageInput(
+            String subjectKey = subjectKey(event);
+            int subjectLane = CatalogOperationLaneHash.stableLane(subjectKey);
+            input.add(new CatalogOperationCopyWriter.TypedIngestRow(
                     event.eventId(),
                     event.operationId(),
                     event.batchId(),
@@ -71,14 +76,16 @@ public class CatalogOperationStageStore {
                     coordinate.offset(),
                     coordinate.correlationId(),
                     coordinate.traceparent(),
-                    subjectKey(event),
+                    subjectKey,
+                    subjectLane,
                     event.region(),
                     event.subjectType(),
                     event.identityKey(),
-                    event));
+                    payloadJson(event)));
         }
+        long mappingNanos = System.nanoTime() - mappingStarted;
         operationScanRuns.forEach(this::ensureOperation);
-        int inserted = ingestSetBased(input);
+        int inserted = ingestSetBased(input, mappingNanos);
         operationScanRuns.keySet().forEach(this::evaluateGate);
         return inserted;
     }
@@ -129,72 +136,55 @@ public class CatalogOperationStageStore {
         if ("APPROVAL_COMMITTED".equals(watermark.stage())) evaluateGate(watermark.operationId());
     }
 
-    private int ingestSetBased(List<StageInput> input) {
+    private int ingestSetBased(List<CatalogOperationCopyWriter.TypedIngestRow> input, long mappingNanos) {
         long sliceStarted = System.nanoTime();
-        try {
-            long serializeStarted = System.nanoTime();
-            var rows = new java.util.ArrayList<String>(input.size());
-            for (StageInput row : input) rows.add(json.writeValueAsString(row));
-            long serializeNanos = System.nanoTime() - serializeStarted;
 
-            long copyStarted = System.nanoTime();
-            long copied = copyWriter.copyJsonRows(rows);
-            if (copied != input.size()) throw new IllegalStateException("Catalog operation COPY cardinality mismatch");
-            long copyNanos = System.nanoTime() - copyStarted;
+        long copyStarted = System.nanoTime();
+        long copied = copyWriter.copyTypedRows(input);
+        if (copied != input.size()) throw new IllegalStateException("Catalog operation COPY cardinality mismatch");
+        long copyNanos = System.nanoTime() - copyStarted;
 
-            long stageInsertStarted = System.nanoTime();
-            Integer inserted = jdbc.queryForObject("""
-                    with input as (
-                        select (payload->>'eventId')::uuid event_id,
-                            (payload->>'operationId')::uuid operation_id,
-                            payload->>'batchId' batch_id,
-                            (payload->>'scanRunId')::uuid scan_run_id,
-                            (payload->>'sourcePartition')::integer source_partition,
-                            (payload->>'sourceOffset')::bigint source_offset,
-                            payload->>'correlationId' correlation_id,
-                            payload->>'traceparent' traceparent,
-                            payload->>'subjectKey' subject_key,
-                            payload->>'region' region,
-                            payload->>'subjectType' subject_type,
-                            payload->>'identityKey' identity_key,
-                            payload->'payload' event_payload
-                        from catalog_discovery_ingest_slice
-                    ), inserted as (
-                        insert into catalog_discovery_stage(
-                            event_id, operation_id, batch_id, scan_run_id, source_partition,
-                            source_offset, correlation_id, traceparent, subject_key, region,
-                            subject_type, identity_key, payload)
-                        select event_id, operation_id, batch_id, scan_run_id, source_partition,
-                            source_offset, correlation_id, traceparent, subject_key, region,
-                            subject_type, identity_key, event_payload
-                        from input on conflict (event_id) do nothing
-                        returning operation_id, subject_key
-                    ), workset as (
-                        insert into catalog_operation_subject(operation_id, subject_key, subject_lane)
-                        select distinct operation_id, subject_key,
-                            (get_byte(decode(md5(subject_key), 'hex'), 0) & 63)::smallint
-                        from inserted on conflict (operation_id, subject_key) do nothing
-                    ), received as (
-                        select operation_id, count(*) record_count from inserted group by operation_id
-                    ), updated as (
-                        update catalog_approval_operation operation
-                        set received_record_count = operation.received_record_count + received.record_count,
-                            updated_at = now()
-                        from received where operation.operation_id = received.operation_id
-                        returning received.record_count
-                    )
-                    select coalesce(sum(record_count), 0)::integer from updated
-                    """, Integer.class);
-            long stageInsertNanos = System.nanoTime() - stageInsertStarted;
-            long totalNanos = System.nanoTime() - sliceStarted;
+        long stageInsertStarted = System.nanoTime();
+        // CTE đọc thẳng typed columns từ temp table — không cần parse/cast JSON nữa;
+        // subject_lane đã tính từ Java, không dùng md5() trên DB.
+        Integer inserted = jdbc.queryForObject("""
+                with input as (
+                    select event_id, operation_id, batch_id, scan_run_id,
+                        source_partition, source_offset, correlation_id, traceparent,
+                        subject_key, subject_lane, region, subject_type, identity_key, event_payload
+                    from catalog_discovery_ingest_slice
+                ), inserted as (
+                    insert into catalog_discovery_stage(
+                        event_id, operation_id, batch_id, scan_run_id, source_partition,
+                        source_offset, correlation_id, traceparent, subject_key, region,
+                        subject_type, identity_key, payload)
+                    select event_id, operation_id, batch_id, scan_run_id, source_partition,
+                        source_offset, correlation_id, traceparent, subject_key, region,
+                        subject_type, identity_key, event_payload
+                    from input on conflict (event_id) do nothing
+                    returning operation_id, subject_key, subject_lane
+                ), workset as (
+                    insert into catalog_operation_subject(operation_id, subject_key, subject_lane)
+                    select distinct operation_id, subject_key, subject_lane
+                    from inserted on conflict (operation_id, subject_key) do nothing
+                ), received as (
+                    select operation_id, count(*) record_count from inserted group by operation_id
+                ), updated as (
+                    update catalog_approval_operation operation
+                    set received_record_count = operation.received_record_count + received.record_count,
+                        updated_at = now()
+                    from received where operation.operation_id = received.operation_id
+                    returning received.record_count
+                )
+                select coalesce(sum(record_count), 0)::integer from updated
+                """, Integer.class);
+        long stageInsertNanos = System.nanoTime() - stageInsertStarted;
+        long totalNanos = System.nanoTime() - sliceStarted;
 
-            if (telemetry != null) {
-                telemetry.recordSlice(input.size(), serializeNanos, copyNanos, stageInsertNanos, totalNanos);
-            }
-            return inserted == null ? 0 : inserted;
-        } catch (JacksonException exception) {
-            throw new IllegalArgumentException("Could not serialize discovery stage slice", exception);
+        if (telemetry != null) {
+            telemetry.recordSlice(input.size(), mappingNanos, copyNanos, stageInsertNanos, totalNanos);
         }
+        return inserted == null ? 0 : inserted;
     }
 
     private void ensureOperation(UUID operationId, UUID scanRunId) {
@@ -257,24 +247,18 @@ public class CatalogOperationStageStore {
         return event.region() + ':' + event.subjectType() + ':' + event.identityKey();
     }
 
+    private String payloadJson(MediaFileDiscoveredV2 event) {
+        // Serialize chỉ event payload gốc cho durable stage; không bọc thêm wrapper JSON.
+        try {
+            return json.writeValueAsString(event);
+        } catch (JacksonException exception) {
+            throw new IllegalArgumentException("Could not serialize discovery event payload", exception);
+        }
+    }
+
     public record RecordCoordinate(int partition, long offset, String correlationId, String traceparent) {
         public RecordCoordinate(int partition, long offset) {
             this(partition, offset, null, null);
         }
     }
-
-    private record StageInput(
-            UUID eventId,
-            UUID operationId,
-            String batchId,
-            UUID scanRunId,
-            int sourcePartition,
-            long sourceOffset,
-            String correlationId,
-            String traceparent,
-            String subjectKey,
-            String region,
-            String subjectType,
-            String identityKey,
-            MediaFileDiscoveredV2 payload) {}
 }

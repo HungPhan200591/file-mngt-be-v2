@@ -80,7 +80,7 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Feature đang cần hoàn tất tối ưu:** [**`FT-055 / BT-09D1 — Catalog Typed Fast Ingest`**](./features/055-catalog-typed-ingest/03-plan.md), Plan `READY`; audit implementation COPY/typed projection hiện tại và chạy phase-timed 25K → 250K → 1M qualification trước khi mở BT-09D2.
+1. **Feature implementation xong, gate chờ chạy:** [**`FT-055 / BT-09D1 — Catalog Typed Fast Ingest`**](./features/055-catalog-typed-ingest/03-plan.md), **implementation DONE** (typed COPY, Java lane hash, CTE simplification, IT + unit tests compile); **gate còn mở** — cần chạy benchmark qualification 25K/1M để xác nhận `stageSql` ≤ 100ms và ≥ 250K rec/s trước khi mark `CLOSED` và mở BT-09D2.
 2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
 3. **Sau khi BT-09D1 → D4 đạt gate:** triển khai **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi Catalog mới đúng semantics nhưng chưa đạt throughput gate.
 4. **Giai đoạn sau khi thông luồng SC-01:** thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.

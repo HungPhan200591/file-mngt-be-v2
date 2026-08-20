@@ -86,14 +86,11 @@ public class CatalogOperationLaneStore {
 
     @Transactional(readOnly = true)
     public boolean allLanesCompleted(UUID operationId) {
-        Boolean completed = jdbc.queryForObject(
-                """
+        Boolean completed = jdbc.queryForObject("""
                 select not exists (
                     select 1 from catalog_operation_lane
                     where operation_id = ? and status <> 'COMPLETED')
-                """,
-                Boolean.class,
-                operationId);
+                """, Boolean.class, operationId);
         return Boolean.TRUE.equals(completed);
     }
 
