@@ -3,6 +3,8 @@ package com.filemngt.v2.catalog.benchmark.operation;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.filemngt.v2.catalog.application.CatalogOperationStageStore;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationFinalizerTelemetry;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
 import com.filemngt.v2.contracts.events.MediaApprovalWatermarkV1;
 import java.time.Duration;
@@ -59,9 +61,17 @@ class CatalogOperationCoalescingBenchmarkTest {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    CatalogOperationIngestTelemetry ingestTelemetry;
+
+    @Autowired
+    CatalogOperationFinalizerTelemetry finalizerTelemetry;
+
     @BeforeEach
     void resetDatabase() {
         CatalogOperationBenchmarkFixture.reset(jdbc);
+        if (ingestTelemetry != null) ingestTelemetry.reset();
+        if (finalizerTelemetry != null) finalizerTelemetry.reset();
     }
 
     @DynamicPropertySource
@@ -88,6 +98,9 @@ class CatalogOperationCoalescingBenchmarkTest {
     private void measure(int eventCount, boolean enforceBudget, Duration diagnosticBudget) {
         Instant diagnosticDeadline = Instant.now().plus(diagnosticBudget);
         warmUpAndReset();
+        if (ingestTelemetry != null) ingestTelemetry.reset();
+        if (finalizerTelemetry != null) finalizerTelemetry.reset();
+
         long started = System.nanoTime();
         IngestTiming ingestTiming = ingest(eventCount);
         long watermarkBuildStarted = System.nanoTime();
@@ -108,9 +121,14 @@ class CatalogOperationCoalescingBenchmarkTest {
         assertThat(CatalogOperationBenchmarkFixture.outboxCount(jdbc)).isEqualTo(expectedSubjects + 1);
         if (enforceBudget) assertThat(elapsedMillis).isLessThanOrEqualTo(10_000);
 
+        var ingestSnap = ingestTelemetry != null ? ingestTelemetry.snapshot() : null;
+        var finalizerSnap = finalizerTelemetry != null ? finalizerTelemetry.snapshot() : null;
+
         LOGGER.info(
                 "FT-054 candidate phases: events={}, subjects={}, prepareMs={}, stageIngestMs={}, "
-                        + "watermarkBuildMs={}, watermarkPersistMs={}, finalizerWaitMs={}, totalMs={}, recordsPerSecond={}",
+                        + "watermarkBuildMs={}, watermarkPersistMs={}, finalizerWaitMs={}, totalMs={}, recordsPerSecond={}\n"
+                        + "  -> [INGEST DETAIL] {}\n"
+                        + "  -> [FINALIZER DETAIL] {}",
                 eventCount,
                 expectedSubjects,
                 ingestTiming.prepareMillis(),
@@ -119,7 +137,9 @@ class CatalogOperationCoalescingBenchmarkTest {
                 watermarkPersistMillis,
                 finalizerWaitMillis,
                 elapsedMillis,
-                Math.round(eventCount * 1_000.0 / elapsedMillis));
+                Math.round(eventCount * 1_000.0 / elapsedMillis),
+                ingestSnap,
+                finalizerSnap);
     }
 
     private void warmUpAndReset() {
@@ -127,6 +147,8 @@ class CatalogOperationCoalescingBenchmarkTest {
         stage.acceptWatermark(watermark(WARM_UP_EVENTS));
         awaitCatalogCommitted(Instant.now().plus(WARM_UP_DIAGNOSTIC_BUDGET));
         CatalogOperationBenchmarkFixture.reset(jdbc);
+        if (ingestTelemetry != null) ingestTelemetry.reset();
+        if (finalizerTelemetry != null) finalizerTelemetry.reset();
     }
 
     private IngestTiming ingest(int eventCount) {

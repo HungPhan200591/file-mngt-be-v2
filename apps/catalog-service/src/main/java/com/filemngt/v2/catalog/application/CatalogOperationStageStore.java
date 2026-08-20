@@ -8,10 +8,12 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
 import tools.jackson.databind.ObjectMapper;
 
 /** Native durable batch ingest; một bounded slice chỉ tạo một set-based staging round trip. */
@@ -21,16 +23,28 @@ public class CatalogOperationStageStore {
     private final ObjectMapper json;
     private final CatalogOperationCopyWriter copyWriter;
     private final CatalogOperationDltGateStore dltGate;
+    private final CatalogOperationIngestTelemetry telemetry;
 
     public CatalogOperationStageStore(
             JdbcTemplate jdbc,
             ObjectMapper json,
             CatalogOperationCopyWriter copyWriter,
             CatalogOperationDltGateStore dltGate) {
+        this(jdbc, json, copyWriter, dltGate, new CatalogOperationIngestTelemetry());
+    }
+
+    @Autowired
+    public CatalogOperationStageStore(
+            JdbcTemplate jdbc,
+            ObjectMapper json,
+            CatalogOperationCopyWriter copyWriter,
+            CatalogOperationDltGateStore dltGate,
+            CatalogOperationIngestTelemetry telemetry) {
         this.jdbc = jdbc;
         this.json = json;
         this.copyWriter = copyWriter;
         this.dltGate = dltGate;
+        this.telemetry = telemetry;
     }
 
     @Transactional
@@ -116,11 +130,19 @@ public class CatalogOperationStageStore {
     }
 
     private int ingestSetBased(List<StageInput> input) {
+        long sliceStarted = System.nanoTime();
         try {
+            long serializeStarted = System.nanoTime();
             var rows = new java.util.ArrayList<String>(input.size());
             for (StageInput row : input) rows.add(json.writeValueAsString(row));
+            long serializeNanos = System.nanoTime() - serializeStarted;
+
+            long copyStarted = System.nanoTime();
             long copied = copyWriter.copyJsonRows(rows);
             if (copied != input.size()) throw new IllegalStateException("Catalog operation COPY cardinality mismatch");
+            long copyNanos = System.nanoTime() - copyStarted;
+
+            long stageInsertStarted = System.nanoTime();
             Integer inserted = jdbc.queryForObject("""
                     with input as (
                         select (payload->>'eventId')::uuid event_id,
@@ -163,6 +185,12 @@ public class CatalogOperationStageStore {
                     )
                     select coalesce(sum(record_count), 0)::integer from updated
                     """, Integer.class);
+            long stageInsertNanos = System.nanoTime() - stageInsertStarted;
+            long totalNanos = System.nanoTime() - sliceStarted;
+
+            if (telemetry != null) {
+                telemetry.recordSlice(input.size(), serializeNanos, copyNanos, stageInsertNanos, totalNanos);
+            }
             return inserted == null ? 0 : inserted;
         } catch (JacksonException exception) {
             throw new IllegalArgumentException("Could not serialize discovery stage slice", exception);

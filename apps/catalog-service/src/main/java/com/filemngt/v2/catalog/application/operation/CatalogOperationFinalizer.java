@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,6 +26,7 @@ public class CatalogOperationFinalizer {
     private final CatalogOperationLaneStore lanes;
     private final CatalogOperationPageStore pages;
     private final CatalogOutboxPressureGate pressureGate;
+    private final CatalogOperationFinalizerTelemetry telemetry;
     private final String owner;
     private final int workerCount;
     private final int subjectPageSize;
@@ -36,6 +38,27 @@ public class CatalogOperationFinalizer {
             CatalogOperationLaneStore lanes,
             CatalogOperationPageStore pages,
             CatalogOutboxPressureGate pressureGate,
+            String owner,
+            int workerCount,
+            int subjectPageSize,
+            long leaseSeconds) {
+        this(
+                lanes,
+                pages,
+                pressureGate,
+                new CatalogOperationFinalizerTelemetry(),
+                owner,
+                workerCount,
+                subjectPageSize,
+                leaseSeconds);
+    }
+
+    @Autowired
+    public CatalogOperationFinalizer(
+            CatalogOperationLaneStore lanes,
+            CatalogOperationPageStore pages,
+            CatalogOutboxPressureGate pressureGate,
+            CatalogOperationFinalizerTelemetry telemetry,
             @Value("${catalog.operation.instance-id:${HOSTNAME:catalog-finalizer}}") String owner,
             @Value("${catalog.operation.worker-count:4}") int workerCount,
             @Value("${catalog.operation.subject-page-size:500}") int subjectPageSize,
@@ -43,6 +66,7 @@ public class CatalogOperationFinalizer {
         this.lanes = lanes;
         this.pages = pages;
         this.pressureGate = pressureGate;
+        this.telemetry = telemetry;
         this.owner = owner;
         this.workerCount = positive(workerCount, "worker-count");
         this.subjectPageSize = positive(subjectPageSize, "subject-page-size");
@@ -67,15 +91,31 @@ public class CatalogOperationFinalizer {
     }
 
     private int processLanePage() {
+        long acquireStarted = System.nanoTime();
         Instant now = Instant.now();
         var claim = lanes.acquire(owner, now, now.plusSeconds(leaseSeconds));
+        long acquireNanos = System.nanoTime() - acquireStarted;
+        if (telemetry != null) telemetry.recordAcquire(acquireNanos);
+
         if (claim.isEmpty()) return 0;
         CatalogOperationLaneClaim lane = claim.get();
         try {
+            long pageStarted = System.nanoTime();
             int processed = pages.finalizePage(lane, subjectPageSize);
-            if (lanes.completeLaneIfDrained(lane, Instant.now())) {
+            long pageNanos = System.nanoTime() - pageStarted;
+            if (telemetry != null) telemetry.recordPage(processed, pageNanos);
+
+            long drainStarted = System.nanoTime();
+            boolean drained = lanes.completeLaneIfDrained(lane, Instant.now());
+            long drainNanos = System.nanoTime() - drainStarted;
+            if (telemetry != null) telemetry.recordDrain(drainNanos);
+
+            if (drained) {
                 if (lanes.allLanesCompleted(lane.operationId())) {
+                    long completeStarted = System.nanoTime();
                     lanes.completeOperation(lane.operationId());
+                    long completeNanos = System.nanoTime() - completeStarted;
+                    if (telemetry != null) telemetry.recordCompleteOperation(completeNanos);
                 }
             } else {
                 lanes.release(lane);
