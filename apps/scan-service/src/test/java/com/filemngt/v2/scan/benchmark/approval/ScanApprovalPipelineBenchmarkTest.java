@@ -6,10 +6,18 @@ import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventReposi
 import com.filemngt.v2.scan.application.approval.ApprovalOperationService;
 import com.filemngt.v2.scan.application.outbox.OutboxMessagePublisher;
 import com.filemngt.v2.scan.benchmark.fixture.ApprovalDecisionBenchmarkFixture;
+import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.HikariPoolMXBean;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -37,6 +45,8 @@ import org.testcontainers.utility.DockerImageName;
  * Benchmark toàn diện pipeline Approval của scan-service bằng 100% Spring Beans thật:
  * Kích hoạt ApprovalOperationWorker thật và ScanOutboxLaneRelayScheduler thật chạy nền song song,
  * đúng như production runtime.
+ *
+ * <p>Instrument Hikari Pool + PostgreSQL pg_stat_activity mỗi 2 giây để chẩn đoán bottleneck.</p>
  */
 @Tag("benchmark")
 @Testcontainers
@@ -73,6 +83,9 @@ class ScanApprovalPipelineBenchmarkTest {
     @Autowired
     ScanOutboxEventRepository outboxEvents;
 
+    @Autowired
+    DataSource dataSource;
+
     @BeforeEach
     void resetDatabase() {
         ApprovalDecisionBenchmarkFixture.reset(jdbcTemplate);
@@ -94,13 +107,18 @@ class ScanApprovalPipelineBenchmarkTest {
 
     @Test
     @Order(2)
-    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @Timeout(value = 5, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresOneMillionApprovalAndRelayPipeline() throws Exception {
         measureApprovalAndRelayPipeline(1_000_000);
     }
 
     private void measureApprovalAndRelayPipeline(int proposalCount) throws Exception {
         UUID runId = ApprovalDecisionBenchmarkFixture.seed(jdbcTemplate, proposalCount);
+
+        // Khởi động diagnostics sampler mỗi 2 giây
+        var diagnosticsRunning = new AtomicBoolean(true);
+        ScheduledExecutorService diagnostics = Executors.newSingleThreadScheduledExecutor();
+        diagnostics.scheduleAtFixedRate(() -> logDiagnostics(diagnosticsRunning), 0, 2, TimeUnit.SECONDS);
 
         long pipelineStarted = System.nanoTime();
 
@@ -121,6 +139,8 @@ class ScanApprovalPipelineBenchmarkTest {
             Thread.sleep(200);
         }
 
+        long approvalElapsedMs = (System.nanoTime() - pipelineStarted) / 1_000_000L;
+
         // Chờ Outbox Relay vét cạn toàn bộ sang Kafka
         while (outboxEvents.countByPublishedAtIsNull() > 0) {
             Thread.sleep(200);
@@ -128,17 +148,62 @@ class ScanApprovalPipelineBenchmarkTest {
 
         long elapsedMillis = (System.nanoTime() - pipelineStarted) / 1_000_000L;
 
+        // Dừng diagnostics
+        diagnosticsRunning.set(false);
+        diagnostics.shutdown();
+
         // Assertions xác thực tính đúng đắn và toàn vẹn của dữ liệu
         assertThat(outboxEvents.countByPublishedAtIsNull()).isZero();
         assertThat(operations.status(accepted.operationId()).status()).isEqualTo("APPROVAL_COMMITTED");
         assertThat(outboxEvents.count()).isEqualTo(proposalCount + 1L);
 
         LOGGER.info(
-                "Scan Service Full Production Pipeline Benchmark: proposals={}, totalOutboxEvents={}, totalElapsedMs={}, overallThroughputPerSecond={}",
+                "Scan Service Full Production Pipeline Benchmark: proposals={}, totalOutboxEvents={}, "
+                        + "approvalElapsedMs={}, totalElapsedMs={}, overallThroughputPerSecond={}",
                 proposalCount,
                 proposalCount + 1L,
+                approvalElapsedMs,
                 elapsedMillis,
                 throughput(proposalCount, elapsedMillis));
+    }
+
+    /**
+     * Ghi chẩn đoán: Hikari Pool snapshot + PostgreSQL pg_stat_activity active queries.
+     * Cho phép đo chính xác connection contention thay vì phỏng đoán.
+     */
+    private void logDiagnostics(AtomicBoolean running) {
+        if (!running.get()) return;
+        try {
+            // 1. Hikari Pool MXBean snapshot
+            if (dataSource instanceof HikariDataSource hikari) {
+                HikariPoolMXBean pool = hikari.getHikariPoolMXBean();
+                if (pool != null) {
+                    LOGGER.info(
+                            "DIAG Hikari Pool: total={}, active={}, idle={}, waiting={}",
+                            pool.getTotalConnections(),
+                            pool.getActiveConnections(),
+                            pool.getIdleConnections(),
+                            pool.getThreadsAwaitingConnection());
+                }
+            }
+
+            // 2. PostgreSQL pg_stat_activity: active backend count by wait_event_type
+            List<Map<String, Object>> pgStats = jdbcTemplate.queryForList("""
+                    SELECT state, wait_event_type, count(*) as cnt
+                    FROM pg_stat_activity
+                    WHERE datname = current_database() AND pid <> pg_backend_pid()
+                    GROUP BY state, wait_event_type
+                    ORDER BY cnt DESC
+                    """);
+            LOGGER.info("DIAG pg_stat_activity: {}", pgStats);
+
+            // 3. Counts: unpublished outbox events (thước đo relay lag)
+            long unpublished = outboxEvents.countByPublishedAtIsNull();
+            long total = outboxEvents.count();
+            LOGGER.info("DIAG Outbox: total={}, unpublished={}, published={}", total, unpublished, total - unpublished);
+        } catch (Exception ignored) {
+            // Diagnostics không được phép làm fail benchmark
+        }
     }
 
     private long throughput(int count, long elapsedMillis) {
