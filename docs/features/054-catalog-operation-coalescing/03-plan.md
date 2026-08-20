@@ -1,6 +1,6 @@
 # FT-054 — Operation-Scoped Catalog Coalescing — Plan
 
-Status: `IMPLEMENTING`
+Status: `QUALIFICATION FAILED`
 
 Design: [02-design.md](./02-design.md)
 
@@ -17,7 +17,8 @@ SLO budget: Catalog canonical `10s` + Catalog relay `2s`
   `platform/event-contracts/` cho shared event records.
 - **Scope/files:** Scan operation completion/outbox migration; Catalog batch Kafka config/consumer; operation
   staging/ledger/lane migrations; native ingest/finalizer/canonical persistence; v2 snapshot/watermark outbox;
-  native continuous Catalog relay; metrics/config; focused unit/integration/benchmark tests; contract/STATUS.
+  native continuous Catalog relay; metrics/config; focused unit/integration/benchmark tests; V19 finalizer
+  access-path optimization; phase timing diagnostics; contract/STATUS.
 - **Must preserve:** service database ownership, approval/outbox atomicity, `eventId` dedupe, stable partition
   key, at-least-once delivery, primary election, asset tags, tombstone semantics, actress registry, trace headers,
   bounded memory và no distributed transaction.
@@ -163,16 +164,19 @@ SLO budget: Catalog canonical `10s` + Catalog relay `2s`
    [`CatalogLegacyRecordProcessingBenchmarkTest`](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/legacy/CatalogLegacyRecordProcessingBenchmarkTest.java)
    trên đúng hai workload 25K và 1M; ghi kết quả vào
    [`01-ft054-legacy-catalog-record-baseline.md`](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/01-ft054-legacy-catalog-record-baseline.md).
-3. Đo ingest, dedupe, workset, canonical merge, snapshot build, outbox insert, broker ack và mark riêng.
-4. Tuning matrix trong cùng FT-054:
+3. Candidate benchmark phải log riêng fixture preparation, stage ingest, watermark build/persist và finalizer
+   durable wait; khi không hội tụ phải log operation status, received/completed/snapshot counters và pending lanes.
+   SQL-level phase attribution vẫn cần `EXPLAIN (ANALYZE, BUFFERS, WAL)` từ run manifest, không suy ra từ tổng elapsed.
+4. Đo ingest, dedupe, workset, canonical merge, snapshot build, outbox insert, broker ack và mark riêng.
+5. Tuning matrix trong cùng FT-054:
    - internal slice `500 / 2k / 5k` và byte cap `8 / 16 / 32 MiB`;
    - finalizer workers `1 / 2 / 4 / 8`;
    - subject page `500 / 2k / 5k`;
    - relay fetch/flush `500 / 2k / 5k` và in-flight theo producer memory budget.
-5. Loại candidate vượt heap, transaction timeout, lease budget, DB pool, lock/WAL hoặc producer buffer.
-6. Chọn cấu hình nhỏ nhất đạt toàn bộ gate; ghi hardware/config, SQL plan, min/median/max và saturation evidence
+6. Loại candidate vượt heap, transaction timeout, lease budget, DB pool, lock/WAL hoặc producer buffer.
+7. Chọn cấu hình nhỏ nhất đạt toàn bộ gate; ghi hardware/config, SQL plan, min/median/max và saturation evidence
    vào result/dashboard. Không tăng timeout để che hot path.
-7. Nếu chưa đạt, dùng phase evidence tối ưu tiếp native SQL/index/chunk/lane/serialization trong FT-054 rồi
+8. Nếu chưa đạt, dùng phase evidence tối ưu tiếp native SQL/index/chunk/lane/serialization trong FT-054 rồi
    chạy lại 25k → 1M. Không mở feature throughput kế tiếp.
 
 ## Kiểm tra
@@ -244,14 +248,15 @@ Ba run chỉ là benchmark acceptance cho feature. SC-01 P95/P99 vẫn cần sam
 
 ## Tài liệu cần cập nhật
 
-- [x] Tạo Brief/Design/Plan FT-054 với Plan `READY` và one-shot gate.
+- [x] Tạo Brief/Design/Plan FT-054 với one-shot gate; hiện trạng qualification là `QUALIFICATION FAILED`.
 - [x] Route `docs/STATUS.md` và SC-01 context từ BT-09C/FT-053 sang BT-09D/FT-054.
 - [x] Sửa watermark sample `CATALOG_COMMITTED` thành `stageSequence=20`.
 - [x] Cập nhật SC-01 architecture/catalog capsule để không route về poll-local in-memory coalescing.
 - [x] Khi implementation bắt đầu: cập nhật shared event contracts (`MediaApprovalWatermarkV1`, `MediaSubjectChangedV2`).
 - [x] Additive schema, Scan `APPROVAL_COMMITTED` watermark outbox bridge, operation batch ingest và equality gate đã được triển khai.
 - [x] Source candidate cho native canonical page finalizer, lane lease/fence, one-final-snapshot v2, stage-20 watermark, DLT/input watchdog, output pressure gate và native continuous relay đã hoàn thiện.
-- [x] Focused contract/lane/mutual-exclusion test source, candidate `CatalogOperationCoalescingBenchmarkTest` và runbook đã được thêm; chưa chạy theo execution gate.
+- [x] V19 finalizer access-path optimization, failed-lane release, last-lane completion guard và phase timing/timeout diagnostics đã được thêm; chưa chạy migration.
+- [x] Focused contract/lane/mutual-exclusion/finalizer-release test source, candidate `CatalogOperationCoalescingBenchmarkTest` và runbook đã được thêm.
 - [ ] Còn mở: migration/Testcontainers, focused unit/integration, real-Kafka relay, fault/crash/reclaim và warm 25k/1M qualification. Không ghi claim pass trước evidence thật.
 - [ ] Chỉ khi toàn bộ gate pass: chuyển Plan `DONE`, distill STATUS và ghi benchmark evidence thật.
 - Không cần ADR mới: database ownership, eventual consistency và transactional outbox boundary không đổi.

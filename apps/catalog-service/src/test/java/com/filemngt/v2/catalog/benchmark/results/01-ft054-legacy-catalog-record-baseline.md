@@ -54,6 +54,20 @@ phần random generation đó nằm trong baseline application path.
 | **Calibration (25K)** | 25.000 | 2.500 | `423.898 ms` (~7m 04s) | **59 records/s** | **6 subjects/s** | **PASSED** (Correctness counts exact: 25k events, 25k assets, 25k outbox, 2.5k subjects) |
 | **Qualification (1M)** | 1.000.000 | 100.000 | > 120.000 ms (> 2m) | — | — | **TIMED OUT** (Vượt ngưỡng 2m timeout; ước tính ~4.7 giờ ở tốc độ 59 rec/s) |
 
+## Candidate FT-054 — bằng chứng qualification mới nhất
+
+Kết quả sau được cung cấp từ một IntelliJ run ngày 2026-08-20. Đây chỉ là bằng chứng failure, không phải
+qualification đạt SLO.
+
+| Workload | Input events | Subjects | Candidate elapsed | Throughput | Kết quả |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Calibration | 25.000 | 2.500 | `5.781 s (5,781 ms)` | `4.325 records/s` | **QUALIFICATION FAILED** — thấp hơn target 100K records/s bắt buộc |
+| Qualification | 1.000.000 | 100.000 | > 5 phút | — | **TIMED OUT** — các lane finalizer log `QueryTimeoutException` khi chờ `CATALOG_COMMITTED` |
+
+Candidate test hiện có phase timing cho fixture preparation, stage ingest, watermark build/persist và finalizer
+wait, kèm durable operation diagnostics khi timeout. Run kế tiếp phải ghi các field này trước khi kết luận ingest
+hay canonical finalization là bottleneck.
+
 ### Phân tích & Động lực kiến trúc cho FT-054
 
 1. **Điểm nghẽn nghiêm trọng của Record-at-a-time JPA:**

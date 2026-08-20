@@ -84,6 +84,19 @@ public class CatalogOperationLaneStore {
                 """, claim.operationId(), claim.laneId(), claim.owner(), claim.fenceToken());
     }
 
+    @Transactional(readOnly = true)
+    public boolean allLanesCompleted(UUID operationId) {
+        Boolean completed = jdbc.queryForObject(
+                """
+                select not exists (
+                    select 1 from catalog_operation_lane
+                    where operation_id = ? and status <> 'COMPLETED')
+                """,
+                Boolean.class,
+                operationId);
+        return Boolean.TRUE.equals(completed);
+    }
+
     @Transactional
     public boolean completeOperation(UUID operationId) {
         return jdbc.update("""

@@ -2,7 +2,7 @@
 
 ## Điều kiện trước khi enable
 
-- Flyway Catalog `V15`–`V18` và Scan `V27` đã pass trên empty DB lẫn DB có backlog.
+- Flyway Catalog `V15`–`V19` và Scan `V27` đã pass trên empty DB lẫn DB có backlog.
 - Focused contract/integration/fault test pass; canonical 1M và real-Kafka relay đạt gate trong Plan.
 - Topic `media.file.discovered.v2`, `media.approval.watermark.v1` và `media.subject.changed.v2` đã có partition/retention đúng contract.
 - Không còn unresolved Catalog DLT hoặc operation `BLOCKED` chưa reconcile.

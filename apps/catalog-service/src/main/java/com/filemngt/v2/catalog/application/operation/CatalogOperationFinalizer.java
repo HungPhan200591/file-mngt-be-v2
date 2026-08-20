@@ -74,18 +74,33 @@ public class CatalogOperationFinalizer {
         try {
             int processed = pages.finalizePage(lane, subjectPageSize);
             if (lanes.completeLaneIfDrained(lane, Instant.now())) {
-                lanes.completeOperation(lane.operationId());
+                if (lanes.allLanesCompleted(lane.operationId())) {
+                    lanes.completeOperation(lane.operationId());
+                }
             } else {
                 lanes.release(lane);
             }
             return processed;
         } catch (RuntimeException exception) {
+            releaseAfterFailure(lane);
             LOGGER.warn(
                     "Catalog operation finalizer retryable failure operationId={} lane={} errorType={}",
                     lane.operationId(),
                     lane.laneId(),
                     exception.getClass().getSimpleName());
             return 0;
+        }
+    }
+
+    private void releaseAfterFailure(CatalogOperationLaneClaim lane) {
+        try {
+            lanes.release(lane);
+        } catch (RuntimeException releaseFailure) {
+            LOGGER.warn(
+                    "Catalog operation finalizer could not release failed lane operationId={} lane={} errorType={}",
+                    lane.operationId(),
+                    lane.laneId(),
+                    releaseFailure.getClass().getSimpleName());
         }
     }
 
