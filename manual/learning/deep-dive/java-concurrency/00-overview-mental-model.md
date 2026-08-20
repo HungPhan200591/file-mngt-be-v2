@@ -30,6 +30,8 @@ Bức tranh toàn cảnh về cách các khái niệm Concurrency trong Java tư
 > 1. [🔒 Chuyên khảo Toàn diện về Các loại Lock trong Java (synchronized, ReentrantLock, StampedLock, Semaphore...)](./01-java-locks-deep-dive.md)
 > 2. [🏛️ Khóa Phân Tán: PostgreSQL Lease vs. Redis Redlock & Tranh Luận Martin Kleppmann vs. Antirez](./02-distributed-locks-redis-vs-db-lease.md)
 > 3. [🧵 ThreadLocal vs ScopedValue: Truyền Context Trong Kỷ Nguyên Virtual Threads](./03-threadlocal-vs-scoped-value.md)
+> 4. [🚨 "Framework Lo Hết Rồi, Cần Gì Quan Tâm ThreadLocal?": 4 Cú Tát Thực Tế & Lời Giải ScopedValue](./04-why-threadlocal-matters-spring-reality-check.md)
+> 5. [🗺️ Phân Tầng Concurrency & Connection Pool: Từ Ứng Dụng Java Đến Database](./05-concurrency-landscape-app-vs-db-layer-demystified.md)
 
 ---
 

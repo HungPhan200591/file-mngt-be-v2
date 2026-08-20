@@ -403,3 +403,5 @@ flowchart TD
 ---
 
 > 📖 **Đọc chuyên đề trước:** [🏛️ Khóa Phân Tán: PostgreSQL Lease vs. Redis Redlock & Tranh Luận Martin Kleppmann vs. Antirez](./02-distributed-locks-redis-vs-db-lease.md)
+>
+> 📖 **Đọc chuyên đề tiếp theo:** [🚨 "Framework Lo Hết Rồi, Cần Gì Quan Tâm ThreadLocal?": 4 Cú Tát Thực Tế & Lời Giải ScopedValue](./04-why-threadlocal-matters-spring-reality-check.md)
