@@ -162,11 +162,13 @@ public class CatalogOperationStageStore {
                         source_offset, correlation_id, traceparent, subject_key, region,
                         subject_type, identity_key, event_payload
                     from input on conflict (event_id) do nothing
-                    returning operation_id, subject_key, subject_lane
+                    returning event_id, operation_id, subject_key
                 ), workset as (
                     insert into catalog_operation_subject(operation_id, subject_key, subject_lane)
-                    select distinct operation_id, subject_key, subject_lane
-                    from inserted on conflict (operation_id, subject_key) do nothing
+                    select distinct i.operation_id, i.subject_key, inp.subject_lane
+                    from inserted i
+                    join input inp on i.event_id = inp.event_id
+                    on conflict (operation_id, subject_key) do nothing
                 ), received as (
                     select operation_id, count(*) record_count from inserted group by operation_id
                 ), updated as (

@@ -128,7 +128,7 @@ class CatalogOperationIngestIT {
                         List.of(
                                 new CatalogOperationStageStore.RecordCoordinate(0, 0L),
                                 new CatalogOperationStageStore.RecordCoordinate(1, 1L))))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(org.springframework.dao.InvalidDataAccessApiUsageException.class)
                 .hasMessageContaining("equal cardinality");
     }
 
