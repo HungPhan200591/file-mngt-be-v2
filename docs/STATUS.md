@@ -1,6 +1,6 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-19
+Updated: 2026-08-20
 
 ## Gate mới nhất — Production Readiness Review
 
@@ -24,7 +24,7 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
 3. **`BT-09C — Outbox drain` (`FT-053 IMPLEMENTED — qualification pending`)**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; immediate-ack 1M đạt `8.264 ms`/`121.007 records/s`. Đây chưa là real-Kafka, representative payload, repeated-run, crash/reclaim hoặc production evidence.
 
-4. **`BT-09D — Catalog batch/coalesce` (`PLANNED — 4 sub-tasks`)**: [FT-054](./features/054-catalog-operation-coalescing/03-plan.md) đã đóng (`CLOSED — QUALIFICATION FAILED`) sau khi đo baseline telemetry 25K. Phân rã thành 4 sub-tasks độc lập [BT-09D1..D4](../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) để mở feature riêng: Typed Ingest (D1), CTE Merge (D2), Lane Drain (D3), Outbox Relay & 1M Gate (D4).
+4. **`BT-09D — Catalog batch/coalesce` (`D1 READY — 4 sub-tasks`)**: [FT-054](./features/054-catalog-operation-coalescing/03-plan.md) đã đóng (`CLOSED — QUALIFICATION FAILED`) sau khi đo baseline telemetry 25K. [FT-055](./features/055-catalog-typed-ingest/03-plan.md) là feature active cho D1; D2–D4 vẫn tuần tự theo break-task và mỗi lát phải có gate/evidence riêng.
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
 6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
 7. **`BT-09G — Scale ladder`**: Chạy benchmark scale ladder 1K → 5K → 50K → 250K → 1M đo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool.
@@ -80,8 +80,8 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Feature đang cần hoàn tất tối ưu:** [**`FT-054 / BT-09D — Operation-Scoped Catalog Coalescing`**](./features/054-catalog-operation-coalescing/03-plan.md), Plan `QUALIFICATION FAILED`; chạy migration rồi thực hiện phase-timed 25K → 250K → 1M qualification trước khi mở BT-09E.
+1. **Feature đang cần hoàn tất tối ưu:** [**`FT-055 / BT-09D1 — Catalog Typed Fast Ingest`**](./features/055-catalog-typed-ingest/03-plan.md), Plan `READY`; audit implementation COPY/typed projection hiện tại và chạy phase-timed 25K → 250K → 1M qualification trước khi mở BT-09D2.
 2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
-3. **Sau khi FT-054 đạt gate:** triển khai **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi FT-054 mới đúng semantics nhưng chưa đạt throughput gate.
+3. **Sau khi BT-09D1 → D4 đạt gate:** triển khai **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi Catalog mới đúng semantics nhưng chưa đạt throughput gate.
 4. **Giai đoạn sau khi thông luồng SC-01:** thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
 5. **Giai đoạn phát triển tính năng mới:** triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.

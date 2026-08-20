@@ -4,6 +4,8 @@ Owner chính: `catalog-service`
 
 Owner hỗ trợ: `scan-service` cho `APPROVAL_COMMITTED` watermark
 
+> **Historical decision:** FT-054 one-shot đã `CLOSED — QUALIFICATION FAILED`. Các câu “trong chính FT-054” bên dưới mô tả candidate ban đầu và không còn là instruction active; BT-09D đã được phân rã thành FT-055 (D1) và các feature D2–D4 kế tiếp.
+
 ## Vấn đề
 
 BT-09C/FT-053 có thể đưa lượng lớn `media.file.discovered.v2` vào Kafka, nhưng Catalog hiện vẫn xử lý
@@ -25,7 +27,7 @@ FT-044 đã chốt contract `media.approval.watermark.v1`, nhưng source hiện 
 
 ## Mục tiêu và acceptance criteria
 
-FT-054 triển khai trọn vẹn BT-09D trong **một feature**: batch ingest → durable operation coalescing → native
+Candidate FT-054 ban đầu được thiết kế để triển khai trọn vẹn BT-09D trong **một feature**: batch ingest → durable operation coalescing → native
 canonical merge → one-final-snapshot outbox → bounded continuous relay → `CATALOG_COMMITTED`.
 
 ### Correctness gate
@@ -67,8 +69,8 @@ canonical merge → one-final-snapshot outbox → bounded continuous relay → `
 ### Definition of done one-shot
 
 - FT-054 không được chuyển `DONE` nếu chỉ đúng semantics nhưng chưa đạt performance/correctness gate 1M.
-- Nếu baseline đầu tiên chưa đạt, profiling và tối ưu native SQL, chunk, lane, index, producer window tiếp tục
-  trong chính FT-054; không tạo một FT mới chỉ để hoàn tất throughput của BT-09D.
+- Nếu baseline đầu tiên chưa đạt, candidate ban đầu giả định profiling và tối ưu native SQL, chunk, lane, index,
+  producer window tiếp tục trong chính FT-054; quyết định này đã bị supersede sau qualification failure.
 - Chỉ sau khi FT-054 đạt gate mới chuyển sang BT-09E/Query bulk projection.
 
 ## Ngoài phạm vi

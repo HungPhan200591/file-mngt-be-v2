@@ -1,5 +1,7 @@
 # FT-054 — Operation Coalescing Runbook
 
+> **Historical candidate runbook:** Không enable FT-054 one-shot như một feature độc lập. Chỉ dùng runbook này làm baseline vận hành; runbook active phải được tách/cập nhật theo FT-055 D1 và các feature D2–D4 sau khi từng gate đạt.
+
 ## Điều kiện trước khi enable
 
 - Flyway Catalog `V15`–`V19` và Scan `V27` đã pass trên empty DB lẫn DB có backlog.

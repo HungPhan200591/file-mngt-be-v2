@@ -19,7 +19,7 @@ thế Plan của từng feature:
 | BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
 | BT-09B — scan decision/outbox chunking | [FT-051](../features/051-logical-approval-sharding/01-brief.md) | `IMPLEMENTED — shardCount=4 DEFAULT`; production qualification vẫn pending |
 | BT-09C — Scan outbox relay | [FT-053](../features/053-lane-fenced-outbox-data-plane/01-brief.md) | `READY`; FT-052 implementation không đạt performance gate |
-| BT-09D → BT-09G — Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED` theo dependency map |
+| BT-09D → BT-09G — Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | BT-09D `D1 READY`; D2–D4 → E–G theo dependency map |
 
 Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng
 đề xuất ở đây để ghi đè contract/Plan hoặc tuyên bố SLO đã đạt. Khi code khác proposal (ví dụ JDBC batch
@@ -315,7 +315,7 @@ outbox age tăng
 Catalog là owner duy nhất của subject, asset, actress, studio và tag.
 
 Target flow được chốt chi tiết tại
-[FT-054](../features/054-catalog-operation-coalescing/02-design.md). Coalesce phải bao phủ toàn operation,
+[BT-09D capsule](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md) và candidate [FT-054](../features/054-catalog-operation-coalescing/02-design.md). Coalesce phải bao phủ toàn operation,
 không chỉ một Kafka poll:
 
 ~~~text

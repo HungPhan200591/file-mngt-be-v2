@@ -8,7 +8,9 @@ Runbook: [04-runbook.md](./04-runbook.md)
 
 Workstream: `SC-01 / BT-09D`
 
-Kết luận: **`FT-054 ĐÃ ĐÓNG (FAIL)`**. Candidate monolithic one-shot FT-054 không đạt throughput qualification 1M (25k chỉ đạt 5.200 rec/s; 1M bị timeout do DDL lock storm và JSONB SQL parsing). Đã hoàn thành Task 1 trang bị Telemetry bóc tách micro-phases làm baseline chuẩn xác. Quyết định kiến trúc: **Hủy bỏ hướng tiếp cận one-shot, phân rã BT-09D thành 4 sub-tasks (BT-09D1..D4) để triển khai và nghiệm thu qua các Feature (FT) độc lập.**
+Kết luận: **`FT-054 ĐÃ ĐÓNG (FAIL)`**. Candidate monolithic one-shot FT-054 không đạt throughput qualification 1M; run mới nhất xử lý 25K trong `5.781 ms` (`4.325 records/s`) và 1M bị timeout do DDL lock storm/JSONB SQL parsing. Đã hoàn thành Task 1 trang bị Telemetry bóc tách micro-phases làm baseline chuẩn xác. Quyết định kiến trúc: **Hủy bỏ hướng tiếp cận one-shot, phân rã BT-09D thành 4 sub-tasks (BT-09D1..D4) để triển khai và nghiệm thu qua các Feature (FT) độc lập.**
+
+> Đây là hồ sơ historical candidate. Các bước P0–P6 và gate one-shot dưới đây được giữ để trace failure evidence; không dùng làm execution instruction active sau khi BT-09D đã phân rã.
 
 ## Execution capsule
 
@@ -31,9 +33,9 @@ Kết luận: **`FT-054 ĐÃ ĐÓNG (FAIL)`**. Candidate monolithic one-shot FT-
 - **Không làm:** Query projection/consumer v2, Redis/search, `QUERY_DB_READY`, mixed discovery/removal bulk
   throughput, migration thật, service start, Docker, benchmark hoặc commit/push khi chưa có quyền riêng.
 
-## Nguyên tắc one-shot bắt buộc
+## Nguyên tắc one-shot của candidate lịch sử (đã supersede)
 
-1. Không tạo FT-055a/FT-056 chỉ để sửa throughput Catalog còn thiếu của BT-09D.
+1. Candidate lịch sử không tạo FT-055a/FT-056; quyết định hiện hành là mở FT-055 cho BT-09D1 và tách tiếp D2–D4.
 2. FT-054 chỉ `DONE` khi semantics, failure gate và 1M performance gate đều pass.
 3. Trạng thái trung gian hợp lệ là `IMPLEMENTING` hoặc `QUALIFICATION FAILED`; không dùng
    `IMPLEMENTED — qualification pending` làm điểm kết thúc feature.
@@ -176,8 +178,8 @@ Kết luận: **`FT-054 ĐÃ ĐÓNG (FAIL)`**. Candidate monolithic one-shot FT-
 6. Loại candidate vượt heap, transaction timeout, lease budget, DB pool, lock/WAL hoặc producer buffer.
 7. Chọn cấu hình nhỏ nhất đạt toàn bộ gate; ghi hardware/config, SQL plan, min/median/max và saturation evidence
    vào result/dashboard. Không tăng timeout để che hot path.
-8. Nếu chưa đạt, dùng phase evidence tối ưu tiếp native SQL/index/chunk/lane/serialization trong FT-054 rồi
-   chạy lại 25k → 1M. Không mở feature throughput kế tiếp.
+8. Nếu chưa đạt, candidate lịch sử giả định tối ưu tiếp native SQL/index/chunk/lane/serialization trong FT-054.
+   Evidence thực tế đã dẫn tới quyết định phân rã và mở FT-055; câu “không mở feature throughput kế tiếp” không còn áp dụng.
 
 ## Kiểm tra
 

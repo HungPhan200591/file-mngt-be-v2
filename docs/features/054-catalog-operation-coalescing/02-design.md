@@ -6,6 +6,8 @@ Owner hỗ trợ: `scan-service` cho completion manifest
 
 Brief: [01-brief.md](./01-brief.md)
 
+> **Historical candidate:** Thiết kế one-shot dưới đây là baseline để truy nguyên failure của FT-054. BT-09D hiện hành dùng các feature độc lập D1–D4; không mở rộng one-shot này thêm.
+
 Contract impact: hiện thực hóa `media.approval.watermark.v1` và `media.subject.changed.v2`; không đổi REST
 
 ## High Level Design
@@ -221,7 +223,7 @@ FT-054 không giữ fixed-delay/JPA publisher làm target. Catalog outbox dùng 
 - exact pending count chỉ sample ở control plane, không nằm trong hot refill loop;
 - feature flag mutual exclusion bảo đảm legacy publisher và FT-054 relay không cùng active.
 
-Đây là phần bắt buộc của one-shot BT-09D: tạo ít outbox hơn nhưng để publisher fixed-delay vẫn không đạt
+Trong candidate one-shot, mục tiêu là tạo ít outbox hơn nhưng publisher fixed-delay vẫn không đạt
 Catalog relay budget 2 giây.
 
 ## Domain và data ownership
