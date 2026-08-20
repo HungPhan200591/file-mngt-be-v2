@@ -1,14 +1,17 @@
 ---
 name: load-v2-context
-description: Nạp lại bối cảnh Backend V2 khi bắt đầu session mới, mất context, người dùng nói tiếp tục hoặc hỏi trạng thái. Dùng để đọc router, trạng thái hiện tại, kiến trúc và đúng context service liên quan trước khi làm việc; không sửa code, không chạy build hay service.
+description: Nạp nhanh bối cảnh Backend V2 theo cơ chế Lazy Targeted Capsule khi bắt đầu session mới hoặc mất context. Tuyệt đối không đọc raw toàn bộ STATUS/SUMMARY; chỉ nạp lát cắt tối thiểu theo task.
 ---
 
-# Nạp context Backend V2
+# Nạp context Backend V2 (Lazy Targeted Capsule)
 
-1. Đọc `AGENTS.md`, `docs/STATUS.md`, `docs/architecture/01-SUMMARY.md`.
-2. Kiểm tra `git status --short` nếu repository đã được khởi tạo.
-3. Nếu task đã rõ owner, đọc đúng `apps/<service>/CONTEXT.md`; nếu chưa rõ, chỉ báo map service, không đọc tất cả context.
-4. Nếu có feature active được nêu tên, đọc trước `docs/features/<feature-id>/03-plan.md`; chỉ đọc Brief, Design hoặc contract khi Plan chỉ đến quyết định cần thiết.
-5. Trả tóm tắt tối đa: phase hiện tại, thay đổi local, owner/task tiếp theo, blocker nếu có.
+1. **Nếu người dùng đã chỉ định feature/task** (ví dụ FT-xxx, BT-xxx, service Y):
+   - Bỏ qua `STATUS.md` và `01-SUMMARY.md`.
+   - Đọc trực tiếp `docs/features/<feature-id>/03-plan.md` hoặc `apps/<service>/CONTEXT.md` liên quan.
+2. **Nếu chưa có task cụ thể hoặc hỏi trạng thái tổng quan**:
+   - Dùng `grep_search` hoặc slice chỉ đọc section `## Trọng tâm ưu tiên tối đa hiện tại` và `## Việc tiếp theo` trong `docs/STATUS.md` (không đọc toàn bộ file).
+   - Kiểm tra `git status --short`.
+3. **Không đọc lại `AGENTS.md`** (đã có trong prompt nền).
+4. **Trả capsule 5–8 dòng**: Trọng tâm hiện tại, thay đổi local, owner/task tiếp theo, blocker nếu có.
 
-Không sửa file, không chạy Maven/Docker/migration và không tự suy ra feature cần triển khai.
+Không sửa file, không chạy build/migration/Docker và không nạp tài liệu thừa.

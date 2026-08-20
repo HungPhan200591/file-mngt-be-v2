@@ -11,7 +11,7 @@
 - Docker Compose hạ tầng dùng `infra/compose/compose.yaml`, ứng dụng BE+FE dùng `infra/compose/compose.apps.yaml`. Sử dụng các lệnh `npm run docker:up`, `npm run docker:apps:up`, `npm run docker:stop <service>` để chuyển đổi 3 chế độ (Local Dev, Hybrid Debug, Full Docker) theo `manual/operations/docker-and-dev-modes.md`.
 - Mặc định mọi nhắc đến **FE/frontend** là **FE V2** tại sibling repo `../file-mngt-fe-v2`; đọc `AGENTS.md` và đúng context module của repo đó trước khi khảo sát, lập feature hoặc code FE. Chỉ khi người dùng chỉ định rõ cần đối chiếu V1 mới dùng repo chỉ đọc: **BE V1** `../../v1/file-mngt-be-v1`; **FE V1** `../../v1/file-mngt-fe-v1`.
 - Khi gợi ý câu lệnh CLI cho người dùng, luôn viết từ thư mục gốc dự án (dùng cờ prefix hoặc đường dẫn từ root); không bắt người dùng gõ lệnh `cd` chuyển thư mục.
-- Context hygiene: `docs/STATUS.md` và `docs/TECHNICAL_DEBT.md` chỉ là snapshot hiện tại; khi task hoàn tất, xóa debt đã trả và nội dung stale/trùng lặp, giữ bằng chứng chi tiết ở Plan/commit và link thay vì sao chép.
+- Context hygiene: Tuân thủ quy tắc bốc context tối thiểu. `docs/STATUS.md` và `docs/TECHNICAL_DEBT.md` chỉ là snapshot hiện tại; khi task hoàn tất, xóa debt đã trả và nội dung stale/trùng lặp. Khi kết thúc milestone/phase, chủ động xuất Handover Capsule (10–15 dòng) để người dùng mở session mới khi cần.
 
 Mọi lệnh Maven của Agent dùng trực tiếp IntelliJ Project SDK `corretto-25` (JDK 25).
 
