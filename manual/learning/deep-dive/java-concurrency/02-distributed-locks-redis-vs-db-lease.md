@@ -286,3 +286,8 @@ flowchart TD
 3. **Martin Kleppmann** — *Designing Data-Intensive Applications (O'Reilly, Chapter 8: The Trouble with Distributed Systems & Fencing Tokens)*.
 4. **PostgreSQL Documentation** — [*The Locking Clause: FOR UPDATE SKIP LOCKED*](https://www.postgresql.org/docs/current/explicit-locking.html).
 5. **Backend V2 Source Code Reference** — [`ScanApprovalOperationRepository.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/main/java/com/filemngt/v2/scan/adapter/out/persistence/approval/ApprovalOperationRepository.java#L22), [`RedisQueryDetailCache.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/query-service/src/main/java/com/filemngt/v2/query/adapter/out/cache/RedisQueryDetailCache.java).
+
+---
+
+> 📖 **Đọc chuyên đề tiếp theo:** [🧵 ThreadLocal vs ScopedValue: Truyền Context Trong Kỷ Nguyên Virtual Threads](./03-threadlocal-vs-scoped-value.md)
+

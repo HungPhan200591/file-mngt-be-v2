@@ -10,30 +10,7 @@ public final class ApprovalDecisionBenchmarkFixture {
     private ApprovalDecisionBenchmarkFixture() {}
 
     public static void reset(JdbcTemplate jdbcTemplate) {
-        jdbcTemplate.update("""
-            DELETE FROM scan_outbox_event
-            WHERE proposal_id IN (
-                SELECT id FROM scan_proposal WHERE scan_run_id IN (
-                    SELECT id FROM scan_run WHERE root_key = ?
-                )
-            )
-            """, ROOT_KEY);
-        jdbcTemplate.update("""
-            DELETE FROM scan_decision
-            WHERE proposal_id IN (
-                SELECT id FROM scan_proposal WHERE scan_run_id IN (
-                    SELECT id FROM scan_run WHERE root_key = ?
-                )
-            )
-            """, ROOT_KEY);
-        jdbcTemplate.update(
-                "DELETE FROM scan_approval_operation WHERE scan_run_id IN (SELECT id FROM scan_run WHERE root_key = ?)",
-                ROOT_KEY);
-        jdbcTemplate.update("DELETE FROM scan_review_proposal WHERE root_key = ?", ROOT_KEY);
-        jdbcTemplate.update("DELETE FROM scan_review_issue WHERE root_key = ?", ROOT_KEY);
-        jdbcTemplate.update("DELETE FROM scan_review_projection_task WHERE root_key = ?", ROOT_KEY);
-        jdbcTemplate.update("DELETE FROM scan_review_projection_root WHERE root_key = ?", ROOT_KEY);
-        jdbcTemplate.update("DELETE FROM scan_run WHERE root_key = ?", ROOT_KEY);
+        jdbcTemplate.execute("TRUNCATE TABLE scan_run, scan_approval_operation CASCADE");
     }
 
     public static UUID seed(JdbcTemplate jdbcTemplate, int proposalCount) {

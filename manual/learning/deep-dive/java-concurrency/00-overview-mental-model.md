@@ -26,7 +26,10 @@ Bức tranh toàn cảnh về cách các khái niệm Concurrency trong Java tư
 
 *(💡 Gợi ý: Bạn có thể click đúp vào file [assets/java-concurrency-mental-model.drawio.svg](assets/java-concurrency-mental-model.drawio.svg) trong IntelliJ để mở trình biên tập Draw.io kéo thả trực quan).*
 
-> 📖 **Đọc chuyên đề tiếp theo:** [🔒 Chuyên khảo Toàn diện về Các loại Lock trong Java (synchronized, ReentrantLock, StampedLock, Semaphore...)](./01-java-locks-deep-dive.md)
+> 📚 **Chuỗi Chuyên Đề Concurrency Chuyên Sâu:**
+> 1. [🔒 Chuyên khảo Toàn diện về Các loại Lock trong Java (synchronized, ReentrantLock, StampedLock, Semaphore...)](./01-java-locks-deep-dive.md)
+> 2. [🏛️ Khóa Phân Tán: PostgreSQL Lease vs. Redis Redlock & Tranh Luận Martin Kleppmann vs. Antirez](./02-distributed-locks-redis-vs-db-lease.md)
+> 3. [🧵 ThreadLocal vs ScopedValue: Truyền Context Trong Kỷ Nguyên Virtual Threads](./03-threadlocal-vs-scoped-value.md)
 
 ---
 

@@ -116,11 +116,30 @@ com.filemngt.v2.<service>.benchmark/
 
 ---
 
+### 🏗️ Nguyên tắc 8: Benchmark phải dùng Spring Beans & Schedulers thật của Service (Cấm tự viết lại runner)
+
+- **Độ trung thực cao nhất (Production Fidelity)**:
+  - Bài đo Benchmark / Pipeline Test phải đo lường trực tiếp trên **hệ thống Spring Beans thật** của service (`@SpringBootTest`, production workers, schedulers, coordinators, repositories).
+  - ❌ **Cấm tự viết lại logic runner**: Không tự tạo mock coordinator, không tự viết custom thread loop thay thế worker, không tự dựng executor giả lập nếu service đã có sẵn background worker / scheduler chính thức (ví dụ: `ApprovalOperationWorker`, `ScanOutboxLaneRelayScheduler`, `CatalogOperationFinalizer`).
+- **Kích hoạt Workers & Schedulers qua Properties**:
+  - Bật cờ tương ứng của service trong `@SpringBootTest(properties = {...})` (ví dụ: `scan.approval-operation.enabled=true`, `scan.outbox.lane-relay-enabled=true`, `catalog.operation.finalizer-enabled=true`).
+  - Cấu hình delay ngắn (`fixed-delay-ms=1` hoặc `scheduler-delay-ms=1`) để scheduler tự động trigger liên tục không có khoảng chết.
+- **Chỉ mock boundary hạ tầng ngoại biên**:
+  - Chỉ mock điểm tiếp giáp ngoài cùng (Kafka Broker transport, External Network Client) bằng `@TestConfiguration` / `@Primary OutboxMessagePublisher` dạng `immediate acknowledgement` để cô lập data plane nội bộ của service.
+- **Pattern chuẩn cho Benchmark Method**:
+  1. **Seed data**: Gọi fixture tạo dữ liệu đầu vào.
+  2. **Trigger entrypoint thật**: Bấm nút / gọi service thật (ví dụ `operations.accept(runId)`).
+  3. **Await durable completion**: Lặp kiểm tra điều kiện kết thúc từ database / durable status (ví dụ `operations.status(id) == "APPROVAL_COMMITTED"` và `outboxEvents.countByPublishedAtIsNull() == 0`) trong khi các Spring Beans thật tự động xử lý ngầm.
+  4. **Assert & Log throughput**: Kiểm tra toàn vẹn dữ liệu và ghi log throughput ra console.
+
+---
+
 ## 2. Checklist Tự kiểm tra trước khi Bàn giao Test
 
 - [ ] Tên class có hậu tố `Test` hoặc `IT` khớp regex chưa?
 - [ ] Dữ liệu mock có sạch sẽ, chuẩn mực không?
 - [ ] Dữ liệu mock đã được chuyển vào class `fixture/` dùng chung chưa?
+- [ ] Benchmark có dùng trực tiếp Spring Beans / Workers / Schedulers thật của service thay vì tự viết lại runner không?
 - [ ] Test có thể chạy độc lập không phụ thuộc dữ liệu cũ trong DB không?
 - [ ] Benchmark PostgreSQL có dùng `org.testcontainers.postgresql.PostgreSQLContainer` và reset bằng `TRUNCATE ... CASCADE` đúng scope chưa?
 - [ ] Đã chạy `mvn spotless:apply` để định dạng chuẩn chưa?
