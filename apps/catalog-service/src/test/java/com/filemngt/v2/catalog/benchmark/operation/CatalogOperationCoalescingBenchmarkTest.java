@@ -80,7 +80,7 @@ class CatalogOperationCoalescingBenchmarkTest {
 
     @Test
     @Order(2)
-    @Timeout(value = 5, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void qualifiesOneMillionInputRecordsWithinCanonicalBudget() {
         measure(1_000_000, true, QUALIFICATION_DIAGNOSTIC_BUDGET);
     }
