@@ -23,6 +23,13 @@ public final class CatalogOperationBenchmarkFixture {
     public static void reset(JdbcTemplate jdbcTemplate) {
         jdbcTemplate.execute("""
                 TRUNCATE TABLE
+                    catalog_finalize_page,
+                    catalog_finalize_latest,
+                    catalog_finalize_asset,
+                    catalog_finalize_primary,
+                    catalog_finalize_metadata,
+                    catalog_finalize_state,
+                    catalog_finalize_snapshot,
                     catalog_operation_lane,
                     catalog_operation_subject,
                     catalog_discovery_stage,

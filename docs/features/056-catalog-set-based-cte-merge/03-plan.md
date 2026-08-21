@@ -22,8 +22,9 @@ Design: [02-design.md](./02-design.md)
 
 1. Khóa baseline V19: đọc function hiện tại; thêm IT characterization tối thiểu (subject mới / subject cũ
    không đổi) **trước** khi đổi SQL, để parity có oracle.
-2. [x] `V20__set_based_cte_catalog_finalizer.sql`: `CREATE OR REPLACE FUNCTION` cùng signature;
-   page keys trong array plpgsql + `WITH ... AS MATERIALIZED`; **cấm** temp DDL trong function. V19 immutable.
+2. [x] `V20__set_based_cte_catalog_finalizer.sql`: function cùng signature. CTE lần 1 fail (25K chậm hơn
+   V19, 1M `DataAccessResourceFailureException`). Đổi scratch UNLOGGED `(operation_id, lane_id)`,
+   không `CREATE TEMP` trong page loop. V19 immutable.
 3. [x] Bypass hash: `before_hash` chỉ khi subject đã có; subject mới `changed = true`, snapshot một lần.
 4. Giữ nguyên khối canonical write set-based (insert subject/asset, tombstone, primary election,
    metadata/actress/tags, registry bump, outbox, workset, lane cursor, cardinality/fence checks).

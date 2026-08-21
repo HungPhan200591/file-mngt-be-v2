@@ -88,17 +88,18 @@ Function signature, `statement_timeout` và `CatalogOperationPageStore.finalizeP
 
 | Thuộc tính | V19 hiện tại | FT-056 đích |
 | --- | --- | --- |
-| Working set page | 7 `CREATE TEMP ... ON COMMIT DROP` | `WITH` CTE, ưu tiên `MATERIALIZED` khi planner cần |
-| Index/ANALYZE | 4 index phụ + 5 `ANALYZE` mỗi page | Không; dựa index durable V19 (`media_subject` identity, stage order) |
+| Working set page | 7 `CREATE TEMP ... ON COMMIT DROP` | UNLOGGED scratch `(operation_id, lane_id)`; xóa/ghi lại mỗi page |
+| Index/ANALYZE | 4 index phụ + 5 `ANALYZE` mỗi page | Index tạo một lần lúc migrate; không DDL trong function |
 | Subject mới | `before_hash` null; vẫn `after_hash` JSON | Bỏ cả hai hash so sánh; luôn emit snapshot |
 | Subject đã có | Hash trước/sau; no-op không outbox | Giữ |
 | Claim/lease | Một page / một claim | Giữ — D3 mới đổi |
 | Event/outbox contract | `media.subject.changed.v2` | Không đổi |
 | Gate | Không đạt 1M (FT-054 timeout) | `pageExec` median `< 5 ms`; 100K subject `<= 5 s` |
 
-CTE không tạo catalog lock nhưng planner có thể scan lặp nếu quên `MATERIALIZED`. Chọn `MATERIALIZED`
-cho CTE dùng ≥ 2 lần (latest payload, asset locator, primary, state/snapshot). Không tạo temp table
-"cho nhanh" vì đó chính là nợ V19.
+CTE `MATERIALIZED` trong function (lần 1) scan lặp `catalog_discovery_stage`: calibration 25K
+`mergeMs=2.633 s` / pageExec avg `129 ms` (chậm hơn V19 `2.032 s` / `106 ms`); 1M gãy
+`DataAccessResourceFailureException` (tmpfs/connection). Scratch UNLOGGED keyed theo lane tránh
+catalog DDL và tránh spill CTE. Không `CREATE TEMP` trong page loop.
 
 Không tách stored procedure thành nhiều function chỉ để giảm dòng: một page = một transaction fence.
 Nếu body vượt 500 dòng, Plan ghi ngoại lệ stored-proc; không tách làm nhiều round-trip.
