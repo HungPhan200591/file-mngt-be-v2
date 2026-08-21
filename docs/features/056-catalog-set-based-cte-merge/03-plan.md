@@ -35,9 +35,10 @@ Design: [02-design.md](./02-design.md)
 6. [x] `CatalogOperationMergeBenchmarkTest`: `@Tag("benchmark")`, `@SpringBootTest` bật finalizer thật,
    tắt Kafka consumer/outbox relay. Seed bằng ingest path (không tính giờ) → gán
    `READY_TO_COALESCE` → đo drain workset. Log `pageExec` median/p95/max + wall-clock merge.
-   Calibration 2.500 subject; qualification 100.000 subject. **Đã viết baseline V19; chưa chạy.**
-7. Cập nhật `BENCHMARK_RESULTS.md` / `README.md` chỉ sau khi có số đo thật; không ghi target vào cột
-   candidate. Report chi tiết vào `results/03-ft056-set-based-cte-merge.md`.
+   Calibration 2.500 subject; qualification 100.000 subject. **Baseline V19 đã chạy 2026-08-21.**
+7. [x] Cập nhật `BENCHMARK_RESULTS.md` / `README.md` sau số đo thật; không ghi target vào cột
+   candidate. Report: `results/03-ft056-set-based-cte-merge.md`. V19: 2.500 subject `2.032 s` /
+   pageExec avg `106 ms`; 100.000 subject **TIMED OUT > 2 min**. Không pass gate D2.
 8. Không sửa `CatalogOperationFinalizer.processLanePage` claim/release. Không đổi page size mặc định
    `500` trừ khi manifest D2 chứng minh và vẫn không biến thành D3.
 
@@ -62,5 +63,5 @@ Design: [02-design.md](./02-design.md)
 - [x] Brief/Design/Plan FT-056.
 - [x] `docs/STATUS.md` — trọng tâm chuyển sang D2; sửa nhầm "Watermark Gate".
 - [x] `04-break-task.md` / `08-approve-1m-context.md` / `ref-bt09d` — trỏ FT-056.
-- [ ] Benchmark dashboard/report sau khi có run.
+- [x] Benchmark dashboard/report V19 baseline.
 - Không cập nhật architecture summary, ADR, OpenAPI hay event contract.

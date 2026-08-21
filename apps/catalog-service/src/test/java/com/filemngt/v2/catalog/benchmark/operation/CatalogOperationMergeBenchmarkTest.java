@@ -63,7 +63,7 @@ class CatalogOperationMergeBenchmarkTest {
     private static final int QUALIFICATION_SUBJECTS = 100_000;
     private static final Duration WARM_UP_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration CALIBRATION_TIMEOUT = Duration.ofSeconds(90);
-    private static final Duration QUALIFICATION_TIMEOUT = Duration.ofMinutes(4);
+    private static final Duration QUALIFICATION_TIMEOUT = Duration.ofMinutes(2);
 
     @Container
     @SuppressWarnings("rawtypes")

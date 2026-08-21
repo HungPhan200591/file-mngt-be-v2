@@ -7,7 +7,8 @@
 
 Đo `catalog_finalize_operation_page` (V19 temp-DDL) trên finalizer Spring thật, page size `500`, 4 worker.
 Seed ingest không nằm trong `mergeMs`. Await workset `COMPLETED`, không đợi `CATALOG_COMMITTED` và không
-claim gate D2. Chưa ghi số đo cho đến khi có run.
+claim gate D2. Result report: [03-ft056-set-based-cte-merge.md](./results/03-ft056-set-based-cte-merge.md).
+Run 2026-08-21: 2.500 subject `mergeMs=2.032 s` (pageExec avg 106ms); 100.000 subject timeout `> 2 min`.
 
 ## FT-055 Kafka backlog drain
 

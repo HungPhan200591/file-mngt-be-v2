@@ -18,13 +18,15 @@ Không ghi claim throughput hoặc SLO trước khi có run manifest và số đ
 
 ## FT-056 V19 merge baseline
 
-| Workload | mergeMs | pageExec | Status |
-| --- | ---: | ---: | --- |
-| 2.500 subjects (25K events) | — | — | Test đã viết; chưa có run |
-| 100.000 subjects (1M events) | — | — | Test đã viết; chưa có run |
+| Workload | mergeMs | Throughput | pageExec | Status |
+| --- | ---: | ---: | --- | --- |
+| 2.500 subjects (25K events) | 2.032 s | 1.230 subject/s | avg 106ms, p95 155ms, 64 pages | Local evidence 2026-08-21 |
+| 100.000 subjects (1M events) | TIMED OUT (> 2 min) | — | — | JUnit timeout 2 min |
 
+Chi tiết topology và boundary: [03-ft056-set-based-cte-merge.md](./results/03-ft056-set-based-cte-merge.md).
 Test: [`CatalogOperationMergeBenchmarkTest.java`](./operation/CatalogOperationMergeBenchmarkTest.java).
-`mergeMs` gồm persist equality gate, không gồm seed ingest, Kafka hay relay. Không so isolated ingest và không claim gate D2.
+
+`mergeMs` gồm persist equality gate, không gồm seed ingest, Kafka hay relay. Không so isolated ingest và không claim gate D2 (`< 5 ms/page`, 100K `<= 5 s`).
 
 ## FT-055 Kafka backlog drain
 
