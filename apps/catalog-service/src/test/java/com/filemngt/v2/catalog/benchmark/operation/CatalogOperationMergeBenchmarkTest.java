@@ -33,10 +33,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Baseline V19 của {@code catalog_finalize_operation_page} trước FT-056.
+ * Đo {@code catalog_finalize_operation_page} (FT-056 CTE) trên finalizer Spring thật.
  * Seed ingest không nằm trong đồng hồ; {@code mergeMs} bắt đầu lúc {@code acceptWatermark}
- * (gồm persist equality gate) tới workset {@code COMPLETED}. Không đợi {@code CATALOG_COMMITTED},
- * không đo Kafka/relay, không enforce gate D2 {@code < 5 ms/page}.
+ * tới workset {@code COMPLETED}. Không đợi {@code CATALOG_COMMITTED}, không enforce gate D2.
  */
 @Tag("benchmark")
 @Testcontainers
@@ -107,14 +106,14 @@ class CatalogOperationMergeBenchmarkTest {
     @Test
     @Order(1)
     @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    void measuresLegacyMergeForTwentyFiveHundredSubjects() {
+    void measuresCteMergeForTwentyFiveHundredSubjects() {
         measureMerge(CALIBRATION_SUBJECTS, CALIBRATION_TIMEOUT);
     }
 
     @Test
     @Order(2)
     @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    void measuresLegacyMergeForOneHundredThousandSubjects() {
+    void measuresCteMergeForOneHundredThousandSubjects() {
         measureMerge(QUALIFICATION_SUBJECTS, QUALIFICATION_TIMEOUT);
     }
 
@@ -199,7 +198,7 @@ class CatalogOperationMergeBenchmarkTest {
 
     private void logResult(int eventCount, int subjectCount, long seedMs, long mergeMs) {
         LOGGER.info(
-                "FT-056 V19 merge baseline: events={}, subjects={}, workers={}, pageSize={}, "
+                "FT-056 CTE merge: events={}, subjects={}, workers={}, pageSize={}, "
                         + "seedMs={}, mergeMs={}, subjectsPerSecond={}\n  -> {}",
                 eventCount,
                 subjectCount,

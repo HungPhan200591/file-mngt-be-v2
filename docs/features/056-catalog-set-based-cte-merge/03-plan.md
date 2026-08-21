@@ -1,6 +1,6 @@
 # FT-056 — BT-09D2 Catalog Set-Based CTE Merge — Plan
 
-Status: `READY`
+Status: `IMPLEMENTED — chờ user chạy IT/benchmark`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -22,14 +22,12 @@ Design: [02-design.md](./02-design.md)
 
 1. Khóa baseline V19: đọc function hiện tại; thêm IT characterization tối thiểu (subject mới / subject cũ
    không đổi) **trước** khi đổi SQL, để parity có oracle.
-2. Viết `V20__set_based_cte_catalog_finalizer.sql`: `CREATE OR REPLACE FUNCTION` cùng signature;
-   working set bằng `WITH ... AS MATERIALIZED` cho CTE dùng lại; **cấm** `CREATE TEMPORARY TABLE`,
-   `CREATE INDEX`, `ANALYZE` trong function. V19 giữ immutable.
-3. Bypass hash: `LEFT JOIN media_subject` lúc lấy page; `before_hash` chỉ khi `subject_id` đã có;
-   subject mới `changed = true` và dựng snapshot một lần, không `md5` đôi.
+2. [x] `V20__set_based_cte_catalog_finalizer.sql`: `CREATE OR REPLACE FUNCTION` cùng signature;
+   page keys trong array plpgsql + `WITH ... AS MATERIALIZED`; **cấm** temp DDL trong function. V19 immutable.
+3. [x] Bypass hash: `before_hash` chỉ khi subject đã có; subject mới `changed = true`, snapshot một lần.
 4. Giữ nguyên khối canonical write set-based (insert subject/asset, tombstone, primary election,
    metadata/actress/tags, registry bump, outbox, workset, lane cursor, cardinality/fence checks).
-5. `CatalogOperationFinalizeIT` (`@Tag` không benchmark): golden vector nghiệp vụ liệt kê trong Brief;
+5. [x] `CatalogOperationFinalizeIT` (`@Tag` không benchmark): golden vector nghiệp vụ liệt kê trong Brief;
    Testcontainers `org.testcontainers.postgresql.PostgreSQLContainer`; reset `TRUNCATE ... CASCADE`
    qua fixture chung; mock data sạch (`Studio_Alpha`, `Artist_Alex`, `CODE-…`).
 6. [x] `CatalogOperationMergeBenchmarkTest`: `@Tag("benchmark")`, `@SpringBootTest` bật finalizer thật,

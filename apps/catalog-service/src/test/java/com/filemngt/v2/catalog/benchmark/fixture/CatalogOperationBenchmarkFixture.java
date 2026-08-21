@@ -30,6 +30,7 @@ public final class CatalogOperationBenchmarkFixture {
                     catalog_dead_letter_event,
                     catalog_outbox_event,
                     catalog_processed_event,
+                    catalog_removed_asset_locator,
                     media_subject,
                     actress,
                     master_data_import
@@ -39,19 +40,52 @@ public final class CatalogOperationBenchmarkFixture {
     }
 
     public static MediaFileDiscoveredV2 discoveryEvent(int index) {
+        return discoveryEvent(index, OPERATION_ID, SCAN_RUN_ID, stableUuid("event", index));
+    }
+
+    public static MediaFileDiscoveredV2 discoveryEvent(int index, UUID operationId, UUID scanRunId) {
+        return discoveryEvent(index, operationId, scanRunId, stableUuid("event:" + operationId, index));
+    }
+
+    public static MediaFileDiscoveredV2 discoveryEvent(
+            int index, UUID operationId, UUID scanRunId, String displayTitle, List<String> tagNames) {
+        var base = discoveryEvent(index, operationId, scanRunId);
+        return new MediaFileDiscoveredV2(
+                base.eventId(),
+                base.eventType(),
+                base.timestamp(),
+                base.operationId(),
+                base.batchId(),
+                base.scanRunId(),
+                base.proposalId(),
+                base.region(),
+                base.subjectType(),
+                base.identityKey(),
+                base.baseCode(),
+                base.part(),
+                base.studioCode(),
+                displayTitle,
+                base.actressNames(),
+                tagNames,
+                base.role(),
+                base.storageKey(),
+                base.relativePath());
+    }
+
+    private static MediaFileDiscoveredV2 discoveryEvent(int index, UUID operationId, UUID scanRunId, UUID eventId) {
         int subjectNumber = index / ASSETS_PER_SUBJECT;
         int assetNumber = index % ASSETS_PER_SUBJECT;
         String identityKey = "SUBJECT-%06d".formatted(subjectNumber);
         String relativePath = "%s/asset-%02d.mp4".formatted(identityKey, assetNumber);
         List<String> tagNames = assetNumber % 5 == 0 ? List.of("HD") : List.of();
         return new MediaFileDiscoveredV2(
-                stableUuid("event", index),
+                eventId,
                 "media.file.discovered.v2",
                 EVENT_BASE_TIME.plusMillis(index),
-                OPERATION_ID,
+                operationId,
                 "scan-output-%05d".formatted(index / 25_000),
-                SCAN_RUN_ID,
-                stableUuid("proposal", index),
+                scanRunId,
+                stableUuid("proposal:" + operationId, index),
                 "JOKE",
                 "VIDEO",
                 identityKey,
@@ -97,11 +131,16 @@ public final class CatalogOperationBenchmarkFixture {
 
     /** Manifest `APPROVAL_COMMITTED` để mở equality gate `READY_TO_COALESCE`. */
     public static MediaApprovalWatermarkV1 approvalCommittedWatermark(int eventCount) {
+        return approvalCommittedWatermark(eventCount, OPERATION_ID, SCAN_RUN_ID);
+    }
+
+    public static MediaApprovalWatermarkV1 approvalCommittedWatermark(
+            int eventCount, UUID operationId, UUID scanRunId) {
         return new MediaApprovalWatermarkV1(
                 UUID.randomUUID(),
                 "media.approval.watermark.v1",
-                OPERATION_ID,
-                SCAN_RUN_ID,
+                operationId,
+                scanRunId,
                 "APPROVAL_COMMITTED",
                 10,
                 eventCount,

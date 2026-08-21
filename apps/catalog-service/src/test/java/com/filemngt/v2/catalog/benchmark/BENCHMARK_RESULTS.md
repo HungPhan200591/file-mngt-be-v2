@@ -28,6 +28,15 @@ Test: [`CatalogOperationMergeBenchmarkTest.java`](./operation/CatalogOperationMe
 
 `mergeMs` gồm persist equality gate, không gồm seed ingest, Kafka hay relay. Không so isolated ingest và không claim gate D2 (`< 5 ms/page`, 100K `<= 5 s`).
 
+### FT-056 CTE candidate (V20)
+
+| Workload | mergeMs | pageExec | Status |
+| --- | ---: | ---: | --- |
+| 2.500 subjects | — | — | V20 đã viết; chờ user chạy |
+| 100.000 subjects | — | — | V20 đã viết; chờ user chạy |
+
+Không ghi claim throughput trước khi có log `FT-056 CTE merge`.
+
 ## FT-055 Kafka backlog drain
 
 | Workload | drainMs | Throughput | Telemetry | Status |
