@@ -1,5 +1,17 @@
 # Catalog Benchmark Suite
 
+## FT-055 Kafka backlog drain
+
+- Test: [CatalogOperationKafkaPipelineBenchmarkTest](./operation/CatalogOperationKafkaPipelineBenchmarkTest.java)
+- Isolated ingest (cùng feature, khác boundary): [CatalogOperationIngestBenchmarkTest](./operation/CatalogOperationIngestBenchmarkTest.java)
+- Result report: [02-ft055-kafka-backlog-drain.md](./results/02-ft055-kafka-backlog-drain.md)
+- Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
+
+Đo `CatalogOperationBatchConsumer` drain backlog đã seed sẵn trên Kafka Testcontainer. `drainMs` bắt đầu lúc
+`resume()` sau warm-up; seed Kafka và assignment không nằm trong throughput. Topology run 2026-08-21:
+8 partition / 8 consumer / `max.poll.records=5000` / `slice-records=5000`. Không so với isolated ingest
+(4 worker, gọi `stage.ingest` trực tiếp) và không claim SLO `QUERY_DB_READY`.
+
 ## FT-054
 
 - Legacy baseline: [CatalogLegacyRecordProcessingBenchmarkTest](./legacy/CatalogLegacyRecordProcessingBenchmarkTest.java)

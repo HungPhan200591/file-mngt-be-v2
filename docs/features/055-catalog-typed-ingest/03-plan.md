@@ -26,9 +26,14 @@ Design: [02-design.md](./02-design.md)
 - **25.000 events (2.500 subjects)**: `wallClockMs = 1.570 ms` (~`15.924 records/s`), `IngestTelemetry[slices=5, avgPerSlice=594ms]`.
 - **1.000.000 events (100.000 subjects)**: `wallClockMs = 20.464 ms` (~`48.866 records/s`), `IngestTelemetry[slices=200, avgPerSlice=326.2ms (mapping=5.3%, copy=25.9%, stageSql=74.1%)]`.
 
-### 2. Full Kafka Production Consumer Benchmark (`CatalogOperationKafkaPipelineBenchmarkTest` - 8 Partitions, 8 Consumers):
-- **25.000 events**: `processingMs = 1.999 ms` (~`12.506 records/s`), `IngestTelemetry[slices=16, avgPerSlice=313.7ms]`.
-- **1.000.000 events**: `processingMs = 32.219 ms` (~`31.038 records/s`), `IngestTelemetry[slices=544, avgPerSlice=358.5ms (mapping=1.6%, copy=12.2%, stageSql=87.8%)]`.
+### 2. Kafka backlog drain (`CatalogOperationKafkaPipelineBenchmarkTest` — 8 partition / 8 consumer):
+
+Chi tiết: [02-ft055-kafka-backlog-drain.md](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/02-ft055-kafka-backlog-drain.md). Run 2026-08-21. Topology chủ đích: `max.poll.records=5000`, `slice-records=5000`, Hikari 30, partition key theo identity. `drainMs` bắt đầu lúc `resume()` sau warm-up 1.000 event; `assignmentMs` và `produceMs` nằm ngoài đồng hồ. Không gồm rebalance stop/start. Đây là evidence Testcontainers local (`fsync=off`), không phải default production (`concurrency=4`, poll/slice=2000) và không phải gate D1 isolated ingest hay SLO `QUERY_DB_READY`.
+
+- **25.000 events (2.500 subjects)**: `drainMs = 1.164 s` (~`21.478 records/s`); `assignmentMs = 140 ms`, `produceMs = 674 ms`. `IngestTelemetry[slices=16, records=25000, avgPerSlice=274.9ms (mapping=6.7%, copy=36.4%, stageSql=63.6%), cpuTimeSum=4399ms]`.
+- **1.000.000 events (100.000 subjects)**: `drainMs = 24.527 s` (~`40.771 records/s`); `assignmentMs = 51 ms`, `produceMs = 10.436 s`. `IngestTelemetry[slices=232, records=1000000, avgPerSlice=643.7ms (mapping=2.3%, copy=18.0%, stageSql=82.0%), cpuTimeSum=149348ms]`.
+
+Run trước đó (`processingMs = 32.219 s`, ~`31.038 records/s`, `slices=544`) đã superseded: đồng hồ gồm rebalance stop/start và `max.poll.records` thực tế còn 2000.
 
 ## Tài liệu cần cập nhật
 

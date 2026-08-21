@@ -15,3 +15,15 @@ Bằng chứng candidate mới nhất là run do người dùng cung cấp ngày
 cho lần chạy kế tiếp.
 
 Không ghi claim throughput hoặc SLO trước khi có run manifest và số đo thật.
+
+## FT-055 Kafka backlog drain
+
+| Workload | drainMs | Throughput | Telemetry | Status |
+| --- | ---: | ---: | --- | --- |
+| 25K (2.500 subjects) | 1.164 s | 21.478 rec/s | slices=16, avgPerSlice=274.9ms, stageSql 63.6% | Local evidence 2026-08-21 |
+| 1M (100.000 subjects) | 24.527 s | 40.771 rec/s | slices=232, avgPerSlice=643.7ms, stageSql 82.0% | Local evidence 2026-08-21 |
+
+Chi tiết topology, boundary và log: [02-ft055-kafka-backlog-drain.md](./results/02-ft055-kafka-backlog-drain.md).
+Test: [`CatalogOperationKafkaPipelineBenchmarkTest.java`](./operation/CatalogOperationKafkaPipelineBenchmarkTest.java).
+
+`drainMs` không gồm assignment/produce/rebalance. Topology 8 partition / 8 consumer / slice 5000, Testcontainers `fsync=off`. Không so với isolated ingest và không claim SLO `QUERY_DB_READY`.
