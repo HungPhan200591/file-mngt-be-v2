@@ -1,6 +1,6 @@
 # Reference Capsule: BT-09D — Catalog Operation Coalescing
 
-> Implementation owners: FT-054 monolithic **`CLOSED — QUALIFICATION FAILED`**; BT-09D1 active ở [FT-055](../../../../../../docs/features/055-catalog-typed-ingest/03-plan.md), D2–D4 mở Feature riêng theo thứ tự.
+> Implementation owners: FT-054 monolithic **`CLOSED — QUALIFICATION FAILED`**; BT-09D1 `DONE` ở [FT-055](../../../../../../docs/features/055-catalog-typed-ingest/03-plan.md); BT-09D2 `READY` ở [FT-056](../../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md); D3–D4 mở Feature riêng theo thứ tự.
 > Phạm vi: `media.file.discovered.v2` → canonical Catalog → `media.subject.changed.v2` + `CATALOG_COMMITTED`.
 
 ## Vấn đề & Bằng chứng Baseline Telemetry (25K records)
@@ -35,7 +35,7 @@ BT-09D4 (Relay & 1M Qualification): Continuous Sliding Window Outbox Relay 64 La
 ## Target Performance & Gates cho từng lát
 
 - **BT-09D1**: 25K `stageSql` median `<= 100 ms`, max `<= 150 ms`; D1 ingest 1M `<= 4s` (`>= 250.000 rec/s`) trên profile 100K subject × 10 asset.
-- **BT-09D2**: SQL merge median `< 5 ms/page`; merge 100K subject `<= 5s`; không còn temp DDL/index/analyze trong page loop và phải parity business semantics.
+- **BT-09D2** ([FT-056](../../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md)): SQL merge median `< 5 ms/page`; merge 100K subject `<= 5s`; không còn temp DDL/index/analyze trong page loop và phải parity business semantics.
 - **BT-09D3**: một claim drain nhiều page; tổng acquire/lease overhead `< 5%` finalizer elapsed; 64 lane không deadlock, starvation hoặc fence violation.
 - **BT-09D4**: canonical Catalog `<= 10s`, relay `<= 2s`, toàn Catalog phase `<= 12s`; data loss `0`, duplicate canonical effect `0`, unresolved DLT `0`.
 

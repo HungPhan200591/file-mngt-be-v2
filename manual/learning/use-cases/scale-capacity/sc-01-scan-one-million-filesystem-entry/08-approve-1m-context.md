@@ -36,7 +36,7 @@ BT-09 tương ứng.
 - Break-task owner: [BT-09](./04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
 - **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
 - **BT-09B**: Scan decision/outbox chunking (**`IMPLEMENTED — verification deferred`**, FT-045/050/051).
-- **BT-09D**: Catalog batch/coalesce (FT-054 đã đóng do qualification fail; D1 đang `READY` tại [FT-055](../../../../../docs/features/055-catalog-typed-ingest/03-plan.md), sau đó D2 → D3 → D4).
+- **BT-09D**: Catalog batch/coalesce (FT-054 đã đóng do qualification fail; D1 `DONE` tại [FT-055](../../../../../docs/features/055-catalog-typed-ingest/03-plan.md); D2 `READY` tại [FT-056](../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md); sau đó D3 → D4).
 - **BT-09E**: Query bulk projection (chưa lập feature trong context này).
 - **BT-09F–09G**: Failure evidence và scale ladder 1K → 5K → 50K → 250K → 1M.
 
