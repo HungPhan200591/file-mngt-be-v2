@@ -33,7 +33,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Đo {@code catalog_finalize_operation_page} (FT-056 CTE) trên finalizer Spring thật.
+ * Đo {@code catalog_finalize_operation_page} (FT-056 nested-loop merge) trên finalizer Spring thật.
  * Seed ingest không nằm trong đồng hồ; {@code mergeMs} bắt đầu lúc {@code acceptWatermark}
  * tới workset {@code COMPLETED}. Không đợi {@code CATALOG_COMMITTED}, không enforce gate D2.
  */
@@ -80,7 +80,9 @@ class CatalogOperationMergeBenchmarkTest {
                             "-c",
                             "shared_buffers=512MB",
                             "-c",
-                            "work_mem=32MB");
+                            "work_mem=32MB",
+                            "-c",
+                            "temp_file_limit=256MB");
 
     @Autowired
     CatalogOperationStageStore stage;
@@ -198,7 +200,7 @@ class CatalogOperationMergeBenchmarkTest {
 
     private void logResult(int eventCount, int subjectCount, long seedMs, long mergeMs) {
         LOGGER.info(
-                "FT-056 CTE merge: events={}, subjects={}, workers={}, pageSize={}, "
+                "FT-056 merge: events={}, subjects={}, workers={}, pageSize={}, "
                         + "seedMs={}, mergeMs={}, subjectsPerSecond={}\n  -> {}",
                 eventCount,
                 subjectCount,

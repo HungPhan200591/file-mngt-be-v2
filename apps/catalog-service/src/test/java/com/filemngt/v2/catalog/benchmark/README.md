@@ -9,7 +9,7 @@
 Seed ingest không nằm trong `mergeMs`. Await workset `COMPLETED`, không đợi `CATALOG_COMMITTED` và không
 claim gate D2. Result report: [03-ft056-set-based-cte-merge.md](./results/03-ft056-set-based-cte-merge.md).
 V19 baseline 2026-08-21: 2.500 subject `2.032 s` (pageExec avg 106ms); 100.000 subject timeout `> 2 min`.
-V20 CTE: cùng test `measuresCteMerge*`; chờ user chạy.
+V20 hash-join: 25K `2.633 s` / 1M gãy connection. V21 nested-loop: cùng test `measuresCteMerge*`; chờ user chạy lại; log `FT-056 merge`.
 
 ## FT-055 Kafka backlog drain
 

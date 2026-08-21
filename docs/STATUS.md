@@ -1,6 +1,6 @@
 # Trạng thái Backend V2
 
-Updated: 2026-08-21
+Updated: 2026-08-22
 
 ## Gate mới nhất — Production Readiness Review
 
@@ -24,7 +24,7 @@ Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bu
 2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
 3. **`BT-09C — Outbox drain` (`FT-053 IMPLEMENTED — qualification pending`)**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; immediate-ack 1M đạt `8.264 ms`/`121.007 records/s`. Đây chưa là real-Kafka, representative payload, repeated-run, crash/reclaim hoặc production evidence.
 
-4. **`BT-09D — Catalog batch/coalesce` (`D1 DONE` / `D2 IMPLEMENTED — chờ chạy`)**: [FT-055](./features/055-catalog-typed-ingest/03-plan.md) ingest `DONE`. [FT-056](./features/056-catalog-set-based-cte-merge/03-plan.md) V20 CTE đã viết. V19 baseline: 2.500 subject **`2.032 s`** (pageExec avg **106 ms**); 100.000 subject **timeout > 2 min**. Chờ user chạy `CatalogOperationFinalizeIT` rồi `CatalogOperationMergeBenchmarkTest`. D3/D4 chưa mở.
+4. **`BT-09D — Catalog batch/coalesce` (`D1 DONE` / `D2 IMPLEMENTED — chờ chạy lại`)**: [FT-055](./features/055-catalog-typed-ingest/03-plan.md) ingest `DONE`. [FT-056](./features/056-catalog-set-based-cte-merge/03-plan.md) V20 CTE **immutable** (đã apply). V21 nested-loop + UNLOGGED scratch. V20 25K **`2.633 s`** / avg **129 ms** (chậm hơn V19 **`2.032 s`** / **106 ms**); 1M **`DataAccessResourceFailureException`**. D3/D4 chưa mở.
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
 6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
 7. **`BT-09G — Scale ladder`**: Chạy benchmark scale ladder 1K → 5K → 50K → 250K → 1M đo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool.
@@ -80,7 +80,7 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **User chạy [FT-056](./features/056-catalog-set-based-cte-merge/03-plan.md)**: `CatalogOperationFinalizeIT` rồi `CatalogOperationMergeBenchmarkTest` (25K rồi 1M, timeout 2 phút). Gửi log `FT-056 CTE merge`. Gate `pageExec` median `< 5 ms` và merge 100K subject `<= 5 s` — chưa tuyên bố.
+1. **User chạy lại [FT-056](./features/056-catalog-set-based-cte-merge/03-plan.md) V21**: `CatalogOperationFinalizeIT` rồi `CatalogOperationMergeBenchmarkTest` (25K rồi 1M, timeout 2 phút). Gửi log `FT-056 merge`. Gate `pageExec` median `< 5 ms` và merge 100K subject `<= 5 s` — chưa tuyên bố.
 2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
 3. **Sau FT-056:** BT-09D3 continuous lane drain → D4 relay; rồi **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi Catalog mới đúng semantics nhưng chưa đạt throughput gate.
 4. **Giai đoạn sau khi thông luồng SC-01:** thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.

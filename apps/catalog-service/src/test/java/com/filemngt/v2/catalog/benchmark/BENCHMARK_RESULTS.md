@@ -32,10 +32,10 @@ Test: [`CatalogOperationMergeBenchmarkTest.java`](./operation/CatalogOperationMe
 
 | Attempt | 2.500 subjects | 100.000 subjects | Status |
 | --- | ---: | ---: | --- |
-| CTE MATERIALIZED | 2.633 s / avg 129ms | `DataAccessResourceFailureException` | Bỏ; chậm hơn V19, gãy 1M |
-| UNLOGGED scratch | — | — | V20 đã viết lại; chờ user chạy |
+| V20 UNLOGGED hash-join | 2.633 s / avg 129ms | `DataAccessResourceFailureException` | Bỏ access path; chậm hơn V19, gãy 1M |
+| V21 LATERAL nested-loop | — | — | Đã viết; chờ user chạy lại |
 
-Không ghi claim gate D2 trước log `FT-056 CTE merge` của scratch.
+Không ghi claim gate D2 trước log `FT-056 merge` của V21.
 
 ## FT-055 Kafka backlog drain
 

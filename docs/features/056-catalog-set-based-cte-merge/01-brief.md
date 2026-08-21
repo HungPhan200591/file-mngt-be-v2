@@ -14,8 +14,9 @@ là **canonical SQL merge**, không đổi equality/watermark.
 
 ## Mục tiêu và acceptance criteria
 
-- Viết lại `catalog_finalize_operation_page` bằng in-query set-based CTE; vòng page **không** còn
-  `CREATE TEMPORARY TABLE`, `CREATE INDEX` hay `ANALYZE`.
+- Viết lại `catalog_finalize_operation_page` bằng set-based merge; vòng page **không** còn
+  `CREATE TEMPORARY TABLE`, `CREATE INDEX` hay `ANALYZE`. Kéo `catalog_discovery_stage` bằng
+  `LATERAL` từ page key (nested-loop index), không hash-join/seq-scan toàn bộ stage.
 - Subject mới (`media_subject` chưa tồn tại lúc page bắt đầu): không gọi `catalog_subject_state_json` để
   tính `before_hash`; luôn `changed = true`; `version` giữ `0`.
 - Subject đã có: so `before_hash`/`after_hash`; chỉ tăng version đúng một lần và insert outbox khi aggregate đổi.
@@ -43,8 +44,9 @@ là **canonical SQL merge**, không đổi equality/watermark.
 
 ## Câu hỏi/rủi ro mở
 
-- `5 ms/page` là gate hợp đồng từ break-task, chưa có run CTE. Nếu trượt: ghi evidence, dừng; không tự
-  đổi page size hay claim loop thành D3.
-- CTE `MATERIALIZED` có thể spill work file; qualification phải ghi `work_mem` và không dùng temp DDL để "né".
+- `5 ms/page` là gate hợp đồng từ break-task. V20 hash-join chậm hơn V19 và gãy 1M; V21 nested-loop
+  chưa chạy. Nếu trượt: ghi evidence, dừng; không tự đổi page size hay claim loop thành D3.
+- Hash-join 1M jsonb spill tmpfs (`DataAccessResourceFailureException`). V21 phải nested-loop; qualification
+  ghi `work_mem` / `temp_file_limit`, không dùng temp DDL để "né".
 - Profile 1M cold gần như toàn subject mới — bypass hash giúp D2; profile update/existing vẫn trả giá
   `catalog_subject_state_json` và phải có test parity, không lấy cold làm chứng minh mọi workload.

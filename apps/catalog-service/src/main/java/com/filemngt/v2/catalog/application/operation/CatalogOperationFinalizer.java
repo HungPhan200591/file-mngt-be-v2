@@ -90,6 +90,7 @@ public class CatalogOperationFinalizer {
         workers.close();
     }
 
+    /** Một claim: acquire → page SQL → drain/release; telemetry và fence phải cùng nhánh. */
     private int processLanePage() {
         long acquireStarted = System.nanoTime();
         Instant now = Instant.now();
@@ -124,10 +125,11 @@ public class CatalogOperationFinalizer {
         } catch (RuntimeException exception) {
             releaseAfterFailure(lane);
             LOGGER.warn(
-                    "Catalog operation finalizer retryable failure operationId={} lane={} errorType={}",
+                    "Catalog operation finalizer retryable failure operationId={} lane={} errorType={} causeType={}",
                     lane.operationId(),
                     lane.laneId(),
-                    exception.getClass().getSimpleName());
+                    exception.getClass().getSimpleName(),
+                    causeType(exception));
             return 0;
         }
     }
@@ -142,6 +144,11 @@ public class CatalogOperationFinalizer {
                     lane.laneId(),
                     releaseFailure.getClass().getSimpleName());
         }
+    }
+
+    private static String causeType(Throwable exception) {
+        Throwable cause = exception.getCause();
+        return cause == null ? "none" : cause.getClass().getSimpleName();
     }
 
     private static int positive(int value, String property) {

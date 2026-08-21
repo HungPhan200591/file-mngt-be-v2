@@ -25,6 +25,7 @@ public final class CatalogOperationBenchmarkFixture {
                 TRUNCATE TABLE
                     catalog_finalize_page,
                     catalog_finalize_latest,
+                    catalog_finalize_event,
                     catalog_finalize_asset,
                     catalog_finalize_primary,
                     catalog_finalize_metadata,

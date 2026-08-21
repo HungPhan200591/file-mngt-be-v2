@@ -1,6 +1,6 @@
 # FT-056 — Set-Based CTE Merge
 
-Status: `V19 BASELINE + CTE ATTEMPT MEASURED — scratch UNLOGGED chờ chạy lại`
+Status: `V20 HASH-JOIN FAILED — V21 nested-loop chờ chạy lại`
 
 Test: [`CatalogOperationMergeBenchmarkTest.java`](../operation/CatalogOperationMergeBenchmarkTest.java)
 
@@ -34,16 +34,20 @@ Nguồn: log IntelliJ ngày 2026-08-21. Một lần chạy; chưa đủ P95/P99.
 | Calibration | 25.000 | 2.500 | 1.380 | **2.032 s** | **1.230 subject/s** | pages=64, acquire=201ms, pageExecTotal=6825ms (min=54, avg=106, p95=155, max=166), drain=115ms, completeOp=2ms |
 | Qualification | 1.000.000 | 100.000 | — | **TIMED OUT (> 2 min)** | — | Không có snapshot; JUnit `@Timeout(2 min)` |
 
-### Candidate CTE (lần 1, đã bỏ)
+### Candidate V20 UNLOGGED (hash-join stage — đã bỏ access path)
 
-Nguồn: log IntelliJ 2026-08-21. CTE `MATERIALIZED` lặp scan stage.
+Nguồn: log IntelliJ 2026-08-21. Function join `catalog_discovery_stage` rồi mới lọc page; planner hash-join 1M jsonb.
 
 | Workload | seedMs | mergeMs | Throughput | Telemetry |
 | --- | ---: | ---: | ---: | --- |
 | Calibration 2.500 subjects | 975 | **2.633 s** | **949 subject/s** | pages=64, acquire=169ms, pageExecTotal=8300ms (min=74, avg=129, p95=180, max=227) |
 | Qualification 100.000 subjects | — | **FAILED** | — | `DataAccessResourceFailureException` lane 0/1/3; Postgres/tmpfs |
 
-CTE chậm hơn V19 ở 25K và gãy connection ở 1M. V20 đổi sang scratch UNLOGGED `(operation_id, lane_id)`.
+V20 chậm hơn V19 ở 25K và gãy connection ở 1M. V21 kéo stage bằng `LATERAL` từ page key, một lần/page.
+
+### Candidate V21 nested-loop
+
+Chưa chạy. Không ghi số vào cột candidate trước log `FT-056 merge`.
 
 `pageExecTotal` là tổng SQL trên mọi worker, nên lớn hơn `mergeMs` khi 4 worker chạy song song
 (6825 / 4 ≈ 1.7 s + acquire/drain ≈ `mergeMs`).
@@ -58,7 +62,7 @@ CTE chậm hơn V19 ở 25K và gãy connection ở 1M. V20 đổi sang scratch 
 | Merge 100K subject | `<= 5 s` | 2.500 subject đã **2.032 s** | timeout **> 2 min** |
 | Temp DDL trong page loop | 0 | V19 còn 7 temp + 4 index + 5 `ANALYZE` | — |
 
-Không tuyên bố candidate CTE. Không so `CatalogOperationIngestBenchmarkTest` hay Kafka backlog-drain.
+Không tuyên bố candidate V21 trước số đo. Không so `CatalogOperationIngestBenchmarkTest` hay Kafka backlog-drain.
 
 ## Boundary
 

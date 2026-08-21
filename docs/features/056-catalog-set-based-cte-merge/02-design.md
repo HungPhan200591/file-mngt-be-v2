@@ -9,7 +9,7 @@ Brief: [01-brief.md](./01-brief.md)
 bỏ per-page DDL storm. Worker Java `CatalogOperationFinalizer` (claim một page rồi `release`) không đổi
 — đó là BT-09D3.
 
-### Kiến trúc hiện tại (As-Is)
+### Kiến trúc hiện tại (As-Is — V19/V20)
 
 ```mermaid
 flowchart LR
@@ -19,33 +19,30 @@ flowchart LR
     end
     subgraph DB["catalog_db"]
         direction TB
-        DDL["Temp DDL storm"] --> HASH["JSON before_hash"]
-        HASH --> MERGE["Canonical writes"]
-        MERGE --> OUT[/"Outbox checkpoint"/]
+        HASH["Hash-join 1M stage"] --> SPILL["tmpfs spill"]
+        SPILL --> MERGE["Canonical writes"]
     end
-    CLAIM --> DDL
+    CLAIM --> HASH
     style APP fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style W fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style CLAIM fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style DB fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
-    style DDL fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style HASH fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style SPILL fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style MERGE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style OUT fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 | Nút | Vai trò |
 | --- | --- |
 | Finalizer worker | 4 physical worker, claim 64 logical lane |
 | Claim one page | `acquire` → `catalog_finalize_operation_page` → `release` |
-| Temp DDL storm | V19: 7 temp table, 4 index phụ, 5 `ANALYZE` mỗi page |
-| JSON before_hash | `md5(catalog_subject_state_json)` cho subject đã có |
-| Canonical writes | Insert/update subject, asset, tag, actress, primary |
-| Outbox checkpoint | Snapshot v2 + workset + lane cursor trong cùng transaction |
+| Hash-join 1M stage | V20: `FROM catalog_discovery_stage JOIN page` lặp 4 lần; planner seq-scan toàn bộ event |
+| tmpfs spill | 1M jsonb × 4 worker làm đầy Docker tmpfs → `DataAccessResourceFailureException` |
+| Canonical writes | Insert/update subject, asset, tag, actress, primary, outbox |
 
-4–8 worker song song tạo DDL trên `pg_class`/`pg_type` → catalog lock, không phải thời gian merge thuần.
+V19 nhanh hơn V20 ở 25K vì `ANALYZE` temp table ép nested-loop; V19 vẫn timeout 1M vì DDL + scan stage. V20 bỏ DDL nhưng mất stats nên hash-join 1M JSON.
 
-### Kiến trúc đích (To-Be)
+### Kiến trúc đích (To-Be — V21)
 
 ```mermaid
 flowchart LR
@@ -55,19 +52,22 @@ flowchart LR
     end
     subgraph DB["catalog_db"]
         direction TB
-        CTE[/"In-query CTE"/]
-        CTE --> NEW["Skip hash if new"]
-        CTE --> OLD["Hash if exists"]
+        PAGE["Page keys"] --> PULL["Lateral index pull"]
+        PULL --> SCRATCH[/"UNLOGGED scratch"/]
+        SCRATCH --> NEW["Skip hash if new"]
+        SCRATCH --> OLD["Hash if exists"]
         NEW --> WRITE["Set-based merge"]
         OLD --> WRITE
         WRITE --> OUT[("Outbox checkpoint")]
     end
-    CLAIM --> CTE
+    CLAIM --> PAGE
     style APP fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style W fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style CLAIM fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style DB fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
-    style CTE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style PAGE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style PULL fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style SCRATCH fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style NEW fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
     style OLD fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style WRITE fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
@@ -76,7 +76,9 @@ flowchart LR
 
 | Nút | Vai trò |
 | --- | --- |
-| In-query CTE | Workset page, latest event, asset, primary, metadata, snapshot — không DDL |
+| Page keys | Workset `PENDING` của đúng một lane, `FOR UPDATE` |
+| Lateral index pull | `CROSS JOIN LATERAL` theo `subject_key`; dùng `idx_catalog_discovery_stage_operation_subject_order` |
+| UNLOGGED scratch | Event/latest/asset keyed `(operation_id, lane_id)`; không DDL trong page loop |
 | Skip hash if new | Subject mới luôn đổi; snapshot dựng một lần; version `0` |
 | Hash if exists | Chỉ subject đã có mới so `before_hash`/`after_hash` |
 | Set-based merge | Cùng reducer FT-054 [D4]: locator, primary, tags, tombstone |
@@ -86,27 +88,28 @@ Function signature, `statement_timeout` và `CatalogOperationPageStore.finalizeP
 
 ## Quyết định và So sánh (Trade-offs)
 
-| Thuộc tính | V19 hiện tại | FT-056 đích |
+| Thuộc tính | V19 / V20 | FT-056 đích (V21) |
 | --- | --- | --- |
-| Working set page | 7 `CREATE TEMP ... ON COMMIT DROP` | UNLOGGED scratch `(operation_id, lane_id)`; xóa/ghi lại mỗi page |
-| Index/ANALYZE | 4 index phụ + 5 `ANALYZE` mỗi page | Index tạo một lần lúc migrate; không DDL trong function |
-| Subject mới | `before_hash` null; vẫn `after_hash` JSON | Bỏ cả hai hash so sánh; luôn emit snapshot |
-| Subject đã có | Hash trước/sau; no-op không outbox | Giữ |
+| Working set page | V19: 7 `CREATE TEMP`; V20: UNLOGGED nhưng `FROM stage JOIN page` | UNLOGGED + `LATERAL` từ page key; một lần kéo event |
+| Index/ANALYZE | V19: 4 index + 5 `ANALYZE` mỗi page | Index migrate một lần; không DDL trong function |
+| Stage access | Hash-join / seq-scan toàn bộ operation | Nested-loop index `(operation_id, subject_key)` |
+| Subject mới | `before_hash` null; vẫn `after_hash` JSON | Bỏ hash so sánh; luôn emit snapshot |
+| Subject đã có | Hash trước/sau; no-op không outbox | Giữ `catalog_subject_state_json` để parity hash |
 | Claim/lease | Một page / một claim | Giữ — D3 mới đổi |
 | Event/outbox contract | `media.subject.changed.v2` | Không đổi |
-| Gate | Không đạt 1M (FT-054 timeout) | `pageExec` median `< 5 ms`; 100K subject `<= 5 s` |
+| Gate | 25K V20 `2.633 s` / avg `129 ms`; 1M gãy connection | `pageExec` median `< 5 ms`; 100K subject `<= 5 s` — chưa tuyên bố |
 
-CTE `MATERIALIZED` trong function (lần 1) scan lặp `catalog_discovery_stage`: calibration 25K
-`mergeMs=2.633 s` / pageExec avg `129 ms` (chậm hơn V19 `2.032 s` / `106 ms`); 1M gãy
-`DataAccessResourceFailureException` (tmpfs/connection). Scratch UNLOGGED keyed theo lane tránh
-catalog DDL và tránh spill CTE. Không `CREATE TEMP` trong page loop.
+V20 UNLOGGED không đủ: planner không có `ANALYZE` page scratch nên hash-join `catalog_discovery_stage`
+(1M jsonb) lặp 4 lần/page. Calibration 25K `mergeMs=2.633 s` / pageExec avg `129 ms` (chậm hơn V19
+`2.032 s` / `106 ms`); 1M `DataAccessResourceFailureException` trên tmpfs. V21 không `CREATE TEMP`
+trong page loop và không seq-scan stage.
 
 Không tách stored procedure thành nhiều function chỉ để giảm dòng: một page = một transaction fence.
 Nếu body vượt 500 dòng, Plan ghi ngoại lệ stored-proc; không tách làm nhiều round-trip.
 
 ## Domain và data ownership
 
-`catalog-service` sở hữu `catalog_db`: `catalog_discovery_stage`, `catalog_operation_subject`,
+`catalog-service` sở hữu `catalog_db`: `catalog_discovery_stage`, `catalog_finalize_event`, `catalog_operation_subject`,
 `catalog_operation_lane`, `catalog_approval_operation`, `media_subject` / `media_asset` / tags /
 actresses, `catalog_removed_asset_locator`, `catalog_outbox_event`. Không đọc/ghi database service khác.
 
