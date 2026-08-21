@@ -81,6 +81,11 @@ public final class CatalogOperationBenchmarkFixture {
         return list;
     }
 
+    /** Khớp ScanOutboxEventFactory: broker hash key để giữ thứ tự theo identity, không gán partition tay. */
+    public static String partitionKey(MediaFileDiscoveredV2 event) {
+        return event.region() + ":" + event.subjectType() + ":" + event.identityKey();
+    }
+
     public static long processedEventCount(JdbcTemplate jdbcTemplate) {
         return count(jdbcTemplate, "SELECT count(*) FROM catalog_processed_event");
     }
