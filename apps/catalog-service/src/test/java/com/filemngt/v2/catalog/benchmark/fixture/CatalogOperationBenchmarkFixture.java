@@ -1,5 +1,6 @@
 package com.filemngt.v2.catalog.benchmark.fixture;
 
+import com.filemngt.v2.catalog.application.CatalogOperationStageStore;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -62,6 +63,22 @@ public final class CatalogOperationBenchmarkFixture {
                 "VIDEO",
                 STORAGE_KEY,
                 relativePath);
+    }
+
+    public static List<MediaFileDiscoveredV2> sliceEvents(int start, int count) {
+        var list = new java.util.ArrayList<MediaFileDiscoveredV2>(count);
+        for (int i = start; i < start + count; i++) {
+            list.add(discoveryEvent(i));
+        }
+        return list;
+    }
+
+    public static List<CatalogOperationStageStore.RecordCoordinate> sliceCoordinates(int start, int count) {
+        var list = new java.util.ArrayList<CatalogOperationStageStore.RecordCoordinate>(count);
+        for (int i = start; i < start + count; i++) {
+            list.add(new CatalogOperationStageStore.RecordCoordinate(i % 12, i / 12L));
+        }
+        return list;
     }
 
     public static long processedEventCount(JdbcTemplate jdbcTemplate) {

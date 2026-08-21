@@ -72,9 +72,13 @@ public class CatalogOperationIngestTelemetry {
             long totalMillis) {
         @Override
         public String toString() {
+            double avgSliceMs = sliceCount > 0 ? (double) totalMillis / sliceCount : 0;
+            double mapPct = totalMillis > 0 ? (mappingMillis * 100.0) / totalMillis : 0;
+            double copyPct = totalMillis > 0 ? (copyMillis * 100.0) / totalMillis : 0;
+            double sqlPct = totalMillis > 0 ? (stageInsertMillis * 100.0) / totalMillis : 0;
             return String.format(
-                    "IngestSnapshot[slices=%d, records=%d, total=%dms (mapping=%dms, copy=%dms, stageSql=%dms)]",
-                    sliceCount, totalRecords, totalMillis, mappingMillis, copyMillis, stageInsertMillis);
+                    "IngestTelemetry[slices=%d, records=%d, avgPerSlice=%.1fms (mapping=%.1f%%, copy=%.1f%%, stageSql=%.1f%%), cpuTimeSum=%dms]",
+                    sliceCount, totalRecords, avgSliceMs, mapPct, copyPct, sqlPct, totalMillis);
         }
     }
 }

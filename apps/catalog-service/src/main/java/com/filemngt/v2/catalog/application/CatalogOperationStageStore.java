@@ -85,9 +85,7 @@ public class CatalogOperationStageStore {
         }
         long mappingNanos = System.nanoTime() - mappingStarted;
         operationScanRuns.forEach(this::ensureOperation);
-        int inserted = ingestSetBased(input, mappingNanos);
-        operationScanRuns.keySet().forEach(this::evaluateGate);
-        return inserted;
+        return ingestSetBased(input, mappingNanos);
     }
 
     @Transactional
@@ -165,9 +163,8 @@ public class CatalogOperationStageStore {
                     returning event_id, operation_id, subject_key
                 ), workset as (
                     insert into catalog_operation_subject(operation_id, subject_key, subject_lane)
-                    select distinct i.operation_id, i.subject_key, inp.subject_lane
-                    from inserted i
-                    join input inp on i.event_id = inp.event_id
+                    select distinct operation_id, subject_key, subject_lane
+                    from input
                     on conflict (operation_id, subject_key) do nothing
                 ), received as (
                     select operation_id, count(*) record_count from inserted group by operation_id
@@ -190,12 +187,10 @@ public class CatalogOperationStageStore {
     }
 
     private void ensureOperation(UUID operationId, UUID scanRunId) {
-        int accepted = jdbc.update("""
+        jdbc.update("""
                 insert into catalog_approval_operation(operation_id, scan_run_id) values (?, ?)
-                on conflict (operation_id) do update set updated_at = catalog_approval_operation.updated_at
-                where catalog_approval_operation.scan_run_id = excluded.scan_run_id
+                on conflict (operation_id) do nothing
                 """, operationId, scanRunId);
-        if (accepted != 1) throw new IllegalArgumentException("operationId belongs to another scanRunId");
     }
 
     private void evaluateGate(UUID operationId) {
@@ -211,6 +206,7 @@ public class CatalogOperationStageStore {
                     when received_record_count > expected_discovery_record_count then 'CATALOG_INPUT_CARDINALITY_MISMATCH'
                     else failure_code end,
                   updated_at = now() where operation_id = ?
+                  and expected_discovery_record_count is not null
                   and status in ('INGESTING', 'READY_TO_COALESCE')
                 """, operationId);
         if (ready == 0) return;

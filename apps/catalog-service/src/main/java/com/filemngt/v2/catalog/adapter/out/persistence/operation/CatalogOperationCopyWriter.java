@@ -43,6 +43,9 @@ public class CatalogOperationCopyWriter {
             ) from stdin with (format csv)
             """;
 
+    private static final java.util.Set<Integer> INITIALIZED_CONNECTIONS =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
     private final JdbcTemplate jdbc;
 
     public CatalogOperationCopyWriter(JdbcTemplate jdbc) {
@@ -69,10 +72,14 @@ public class CatalogOperationCopyWriter {
     public long copyTypedRows(List<TypedIngestRow> rows) {
         if (rows.isEmpty()) return 0;
         Long copied = jdbc.execute((ConnectionCallback<Long>) connection -> {
-            try (var statement = connection.createStatement()) {
-                statement.execute(CREATE_TEMP);
+            PGConnection pgConnection = connection.unwrap(PGConnection.class);
+            int connectionId = System.identityHashCode(pgConnection);
+            if (INITIALIZED_CONNECTIONS.add(connectionId)) {
+                try (var statement = connection.createStatement()) {
+                    statement.execute(CREATE_TEMP);
+                }
             }
-            CopyIn copy = connection.unwrap(PGConnection.class).getCopyAPI().copyIn(COPY_TEMP);
+            CopyIn copy = pgConnection.getCopyAPI().copyIn(COPY_TEMP);
             try {
                 for (TypedIngestRow row : rows) write(copy, buildCsvRow(row));
                 return copy.endCopy();
