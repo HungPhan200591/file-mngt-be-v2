@@ -113,7 +113,7 @@ class CatalogOperationMergeBenchmarkTest {
 
     @Test
     @Order(2)
-    @Timeout(value = 5, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresLegacyMergeForOneHundredThousandSubjects() {
         measureMerge(QUALIFICATION_SUBJECTS, QUALIFICATION_TIMEOUT);
     }
