@@ -16,6 +16,16 @@ cho lần chạy kế tiếp.
 
 Không ghi claim throughput hoặc SLO trước khi có run manifest và số đo thật.
 
+## FT-056 V19 merge baseline
+
+| Workload | mergeMs | pageExec | Status |
+| --- | ---: | ---: | --- |
+| 2.500 subjects (25K events) | — | — | Test đã viết; chưa có run |
+| 100.000 subjects (1M events) | — | — | Test đã viết; chưa có run |
+
+Test: [`CatalogOperationMergeBenchmarkTest.java`](./operation/CatalogOperationMergeBenchmarkTest.java).
+`mergeMs` gồm persist equality gate, không gồm seed ingest, Kafka hay relay. Không so isolated ingest và không claim gate D2.
+
 ## FT-055 Kafka backlog drain
 
 | Workload | drainMs | Throughput | Telemetry | Status |

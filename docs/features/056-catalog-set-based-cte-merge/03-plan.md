@@ -32,10 +32,10 @@ Design: [02-design.md](./02-design.md)
 5. `CatalogOperationFinalizeIT` (`@Tag` không benchmark): golden vector nghiệp vụ liệt kê trong Brief;
    Testcontainers `org.testcontainers.postgresql.PostgreSQLContainer`; reset `TRUNCATE ... CASCADE`
    qua fixture chung; mock data sạch (`Studio_Alpha`, `Artist_Alex`, `CODE-…`).
-6. `CatalogOperationMergeBenchmarkTest`: `@Tag("benchmark")`, `@SpringBootTest` bật finalizer thật,
+6. [x] `CatalogOperationMergeBenchmarkTest`: `@Tag("benchmark")`, `@SpringBootTest` bật finalizer thật,
    tắt Kafka consumer/outbox relay. Seed bằng ingest path (không tính giờ) → gán
    `READY_TO_COALESCE` → đo drain workset. Log `pageExec` median/p95/max + wall-clock merge.
-   Calibration 2.500 subject; qualification 100.000 subject.
+   Calibration 2.500 subject; qualification 100.000 subject. **Đã viết baseline V19; chưa chạy.**
 7. Cập nhật `BENCHMARK_RESULTS.md` / `README.md` chỉ sau khi có số đo thật; không ghi target vào cột
    candidate. Report chi tiết vào `results/03-ft056-set-based-cte-merge.md`.
 8. Không sửa `CatalogOperationFinalizer.processLanePage` claim/release. Không đổi page size mặc định

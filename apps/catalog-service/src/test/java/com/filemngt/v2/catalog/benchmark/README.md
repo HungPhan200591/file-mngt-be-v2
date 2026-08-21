@@ -1,5 +1,14 @@
 # Catalog Benchmark Suite
 
+## FT-056 V19 merge baseline
+
+- Test: [CatalogOperationMergeBenchmarkTest](./operation/CatalogOperationMergeBenchmarkTest.java)
+- Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
+
+Đo `catalog_finalize_operation_page` (V19 temp-DDL) trên finalizer Spring thật, page size `500`, 4 worker.
+Seed ingest không nằm trong `mergeMs`. Await workset `COMPLETED`, không đợi `CATALOG_COMMITTED` và không
+claim gate D2. Chưa ghi số đo cho đến khi có run.
+
 ## FT-055 Kafka backlog drain
 
 - Test: [CatalogOperationKafkaPipelineBenchmarkTest](./operation/CatalogOperationKafkaPipelineBenchmarkTest.java)

@@ -1,6 +1,7 @@
 package com.filemngt.v2.catalog.benchmark.fixture;
 
 import com.filemngt.v2.catalog.application.CatalogOperationStageStore;
+import com.filemngt.v2.contracts.events.MediaApprovalWatermarkV1;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -8,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** Fixture deterministic cho baseline Catalog legacy record-at-a-time. */
+/** Fixture deterministic cho ingest/merge benchmark Catalog (synthetic sạch, 10 asset/subject). */
 public final class CatalogOperationBenchmarkFixture {
     public static final int ASSETS_PER_SUBJECT = 10;
     public static final String STORAGE_KEY = "benchmark-catalog-legacy";
@@ -84,6 +85,37 @@ public final class CatalogOperationBenchmarkFixture {
     /** Khớp ScanOutboxEventFactory: broker hash key để giữ thứ tự theo identity, không gán partition tay. */
     public static String partitionKey(MediaFileDiscoveredV2 event) {
         return event.region() + ":" + event.subjectType() + ":" + event.identityKey();
+    }
+
+    public static long expectedSubjects(int eventCount) {
+        return (eventCount + ASSETS_PER_SUBJECT - 1L) / ASSETS_PER_SUBJECT;
+    }
+
+    public static int eventCountForSubjects(int subjectCount) {
+        return subjectCount * ASSETS_PER_SUBJECT;
+    }
+
+    /** Manifest `APPROVAL_COMMITTED` để mở equality gate `READY_TO_COALESCE`. */
+    public static MediaApprovalWatermarkV1 approvalCommittedWatermark(int eventCount) {
+        return new MediaApprovalWatermarkV1(
+                UUID.randomUUID(),
+                "media.approval.watermark.v1",
+                OPERATION_ID,
+                SCAN_RUN_ID,
+                "APPROVAL_COMMITTED",
+                10,
+                eventCount,
+                (long) eventCount,
+                0L,
+                (long) eventCount,
+                null,
+                null,
+                null,
+                0,
+                (eventCount + 24_999L) / 25_000L,
+                0,
+                Instant.now(),
+                null);
     }
 
     public static long processedEventCount(JdbcTemplate jdbcTemplate) {

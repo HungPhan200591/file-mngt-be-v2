@@ -87,21 +87,20 @@ class CatalogOperationKafkaPipelineBenchmarkTest {
     private static final Duration QUALIFICATION_TIMEOUT = Duration.ofMinutes(4);
 
     @Container
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"))
-                    .withTmpFs(Map.of("/var/lib/postgresql/data", "rw"))
-                    .withCommand(
-                            "postgres",
-                            "-c",
-                            "fsync=off",
-                            "-c",
-                            "synchronous_commit=off",
-                            "-c",
-                            "full_page_writes=off",
-                            "-c",
-                            "shared_buffers=512MB",
-                            "-c",
-                            "work_mem=32MB");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"))
+            .withTmpFs(Map.of("/var/lib/postgresql/data", "rw"))
+            .withCommand(
+                    "postgres",
+                    "-c",
+                    "fsync=off",
+                    "-c",
+                    "synchronous_commit=off",
+                    "-c",
+                    "full_page_writes=off",
+                    "-c",
+                    "shared_buffers=512MB",
+                    "-c",
+                    "work_mem=32MB");
 
     @Container
     static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("apache/kafka-native:3.8.0"));
@@ -234,8 +233,8 @@ class CatalogOperationKafkaPipelineBenchmarkTest {
         await().alias("Kafka consumers ingest all records into database")
                 .pollInterval(Duration.ofMillis(50))
                 .atMost(timeout)
-                .untilAsserted(() -> assertThat(
-                                count("select received_record_count from catalog_approval_operation where operation_id = ?"))
+                .untilAsserted(() -> assertThat(count(
+                                "select received_record_count from catalog_approval_operation where operation_id = ?"))
                         .isEqualTo(eventCount));
     }
 
