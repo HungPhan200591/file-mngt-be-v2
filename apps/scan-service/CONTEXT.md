@@ -12,8 +12,9 @@ Scan filesystem, parse filename/path và tạo proposal để review trước kh
 - Tích hợp `CatalogRegistryClient` gọi `catalog-service` lấy immutable `RegistrySnapshot` trước khi bắt đầu `scan_run`.
 - Tích hợp `CatalogExistenceClient` gọi internal Catalog API sau parse changed candidate và trước persistence proposal.
 - API preview, review, approve/reject scan item.
-- Event `media.file.discovered.v2` sau approval. Target FT-059 thêm transactional
-  `media.approval.shard.completed.v1` theo logical subject shard; contract đã `READY`, implementation pending.
+- Event `media.file.discovered.v2` sau approval. FT-059 thêm transactional
+  `media.approval.shard.completed.v1` theo logical subject shard; implementation đã có targeted verification,
+  scale qualification còn mở.
 
 ## Invariants
 

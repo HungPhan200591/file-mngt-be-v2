@@ -59,6 +59,7 @@ public class ScanDecisionChunkWriter {
                     claim.operationId(),
                     lastProposalId,
                     writes.size(),
+                    discoveryCount(events),
                     Instant.now().plusSeconds(leaseSeconds));
         } else {
             decisions.checkpoint(
@@ -86,11 +87,17 @@ public class ScanDecisionChunkWriter {
     public ScanDecisionChunkExecutor.ChunkResult complete(ApprovalOperationClaim claim, String workerId) {
         if (claim.shardId() != null) {
             shards.assertLease(claim.shardId(), workerId);
-            shards.complete(claim.shardId(), claim.operationId(), workerId);
+            shards.complete(claim.shardId(), claim.operationId(), workerId, claim.processingVersion());
         } else {
             decisions.assertLease(claim.operationId(), workerId);
             decisions.complete(claim.operationId(), workerId);
         }
         return ScanDecisionChunkExecutor.ChunkResult.completedResult();
+    }
+
+    private int discoveryCount(List<ScanOutboxEventEntity> events) {
+        return Math.toIntExact(events.stream()
+                .filter(event -> "media.file.discovered.v2".equals(event.eventType()))
+                .count());
     }
 }

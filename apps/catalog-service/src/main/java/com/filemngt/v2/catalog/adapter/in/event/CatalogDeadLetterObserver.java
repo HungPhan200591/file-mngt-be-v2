@@ -2,6 +2,9 @@ package com.filemngt.v2.catalog.adapter.in.event;
 
 import com.filemngt.v2.catalog.application.CatalogDeadLetterService;
 import com.filemngt.v2.catalog.application.CatalogOutboxMetrics;
+import com.filemngt.v2.catalog.domain.Region;
+import com.filemngt.v2.catalog.domain.SubjectType;
+import com.filemngt.v2.contracts.events.ApprovalCompletionShardRouter;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -33,11 +36,12 @@ public class CatalogDeadLetterObserver {
     }
 
     @KafkaListener(
-            topics = "media.file.discovered.v2.DLT",
+            topics = {"media.file.discovered.v2.DLT", "media.approval.shard.completed.v1.DLT"},
             groupId = "catalog-dlt-observer",
             autoStartup = "${catalog.kafka.dlt-observer.enabled:true}")
     public void observe(ConsumerRecord<String, String> record) {
         try (var ignored = com.filemngt.v2.observability.kafka.KafkaTracingHeaderPropagation.extractAndSetMdc(record)) {
+            PayloadContext payload = payloadContext(record.value());
             boolean recorded = service.record(new CatalogDeadLetterService.DeadLetterCommand(
                     headerString(record, KafkaHeaders.DLT_ORIGINAL_TOPIC, originalTopic(record.topic())),
                     headerInt(record, KafkaHeaders.DLT_ORIGINAL_PARTITION, record.partition()),
@@ -45,7 +49,8 @@ public class CatalogDeadLetterObserver {
                     record.key(),
                     record.value(),
                     headerString(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE, null),
-                    operationId(record.value()),
+                    payload.operationId(),
+                    payload.routingBucket(),
                     "CATALOG_INPUT_DLT"));
             if (recorded) {
                 metrics.deadLetterReceived();
@@ -61,11 +66,30 @@ public class CatalogDeadLetterObserver {
         }
     }
 
-    private UUID operationId(String payload) {
+    private PayloadContext payloadContext(String payload) {
         try {
-            String value = json.readTree(payload).path("operationId").asText(null);
-            return value == null ? null : UUID.fromString(value);
+            var document = json.readTree(payload);
+            String operationId = document.path("operationId").asText(null);
+            String region = document.path("region").asText(null);
+            String subjectType = document.path("subjectType").asText(null);
+            String identityKey = document.path("identityKey").asText(null);
+            return new PayloadContext(
+                    operationId == null ? null : UUID.fromString(operationId),
+                    routingBucket(region, subjectType, identityKey));
         } catch (Exception exception) {
+            return new PayloadContext(null, null);
+        }
+    }
+
+    private Integer routingBucket(String region, String subjectType, String identityKey) {
+        if (region == null || subjectType == null || identityKey == null || identityKey.isBlank()) {
+            return null;
+        }
+        try {
+            Region.valueOf(region);
+            SubjectType.valueOf(subjectType);
+            return ApprovalCompletionShardRouter.routingBucket(region, subjectType, identityKey);
+        } catch (IllegalArgumentException exception) {
             return null;
         }
     }
@@ -92,4 +116,6 @@ public class CatalogDeadLetterObserver {
                 ? fallback
                 : ByteBuffer.wrap(header.value()).getLong();
     }
+
+    private record PayloadContext(UUID operationId, Integer routingBucket) {}
 }

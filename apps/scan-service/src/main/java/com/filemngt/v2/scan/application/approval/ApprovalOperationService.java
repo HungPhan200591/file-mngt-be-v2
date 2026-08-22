@@ -1,9 +1,10 @@
 package com.filemngt.v2.scan.application.approval;
 
+import com.filemngt.v2.contracts.events.ApprovalCompletionShardRouter;
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationEntity;
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationProposalJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationShardJdbcRepository;
-import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunRepository;
 import com.filemngt.v2.scan.application.dto.ApprovalOperationAcceptedView;
 import com.filemngt.v2.scan.application.dto.ApprovalOperationStatusView;
@@ -23,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApprovalOperationService {
     private final ScanRunRepository runs;
     private final ApprovalOperationRepository operations;
-    private final ScanDecisionJdbcRepository decisions;
+    private final ApprovalOperationProposalJdbcRepository proposals;
     private final ApprovalOperationGuard guard;
     private final ApprovalOperationShardJdbcRepository shards;
     private final ApprovalOperationProperties properties;
@@ -31,13 +32,13 @@ public class ApprovalOperationService {
     public ApprovalOperationService(
             ScanRunRepository runs,
             ApprovalOperationRepository operations,
-            ScanDecisionJdbcRepository decisions,
+            ApprovalOperationProposalJdbcRepository proposals,
             ApprovalOperationGuard guard,
             ApprovalOperationShardJdbcRepository shards,
             ApprovalOperationProperties properties) {
         this.runs = runs;
         this.operations = operations;
-        this.decisions = decisions;
+        this.proposals = proposals;
         this.guard = guard;
         this.shards = shards;
         this.properties = properties;
@@ -50,15 +51,24 @@ public class ApprovalOperationService {
             throw new InvalidRequestException("Chỉ approve scan run đã COMPLETED");
         }
         guard.ensureInactive(scanRunId);
-        UUID proposalCutoffId = decisions.findProposalCutoff(scanRunId);
+        UUID proposalCutoffId = proposals.findProposalCutoff(scanRunId);
         if (proposalCutoffId == null) {
             throw new InvalidRequestException("Scan run không có proposal để approve");
         }
-        long expected = decisions.countPending(scanRunId, proposalCutoffId);
+        long expected = proposals.countPending(scanRunId, proposalCutoffId);
+        long expectedDiscovery = proposals.countPendingDiscovery(scanRunId, proposalCutoffId);
+        ApprovalCompletionShardRouter.requireCompletionShardCount(properties.getCompletionShardCount());
         Instant acceptedAt = Instant.now();
-        var operation = operations.saveAndFlush(
-                new ApprovalOperationEntity(UuidV7.next(), scanRunId, proposalCutoffId, expected, acceptedAt));
-        shards.initialize(operation.id(), scanRunId, proposalCutoffId, properties.getShardCount());
+        var operation = operations.saveAndFlush(new ApprovalOperationEntity(
+                UuidV7.next(),
+                scanRunId,
+                proposalCutoffId,
+                expected,
+                expectedDiscovery,
+                ApprovalCompletionShardRouter.PARTITIONING_VERSION,
+                properties.getCompletionShardCount(),
+                acceptedAt));
+        shards.initialize(operation.id(), scanRunId, proposalCutoffId, properties.getCompletionShardCount());
         return new ApprovalOperationAcceptedView(
                 operation.id(), scanRunId, operation.status(), expected, operation.acceptedAt());
     }

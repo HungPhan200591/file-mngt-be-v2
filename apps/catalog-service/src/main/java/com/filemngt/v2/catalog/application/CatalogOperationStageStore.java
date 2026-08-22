@@ -1,6 +1,7 @@
 package com.filemngt.v2.catalog.application;
 
 import com.filemngt.v2.catalog.adapter.out.persistence.operation.CatalogOperationCopyWriter;
+import com.filemngt.v2.catalog.application.operation.CatalogCompletionShardStore;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationDltGateStore;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationLaneHash;
 import com.filemngt.v2.contracts.events.MediaApprovalWatermarkV1;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,16 +25,25 @@ public class CatalogOperationStageStore {
     private final ObjectMapper json;
     private final CatalogOperationIngestStore ingestStore;
     private final CatalogOperationDltGateStore dltGate;
+    private final CatalogCompletionShardStore completionShards;
+    private final short defaultProcessingVersion;
 
     public CatalogOperationStageStore(
             JdbcTemplate jdbc,
             ObjectMapper json,
             CatalogOperationIngestStore ingestStore,
-            CatalogOperationDltGateStore dltGate) {
+            CatalogOperationDltGateStore dltGate,
+            CatalogCompletionShardStore completionShards,
+            @Value("${catalog.operation.default-processing-version:59}") short defaultProcessingVersion) {
         this.jdbc = jdbc;
         this.json = json;
         this.ingestStore = ingestStore;
         this.dltGate = dltGate;
+        this.completionShards = completionShards;
+        if (defaultProcessingVersion != 57 && defaultProcessingVersion != 59) {
+            throw new IllegalArgumentException("catalog.operation.default-processing-version must be 57 or 59");
+        }
+        this.defaultProcessingVersion = defaultProcessingVersion;
     }
 
     @Transactional
@@ -94,8 +105,9 @@ public class CatalogOperationStageStore {
                 """
                 insert into catalog_approval_operation(operation_id, scan_run_id, expected_record_count,
                     expected_discovery_record_count, expected_removal_record_count, stage_sequence,
-                    source_batch_count, manifest_event_id, correlation_id, traceparent, updated_at)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source_batch_count, manifest_event_id, correlation_id, traceparent, updated_at,
+                    processing_version)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 on conflict (operation_id) do update set
                     expected_record_count = excluded.expected_record_count,
                     expected_discovery_record_count = excluded.expected_discovery_record_count,
@@ -123,16 +135,18 @@ public class CatalogOperationStageStore {
                 traceparent,
                 watermark.occurredAt() != null
                         ? java.sql.Timestamp.from(watermark.occurredAt())
-                        : java.sql.Timestamp.from(Instant.now()));
+                        : java.sql.Timestamp.from(Instant.now()),
+                defaultProcessingVersion);
         if (accepted == 0) rejectConflictingManifest(watermark);
         dltGate.synchronize(watermark.operationId());
+        completionShards.validateGlobalManifest(watermark.operationId());
     }
 
     private void ensureOperation(UUID operationId, UUID scanRunId) {
         jdbc.update("""
-                insert into catalog_approval_operation(operation_id, scan_run_id, processing_version) values (?, ?, 57)
+                insert into catalog_approval_operation(operation_id, scan_run_id, processing_version) values (?, ?, ?)
                 on conflict (operation_id) do nothing
-                """, operationId, scanRunId);
+                """, operationId, scanRunId, defaultProcessingVersion);
     }
 
     private void rejectConflictingManifest(MediaApprovalWatermarkV1 watermark) {

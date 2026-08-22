@@ -36,7 +36,7 @@ public class CatalogOperationFailureStore {
                     blocked_at = now(), updated_at = now()
                 from changed_unit
                 where operation.operation_id = changed_unit.operation_id
-                  and operation.processing_version = 57 and operation.status = 'RECONCILING'
+                  and operation.processing_version in (57, 59) and operation.status = 'RECONCILING'
                 """, claim.operationId(), claim.unitId(), claim.owner(), claim.fenceToken());
     }
 
@@ -61,7 +61,7 @@ public class CatalogOperationFailureStore {
                       and exists (
                           select 1 from catalog_approval_operation operation
                           where operation.operation_id = unit.operation_id
-                            and operation.processing_version = 57 and operation.status = 'RECONCILING'
+                            and operation.processing_version in (57, 59) and operation.status = 'RECONCILING'
                       )
                     returning unit.operation_id, unit.status
                 )

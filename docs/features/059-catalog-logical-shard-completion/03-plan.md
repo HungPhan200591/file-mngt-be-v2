@@ -1,6 +1,6 @@
 # FT-059 — Catalog Logical Shard Completion Contract — Plan
 
-Status: `READY — architecture/contract approved; implementation pending`
+Status: `IMPLEMENTED — targeted contract/UT/IT verified; reliability and scale qualification pending`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -80,6 +80,18 @@ Design: [02-design.md](./02-design.md)
 
 Agent không tự chạy build/test/migration/Docker khi chưa được người dùng cho phép rõ ràng.
 
+## Implementation record — 2026-08-22
+
+- Shared: `ApprovalCompletionShardRouter` và `MediaApprovalShardCompletedV1` khóa protocol
+  `SUBJECT_KEY_MD5_12_RANGE_V1` với golden vectors và validation shard count.
+- Scan: Flyway `V28` persist processing/partitioning version, routing bucket và durable completion-shard
+  ledger; final shard transaction ghi marker vào transactional outbox cùng checkpoint/count exact.
+- Catalog: Flyway `V25` thêm completion-shard/page ledger, marker idempotency + equality gate, bounded
+  page materialization và global convergence. DLT có `routing_bucket`; DLT unresolved chặn seal shard
+  tương ứng trước seal, còn payload không route được hoặc DLT đến sau seal fail-closed ở parent operation.
+- Đã chạy targeted UT/IT cho router, Scan checkpoint/outbox, Catalog marker/data ordering, conflict/late
+  input, DLT isolation và Kafka DLT topology. Không benchmark nào được chạy trong lần triển khai này.
+
 ## Rollout và rollback
 
 - Deploy additive event type/topic/DLT và schema trước; consumer hiểu protocol mới trước khi producer phát marker.
@@ -96,4 +108,5 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
 - [x] Tạo event contract `media.approval.shard.completed.v1` và ADR-006.
 - [x] Cập nhật contract index, discovery/global watermark compatibility và BT-09 routing/status.
 - [x] Cập nhật SC-01 architecture cùng Scan/Catalog context owner.
-- [ ] Sau implementation, ghi migration/source/test thực tế và benchmark report; không ghi số giả định là evidence.
+- [x] Ghi migration/source/test thực tế của implementation.
+- [ ] Ghi benchmark report sau scale ladder được cấp quyền; không ghi số giả định là evidence.

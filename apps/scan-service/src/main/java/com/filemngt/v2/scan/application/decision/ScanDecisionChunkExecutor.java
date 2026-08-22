@@ -1,6 +1,6 @@
 package com.filemngt.v2.scan.application.decision;
 
-import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository;
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationProposalJdbcRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;
 import com.filemngt.v2.scan.application.approval.ApprovalOperationClaim;
 import com.filemngt.v2.scan.config.ApprovalOperationProperties;
@@ -11,17 +11,17 @@ import org.springframework.stereotype.Service;
 /** Chuẩn bị dữ liệu ngoài transaction rồi ủy quyền persistence atomic cho chunk writer. */
 @Service
 public class ScanDecisionChunkExecutor {
-    private final ScanDecisionJdbcRepository decisions;
+    private final ApprovalOperationProposalJdbcRepository proposals;
     private final ScanDecisionChunkPreparation preparation;
     private final ScanDecisionChunkWriter writer;
     private final ApprovalOperationProperties properties;
 
     public ScanDecisionChunkExecutor(
-            ScanDecisionJdbcRepository decisions,
+            ApprovalOperationProposalJdbcRepository proposals,
             ScanDecisionChunkPreparation preparation,
             ScanDecisionChunkWriter writer,
             ApprovalOperationProperties properties) {
-        this.decisions = decisions;
+        this.proposals = proposals;
         this.preparation = preparation;
         this.writer = writer;
         this.properties = properties;
@@ -34,13 +34,14 @@ public class ScanDecisionChunkExecutor {
             int chunkSize,
             int batchOrdinal,
             long leaseSeconds) {
-        var rows = decisions.findPendingChunk(
+        var rows = proposals.findPendingChunk(
                 claim.scanRunId(),
                 claim.proposalCutoffId(),
                 claim.lastProposalId(),
                 chunkSize,
                 claim.shardNumber(),
-                claim.shardCount());
+                claim.shardCount(),
+                claim.processingVersion());
         if (rows.isEmpty()) return writer.complete(claim, workerId);
 
         Instant decidedAt = Instant.now();

@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.config;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -25,7 +26,11 @@ public class ApprovalOperationProperties {
     private int preparationParallelism = 4;
 
     @Min(1)
-    private int shardCount = 4;
+    @Max(256)
+    private int completionShardCount = 64;
+
+    @Min(1)
+    private int workerConcurrency = 4;
 
     @Min(1)
     private long leaseSeconds = 30;
@@ -80,12 +85,31 @@ public class ApprovalOperationProperties {
         return preparationParallelism;
     }
 
-    public int getShardCount() {
-        return shardCount;
+    public int getCompletionShardCount() {
+        return completionShardCount;
     }
 
+    public void setCompletionShardCount(int completionShardCount) {
+        this.completionShardCount = completionShardCount;
+    }
+
+    public int getWorkerConcurrency() {
+        return workerConcurrency;
+    }
+
+    public void setWorkerConcurrency(int workerConcurrency) {
+        this.workerConcurrency = workerConcurrency;
+    }
+
+    /** Giữ biến môi trường shard-count cũ như alias của worker concurrency trong rollout. */
+    @Deprecated(forRemoval = true)
+    public int getShardCount() {
+        return workerConcurrency;
+    }
+
+    @Deprecated(forRemoval = true)
     public void setShardCount(int shardCount) {
-        this.shardCount = shardCount;
+        workerConcurrency = shardCount;
     }
 
     public void setPreparationParallelism(int preparationParallelism) {

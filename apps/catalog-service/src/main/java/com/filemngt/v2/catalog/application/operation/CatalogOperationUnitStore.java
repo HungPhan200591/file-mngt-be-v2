@@ -43,7 +43,7 @@ public class CatalogOperationUnitStore {
                     select unit.operation_id, unit.unit_id
                     from catalog_operation_reconcile_unit unit
                     join catalog_approval_operation operation using (operation_id)
-                    where operation.processing_version = 57
+                    where operation.processing_version in (57, 59)
                       and operation.status = 'RECONCILING'
                       and operation.deadline_at > ?
                       and unit.status not in ('COMPLETED', 'BLOCKED')
@@ -78,7 +78,7 @@ public class CatalogOperationUnitStore {
         jdbc.queryForObject("""
                 select operation_id from catalog_approval_operation
                 where operation_id = ? and status = 'RECONCILING'
-                  and processing_version = 57 and deadline_at > clock_timestamp()
+                  and processing_version in (57, 59) and deadline_at > clock_timestamp()
                 """, java.util.UUID.class, claim.operationId());
         jdbc.queryForObject(
                 "select set_config('statement_timeout', ?, true)", String.class, Long.toString(statementTimeoutMillis));
@@ -100,7 +100,7 @@ public class CatalogOperationUnitStore {
                 with completed as (
                     update catalog_approval_operation operation
                     set status = 'COMMITTING', expected_subject_count = operation.final_snapshot_count, updated_at = now()
-                    where operation.processing_version = 57
+                    where operation.processing_version in (57, 59)
                       and operation.status = 'RECONCILING'
                       and operation.received_record_count = operation.expected_discovery_record_count
                       and operation.expected_removal_record_count = 0
@@ -121,6 +121,33 @@ public class CatalogOperationUnitStore {
                           where snapshot.operation_id = operation.operation_id
                             and snapshot.event_type = 'media.subject.changed.v2'
                             and snapshot.published_at is null)
+                      and (
+                          operation.processing_version = 57
+                          or (
+                              operation.processing_version = 59
+                              and operation.manifest_event_id is not null
+                              and operation.completion_shard_count is not null
+                              and (select count(*) from catalog_operation_completion_shard shard
+                                   where shard.operation_id = operation.operation_id)
+                                    = operation.completion_shard_count
+                              and (select count(*) from catalog_operation_completion_shard shard
+                                   where shard.operation_id = operation.operation_id
+                                     and shard.manifest_event_id is not null)
+                                    = operation.completion_shard_count
+                              and (select coalesce(sum(shard.expected_record_count), 0)
+                                   from catalog_operation_completion_shard shard
+                                   where shard.operation_id = operation.operation_id)
+                                    = operation.expected_discovery_record_count
+                              and (select coalesce(sum(shard.received_record_count), 0)
+                                   from catalog_operation_completion_shard shard
+                                   where shard.operation_id = operation.operation_id)
+                                    = operation.expected_discovery_record_count
+                              and not exists (
+                                  select 1 from catalog_operation_completion_shard shard
+                                  where shard.operation_id = operation.operation_id
+                                    and shard.status <> 'COMPLETED')
+                          )
+                      )
                     returning operation.*, uuidv7() as watermark_event_id
                 )
                 insert into catalog_outbox_event(

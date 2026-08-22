@@ -1,6 +1,6 @@
 # `media.approval.shard.completed.v1`
 
-Status: **APPROVED TARGET — FT-059 implementation pending**
+Status: **IMPLEMENTED — targeted contract/UT/IT verified; scale qualification pending**
 Owner: `scan-service` → `catalog-service`
 Feature: [FT-059](../../features/059-catalog-logical-shard-completion/03-plan.md)
 Decision: [ADR-006](../../adr/ADR-006-logical-completion-shards.md)

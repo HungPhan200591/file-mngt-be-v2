@@ -24,7 +24,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** Benchmark candidate FT-045 cho durable approval operation và bounded chunk processing. */
+/** Benchmark FT-059 cho approval operation với completion shard bounded; không dùng làm bằng chứng production. */
 @Tag("benchmark")
 @Testcontainers
 @SpringBootTest(
@@ -33,7 +33,9 @@ import org.testcontainers.utility.DockerImageName;
             "scan.review-projection.enabled=false",
             "scan.bulk-decision.enabled=false",
             "scan.issue-recheck.enabled=false",
-            "scan.approval-operation.enabled=false"
+            "scan.approval-operation.enabled=false",
+            "scan.approval-operation.completion-shard-count=4",
+            "scan.approval-operation.worker-concurrency=4"
         })
 class ApprovalDecisionChunkingBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ApprovalDecisionChunkingBenchmarkTest.class);
@@ -78,7 +80,7 @@ class ApprovalDecisionChunkingBenchmarkTest {
         var accepted = operations.accept(runId);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
-            for (int shard = 0; shard < operationProperties.getShardCount(); shard++) {
+            for (int shard = 0; shard < operationProperties.getCompletionShardCount(); shard++) {
                 int shardNumber = shard;
                 futures.add(workers.submit(() -> {
                     String shardWorkerId = workerId + "-" + shardNumber;
@@ -111,13 +113,13 @@ class ApprovalDecisionChunkingBenchmarkTest {
         assertThat(count("scan_outbox_event", runId)).isEqualTo(proposalCount);
         LOGGER.info(
                 "Chunked approval benchmark: rows={}, chunkSize={}, jdbcBatchSize={}, copyEnabled={}, "
-                        + "preparationParallelism={}, shardCount={}, measuredMs={}, throughputPerSecond={}, postgresImage={}",
+                        + "preparationParallelism={}, completionShardCount={}, measuredMs={}, throughputPerSecond={}, postgresImage={}",
                 proposalCount,
                 operationProperties.getChunkSize(),
                 operationProperties.getJdbcBatchSize(),
                 operationProperties.isCopyEnabled(),
                 operationProperties.getPreparationParallelism(),
-                operationProperties.getShardCount(),
+                operationProperties.getCompletionShardCount(),
                 measuredMillis,
                 throughput(proposalCount, measuredMillis),
                 "postgres:18.0-alpine");

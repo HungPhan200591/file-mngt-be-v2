@@ -79,10 +79,17 @@ class CatalogKafkaErrorHandlingConfigTest {
     }
 
     @Test
-    void productionDltTopologyKeepsSourcePartitionCardinality() {
-        var topic = new CatalogKafkaTopicConfiguration().mediaFileDiscoveredDltTopic(12);
+    void productionDltTopologyKeepsSourceAndCompletionPartitionCardinality() {
+        var configuration = new CatalogKafkaTopicConfiguration();
+        var discoveryDlt = configuration.mediaFileDiscoveredDltTopic(12);
+        var completion = configuration.mediaApprovalShardCompletedTopic(12);
+        var completionDlt = configuration.mediaApprovalShardCompletedDltTopic(12);
 
-        assertThat(topic.name()).isEqualTo("media.file.discovered.v2.DLT");
-        assertThat(topic.numPartitions()).isEqualTo(12);
+        assertThat(discoveryDlt.name()).isEqualTo("media.file.discovered.v2.DLT");
+        assertThat(discoveryDlt.numPartitions()).isEqualTo(12);
+        assertThat(completion.name()).isEqualTo("media.approval.shard.completed.v1");
+        assertThat(completion.numPartitions()).isEqualTo(12);
+        assertThat(completionDlt.name()).isEqualTo("media.approval.shard.completed.v1.DLT");
+        assertThat(completionDlt.numPartitions()).isEqualTo(12);
     }
 }

@@ -1,7 +1,7 @@
 package com.filemngt.v2.scan.application.decision;
 
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationProposalJdbcRepository.ProposalRow;
 import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository.DecisionWrite;
-import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository.ProposalRow;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.run.ScanRunEntity;

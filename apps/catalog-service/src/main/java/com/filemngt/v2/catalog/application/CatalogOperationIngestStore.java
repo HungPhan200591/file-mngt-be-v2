@@ -36,15 +36,38 @@ public class CatalogOperationIngestStore {
                         display_title, base_code, part, studio_code, actress_names,
                         storage_key, relative_path, asset_role, tag_names, event_time
                     from catalog_discovery_ingest_slice
+                ), operation_lock as (
+                    select operation.operation_id, operation.processing_version, operation.status,
+                        operation.completion_shard_count
+                    from catalog_approval_operation operation
+                    join (select distinct operation_id from input) requested using (operation_id)
+                    order by operation.operation_id
+                    for update of operation
                 ), rejected_operation as (
                     select distinct input.operation_id
                     from input
-                    join catalog_approval_operation operation using (operation_id)
+                    join operation_lock operation using (operation_id)
                     left join catalog_operation_discovery_input known on known.event_id = input.event_id
-                    where operation.status <> 'INGESTING' and known.event_id is null
+                    left join catalog_operation_completion_shard shard
+                      on shard.operation_id = input.operation_id
+                     and operation.completion_shard_count is not null
+                     and shard.completion_shard_id =
+                        input.routing_bucket * operation.completion_shard_count / 4096
+                    where known.event_id is null and (
+                        (operation.processing_version = 57 and operation.status <> 'INGESTING')
+                        or (operation.processing_version = 59 and (
+                            operation.status not in ('INGESTING', 'RECONCILING')
+                            or (operation.completion_shard_count is not null
+                                and coalesce(shard.status, 'BLOCKED') <> 'INGESTING')
+                        ))
+                    )
                 ), blocked as (
                     update catalog_approval_operation operation
-                    set status = 'BLOCKED', failure_code = 'CATALOG_LATE_INPUT_AFTER_SEAL', updated_at = now()
+                    set status = 'BLOCKED',
+                        failure_code = case when operation.processing_version = 59
+                            then 'CATALOG_SHARD_LATE_INPUT'
+                            else 'CATALOG_LATE_INPUT_AFTER_SEAL' end,
+                        updated_at = now()
                     from rejected_operation rejected
                     where operation.operation_id = rejected.operation_id
                       and operation.status <> 'CATALOG_COMMITTED'
@@ -61,10 +84,23 @@ public class CatalogOperationIngestStore {
                         input.studio_code, input.actress_names, input.storage_key, input.relative_path,
                         input.asset_role, input.tag_names, input.event_time
                     from input
-                    join catalog_approval_operation operation using (operation_id)
-                    where operation.status = 'INGESTING'
+                    join operation_lock operation using (operation_id)
+                    left join catalog_operation_completion_shard shard
+                      on shard.operation_id = input.operation_id
+                     and operation.completion_shard_count is not null
+                     and shard.completion_shard_id =
+                        input.routing_bucket * operation.completion_shard_count / 4096
+                    where not exists (
+                            select 1 from rejected_operation rejected
+                            where rejected.operation_id = input.operation_id)
+                      and (
+                        (operation.processing_version = 57 and operation.status = 'INGESTING')
+                        or (operation.processing_version = 59
+                            and operation.status in ('INGESTING', 'RECONCILING')
+                            and (operation.completion_shard_count is null or shard.status = 'INGESTING'))
+                      )
                     on conflict (event_id) do nothing
-                    returning operation_id, source_partition
+                    returning operation_id, source_partition, routing_bucket
                 ), progress as (
                     insert into catalog_operation_ingest_partition(
                         operation_id, source_partition, inserted_record_count, updated_at)
@@ -75,6 +111,36 @@ public class CatalogOperationIngestStore {
                     set inserted_record_count = catalog_operation_ingest_partition.inserted_record_count
                             + excluded.inserted_record_count,
                         updated_at = excluded.updated_at
+                ), shard_progress as (
+                    update catalog_operation_completion_shard shard
+                    set received_record_count = shard.received_record_count + progress.inserted_record_count,
+                        updated_at = now()
+                    from (
+                        select inserted.operation_id,
+                            inserted.routing_bucket * operation.completion_shard_count / 4096
+                                as completion_shard_id,
+                            count(*) as inserted_record_count
+                        from inserted
+                        join operation_lock operation using (operation_id)
+                        where operation.processing_version = 59
+                          and operation.completion_shard_count is not null
+                        group by inserted.operation_id,
+                            inserted.routing_bucket * operation.completion_shard_count / 4096
+                    ) progress
+                    where shard.operation_id = progress.operation_id
+                      and shard.completion_shard_id = progress.completion_shard_id
+                ), operation_progress as (
+                    update catalog_approval_operation operation
+                    set received_record_count = operation.received_record_count + progress.inserted_record_count,
+                        updated_at = now()
+                    from (
+                        select inserted.operation_id, count(*) as inserted_record_count
+                        from inserted
+                        join operation_lock operation using (operation_id)
+                        where operation.processing_version = 59
+                        group by inserted.operation_id
+                    ) progress
+                    where operation.operation_id = progress.operation_id
                 )
                 select count(*)::integer from inserted
                 """, Integer.class);

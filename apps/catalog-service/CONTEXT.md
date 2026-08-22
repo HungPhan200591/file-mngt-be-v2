@@ -16,7 +16,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   `media.metadata.changed.v1` không đổi trong BT-09A.
 - Data plane global 16-unit của [FT-057](../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md)
   và reliability [FT-058](../../docs/features/058-catalog-operation-reliability-hardening/03-plan.md) đã fail gate
-  1M/120s. Target `READY` là [FT-059](../../docs/features/059-catalog-logical-shard-completion/03-plan.md): logical
+  1M/120s. [FT-059](../../docs/features/059-catalog-logical-shard-completion/03-plan.md) đã `IMPLEMENTED`
+  với targeted verification: logical
   completion shard theo canonical subject key, Scan transactional marker, Catalog shard equality gate và bounded
   page reconciliation; Java vẫn chỉ giữ bounded control plane, không làm 1M-row in-memory reducer.
   Combined Catalog release gate là 1M trong tối đa 120 giây từ first receive tới final broker ack; 30K–40K
@@ -28,8 +29,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   units checkpoint đồng thời không lock-upgrade deadlock; Flyway V24 đã verify trên PostgreSQL 18 Testcontainers.
   Combined 25K hoàn tất trong 4.935 ms (`5.066 input records/s`); combined 1M vượt deadline 120 giây do
   reconciliation units lặp lại statement timeout 20 giây và operation còn `RECONCILING`. FT-058 đã dừng ở
-  `FEASIBILITY_FAILED`; FT-059 mới ở `READY`, chưa có source/benchmark và không tiếp tục tối ưu cùng 16-unit
-  transaction shape.
+  `FEASIBILITY_FAILED`; FT-059 không có benchmark/qualification trong lần implementation này và không tiếp tục
+  tối ưu cùng 16-unit transaction shape.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.

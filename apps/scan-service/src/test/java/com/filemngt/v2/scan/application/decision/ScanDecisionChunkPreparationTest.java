@@ -10,7 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.filemngt.v2.scan.adapter.out.persistence.decision.ScanDecisionJdbcRepository.ProposalRow;
+import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalOperationProposalJdbcRepository.ProposalRow;
 import com.filemngt.v2.scan.adapter.out.persistence.inventory.ScanFileInventoryRepository;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
 import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;

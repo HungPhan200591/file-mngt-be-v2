@@ -20,6 +20,7 @@ public class CatalogDeadLetterEntity {
     private String payload;
     private String errorDetail;
     private UUID operationId;
+    private Integer routingBucket;
     private String failureCode;
     private String resolutionState;
     private Instant receivedAt;
@@ -35,6 +36,7 @@ public class CatalogDeadLetterEntity {
             String payload,
             String errorDetail,
             UUID operationId,
+            Integer routingBucket,
             String failureCode,
             Instant receivedAt) {
         this.id = id;
@@ -45,6 +47,7 @@ public class CatalogDeadLetterEntity {
         this.payload = payload;
         this.errorDetail = errorDetail;
         this.operationId = operationId;
+        this.routingBucket = routingBucket;
         this.failureCode = failureCode;
         this.resolutionState = "UNRESOLVED";
         this.receivedAt = receivedAt;
@@ -88,6 +91,10 @@ public class CatalogDeadLetterEntity {
 
     public String failureCode() {
         return failureCode;
+    }
+
+    public Integer routingBucket() {
+        return routingBucket;
     }
 
     public String resolutionState() {

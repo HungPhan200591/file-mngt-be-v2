@@ -20,7 +20,12 @@ public class ApprovalOperationEntity {
     @Column(length = 24)
     private String status;
 
+    private short processingVersion;
+    private String partitioningVersion;
+    private Integer completionShardCount;
     private long expectedRecordCount;
+    private Long expectedDiscoveryRecordCount;
+    private long expectedRemovalRecordCount;
     private long scanCommittedRecordCount;
     private Long catalogProcessedRecordCount;
     private Long expectedSubjectCount;
@@ -50,10 +55,28 @@ public class ApprovalOperationEntity {
 
     public ApprovalOperationEntity(
             UUID id, UUID scanRunId, UUID proposalCutoffId, long expectedRecordCount, Instant acceptedAt) {
+        this(id, scanRunId, proposalCutoffId, expectedRecordCount, null, null, null, acceptedAt);
+    }
+
+    public ApprovalOperationEntity(
+            UUID id,
+            UUID scanRunId,
+            UUID proposalCutoffId,
+            long expectedRecordCount,
+            Long expectedDiscoveryRecordCount,
+            String partitioningVersion,
+            Integer completionShardCount,
+            Instant acceptedAt) {
         this.id = id;
         this.scanRunId = scanRunId;
         this.proposalCutoffId = proposalCutoffId;
         this.expectedRecordCount = expectedRecordCount;
+        this.expectedDiscoveryRecordCount = expectedDiscoveryRecordCount;
+        expectedRemovalRecordCount =
+                expectedDiscoveryRecordCount == null ? 0 : expectedRecordCount - expectedDiscoveryRecordCount;
+        processingVersion = (short) (partitioningVersion == null ? 57 : 59);
+        this.partitioningVersion = partitioningVersion;
+        this.completionShardCount = completionShardCount;
         this.acceptedAt = acceptedAt;
         status = "ACCEPTED";
     }
@@ -108,6 +131,26 @@ public class ApprovalOperationEntity {
 
     public long expectedRecordCount() {
         return expectedRecordCount;
+    }
+
+    public short processingVersion() {
+        return processingVersion;
+    }
+
+    public String partitioningVersion() {
+        return partitioningVersion;
+    }
+
+    public Integer completionShardCount() {
+        return completionShardCount;
+    }
+
+    public Long expectedDiscoveryRecordCount() {
+        return expectedDiscoveryRecordCount;
+    }
+
+    public long expectedRemovalRecordCount() {
+        return expectedRemovalRecordCount;
     }
 
     public long scanCommittedRecordCount() {

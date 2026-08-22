@@ -50,9 +50,10 @@ public class ApprovalOperationClaimService {
                 shard.get().proposalCutoffId(),
                 shard.get().shardNumber(),
                 shard.get().shardCount(),
+                shard.get().processingVersion(),
                 shard.get().expectedRecordCount(),
                 shard.get().committedRecordCount(),
-                0,
+                shard.get().sourceBatchCount(),
                 shard.get().lastProposalId()));
     }
 }

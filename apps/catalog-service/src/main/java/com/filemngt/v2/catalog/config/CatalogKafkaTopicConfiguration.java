@@ -11,6 +11,8 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 @ConditionalOnProperty(name = "catalog.kafka.operation-consumer.enabled", havingValue = "true")
 public class CatalogKafkaTopicConfiguration {
+    private static final String COMPLETION_TOPIC = "media.approval.shard.completed.v1";
+
     @Bean
     @ConditionalOnProperty(
             name = "catalog.kafka.operation-consumer.topic-provisioning-enabled",
@@ -23,5 +25,32 @@ public class CatalogKafkaTopicConfiguration {
                 .partitions(partitions)
                 .replicas(1)
                 .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            name = "catalog.kafka.operation-consumer.topic-provisioning-enabled",
+            havingValue = "true",
+            matchIfMissing = true)
+    NewTopic mediaApprovalShardCompletedTopic(
+            @Value("${catalog.kafka.operation-consumer.completion-topic-partitions:12}") int partitions) {
+        return completionTopic(COMPLETION_TOPIC, partitions);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            name = "catalog.kafka.operation-consumer.topic-provisioning-enabled",
+            havingValue = "true",
+            matchIfMissing = true)
+    NewTopic mediaApprovalShardCompletedDltTopic(
+            @Value("${catalog.kafka.operation-consumer.completion-topic-partitions:12}") int partitions) {
+        return completionTopic(COMPLETION_TOPIC + ".DLT", partitions);
+    }
+
+    private NewTopic completionTopic(String name, int partitions) {
+        if (partitions < 1) {
+            throw new IllegalArgumentException("Catalog completion topic partitions must be positive");
+        }
+        return TopicBuilder.name(name).partitions(partitions).replicas(1).build();
     }
 }

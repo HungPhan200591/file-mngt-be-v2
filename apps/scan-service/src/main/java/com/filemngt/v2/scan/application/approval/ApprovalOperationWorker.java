@@ -62,7 +62,7 @@ public class ApprovalOperationWorker {
 
         var anyClaimedRef = new AtomicBoolean(false);
         var futures = new ArrayList<Future<?>>();
-        for (int index = 0; index < properties.getShardCount(); index++) {
+        for (int index = 0; index < properties.getWorkerConcurrency(); index++) {
             futures.add(workers.submit(() -> {
                 String workerId = "approval-" + UuidV7.next();
                 claims.claim(workerId).ifPresent(claim -> {

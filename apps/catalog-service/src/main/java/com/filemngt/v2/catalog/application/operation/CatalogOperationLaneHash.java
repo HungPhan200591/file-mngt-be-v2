@@ -1,5 +1,6 @@
 package com.filemngt.v2.catalog.application.operation;
 
+import com.filemngt.v2.contracts.events.ApprovalCompletionShardRouter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -13,8 +14,7 @@ public final class CatalogOperationLaneHash {
 
     /** 12-bit bucket giữ cùng subject trong một reconciliation unit mà không cố định 64 lane cũ. */
     public static int stableRoutingBucket(String subjectKey) {
-        byte[] digest = digest(subjectKey);
-        return ((digest[0] & 0xFF) << 4) | ((digest[1] & 0xF0) >>> 4);
+        return ApprovalCompletionShardRouter.routingBucket(subjectKey);
     }
 
     private static byte[] digest(String subjectKey) {

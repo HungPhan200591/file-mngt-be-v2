@@ -34,6 +34,7 @@ import org.testcontainers.utility.DockerImageName;
             "catalog.outbox.enabled=false",
             "catalog.operation.finalizer-enabled=false",
             "catalog.operation.seal-enabled=false",
+            "catalog.operation.default-processing-version=57",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=false",
             "catalog.kafka.dlt-observer.enabled=false",

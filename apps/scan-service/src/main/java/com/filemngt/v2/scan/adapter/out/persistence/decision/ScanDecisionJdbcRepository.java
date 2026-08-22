@@ -5,9 +5,7 @@ import static com.filemngt.v2.scan.adapter.out.persistence.copy.PostgresCsvCopy.
 import com.filemngt.v2.scan.adapter.out.persistence.approval.ApprovalWatermarkJdbcStore;
 import com.filemngt.v2.scan.adapter.out.persistence.copy.PostgresCsvCopy;
 import com.filemngt.v2.scan.adapter.out.persistence.outbox.ScanOutboxEventEntity;
-import com.filemngt.v2.scan.adapter.out.persistence.proposal.ScanProposalEntity;
 import com.filemngt.v2.scan.application.exception.ApprovalOperationLeaseLostException;
-import com.filemngt.v2.scan.domain.scan.ScanProfile;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -28,59 +26,12 @@ public class ScanDecisionJdbcRepository {
                 correlation_id, traceparent, created_at, published_at, attempt_count)
             FROM STDIN WITH (FORMAT CSV)
             """;
-    private static final String SELECT_FIELDS = """
-            SELECT proposal.id, proposal.scan_run_id, proposal.source_relative_path,
-                   proposal.profile, proposal.candidate_type, proposal.identity_key,
-                   proposal.display_title, proposal.asset_role, proposal.evidence
-            FROM scan_proposal proposal
-            LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
-            WHERE proposal.scan_run_id = ? AND decision.proposal_id IS NULL
-            """;
-
     private final JdbcTemplate jdbcTemplate;
     private final ApprovalWatermarkJdbcStore watermarks;
 
     public ScanDecisionJdbcRepository(JdbcTemplate jdbcTemplate, ApprovalWatermarkJdbcStore watermarks) {
         this.jdbcTemplate = jdbcTemplate;
         this.watermarks = watermarks;
-    }
-
-    public long countPending(UUID scanRunId) {
-        Long count = jdbcTemplate.queryForObject("""
-                SELECT count(*)
-                FROM scan_proposal proposal
-                LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
-                WHERE proposal.scan_run_id = ? AND decision.proposal_id IS NULL
-                """, Long.class, scanRunId);
-        return count == null ? 0 : count;
-    }
-
-    public UUID findProposalCutoff(UUID scanRunId) {
-        return jdbcTemplate.queryForObject(
-                "SELECT id FROM scan_proposal WHERE scan_run_id = ? ORDER BY id DESC LIMIT 1", UUID.class, scanRunId);
-    }
-
-    public long countPending(UUID scanRunId, UUID cutoffId) {
-        Long count = jdbcTemplate.queryForObject("""
-                SELECT count(*)
-                FROM scan_proposal proposal
-                LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
-                WHERE proposal.scan_run_id = ? AND proposal.id <= ? AND decision.proposal_id IS NULL
-                """, Long.class, scanRunId, cutoffId);
-        return count == null ? 0 : count;
-    }
-
-    public List<ProposalRow> findPendingChunk(
-            UUID scanRunId, UUID cutoffId, UUID cursor, int limit, int shardNumber, int shardCount) {
-        String sql = cursor == null
-                ? SELECT_FIELDS
-                        + " AND proposal.id <= ? AND mod(abs(hashtext(proposal.id::text)), ?) = ? ORDER BY proposal.id LIMIT ?"
-                : SELECT_FIELDS
-                        + " AND proposal.id <= ? AND proposal.id > ? AND mod(abs(hashtext(proposal.id::text)), ?) = ? ORDER BY proposal.id LIMIT ?";
-        Object[] arguments = cursor == null
-                ? new Object[] {scanRunId, cutoffId, shardCount, shardNumber, limit}
-                : new Object[] {scanRunId, cutoffId, cursor, shardCount, shardNumber, limit};
-        return jdbcTemplate.query(sql, (result, row) -> proposalRow(result), arguments);
     }
 
     public void assertLease(UUID operationId, String workerId) {
@@ -219,43 +170,6 @@ public class ScanDecisionJdbcRepository {
                 Boolean.class,
                 operationId);
         return Boolean.TRUE.equals(committed);
-    }
-
-    private ProposalRow proposalRow(java.sql.ResultSet result) throws java.sql.SQLException {
-        return new ProposalRow(
-                result.getObject("id", UUID.class),
-                result.getObject("scan_run_id", UUID.class),
-                result.getString("source_relative_path"),
-                ScanProfile.valueOf(result.getString("profile")),
-                result.getString("candidate_type"),
-                result.getString("identity_key"),
-                result.getString("display_title"),
-                result.getString("asset_role"),
-                result.getString("evidence"));
-    }
-
-    public record ProposalRow(
-            UUID id,
-            UUID scanRunId,
-            String sourceRelativePath,
-            ScanProfile profile,
-            String candidateType,
-            String identityKey,
-            String displayTitle,
-            String assetRole,
-            String evidence) {
-        public ScanProposalEntity toEntity() {
-            return new ScanProposalEntity(
-                    id,
-                    scanRunId,
-                    sourceRelativePath,
-                    profile,
-                    candidateType,
-                    identityKey,
-                    displayTitle,
-                    assetRole,
-                    evidence);
-        }
     }
 
     public record DecisionWrite(UUID proposalId, UUID eventId, Instant decidedAt) {}

@@ -8,7 +8,7 @@ Event mới hoặc event thay đổi phải được chốt trong Feature Design
 
 - [`media.file.discovered.v2`](./media.file.discovered.v2.md): Scan → Catalog data event.
 - [`media.approval.shard.completed.v1`](./media.approval.shard.completed.v1.md): Scan → Catalog logical
-  completion shard marker; FT-059 contract đã chốt, implementation pending.
+  completion shard marker; FT-059 implementation đã có targeted verification, scale qualification còn mở.
 - [`media.subject.changed.v2`](./media.subject.changed.v2.md): Catalog → Query final subject snapshot.
 - [`media.approval.watermark.v1`](./media.approval.watermark.v1.md): completion manifest cardinality thấp.
 

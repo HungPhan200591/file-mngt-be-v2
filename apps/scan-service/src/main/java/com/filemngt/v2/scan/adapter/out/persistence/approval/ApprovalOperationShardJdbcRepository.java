@@ -1,5 +1,6 @@
 package com.filemngt.v2.scan.adapter.out.persistence.approval;
 
+import com.filemngt.v2.contracts.events.ApprovalCompletionShardRouter;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -12,28 +13,35 @@ import org.springframework.stereotype.Repository;
 public class ApprovalOperationShardJdbcRepository {
     private final JdbcTemplate jdbc;
     private final ApprovalWatermarkJdbcStore watermarks;
+    private final ApprovalShardCompletionOutboxStore completionOutbox;
 
-    public ApprovalOperationShardJdbcRepository(JdbcTemplate jdbc, ApprovalWatermarkJdbcStore watermarks) {
+    public ApprovalOperationShardJdbcRepository(
+            JdbcTemplate jdbc,
+            ApprovalWatermarkJdbcStore watermarks,
+            ApprovalShardCompletionOutboxStore completionOutbox) {
         this.jdbc = jdbc;
         this.watermarks = watermarks;
+        this.completionOutbox = completionOutbox;
     }
 
     public void initialize(UUID operationId, UUID scanRunId, UUID cutoffId, int shardCount) {
-        for (int shard = 0; shard < shardCount; shard++) {
-            Long expected = jdbc.queryForObject("""
-                    SELECT count(*)
-                    FROM scan_proposal proposal
-                    LEFT JOIN scan_decision decision ON decision.proposal_id = proposal.id
-                    WHERE proposal.scan_run_id = ? AND proposal.id <= ?
-                      AND decision.proposal_id IS NULL
-                      AND mod(abs(hashtext(proposal.id::text)), ?) = ?
-                    """, Long.class, scanRunId, cutoffId, shardCount, shard);
-            jdbc.update("""
-                    INSERT INTO scan_approval_operation_shard(
-                        id, operation_id, shard_number, shard_count, status, expected_record_count)
-                    VALUES (?, ?, ?, ?, 'ACCEPTED', ?)
-                    """, UUID.randomUUID(), operationId, shard, shardCount, expected == null ? 0 : expected);
-        }
+        ApprovalCompletionShardRouter.requireCompletionShardCount(shardCount);
+        jdbc.update("""
+                insert into scan_approval_operation_shard(
+                    id, operation_id, shard_number, shard_count, status, expected_record_count,
+                    expected_discovery_record_count)
+                select uuidv7(), ?, shard_number, ?, 'ACCEPTED',
+                    count(proposal.id) filter (where decision.proposal_id is null),
+                    count(proposal.id) filter (
+                        where decision.proposal_id is null and proposal.candidate_type <> 'DELETE_ASSET')
+                from generate_series(0, ? - 1) shard_number
+                left join scan_proposal proposal
+                  on proposal.scan_run_id = ? and proposal.id <= ?
+                 and proposal.routing_bucket >= shard_number * (4096 / ?)
+                 and proposal.routing_bucket < (shard_number + 1) * (4096 / ?)
+                left join scan_decision decision on decision.proposal_id = proposal.id
+                group by shard_number
+                """, operationId, shardCount, shardCount, scanRunId, cutoffId, shardCount, shardCount);
     }
 
     public List<ShardClaim> claimNext(
@@ -43,7 +51,8 @@ public class ApprovalOperationShardJdbcRepository {
                 SELECT shard.id, shard.operation_id, shard.shard_number, shard.shard_count,
                        operation.scan_run_id, operation.proposal_cutoff_id,
                        shard.expected_record_count, shard.committed_record_count,
-                       shard.last_proposal_id, shard.attempt_count
+                       shard.last_proposal_id, shard.source_batch_count, shard.attempt_count,
+                       operation.processing_version
                 FROM scan_approval_operation_shard shard
                 JOIN scan_approval_operation operation ON operation.id = shard.operation_id
                 WHERE (shard.status = 'ACCEPTED'
@@ -62,9 +71,11 @@ public class ApprovalOperationShardJdbcRepository {
                         result.getObject("proposal_cutoff_id", UUID.class),
                         result.getInt("shard_number"),
                         result.getInt("shard_count"),
+                        result.getShort("processing_version"),
                         result.getLong("expected_record_count"),
                         result.getLong("committed_record_count"),
                         result.getObject("last_proposal_id", UUID.class),
+                        result.getInt("source_batch_count"),
                         result.getInt("attempt_count")),
                 maxAttempts,
                 deadlineSeconds);
@@ -94,6 +105,7 @@ public class ApprovalOperationShardJdbcRepository {
                         FROM scan_approval_operation_shard shard
                         WHERE shard.operation_id = operation.id)
                 WHERE operation.status = 'RUNNING'
+                  AND operation.processing_version = 57
                   AND NOT EXISTS (
                       SELECT 1 FROM scan_approval_operation_shard shard
                       WHERE shard.operation_id = operation.id AND shard.status <> 'COMPLETED')
@@ -112,21 +124,30 @@ public class ApprovalOperationShardJdbcRepository {
         if (owned == null || owned != 1) throw new IllegalStateException("Approval shard lease lost: " + shardId);
     }
 
-    public void checkpoint(UUID shardId, UUID operationId, UUID lastProposalId, int count, Instant leaseUntil) {
-        int updated = jdbc.update("""
+    public void checkpoint(
+            UUID shardId, UUID operationId, UUID lastProposalId, int count, int discoveryCount, Instant leaseUntil) {
+        int updated = jdbc.update(
+                """
                 UPDATE scan_approval_operation_shard
-                SET last_proposal_id = ?, committed_record_count = committed_record_count + ?, lease_until = ?
+                SET last_proposal_id = ?, committed_record_count = committed_record_count + ?,
+                    committed_discovery_record_count = committed_discovery_record_count + ?,
+                    source_batch_count = source_batch_count + 1, lease_until = ?
                 WHERE id = ? AND operation_id = ? AND status = 'RUNNING' AND lease_until > now()
-                """, lastProposalId, count, Timestamp.from(leaseUntil), shardId, operationId);
+                """, lastProposalId, count, discoveryCount, Timestamp.from(leaseUntil), shardId, operationId);
         if (updated != 1) throw new IllegalStateException("Approval shard lease lost: " + shardId);
         jdbc.update("""
                 UPDATE scan_approval_operation
-                SET scan_committed_record_count = scan_committed_record_count + ?
+                SET scan_committed_record_count = scan_committed_record_count + ?,
+                    source_batch_count = source_batch_count + 1
                 WHERE id = ?
                 """, count, operationId);
     }
 
-    public void complete(UUID shardId, UUID operationId, String workerId) {
+    public void complete(UUID shardId, UUID operationId, String workerId, short processingVersion) {
+        if (processingVersion == ApprovalCompletionShardRouter.PROCESSING_VERSION) {
+            completionOutbox.complete(shardId, operationId, workerId);
+            return;
+        }
         int updated = jdbc.update("""
                 UPDATE scan_approval_operation_shard
                 SET status = 'COMPLETED', lease_owner = NULL, lease_until = NULL
@@ -137,7 +158,7 @@ public class ApprovalOperationShardJdbcRepository {
                 UPDATE scan_approval_operation operation
                 SET status = 'APPROVAL_COMMITTED', approval_committed_at = now(), finished_at = now(),
                     lease_owner = NULL, lease_until = NULL
-                WHERE operation.id = ? AND operation.status = 'RUNNING'
+                WHERE operation.id = ? AND operation.status = 'RUNNING' AND operation.processing_version = 57
                   AND NOT EXISTS (
                       SELECT 1 FROM scan_approval_operation_shard shard
                       WHERE shard.operation_id = operation.id AND shard.status <> 'COMPLETED')
@@ -178,8 +199,10 @@ public class ApprovalOperationShardJdbcRepository {
             UUID proposalCutoffId,
             int shardNumber,
             int shardCount,
+            short processingVersion,
             long expectedRecordCount,
             long committedRecordCount,
             UUID lastProposalId,
+            int sourceBatchCount,
             int attemptCount) {}
 }
