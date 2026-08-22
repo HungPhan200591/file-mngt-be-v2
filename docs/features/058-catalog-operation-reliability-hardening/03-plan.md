@@ -87,6 +87,7 @@ Design: [02-design.md](./02-design.md)
 
 - Plan/design review: `READY`.
 - Implementation mục 1–4: hoàn tất source, migration V24, Kafka/DLT topology, deadline/retry và test matrix.
-- Compile + unit + targeted PostgreSQL/Kafka regression: `35/35 PASS` trên JDK 25 ngày 2026-08-22.
+- Compile + unit + targeted PostgreSQL/Kafka regression: `36/36 PASS` trên JDK 25 ngày 2026-08-22, gồm
+  regression 4 reconciliation units checkpoint đồng thời không còn lock-upgrade deadlock.
 - Flyway V24: validate và migrate thành công trên PostgreSQL 18 Testcontainers; chưa áp dụng lên database môi trường thật.
 - Combined benchmark: chưa chạy; còn đúng hai workload `25K` rồi `1M`, mỗi operation bị chặn ở 120 giây.

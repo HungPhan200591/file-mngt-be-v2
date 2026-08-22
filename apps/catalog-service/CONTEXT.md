@@ -23,8 +23,9 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
   `media.subject.changed.v2` phát final full snapshot theo operation cho Query. FT-057 data plane và FT-058
-  reliability source đã implement; targeted unit/PostgreSQL/Kafka regression đạt 35/35, Flyway V24 đã verify trên
-  PostgreSQL 18 Testcontainers; combined benchmark 25K/1M còn pending.
+  reliability source đã implement; targeted unit/PostgreSQL/Kafka regression đạt 36/36, gồm 4 reconciliation
+  units checkpoint đồng thời không lock-upgrade deadlock; Flyway V24 đã verify trên PostgreSQL 18 Testcontainers;
+  combined benchmark 25K/1M còn pending.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.

@@ -79,7 +79,6 @@ public class CatalogOperationUnitStore {
                 select operation_id from catalog_approval_operation
                 where operation_id = ? and status = 'RECONCILING'
                   and processing_version = 57 and deadline_at > clock_timestamp()
-                for share
                 """, java.util.UUID.class, claim.operationId());
         jdbc.queryForObject(
                 "select set_config('statement_timeout', ?, true)", String.class, Long.toString(statementTimeoutMillis));
