@@ -1,6 +1,6 @@
 # FT-056 — Set-Based CTE Merge
 
-Status: `V20 HASH-JOIN FAILED — V21 nested-loop chờ chạy lại`
+Status: `V20/V21 FAILED — V22 recovery plan READY`
 
 Test: [`CatalogOperationMergeBenchmarkTest.java`](../operation/CatalogOperationMergeBenchmarkTest.java)
 
@@ -47,7 +47,14 @@ V20 chậm hơn V19 ở 25K và gãy connection ở 1M. V21 kéo stage bằng `L
 
 ### Candidate V21 nested-loop
 
-Chưa chạy. Không ghi số vào cột candidate trước log `FT-056 merge`.
+User report 2026-08-22: calibration chậm hơn V19 và qualification 1M vẫn timeout. Repo chưa có exact
+`mergeMs`/page telemetry, vì vậy không ghi số suy đoán vào bảng. Kết luận đủ để đóng candidate V21 là failed.
+
+### Candidate V22 typed reduction + direct merge
+
+Plan: [FT-056 V22](../../../../../../../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md).
+Recovery gate là ba measured run 1M đều `< 60 s`; nếu duy trì reduction trong ingest thì combined D1+D2 cũng
+phải `< 60 s`. Gate lịch sử D2 `<= 5 s` vẫn là stretch target, chưa tuyên bố.
 
 `pageExecTotal` là tổng SQL trên mọi worker, nên lớn hơn `mergeMs` khi 4 worker chạy song song
 (6825 / 4 ≈ 1.7 s + acquire/drain ≈ `mergeMs`).
@@ -56,13 +63,15 @@ Chưa chạy. Không ghi số vào cột candidate trước log `FT-056 merge`.
 
 ## Đối chiếu gate D2 (chưa pass)
 
-| Gate | Target | V19 25K | V19 1M |
+| Gate | Target gần nhất | V19 25K | V19 1M |
 | --- | ---: | ---: | ---: |
-| `pageExec` median | `< 5 ms` | avg **106 ms**, p95 **155 ms** | không đo được |
-| Merge 100K subject | `<= 5 s` | 2.500 subject đã **2.032 s** | timeout **> 2 min** |
+| Calibration 2.500 subject | Không regress median V19 qua 3 run | **2.032 s** (1 run) | — |
+| Merge 100K subject | `< 60 s` ở cả 3 run | — | timeout **> 2 min** |
+| Stretch D2 | `<= 5 s` | 2.500 subject đã **2.032 s** | timeout **> 2 min** |
 | Temp DDL trong page loop | 0 | V19 còn 7 temp + 4 index + 5 `ANALYZE` | — |
 
-Không tuyên bố candidate V21 trước số đo. Không so `CatalogOperationIngestBenchmarkTest` hay Kafka backlog-drain.
+Không suy diễn số V21 khi thiếu exact log. Không so isolated merge với Kafka backlog-drain; V22 báo riêng D2
+và combined D1+D2 để tránh chuyển chi phí ra ngoài gate.
 
 ## Boundary
 

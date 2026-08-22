@@ -33,9 +33,10 @@ Test: [`CatalogOperationMergeBenchmarkTest.java`](./operation/CatalogOperationMe
 | Attempt | 2.500 subjects | 100.000 subjects | Status |
 | --- | ---: | ---: | --- |
 | V20 UNLOGGED hash-join | 2.633 s / avg 129ms | `DataAccessResourceFailureException` | Bỏ access path; chậm hơn V19, gãy 1M |
-| V21 LATERAL nested-loop | — | — | Đã viết; chờ user chạy lại |
+| V21 LATERAL nested-loop | `< V19` về hiệu năng (không có exact log) | TIMED OUT | User report 2026-08-22; candidate fail |
+| V22 typed reduction + direct merge | — | — | `READY`; recovery gate 1M `< 60 s` |
 
-Không ghi claim gate D2 trước log `FT-056 merge` của V21.
+Không suy diễn số V21 khi chưa có exact log. Không claim V22 trước ba measured run 1M cùng run manifest.
 
 ## FT-055 Kafka backlog drain
 

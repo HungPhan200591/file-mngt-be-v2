@@ -12,11 +12,20 @@ cho change-detection. Worker Java vẫn claim-per-page (BT-09D3) và relay (BT-0
 `STATUS.md` từng gọi D2 là "Watermark Gate" — đó là nhầm với mục [D2] lịch sử của FT-054. Lát BT-09D2
 là **canonical SQL merge**, không đổi equality/watermark.
 
+## Evidence mới và mục tiêu phục hồi
+
+Run do người dùng báo ngày 2026-08-22 xác nhận V21 vẫn chậm hơn V19 ở calibration và workload 1M tiếp tục
+timeout. Repo chưa có log số liệu chi tiết của V21, vì vậy chỉ ghi nhận kết luận định tính; không suy diễn
+`mergeMs` hay throughput. V20/V21 được coi là candidate thất bại và giữ immutable.
+
+Mục tiêu gần nhất là **recovery gate**: hoàn tất canonical merge cho `100.000 subjects × 10 assets`
+(1M staged events) trong **dưới 60 giây**, không timeout/gãy connection và không chuyển chi phí sang bước seed
+ngoài đồng hồ. Gate lịch sử `<= 5 giây` vẫn là stretch target của BT-09D2, chưa bị tuyên bố đạt hay xóa.
+
 ## Mục tiêu và acceptance criteria
 
-- Viết lại `catalog_finalize_operation_page` bằng set-based merge; vòng page **không** còn
-  `CREATE TEMPORARY TABLE`, `CREATE INDEX` hay `ANALYZE`. Kéo `catalog_discovery_stage` bằng
-  `LATERAL` từ page key (nested-loop index), không hash-join/seq-scan toàn bộ stage.
+- Viết lại `catalog_finalize_operation_page` bằng direct set-based merge từ durable typed reduction; vòng page
+  **không** còn temp DDL/INDEX/ANALYZE, global scratch copy/delete hay scan raw stage trên hot path.
 - Subject mới (`media_subject` chưa tồn tại lúc page bắt đầu): không gọi `catalog_subject_state_json` để
   tính `before_hash`; luôn `changed = true`; `version` giữ `0`.
 - Subject đã có: so `before_hash`/`after_hash`; chỉ tăng version đúng một lần và insert outbox khi aggregate đổi.
@@ -24,10 +33,17 @@ là **canonical SQL merge**, không đổi equality/watermark.
   tombstone locator, actress/registry bump một lần mỗi page có actress mới, unique outbox
   `(operationId, subjectId, eventType)`, `SUBJECT_SNAPSHOT_TOO_LARGE` → operation `BLOCKED`,
   checkpoint workset đúng cardinality.
-- Gate calibration: sau warm-up, `pageExec` median `< 5 ms` trên page size production hiện tại (`500`,
-  hoặc giá trị đã khóa trong run manifest).
-- Gate qualification: profile `100.000 subjects × 10 assets` (1M staged events đã ingest sẵn, **không** nằm
-  trong đồng hồ D2); wall-clock merge từ `READY_TO_COALESCE` tới mọi workset `COMPLETED` `<= 5.000 ms`.
+- Trước khi đổi thuật toán, có phase evidence cho page acquisition, stage/reduction read, canonical subject,
+  asset/tag, metadata/primary, snapshot/outbox và checkpoint; kèm buffer/temp/WAL evidence đủ phân biệt CPU,
+  I/O, sort/spill, lock và scratch-table churn.
+- Không tiếp tục copy raw JSONB qua chuỗi global UNLOGGED scratch rồi `DELETE` lại mỗi page. Durable ingest duy
+  trì projection giảm gọn theo subject và asset; finalizer đọc projection typed theo operation/lane/page.
+- Gate calibration: 2.500 subjects không chậm hơn median V19 `2.032 s` qua ba measured run cùng topology.
+- Recovery qualification: `100.000 subjects × 10 assets` hoàn tất D2 dưới `60.000 ms` ở cả ba measured run;
+  báo cáo median/max, không chỉ run tốt nhất. Nếu chi phí được chuyển sang ingest/reduction thì đồng hồ kết hợp
+  D1 + D2 cũng phải dưới `60.000 ms`.
+- Không có temp-file exhaustion, connection failure hay statement timeout; transaction p95 phải nhỏ hơn 1/3
+  lease budget. Page size chỉ được chọn từ ladder `500 → 1.000 → 2.000` bằng evidence, không hard-code để né gate.
 - Isolated merge benchmark dùng Spring finalizer/page store thật; không tự viết runner thay `catalog_finalize_operation_page`.
 - Có IT parity: subject mới, subject cũ không đổi, subject cũ đổi, primary election, tags, tombstone,
   actress/registry, snapshot quá lớn, fence loss, cardinality mismatch.
@@ -44,9 +60,11 @@ là **canonical SQL merge**, không đổi equality/watermark.
 
 ## Câu hỏi/rủi ro mở
 
-- `5 ms/page` là gate hợp đồng từ break-task. V20 hash-join chậm hơn V19 và gãy 1M; V21 nested-loop
-  chưa chạy. Nếu trượt: ghi evidence, dừng; không tự đổi page size hay claim loop thành D3.
-- Hash-join 1M jsonb spill tmpfs (`DataAccessResourceFailureException`). V21 phải nested-loop; qualification
-  ghi `work_mem` / `temp_file_limit`, không dùng temp DDL để "né".
+- Chưa có log chi tiết V21 nên chưa được khẳng định phase nào chiếm ưu thế. Bước đầu của V22 bắt buộc khóa
+  phase profile; nếu evidence bác bỏ scratch/JSONB churn là bottleneck, dừng trước schema change và sửa Plan.
+- Duy trì reduction trong D1 có thể làm ingest chậm. Vì vậy recovery gate kết hợp D1 + D2 ngăn việc chỉ dời
+  chi phí ra ngoài `mergeMs`.
+- Projection reduction phải là durable, idempotent và có đường rebuild từ `catalog_discovery_stage`; không dùng
+  UNLOGGED làm source of truth sau crash.
 - Profile 1M cold gần như toàn subject mới — bypass hash giúp D2; profile update/existing vẫn trả giá
   `catalog_subject_state_json` và phải có test parity, không lấy cold làm chứng minh mọi workload.

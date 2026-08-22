@@ -1,70 +1,101 @@
 # FT-056 — BT-09D2 Catalog Set-Based CTE Merge — Plan
 
-Status: `IMPLEMENTED — chờ user chạy lại IT/benchmark (V21)`
+Status: `READY — V22 recovery candidate (< 60 s)`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
 
-- Owner: `catalog-service` / `catalog_db`
-- Scope/files: Flyway `V20` CTE **immutable** (đã apply); `V21` tạo UNLOGGED scratch + thay body
-  `catalog_finalize_operation_page`;
-  IT parity `CatalogOperationFinalizeIT`; benchmark `CatalogOperationMergeBenchmarkTest`; report
-  `benchmark/results/03-ft056-set-based-cte-merge.md` + dashboard/README; telemetry chỉ nếu thiếu
-  median `pageExec`.
-- Must preserve: fence lane, page size/claim-per-page (D3), ingest FT-055, equality/watermark,
-  reducer primary/tags/tombstone, unique outbox v2, `statement_timeout` < lease, Catalog DB ownership.
+- Owner: `catalog-service` / `catalog_db`.
+- Evidence: V19 calibration `2.032 s`, 1M timeout; V20 calibration `2.633 s`, 1M connection failure;
+  V21 user-reported chậm hơn V19 và 1M timeout, exact metrics chưa có trong repo.
+- Scope/files: V19/V20/V21 **immutable**; migration V22 cho durable typed reduction + finalizer mới;
+  typed ingest store/row chỉ để duy trì reduction atomic; IT ingest/rebuild/finalize; benchmark + phase telemetry;
+  report `benchmark/results/03-ft056-set-based-cte-merge.md`, dashboard và README.
+- Must preserve: lane fence, claim-per-page, ingest dedupe, equality/watermark, reducer primary/tags/tombstone,
+  unique outbox v2, snapshot-size block, cardinality, `statement_timeout < lease`, Catalog DB ownership.
 - Read on demand: [Brief](./01-brief.md), [Design](./02-design.md),
-  [V19 finalizer](../../../apps/catalog-service/src/main/resources/db/migration/V19__optimize_native_catalog_operation_finalizer.sql),
-  [FT-054 reducer D4](../054-catalog-operation-coalescing/02-design.md),
-  [subject v2](../../contracts/events/media.subject.changed.v2.md),
-  `apps/catalog-service/CONTEXT.md`, `$author-backend-tests`, `03-CODING_RULES.md` trước khi sửa Java.
+  [V21 finalizer](../../../apps/catalog-service/src/main/resources/db/migration/V21__page_nested_catalog_finalizer.sql),
+  [FT-055 ingest](../055-catalog-typed-ingest/03-plan.md), [FT-054 reducer](../054-catalog-operation-coalescing/02-design.md),
+  [subject v2](../../contracts/events/media.subject.changed.v2.md), `apps/catalog-service/CONTEXT.md`,
+  `$author-backend-tests` và `03-CODING_RULES.md` trước khi sửa Java/test.
+
+## Quyết định V22
+
+1. Không tối ưu tiếp global UNLOGGED scratch của V21 và không sửa migration đã apply.
+2. Tạo hai projection logged, operation-scoped:
+   - `catalog_operation_subject_reduction`: một winner/subject, typed metadata + source-order + trace fields.
+   - `catalog_operation_asset_reduction`: một winner/asset locator, typed role/tag/timestamp, metadata cần nếu
+     asset được bầu primary và source-order (giữ nguyên null semantics hiện hành).
+3. Duy trì projection trong cùng transaction ingest, chỉ từ event vừa insert thành công vào durable stage.
+   Raw `catalog_discovery_stage` vẫn là audit/rebuild source; không biến reduction thành nguồn không thể phục hồi.
+4. Finalizer đọc typed reduction theo operation/lane/page, bulk canonical write và dựng post-state/snapshot một
+   lần/subject. Không copy/delete raw JSONB qua scratch và không parse cùng field nhiều lần.
+5. Recovery gate trước mắt là 1M event `< 60 s`. Gate lịch sử D2 `<= 5 s` và Catalog canonical `<= 10 s`
+   vẫn là stretch/final budget; không tuyên bố đạt từ recovery run.
 
 ## Bước triển khai
 
-1. Khóa baseline V19: đọc function hiện tại; thêm IT characterization tối thiểu (subject mới / subject cũ
-   không đổi) **trước** khi đổi SQL, để parity có oracle.
-2. [x] `V20` CTE đã apply trên `catalog_db` — **không sửa file V20**. Lần viết lại UNLOGGED trong V20
-   gây checksum mismatch; đã revert V20 về CTE. 25K `mergeMs=2633` / avg `129 ms`; 1M
-   `DataAccessResourceFailureException`. [x] `V21` tạo scratch UNLOGGED (`IF NOT EXISTS`) + `LATERAL`
-   nested-loop; không hash-join 1M jsonb. V19/V20 immutable.
-3. [x] Bypass hash: `before_hash` chỉ khi subject đã có; subject mới `changed = true`, snapshot một lần.
-4. Giữ nguyên khối canonical write set-based (insert subject/asset, tombstone, primary election,
-   metadata/actress/tags, registry bump, outbox, workset, lane cursor, cardinality/fence checks).
-5. [x] `CatalogOperationFinalizeIT` (`@Tag` không benchmark): golden vector nghiệp vụ liệt kê trong Brief;
-   Testcontainers `org.testcontainers.postgresql.PostgreSQLContainer`; reset `TRUNCATE ... CASCADE`
-   qua fixture chung; mock data sạch (`Studio_Alpha`, `Artist_Alex`, `CODE-…`).
-6. [x] `CatalogOperationMergeBenchmarkTest`: `@Tag("benchmark")`, `@SpringBootTest` bật finalizer thật,
-   tắt Kafka consumer/outbox relay. Seed bằng ingest path (không tính giờ) → gán
-   `READY_TO_COALESCE` → đo drain workset. Log `pageExec` median/p95/max + wall-clock merge.
-   Calibration 2.500 subject; qualification 100.000 subject. **Baseline V19 đã chạy 2026-08-21.**
-7. [x] Cập nhật `BENCHMARK_RESULTS.md` / `README.md` sau số đo thật; không ghi target vào cột
-   candidate. Report: `results/03-ft056-set-based-cte-merge.md`. V19: 2.500 subject `2.032 s` /
-   pageExec avg `106 ms`; 100.000 subject **TIMED OUT > 2 min**. Không pass gate D2.
-8. Không đổi claim/release hay page size mặc định `500`. Chỉ thêm `causeType` vào warn log khi
-   retryable failure (để lần sau thấy `PSQLException`/`IOException` thay vì chỉ wrapper Spring).
+### P0 — Khóa bottleneck trước schema change
+
+1. Ghi exact V21 run khi có log: `mergeMs`, page count, pageExec median/p95/max, exception root cause và run manifest.
+   Thiếu exact log không làm mất kết luận fail, nhưng cấm dùng số suy đoán trong dashboard.
+2. Bổ sung phase timing cho acquisition, stage/scratch read, subject, asset/tag, primary/metadata,
+   snapshot/outbox và checkpoint. Thu `temp_bytes`, buffer read/hit, WAL, lock wait, scratch live/dead rows.
+3. Chạy `EXPLAIN (ANALYZE, BUFFERS, WAL, SETTINGS, FORMAT JSON)` trên calibration và 250K trong database
+   disposable/rollback-only; không chạy trên production và không bọc timed 1M bằng EXPLAIN. Nếu evidence bác bỏ
+   scratch/JSONB churn là bottleneck chính, dừng trước P1 và sửa Design/Plan.
+
+### P1 — Durable typed reduction
+
+4. Migration V22 tạo hai reduction table, PK/index theo `(operation_id, lane_id, subject_key[, locator])`,
+   completeness/version marker và retention/cleanup theo operation. Không dùng UNLOGGED làm source of truth.
+5. Mở rộng typed ingest để upsert reduction sau durable dedupe trong cùng transaction. Winner dùng
+   `(sourcePartition, sourceOffset, eventId)`; duplicate, out-of-order và partial slice phải hội tụ.
+6. Thêm rebuild set-based từ `catalog_discovery_stage` cho operation cũ hoặc marker/cardinality lệch.
+   Finalizer phải fail-fast hoặc rebuild; không silently finalize projection thiếu.
+7. Đo D1 trước/sau ở 25K/250K/1M. Nếu reduction làm D1+D2 dự kiến vượt 60 giây, không chuyển sang P2.
+
+### P2 — Direct typed canonical merge
+
+8. Migration V22 thay `catalog_finalize_operation_page`: page keys/fence giữ nguyên; đọc reduction trực tiếp;
+   bulk insert/update subject, asset/tag, tombstone, primary, metadata/actress; subject mới bỏ before-hash.
+9. Dựng canonical post-state và payload outbox một lần/subject. Existing/no-op vẫn so before/after và không tăng
+   version; snapshot quá lớn vẫn block operation; checkpoint/outbox/counter vẫn atomic trong transaction fence.
+10. Bỏ hot-path use của 8 `catalog_finalize_*` scratch table. Chỉ drop ở migration sau khi rollout/rollback window
+    đóng; V22 rollback không phụ thuộc việc khôi phục dữ liệu scratch.
+
+### P3 — Tuning có kiểm soát và qualification
+
+11. Chạy ladder page size `500 → 1.000 → 2.000` và worker `1 → 2 → 4`; chọn cấu hình nhỏ nhất đạt gate,
+    không vượt pool, không lock convoy và transaction p95 `< lease / 3`. Claim-per-page không đổi, nên chưa nhập D3.
+12. Chạy scale ladder `25K → 250K → 1M`, warm-up rồi ba measured run mỗi điểm. Report median/max, throughput,
+    phase breakdown, temp/WAL/buffer và combined D1+D2 nếu cost nằm ở ingest.
+13. Chỉ đánh dấu recovery `DONE` khi cả ba run 1M `< 60.000 ms`, không timeout/connection loss/cardinality drift.
+    Sau đó mới quyết định có tiếp tục stretch `<= 10 s` trong FT-056 hay chuyển sang D3.
 
 ## Kiểm tra
 
-- `grep` body V21: 0 khớp `CREATE TEMPORARY`, `CREATE INDEX`, `ANALYZE`; 0 khớp `from catalog_discovery_stage`
-  ngoài khối `CROSS JOIN LATERAL`.
-- IT parity pass; Java mới/sửa chạy Spotless; class `*Test`/`*IT` khớp regex linter.
-- Benchmark local: 2.500 subject có `pageExec` median; 100.000 subject có wall-clock. Gate
-  `< 5 ms/page` và `<= 5 s` chỉ pass khi số đo thật đạt — không tuyên bố trước.
-- Heap/pool/`statement_timeout` bounded; JDBC fallback không dùng để claim gate.
-- Agent không tự chạy Maven/benchmark/Docker/migration thật cho đến khi người dùng yêu cầu.
+- Correctness: subject mới; existing no-op/change; primary election; tags; tombstone; actress/registry;
+  duplicate/out-of-order/retry; rebuild parity; fence loss; cardinality mismatch; oversized snapshot.
+- Migration: V19/V20/V21 checksum giữ nguyên; empty DB và DB có operation staged trước V22 đều có đường an toàn.
+- Performance: 2.500 subject không regress median V19 qua ba run cùng topology; 100.000 subject/1M event
+  dưới 60 giây ở cả ba run; combined D1+D2 cũng dưới 60 giây nếu V22 dời work sang ingest.
+- Resource: không temp-file exhaustion, connection loss hay unbounded scratch bloat; statement/transaction p95
+  nằm trong lease budget; Hikari không starvation.
+- Agent không tự chạy Maven, benchmark, Docker hay migration thật cho đến khi người dùng yêu cầu.
 
 ## Rollout và rollback
 
-- Rollout: Flyway V21 trên `catalog_db` (V20 giữ nguyên checksum/file đã apply).
-- Rollback: migration tiếp theo restore body (không rewrite V20/V21 đã apply); hoặc tắt finalizer.
-- Ngoại lệ dòng: `V21` > 500 vì DDL scratch + một function fence; không tách round-trip.
-- Không ADR: không đổi service boundary, event contract hay ownership.
-- Không đổi REST/Kafka schema.
+- Rollout: V22 additive; backfill/rebuild theo operation; bật reduction write trước khi dùng finalizer V22.
+- Rollback: migration tiếp theo restore function V21 và tắt reduction dual-write; giữ reduction tables đến khi
+  xác nhận không còn operation cần rebuild. Không rewrite V19/V20/V21/V22 đã apply.
+- Stored procedure/helper SQL tuân thủ giới hạn 500 dòng/file; helper không mở transaction/round-trip mới.
+- Không đổi REST/Kafka schema, service boundary, database ownership hay ADR.
 
 ## Tài liệu cần cập nhật
 
-- [x] Brief/Design/Plan FT-056.
-- [x] `docs/STATUS.md` — trọng tâm chuyển sang D2; sửa nhầm "Watermark Gate".
-- [x] `04-break-task.md` / `08-approve-1m-context.md` / `ref-bt09d` — trỏ FT-056.
-- [x] Benchmark dashboard/report: V19 baseline + V20 fail; V21 chờ số đo.
-- Không cập nhật architecture summary, ADR, OpenAPI hay event contract.
+- [x] Brief/Design/Plan ghi V21 fail định tính và V22 recovery candidate.
+- [x] `docs/STATUS.md` route BT-09D2 sang V22 READY.
+- [x] Benchmark report/dashboard/README ghi V21 fail, exact metrics pending.
+- [ ] Cập nhật số liệu V21/V22 chỉ từ log thật và run manifest.
+- [ ] Khi implementation hoàn tất, audit `STATUS.md`; không thêm history DONE vào snapshot.
