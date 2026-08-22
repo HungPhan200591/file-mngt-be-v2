@@ -89,6 +89,7 @@ Source-of-truth liên quan:
 - [Backend V2 high-level plan](02-PLAN.md)
 - [FT-044 — operation contract](../features/044-approve-1m-operation-contract/02-design.md)
 - [FT-045 — scan decision/outbox chunking](../features/045-scan-decision-chunking/02-design.md)
+- [FT-057 — Catalog bulk reconciliation data plane](../features/057-catalog-bulk-reconciliation-data-plane/02-design.md)
 - [005 Scan approval outbox](../features/005-scan-approval-outbox/02-design.md)
 - [037 Outbox backlog capacity](../features/037-outbox-backlog-capacity/02-design.md)
 - [037 scale and cloud rollout](../features/037-outbox-backlog-capacity/05-scale-and-cloud-rollout.md)
@@ -102,9 +103,9 @@ Không đặt cùng một SLA cho mọi stage. Các con số dưới đây là *
 | Mốc | Business meaning | Candidate |
 |---|---|---:|
 | ACCEPTED | Operation đã durable, HTTP có thể trả về | p95 < 1 giây |
-| APPROVAL_COMMITTED | Scan đã ghi đủ decision và discovery outbox | p95 < 60 giây, p99 < 120 giây |
-| CATALOG_COMMITTED | Canonical subject/asset đã hội tụ | candidate 2–5 phút |
-| QUERY_DB_READY | Gallery/Media Library đọc được Query DB | candidate 5 phút |
+| APPROVAL_COMMITTED | Scan đã ghi đủ decision và discovery outbox | phase budget p95 5 giây |
+| CATALOG_COMMITTED | Canonical đã hội tụ và output được broker ack | Catalog phase tối thiểu 30K/s, stretch 40K/s |
+| QUERY_DB_READY | Gallery/Media Library đọc được Query DB | target p95 60 giây, p99 90 giây |
 | SEARCH_READY | Full-text/fuzzy search đã cập nhật | slow lane, candidate 15 phút |
 | MEDIA_READY | Thumbnail/GIF/hash/technical metadata đã xong | async theo media workload |
 
@@ -314,33 +315,38 @@ outbox age tăng
 
 Catalog là owner duy nhất của subject, asset, actress, studio và tag.
 
-Target flow được chốt chi tiết tại
-[BT-09D capsule](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md) và candidate [FT-054](../features/054-catalog-operation-coalescing/02-design.md). Coalesce phải bao phủ toàn operation,
-không chỉ một Kafka poll:
+Target flow được chốt tại
+[FT-057](../features/057-catalog-bulk-reconciliation-data-plane/02-design.md) và capsule
+[BT-09D](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md).
+FT-054 và FT-056 là failed evidence; không tiếp tục tối ưu incremental reduction/page loop. Coalesce phải bao
+phủ toàn operation, không chỉ một Kafka poll:
 
 ~~~text
-Kafka batch → bounded COPY/set-based dedupe vào durable staging
+Kafka batch → typed append-only COPY + durable dedupe/counter
 → manifest + exact counter equality gate
-→ freeze unique subject workset theo operation
-→ 64 logical lane merge deterministic final state
-→ native bulk canonical write + one version mỗi changed subject
-→ một final subject snapshot v2 cho mỗi (operationId, subjectId)
-→ native continuous Catalog outbox relay
-→ CATALOG_COMMITTED khi exact subject/outbox/DLT gate pass
+→ one-time set-based subject/asset reduction
+→ bounded coarse shard drain từ materialized winner rows
+→ canonical write + final snapshot outbox atomic theo chunk
+→ indexed relay lane + bounded sliding Kafka sends
+→ CATALOG_COMMITTED sau final broker ack và exact DLT/cardinality gate
 ~~~
 
 Durable staging cần thiết vì cùng subject có thể nằm ở nhiều poll/batchId và completion manifest có thể đến
-trước hoặc sau data. Coalescing giảm aggregate load/save, outbox amplification và Query input mà không giữ
-toàn bộ 1M event trong Java heap.
+trước hoặc sau data. Ingest chỉ append; reduction được build đúng một lần sau equality gate. Canonical worker
+không scan/recount toàn operation trong chunk loop. Relay bắt đầu từ chunk outbox đầu để overlap merge nhưng
+combined Catalog clock chỉ dừng sau broker ack cuối.
 
 Trade-off:
 
-- nhanh hơn và ít DB transaction hơn;
-- thêm staging/WAL, operation ledger và deterministic merge logic;
+- giảm write amplification và repeated full-operation work;
+- thêm one-time sort/materialization, staging/WAL và deterministic merge logic;
 - phải định nghĩa conflict/election deterministic;
-- phải có version guard để event cũ không ghi đè state mới.
+- phải có version guard để event cũ không ghi đè state mới;
+- shard/chunk/relay in-flight phải bounded theo DB pool, lease và broker capacity.
 
 CATALOG_COMMITTED chỉ phát khi đủ unique discovery events, không còn unresolved DLT và mọi affected subject đã có final snapshot.
+Catalog phase SLI đo từ first receive tới final output broker ack, dùng 1M input làm mẫu số: gate tối thiểu
+`>= 30.000 records/s` (`<= 33.334 ms`), stretch `>= 40.000 records/s` (`<= 25.000 ms`).
 
 ## 10. Query: read model
 
@@ -498,11 +504,11 @@ PostgreSQL declarative partitioning là physical partitioning khác logical shar
 
 ### P3 — Catalog
 
-- Kafka batch listener.
-- Dedupe set-based.
-- Coalesce theo subject identity.
-- Bulk canonical upsert.
-- Final subject snapshot và CATALOG_COMMITTED.
+- Append-only Kafka ingest và durable dedupe/counter.
+- One-time operation reduction sau equality gate.
+- Coarse bounded canonical reconciliation và final snapshot outbox.
+- Indexed sliding Catalog relay và CATALOG_COMMITTED sau final ack.
+- Combined 1M gate tối thiểu 30K/s, stretch 40K/s.
 
 ### P4 — Query
 

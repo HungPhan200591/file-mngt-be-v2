@@ -19,12 +19,15 @@ Mục tiêu cốt lõi: Thông luồng và tối ưu pipeline approve **1.000.00
 Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bulk projection → QUERY_DB_READY
 ```
 
+SLO đã rebudget ngày 2026-08-22: `QUERY_DB_READY` P95 `<= 60s`; riêng Catalog từ first receive tới final
+output broker ack phải đạt tối thiểu `30.000 input records/s`, stretch `40.000 input records/s`.
+
 ### Roadmap triển khai BT-09 theo thứ tự:
 1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
 2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
 3. **`BT-09C — Outbox drain` (`FT-053 IMPLEMENTED — qualification pending`)**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; immediate-ack 1M đạt `8.264 ms`/`121.007 records/s`. Đây chưa là real-Kafka, representative payload, repeated-run, crash/reclaim hoặc production evidence.
 
-4. **`BT-09D — Catalog batch/coalesce` (`D1 DONE` / `D2 V20-V22 FAILED`)**: [FT-055](./features/055-catalog-typed-ingest/03-plan.md) ingest `DONE`. [FT-056](./features/056-catalog-set-based-cte-merge/03-plan.md) V20, V21, V22 đều **thất bại**: V20 (25K 2.633 s, 1M gãy connection); V21 (chậm hơn V19, 1M timeout); V22 (25K 39.278 s / avg 2.108 ms/page, 1M timeout). Cần phân tích nguyên nhân gốc rễ và đánh giá lại hướng tiếp cận D2. D3/D4 chưa mở.
+4. **`BT-09D — Catalog bulk reconciliation` (`FT-057 READY`)**: [FT-055](./features/055-catalog-typed-ingest/03-plan.md) và [FT-056](./features/056-catalog-set-based-cte-merge/03-plan.md) chỉ còn là evidence lịch sử; V20–V22 đều thất bại và V22 làm 25K mất 39.278 s, 1M timeout. [FT-057](./features/057-catalog-bulk-reconciliation-data-plane/03-plan.md) thay data plane bằng append-only ingest, one-time reduction, coarse canonical merge/outbox và indexed sliding relay; combined gate 1M `<= 33.334 ms` (30K/s), stretch `<= 25.000 ms` (40K/s).
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
 6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
 7. **`BT-09G — Scale ladder`**: Chạy benchmark scale ladder 1K → 5K → 50K → 250K → 1M đo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool.
@@ -80,8 +83,8 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Phân tích nguyên nhân gốc rễ V22 và tái cấu trúc BT-09D2**: V22 thất bại nặng (25K mất 39.278 s, 1M timeout, avg pageExec 2.108 ms). Cần chẩn đoán chính xác bottleneck (lock contention, rebuild overhead, per-page SQL sequence) và chốt phương án D2 mới.
+1. **Triển khai FT-057 Catalog bulk reconciliation**: bỏ reduction upsert trong ingest slice, operation-wide rebuild trong page loop, claim/release mỗi page và relay hash-scan/wave barrier; qualification dùng một combined clock từ first Catalog receive tới final broker ack.
 2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
-3. **Sau FT-056:** BT-09D3 continuous lane drain → D4 relay; rồi **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi Catalog mới đúng semantics nhưng chưa đạt throughput gate.
+3. **Sau FT-057:** mở **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi Catalog mới đúng semantics nhưng chưa đạt combined gate 1M tối thiểu 30K input records/s.
 4. **Giai đoạn sau khi thông luồng SC-01:** thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
 5. **Giai đoạn phát triển tính năng mới:** triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.
