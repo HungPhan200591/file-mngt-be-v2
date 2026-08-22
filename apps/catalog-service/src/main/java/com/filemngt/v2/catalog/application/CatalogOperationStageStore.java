@@ -23,16 +23,23 @@ public class CatalogOperationStageStore {
     private final ObjectMapper json;
     private final CatalogOperationIngestStore ingestStore;
     private final CatalogOperationDltGateStore dltGate;
+    private final int reconcileUnitCount;
 
     public CatalogOperationStageStore(
             JdbcTemplate jdbc,
             ObjectMapper json,
             CatalogOperationIngestStore ingestStore,
-            CatalogOperationDltGateStore dltGate) {
+            CatalogOperationDltGateStore dltGate,
+            @org.springframework.beans.factory.annotation.Value("\${catalog.operation.reconcile-unit-count:16}")
+                    int reconcileUnitCount) {
         this.jdbc = jdbc;
         this.json = json;
         this.ingestStore = ingestStore;
         this.dltGate = dltGate;
+        if (reconcileUnitCount < 8 || reconcileUnitCount > 64) {
+            throw new IllegalArgumentException("catalog.operation.reconcile-unit-count must be between 8 and 64");
+        }
+        this.reconcileUnitCount = reconcileUnitCount;
     }
 
     @Transactional
@@ -52,7 +59,7 @@ public class CatalogOperationStageStore {
             }
             var coordinate = coordinates.get(i);
             String subjectKey = subjectKey(event);
-            int subjectLane = CatalogOperationLaneHash.stableLane(subjectKey);
+            int routingBucket = CatalogOperationLaneHash.stableRoutingBucket(subjectKey);
             input.add(new CatalogOperationCopyWriter.TypedIngestRow(
                     event.eventId(),
                     event.operationId(),
@@ -63,7 +70,7 @@ public class CatalogOperationStageStore {
                     coordinate.correlationId(),
                     coordinate.traceparent(),
                     subjectKey,
-                    subjectLane,
+                    routingBucket,
                     event.region(),
                     event.subjectType(),
                     event.identityKey(),
@@ -76,12 +83,13 @@ public class CatalogOperationStageStore {
                     event.relativePath(),
                     event.role(),
                     jsonArray(event.tagNames()),
-                    event.timestamp().toString(),
-                    payloadJson(event)));
+                    event.timestamp().toString()));
         }
         long mappingNanos = System.nanoTime() - mappingStarted;
         operationScanRuns.forEach(this::ensureOperation);
-        return ingestStore.ingest(input, mappingNanos);
+        int inserted = ingestStore.ingest(input, mappingNanos);
+        operationScanRuns.keySet().forEach(this::evaluateGate);
+        return inserted;
     }
 
     @Transactional
@@ -132,35 +140,13 @@ public class CatalogOperationStageStore {
 
     private void ensureOperation(UUID operationId, UUID scanRunId) {
         jdbc.update("""
-                insert into catalog_approval_operation(operation_id, scan_run_id) values (?, ?)
+                insert into catalog_approval_operation(operation_id, scan_run_id, processing_version) values (?, ?, 57)
                 on conflict (operation_id) do nothing
                 """, operationId, scanRunId);
     }
 
     private void evaluateGate(UUID operationId) {
-        int ready = jdbc.update("""
-                update catalog_approval_operation set status = case
-                  when expected_discovery_record_count is null then 'INGESTING'
-                  when expected_removal_record_count <> 0 then 'BLOCKED'
-                  when received_record_count > expected_discovery_record_count then 'BLOCKED'
-                  when received_record_count = expected_discovery_record_count then 'READY_TO_COALESCE'
-                  else 'INGESTING' end,
-                  failure_code = case
-                    when expected_removal_record_count <> 0 then 'UNSUPPORTED_MIXED_CATALOG_OPERATION'
-                    when received_record_count > expected_discovery_record_count then 'CATALOG_INPUT_CARDINALITY_MISMATCH'
-                    else failure_code end,
-                  updated_at = now() where operation_id = ?
-                  and expected_discovery_record_count is not null
-                  and status in ('INGESTING', 'READY_TO_COALESCE')
-                """, operationId);
-        if (ready == 0) return;
-        jdbc.update("""
-                insert into catalog_operation_lane(operation_id, lane_id)
-                select ?, value::smallint from generate_series(0, 63) value
-                where exists (select 1 from catalog_approval_operation
-                              where operation_id = ? and status = 'READY_TO_COALESCE')
-                on conflict do nothing
-                """, operationId, operationId);
+        jdbc.queryForObject("select catalog_seal_operation(?, ?)", Boolean.class, operationId, reconcileUnitCount);
     }
 
     private void rejectConflictingManifest(MediaApprovalWatermarkV1 watermark) {
@@ -187,15 +173,6 @@ public class CatalogOperationStageStore {
 
     static String subjectKey(MediaFileDiscoveredV2 event) {
         return event.region() + ':' + event.subjectType() + ':' + event.identityKey();
-    }
-
-    private String payloadJson(MediaFileDiscoveredV2 event) {
-        // Serialize chỉ event payload gốc cho durable stage; không bọc thêm wrapper JSON.
-        try {
-            return json.writeValueAsString(event);
-        } catch (JacksonException exception) {
-            throw new IllegalArgumentException("Could not serialize discovery event payload", exception);
-        }
     }
 
     private String jsonArray(List<String> values) {

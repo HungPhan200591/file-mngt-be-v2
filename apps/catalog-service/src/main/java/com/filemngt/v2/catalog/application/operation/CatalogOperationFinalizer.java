@@ -17,59 +17,37 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/** FT-057: worker chỉ claim một coarse unit rồi gọi một reconciliation transaction set-based. */
 @Component
 @ConditionalOnProperty(name = "catalog.operation.finalizer-enabled", havingValue = "true")
-/** Bounded physical workers xử lý 64 durable lanes; native page transaction tự kiểm tra fence trước commit. */
 public class CatalogOperationFinalizer {
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogOperationFinalizer.class);
 
-    private final CatalogOperationLaneStore lanes;
-    private final CatalogOperationPageStore pages;
+    private final CatalogOperationUnitStore units;
+    private final CatalogOperationFailureStore failures;
     private final CatalogOutboxPressureGate pressureGate;
     private final CatalogOperationFinalizerTelemetry telemetry;
     private final String owner;
     private final int workerCount;
-    private final int subjectPageSize;
     private final long leaseSeconds;
     private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
     private final AtomicBoolean accepting = new AtomicBoolean(true);
 
-    public CatalogOperationFinalizer(
-            CatalogOperationLaneStore lanes,
-            CatalogOperationPageStore pages,
-            CatalogOutboxPressureGate pressureGate,
-            String owner,
-            int workerCount,
-            int subjectPageSize,
-            long leaseSeconds) {
-        this(
-                lanes,
-                pages,
-                pressureGate,
-                new CatalogOperationFinalizerTelemetry(),
-                owner,
-                workerCount,
-                subjectPageSize,
-                leaseSeconds);
-    }
-
     @Autowired
     public CatalogOperationFinalizer(
-            CatalogOperationLaneStore lanes,
-            CatalogOperationPageStore pages,
+            CatalogOperationUnitStore units,
+            CatalogOperationFailureStore failures,
             CatalogOutboxPressureGate pressureGate,
             CatalogOperationFinalizerTelemetry telemetry,
             @Value("${catalog.operation.instance-id:${HOSTNAME:catalog-finalizer}}") String owner,
             @Value("${catalog.operation.worker-count:4}") int workerCount,
-            @Value("${catalog.operation.subject-page-size:500}") int subjectPageSize,
             @Value("${catalog.operation.lease-seconds:30}") long leaseSeconds) {
-        this.lanes = lanes;
-        this.pages = pages;
+        this.units = units;
+        this.failures = failures;
         this.pressureGate = pressureGate;
         this.telemetry = telemetry;
         this.owner = owner;
         this.workerCount = positive(workerCount, "worker-count");
-        this.subjectPageSize = positive(subjectPageSize, "subject-page-size");
         this.leaseSeconds = positive(leaseSeconds, "lease-seconds");
     }
 
@@ -78,10 +56,15 @@ public class CatalogOperationFinalizer {
         if (!accepting.get() || pressureGate.isPaused()) return;
         List<CompletableFuture<Integer>> tasks = new ArrayList<>(workerCount);
         for (int worker = 0; worker < workerCount; worker++) {
-            tasks.add(CompletableFuture.supplyAsync(this::processLanePage, workers));
+            tasks.add(CompletableFuture.supplyAsync(this::processUnit, workers));
         }
         int processed = tasks.stream().mapToInt(CompletableFuture::join).sum();
-        if (processed > 0) LOGGER.debug("Catalog operation finalizer processedSubjects={}", processed);
+        long completionStarted = System.nanoTime();
+        int committing = units.beginCommittingEligibleOperations();
+        telemetry.recordCompleteOperation(System.nanoTime() - completionStarted);
+        if (processed > 0 || committing > 0) {
+            LOGGER.debug("Catalog operation finalizer processedSubjects={} committingOperations={}", processed, committing);
+        }
     }
 
     @PreDestroy
@@ -90,60 +73,48 @@ public class CatalogOperationFinalizer {
         workers.close();
     }
 
-    /** Một claim: acquire → page SQL → drain/release; telemetry và fence phải cùng nhánh. */
-    private int processLanePage() {
+    private int processUnit() {
         long acquireStarted = System.nanoTime();
         Instant now = Instant.now();
-        var claim = lanes.acquire(owner, now, now.plusSeconds(leaseSeconds));
-        long acquireNanos = System.nanoTime() - acquireStarted;
-        if (telemetry != null) telemetry.recordAcquire(acquireNanos);
+        var claimed = units.acquire(owner, now, now.plusSeconds(leaseSeconds));
+        telemetry.recordAcquire(System.nanoTime() - acquireStarted);
+        if (claimed.isEmpty()) return 0;
 
-        if (claim.isEmpty()) return 0;
-        CatalogOperationLaneClaim lane = claim.get();
+        CatalogOperationUnitClaim unit = claimed.get();
         try {
-            long pageStarted = System.nanoTime();
-            int processed = pages.finalizePage(lane, subjectPageSize);
-            long pageNanos = System.nanoTime() - pageStarted;
-            if (telemetry != null) telemetry.recordPage(processed, pageNanos);
-
-            long drainStarted = System.nanoTime();
-            boolean drained = lanes.completeLaneIfDrained(lane, Instant.now());
-            long drainNanos = System.nanoTime() - drainStarted;
-            if (telemetry != null) telemetry.recordDrain(drainNanos);
-
-            if (drained) {
-                if (lanes.allLanesCompleted(lane.operationId())) {
-                    long completeStarted = System.nanoTime();
-                    lanes.completeOperation(lane.operationId());
-                    long completeNanos = System.nanoTime() - completeStarted;
-                    if (telemetry != null) telemetry.recordCompleteOperation(completeNanos);
-                }
-            } else {
-                lanes.release(lane);
-            }
+            long reconcileStarted = System.nanoTime();
+            int processed = units.reconcile(unit);
+            telemetry.recordUnit(processed, System.nanoTime() - reconcileStarted);
             return processed;
         } catch (RuntimeException exception) {
-            releaseAfterFailure(lane);
-            LOGGER.warn(
-                    "Catalog operation finalizer retryable failure operationId={} lane={} errorType={} causeType={}",
-                    lane.operationId(),
-                    lane.laneId(),
-                    exception.getClass().getSimpleName(),
-                    causeType(exception));
+            if (isSnapshotTooLarge(exception)) {
+                failures.blockSnapshotTooLarge(unit);
+                LOGGER.warn("Catalog operation blocked because a subject snapshot exceeds its limit operationId={} unit={}",
+                        unit.operationId(), unit.unitId());
+            } else {
+                releaseAfterFailure(unit);
+                LOGGER.warn(
+                        "Catalog operation finalizer retryable failure operationId={} unit={} errorType={} causeType={}",
+                        unit.operationId(), unit.unitId(), exception.getClass().getSimpleName(), causeType(exception));
+            }
             return 0;
         }
     }
 
-    private void releaseAfterFailure(CatalogOperationLaneClaim lane) {
+    private void releaseAfterFailure(CatalogOperationUnitClaim unit) {
         try {
-            lanes.release(lane);
+            units.release(unit);
         } catch (RuntimeException releaseFailure) {
-            LOGGER.warn(
-                    "Catalog operation finalizer could not release failed lane operationId={} lane={} errorType={}",
-                    lane.operationId(),
-                    lane.laneId(),
-                    releaseFailure.getClass().getSimpleName());
+            LOGGER.warn("Catalog operation finalizer could not release failed unit operationId={} unit={} errorType={}",
+                    unit.operationId(), unit.unitId(), releaseFailure.getClass().getSimpleName());
         }
+    }
+
+    private static boolean isSnapshotTooLarge(Throwable failure) {
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (current.getMessage() != null && current.getMessage().contains("SUBJECT_SNAPSHOT_TOO_LARGE")) return true;
+        }
+        return false;
     }
 
     private static String causeType(Throwable exception) {

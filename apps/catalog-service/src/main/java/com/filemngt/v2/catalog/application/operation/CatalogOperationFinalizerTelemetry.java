@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Thu thập và thống kê timing từng phase của Catalog Finalizer:
- * Lane lease acquire, Stored Procedure per-page execution, Lane drain, và Complete operation.
+ * coarse-unit lease acquire, set-based reconciliation, relay/completion.
  */
 @Component
 public class CatalogOperationFinalizerTelemetry {
@@ -31,15 +31,19 @@ public class CatalogOperationFinalizerTelemetry {
     }
 
     public void recordPage(int subjects, long executeNanos) {
+        recordUnit(subjects, executeNanos);
+    }
+
+    public void recordUnit(int subjects, long executeNanos) {
         pageCount.incrementAndGet();
         totalSubjects.addAndGet(subjects);
         pageLatenciesNanos.add(executeNanos);
 
         LOGGER.atDebug()
-                .addKeyValue("event", "catalog.finalizer.page")
+                .addKeyValue("event", "catalog.finalizer.unit")
                 .addKeyValue("subjects", subjects)
                 .addKeyValue("executeMs", toMillis(executeNanos))
-                .log("Catalog finalizer page timing recorded");
+                .log("Catalog finalizer unit timing recorded");
     }
 
     public void recordDrain(long drainNanos) {
@@ -109,7 +113,7 @@ public class CatalogOperationFinalizerTelemetry {
         @Override
         public String toString() {
             return String.format(
-                    "FinalizerSnapshot[pages=%d, subjects=%d, acquire=%dms, pageExecTotal=%dms "
+                    "FinalizerSnapshot[units=%d, subjects=%d, acquire=%dms, unitExecTotal=%dms "
                             + "(min=%dms, avg=%dms, p95=%dms, max=%dms), drain=%dms, completeOp=%dms]",
                     pageCount,
                     totalSubjects,

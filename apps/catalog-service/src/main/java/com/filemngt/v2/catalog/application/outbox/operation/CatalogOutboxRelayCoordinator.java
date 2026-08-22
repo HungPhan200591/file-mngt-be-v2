@@ -13,6 +13,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +29,8 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "catalog.outbox.operation-relay.enabled", havingValue = "true")
 /** Async dispatch ngoài DB transaction, bounded theo worker × fetch size và fenced khi durable mark. */
 public class CatalogOutboxRelayCoordinator {
+    private static final long KAFKA_ACK_TIMEOUT_SECONDS = 5;
+    private static final long LEASE_SAFETY_SECONDS = 1;
     private final CatalogOutboxRelayLaneStore store;
     private final CatalogOutboxMessagePublisher messages;
     private final CatalogOutboxRelayProperties properties;
@@ -80,12 +83,9 @@ public class CatalogOutboxRelayCoordinator {
                 store.acquire(laneId, properties.getInstanceId(), now, now.plusSeconds(properties.getLeaseSeconds()));
         if (claim.isEmpty()) return 0;
         try {
-            List<CatalogOutboxRelayRecord> events = store.fetchPending(laneId, properties.getFetchSize());
+            List<CatalogOutboxRelayRecord> events = store.fetchPending(laneId, safeFetchLimit());
             if (events.isEmpty()) return 0;
-            List<DeliveryResult> results = publish(events);
-            int marked = markSuccessful(results, claim.get());
-            markFailed(results, claim.get());
-            return marked;
+            return publishWithSlidingWindow(events, claim.get());
         } finally {
             store.release(claim.get());
         }
@@ -95,11 +95,41 @@ public class CatalogOutboxRelayCoordinator {
         return Math.floorMod(nextLane.getAndIncrement(), properties.getLaneCount());
     }
 
-    private List<DeliveryResult> publish(List<CatalogOutboxRelayRecord> events) {
-        List<CompletableFuture<DeliveryResult>> futures =
-                events.stream().map(this::publish).toList();
-        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
-        return futures.stream().map(CompletableFuture::join).toList();
+    /** Không dispatch quá số wave có thể hết trước Kafka ack timeout và lease safety margin. */
+    private int safeFetchLimit() {
+        long waves = Math.max(1, (properties.getLeaseSeconds() - LEASE_SAFETY_SECONDS) / KAFKA_ACK_TIMEOUT_SECONDS);
+        long bounded = Math.min((long) properties.getFetchSize(), properties.getMaxInFlight() * waves);
+        return Math.toIntExact(Math.max(1, bounded));
+    }
+
+    /**
+     * Không đợi slowest acknowledgement của cả fetch. Cửa sổ bounded được refill khi bất kỳ send nào hoàn tất,
+     * rồi durable mark ngay để retry chỉ còn phần chưa ack.
+     */
+    private int publishWithSlidingWindow(
+            List<CatalogOutboxRelayRecord> events, CatalogOutboxRelayLaneClaim claim) {
+        Iterator<CatalogOutboxRelayRecord> pending = events.iterator();
+        List<CompletableFuture<DeliveryResult>> inFlight = new ArrayList<>(properties.getMaxInFlight());
+        int published = 0;
+
+        while (pending.hasNext() || !inFlight.isEmpty()) {
+            while (pending.hasNext() && inFlight.size() < properties.getMaxInFlight()) {
+                inFlight.add(publish(pending.next()));
+            }
+
+            CompletableFuture.anyOf(inFlight.toArray(CompletableFuture[]::new)).join();
+            List<DeliveryResult> completed = new ArrayList<>();
+            for (Iterator<CompletableFuture<DeliveryResult>> iterator = inFlight.iterator(); iterator.hasNext(); ) {
+                CompletableFuture<DeliveryResult> delivery = iterator.next();
+                if (delivery.isDone()) {
+                    completed.add(delivery.join());
+                    iterator.remove();
+                }
+            }
+            published += markSuccessful(completed, claim);
+            markFailed(completed, claim);
+        }
+        return published;
     }
 
     private CompletableFuture<DeliveryResult> publish(CatalogOutboxRelayRecord event) {

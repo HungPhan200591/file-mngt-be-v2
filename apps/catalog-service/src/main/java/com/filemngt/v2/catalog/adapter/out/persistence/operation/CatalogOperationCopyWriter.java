@@ -12,8 +12,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * COPY typed scalar rows vào temp table trên connection đang tham gia ingest transaction.
- * Temp table dùng typed columns để PostgreSQL không cần parse/cast từ JSONB nữa;
- * durable schema và event contract không đổi.
+ * Temp table là input duy nhất của immutable FT-057 stage; payload JSONB không đi qua hot path.
  */
 @Repository
 public class CatalogOperationCopyWriter {
@@ -28,7 +27,7 @@ public class CatalogOperationCopyWriter {
                 correlation_id text,
                 traceparent text,
                 subject_key text not null,
-                subject_lane smallint not null,
+                routing_bucket integer not null,
                 region text not null,
                 subject_type text not null,
                 identity_key text not null,
@@ -41,17 +40,16 @@ public class CatalogOperationCopyWriter {
                 relative_path text,
                 asset_role text,
                 tag_names jsonb not null,
-                event_time timestamptz not null,
-                event_payload jsonb not null
+                event_time timestamptz not null
             ) on commit delete rows
             """;
     private static final String COPY_TEMP = """
             copy catalog_discovery_ingest_slice(
                 event_id, operation_id, batch_id, scan_run_id,
                 source_partition, source_offset, correlation_id, traceparent,
-                subject_key, subject_lane, region, subject_type, identity_key,
+                subject_key, routing_bucket, region, subject_type, identity_key,
                 display_title, base_code, part, studio_code, actress_names,
-                storage_key, relative_path, asset_role, tag_names, event_time, event_payload
+                storage_key, relative_path, asset_role, tag_names, event_time
             ) from stdin with (format csv)
             """;
 
@@ -61,7 +59,7 @@ public class CatalogOperationCopyWriter {
         this.jdbc = jdbc;
     }
 
-    /** Typed row dùng để COPY vào temp table; subject_lane đã tính ở Java trước khi gọi. */
+    /** Typed row dùng để COPY vào temp table; routing bucket ổn định đã tính ở Java trước khi gọi. */
     public record TypedIngestRow(
             UUID eventId,
             UUID operationId,
@@ -72,7 +70,7 @@ public class CatalogOperationCopyWriter {
             String correlationId,
             String traceparent,
             String subjectKey,
-            int subjectLane,
+            int routingBucket,
             String region,
             String subjectType,
             String identityKey,
@@ -85,8 +83,7 @@ public class CatalogOperationCopyWriter {
             String relativePath,
             String assetRole,
             String tagNamesJson,
-            String eventTime,
-            String eventPayloadJson) {}
+            String eventTime) {}
 
     public long copyTypedRows(List<TypedIngestRow> rows) {
         if (rows.isEmpty()) return 0;
@@ -111,8 +108,8 @@ public class CatalogOperationCopyWriter {
 
     private String buildCsvRow(TypedIngestRow row) {
         // Thứ tự column: event_id,operation_id,batch_id,scan_run_id,
-        //   source_partition,source_offset,correlation_id,traceparent,subject_key,subject_lane,
-        //   region,subject_type,identity_key,typed reduction fields,event_payload
+        //   source_partition,source_offset,correlation_id,traceparent,subject_key,routing_bucket,
+        //   region,subject_type,identity_key và typed discovery fields.
         return String.join(
                 ",",
                 row.eventId().toString(),
@@ -124,7 +121,7 @@ public class CatalogOperationCopyWriter {
                 csvOptional(row.correlationId()),
                 csvOptional(row.traceparent()),
                 csvField(row.subjectKey()),
-                Integer.toString(row.subjectLane()),
+                Integer.toString(row.routingBucket()),
                 csvField(row.region()),
                 csvField(row.subjectType()),
                 csvField(row.identityKey()),
@@ -137,8 +134,7 @@ public class CatalogOperationCopyWriter {
                 csvOptional(row.relativePath()),
                 csvOptional(row.assetRole()),
                 csvField(row.tagNamesJson()),
-                csvField(row.eventTime()),
-                csvField(row.eventPayloadJson()));
+                csvField(row.eventTime()));
     }
 
     private String csvField(String value) {

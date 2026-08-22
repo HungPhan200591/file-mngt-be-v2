@@ -16,76 +16,84 @@ import org.springframework.dao.QueryTimeoutException;
 
 class CatalogOperationFinalizerTest {
     @Test
-    void releasesClaimImmediatelyWhenPageFinalizationTimesOut() {
-        CatalogOperationLaneStore lanes = mock(CatalogOperationLaneStore.class);
-        CatalogOperationPageStore pages = mock(CatalogOperationPageStore.class);
+    void releasesUnitImmediatelyWhenReconciliationTimesOut() {
+        CatalogOperationUnitStore units = mock(CatalogOperationUnitStore.class);
+        CatalogOperationFailureStore failures = mock(CatalogOperationFailureStore.class);
         CatalogOutboxPressureGate pressureGate = mock(CatalogOutboxPressureGate.class);
-        CatalogOperationLaneClaim claim = new CatalogOperationLaneClaim(
-                UUID.randomUUID(), 7, "test-finalizer", Instant.now().plusSeconds(30), 4);
-        CatalogOperationFinalizer finalizer =
-                new CatalogOperationFinalizer(lanes, pages, pressureGate, "test-finalizer", 1, 500, 30);
+        CatalogOperationFinalizerTelemetry telemetry = mock(CatalogOperationFinalizerTelemetry.class);
+        CatalogOperationUnitClaim claim = claim();
+        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry);
 
         when(pressureGate.isPaused()).thenReturn(false);
-        when(lanes.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
-        when(pages.finalizePage(claim, 500)).thenThrow(new QueryTimeoutException("statement timeout"));
+        when(units.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
+        when(units.reconcile(claim)).thenThrow(new QueryTimeoutException("statement timeout"));
 
         try {
             finalizer.finalizeReady();
 
-            verify(lanes).release(claim);
+            verify(units).release(claim);
+            verify(units).beginCommittingEligibleOperations();
         } finally {
             finalizer.close();
         }
     }
 
     @Test
-    void completesOperationOnlyWhenTheLastLaneIsTerminal() {
-        CatalogOperationLaneStore lanes = mock(CatalogOperationLaneStore.class);
-        CatalogOperationPageStore pages = mock(CatalogOperationPageStore.class);
+    void blocksOperationWhenSnapshotGuardFails() {
+        CatalogOperationUnitStore units = mock(CatalogOperationUnitStore.class);
+        CatalogOperationFailureStore failures = mock(CatalogOperationFailureStore.class);
         CatalogOutboxPressureGate pressureGate = mock(CatalogOutboxPressureGate.class);
-        CatalogOperationLaneClaim claim = new CatalogOperationLaneClaim(
-                UUID.randomUUID(), 7, "test-finalizer", Instant.now().plusSeconds(30), 4);
-        CatalogOperationFinalizer finalizer =
-                new CatalogOperationFinalizer(lanes, pages, pressureGate, "test-finalizer", 1, 500, 30);
+        CatalogOperationFinalizerTelemetry telemetry = mock(CatalogOperationFinalizerTelemetry.class);
+        CatalogOperationUnitClaim claim = claim();
+        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry);
 
         when(pressureGate.isPaused()).thenReturn(false);
-        when(lanes.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
-        when(pages.finalizePage(claim, 500)).thenReturn(1);
-        when(lanes.completeLaneIfDrained(any(), any())).thenReturn(true);
-        when(lanes.allLanesCompleted(claim.operationId())).thenReturn(false);
+        when(units.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
+        when(units.reconcile(claim)).thenThrow(new IllegalStateException("SUBJECT_SNAPSHOT_TOO_LARGE"));
 
         try {
             finalizer.finalizeReady();
 
-            verify(lanes).allLanesCompleted(claim.operationId());
-            verify(lanes, never()).completeOperation(claim.operationId());
+            verify(failures).blockSnapshotTooLarge(claim);
+            verify(units, never()).release(claim);
         } finally {
             finalizer.close();
         }
     }
 
     @Test
-    void completesOperationWhenTheLastLaneIsTerminal() {
-        CatalogOperationLaneStore lanes = mock(CatalogOperationLaneStore.class);
-        CatalogOperationPageStore pages = mock(CatalogOperationPageStore.class);
+    void startsCommitCheckAfterCoarseUnitsFinish() {
+        CatalogOperationUnitStore units = mock(CatalogOperationUnitStore.class);
+        CatalogOperationFailureStore failures = mock(CatalogOperationFailureStore.class);
         CatalogOutboxPressureGate pressureGate = mock(CatalogOutboxPressureGate.class);
-        CatalogOperationLaneClaim claim = new CatalogOperationLaneClaim(
-                UUID.randomUUID(), 7, "test-finalizer", Instant.now().plusSeconds(30), 4);
-        CatalogOperationFinalizer finalizer =
-                new CatalogOperationFinalizer(lanes, pages, pressureGate, "test-finalizer", 1, 500, 30);
+        CatalogOperationFinalizerTelemetry telemetry = mock(CatalogOperationFinalizerTelemetry.class);
+        CatalogOperationUnitClaim claim = claim();
+        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry);
 
         when(pressureGate.isPaused()).thenReturn(false);
-        when(lanes.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
-        when(pages.finalizePage(claim, 500)).thenReturn(1);
-        when(lanes.completeLaneIfDrained(any(), any())).thenReturn(true);
-        when(lanes.allLanesCompleted(claim.operationId())).thenReturn(true);
+        when(units.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
+        when(units.reconcile(claim)).thenReturn(120);
+        when(units.beginCommittingEligibleOperations()).thenReturn(1);
 
         try {
             finalizer.finalizeReady();
 
-            verify(lanes).completeOperation(claim.operationId());
+            verify(units).reconcile(claim);
+            verify(units).beginCommittingEligibleOperations();
         } finally {
             finalizer.close();
         }
+    }
+
+    private static CatalogOperationFinalizer finalizer(
+            CatalogOperationUnitStore units,
+            CatalogOperationFailureStore failures,
+            CatalogOutboxPressureGate pressureGate,
+            CatalogOperationFinalizerTelemetry telemetry) {
+        return new CatalogOperationFinalizer(units, failures, pressureGate, telemetry, "test-finalizer", 1, 30);
+    }
+
+    private static CatalogOperationUnitClaim claim() {
+        return new CatalogOperationUnitClaim(UUID.randomUUID(), 7, "test-finalizer", Instant.now().plusSeconds(30), 4);
     }
 }

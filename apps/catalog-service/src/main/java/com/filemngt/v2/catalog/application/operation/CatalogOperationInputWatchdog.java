@@ -31,8 +31,19 @@ public class CatalogOperationInputWatchdog {
                 update catalog_approval_operation
                 set status = 'BLOCKED', failure_code = 'CATALOG_INPUT_MISSING', updated_at = now()
                 where status = 'INGESTING' and expected_discovery_record_count is not null
-                  and received_record_count < expected_discovery_record_count
-                  and updated_at < now() - make_interval(secs => ?)
+                  and (
+                      (processing_version = 57 and coalesce((
+                          select sum(progress.inserted_record_count)
+                          from catalog_operation_ingest_partition progress
+                          where progress.operation_id = catalog_approval_operation.operation_id
+                      ), 0) < expected_discovery_record_count)
+                      or (processing_version <> 57 and received_record_count < expected_discovery_record_count)
+                  )
+                  and coalesce((
+                      select max(progress.updated_at)
+                      from catalog_operation_ingest_partition progress
+                      where progress.operation_id = catalog_approval_operation.operation_id
+                  ), updated_at) < now() - make_interval(secs => ?)
                 """, missingInputDeadlineSeconds);
     }
 }

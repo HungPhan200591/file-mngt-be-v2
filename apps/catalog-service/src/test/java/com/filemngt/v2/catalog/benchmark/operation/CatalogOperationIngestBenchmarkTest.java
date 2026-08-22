@@ -125,19 +125,15 @@ class CatalogOperationIngestBenchmarkTest {
         }
         long elapsedMillis = (System.nanoTime() - started) / 1_000_000L;
 
-        long expectedSubjects = (eventCount + CatalogOperationBenchmarkFixture.ASSETS_PER_SUBJECT - 1L)
-                / CatalogOperationBenchmarkFixture.ASSETS_PER_SUBJECT;
-
-        assertThat(count("select received_record_count from catalog_approval_operation where operation_id = ?"))
+        long expectedSubjects = CatalogOperationBenchmarkFixture.expectedSubjects(eventCount);
+        assertThat(count("select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?"))
                 .isEqualTo(eventCount);
-        assertThat(count("select count(*) from catalog_operation_subject where operation_id = ?"))
-                .isEqualTo(expectedSubjects);
-        assertThat(count("select count(*) from catalog_discovery_stage where operation_id = ?"))
+        assertThat(count("select count(*) from catalog_operation_discovery_input where operation_id = ?"))
                 .isEqualTo(eventCount);
 
         var snap = telemetry != null ? telemetry.snapshot() : null;
         LOGGER.info(
-                "FT-055 isolated ingest: events={}, subjects={}, workers={}, wallClockMs={}, throughputPerSecond={}\n  -> {}",
+                "FT-057 isolated immutable ingest: events={}, expectedSubjects={}, workers={}, wallClockMs={}, throughputPerSecond={}\n  -> {}",
                 eventCount,
                 expectedSubjects,
                 WORKER_COUNT,

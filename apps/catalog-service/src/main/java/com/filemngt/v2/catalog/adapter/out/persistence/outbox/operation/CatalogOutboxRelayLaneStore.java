@@ -56,7 +56,7 @@ public class CatalogOutboxRelayLaneStore {
                 select id, event_type, partition_key, payload, correlation_id, traceparent
                 from catalog_outbox_event
                 where published_at is null
-                  and (get_byte(decode(md5(partition_key), 'hex'), 0) & 63) = ?
+                  and relay_lane_id = ?
                 order by created_at, id limit ?
                 """,
                 (result, row) -> new CatalogOutboxRelayRecord(
@@ -77,6 +77,7 @@ public class CatalogOutboxRelayLaneStore {
                     update catalog_outbox_event event set published_at = ?, last_error = null
                     from catalog_outbox_relay_lane lane
                     where event.id = any (?::uuid[]) and event.published_at is null
+                      and event.relay_lane_id = ?
                       and lane.lane_id = ? and lane.lease_owner = ? and lane.fence_token = ?
                       and lane.lease_until > ?
                     """)) {
@@ -84,9 +85,10 @@ public class CatalogOutboxRelayLaneStore {
                 Array ids = connection.createArrayOf("uuid", eventIds.toArray(UUID[]::new));
                 statement.setArray(2, ids);
                 statement.setInt(3, claim.laneId());
-                statement.setString(4, claim.owner());
-                statement.setLong(5, claim.fenceToken());
-                statement.setTimestamp(6, Timestamp.from(now));
+                statement.setInt(4, claim.laneId());
+                statement.setString(5, claim.owner());
+                statement.setLong(6, claim.fenceToken());
+                statement.setTimestamp(7, Timestamp.from(now));
                 return statement.executeUpdate();
             }
         });
@@ -98,8 +100,9 @@ public class CatalogOutboxRelayLaneStore {
                 set attempt_count = attempt_count + 1, last_error = ?
                 from catalog_outbox_relay_lane lane
                 where event.id = ? and event.published_at is null
+                  and event.relay_lane_id = ?
                   and lane.lane_id = ? and lane.lease_owner = ? and lane.fence_token = ? and lane.lease_until > ?
-                """, error, eventId, claim.laneId(), claim.owner(), claim.fenceToken(), Timestamp.from(now));
+                """, error, eventId, claim.laneId(), claim.laneId(), claim.owner(), claim.fenceToken(), Timestamp.from(now));
     }
 
     public void release(CatalogOutboxRelayLaneClaim claim) {

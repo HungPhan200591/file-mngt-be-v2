@@ -34,9 +34,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Đo {@code catalog_finalize_operation_page} V22 typed-reduction trên finalizer Spring thật.
+ * Đo FT-057 sealed workset + coarse set-based reconciliation trên finalizer Spring thật.
  * Seed ingest không nằm trong đồng hồ; {@code mergeMs} bắt đầu lúc {@code acceptWatermark}
- * tới workset {@code COMPLETED}. Không đợi {@code CATALOG_COMMITTED}, không enforce gate D2.
+ * tới toàn bộ reconciliation unit {@code COMPLETED}. Không đợi relay/watermark cuối.
  */
 @Tag("benchmark")
 @Testcontainers
@@ -46,7 +46,7 @@ import org.testcontainers.utility.DockerImageName;
             "catalog.outbox.enabled=false",
             "catalog.operation.finalizer-enabled=true",
             "catalog.operation.worker-count=4",
-            "catalog.operation.subject-page-size=500",
+            "catalog.operation.reconcile-unit-count=16",
             "catalog.operation.finalizer-delay-ms=1",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=false",
@@ -57,7 +57,7 @@ import org.testcontainers.utility.DockerImageName;
 class CatalogOperationMergeBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogOperationMergeBenchmarkTest.class);
     private static final int WORKER_COUNT = 4;
-    private static final int PAGE_SIZE = 500;
+    private static final int RECONCILE_UNIT_COUNT = 16;
     private static final int SEED_SLICE = 5_000;
     private static final int CALIBRATION_SUBJECTS = 2_500;
     private static final int SCALE_CHECK_SUBJECTS = 25_000;
@@ -183,7 +183,7 @@ class CatalogOperationMergeBenchmarkTest {
                 .atMost(timeout)
                 .untilAsserted(() -> {
                     assertThat(count("""
-                                    select count(*) from catalog_operation_subject
+                                    select count(*) from catalog_operation_work_subject
                                     where operation_id = ? and status = 'PENDING'
                                     """)).isZero();
                     assertThat(count("""
@@ -194,11 +194,9 @@ class CatalogOperationMergeBenchmarkTest {
     }
 
     private void assertStaged(int eventCount, int subjectCount) {
-        assertThat(count("select received_record_count from catalog_approval_operation where operation_id = ?"))
+        assertThat(count("select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?"))
                 .isEqualTo(eventCount);
-        assertThat(count("select count(*) from catalog_operation_subject where operation_id = ?"))
-                .isEqualTo(subjectCount);
-        assertThat(count("select count(*) from catalog_discovery_stage where operation_id = ?"))
+        assertThat(count("select count(*) from catalog_operation_discovery_input where operation_id = ?"))
                 .isEqualTo(eventCount);
     }
 
@@ -213,12 +211,12 @@ class CatalogOperationMergeBenchmarkTest {
 
     private void logResult(int eventCount, int subjectCount, long seedMs, long mergeMs) {
         LOGGER.info(
-                "FT-056 merge: events={}, subjects={}, workers={}, pageSize={}, "
+                "FT-057 merge: events={}, subjects={}, workers={}, reconcileUnits={}, "
                         + "seedMs={}, mergeMs={}, subjectsPerSecond={}\n  -> ingest={} finalizer={}",
                 eventCount,
                 subjectCount,
                 WORKER_COUNT,
-                PAGE_SIZE,
+                RECONCILE_UNIT_COUNT,
                 seedMs,
                 mergeMs,
                 throughput(subjectCount, mergeMs),

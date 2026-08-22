@@ -234,14 +234,12 @@ class CatalogOperationKafkaPipelineBenchmarkTest {
                 .pollInterval(Duration.ofMillis(50))
                 .atMost(timeout)
                 .untilAsserted(() -> assertThat(count(
-                                "select received_record_count from catalog_approval_operation where operation_id = ?"))
+                                "select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?"))
                         .isEqualTo(eventCount));
     }
 
     private void assertDurableCounts(int eventCount) {
-        assertThat(count("select count(*) from catalog_operation_subject where operation_id = ?"))
-                .isEqualTo(expectedSubjects(eventCount));
-        assertThat(count("select count(*) from catalog_discovery_stage where operation_id = ?"))
+        assertThat(count("select count(*) from catalog_operation_discovery_input where operation_id = ?"))
                 .isEqualTo(eventCount);
     }
 

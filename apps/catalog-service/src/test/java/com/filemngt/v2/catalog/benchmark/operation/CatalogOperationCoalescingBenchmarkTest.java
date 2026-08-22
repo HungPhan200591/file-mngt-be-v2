@@ -38,7 +38,7 @@ import org.testcontainers.utility.DockerImageName;
             "catalog.outbox.enabled=false",
             "catalog.operation.finalizer-enabled=true",
             "catalog.operation.worker-count=4",
-            "catalog.operation.subject-page-size=2000",
+            "catalog.operation.reconcile-unit-count=16",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=false",
             "catalog.kafka.dlt-observer.enabled=false",
@@ -109,7 +109,7 @@ class CatalogOperationCoalescingBenchmarkTest {
         long watermarkPersistStarted = System.nanoTime();
         stage.acceptWatermark(marker);
         long watermarkPersistMillis = elapsedMillis(watermarkPersistStarted);
-        long finalizerWaitMillis = awaitCatalogCommitted(diagnosticDeadline);
+        long finalizerWaitMillis = awaitReconciled(diagnosticDeadline);
         long elapsedMillis =
                 Math.max(1, Duration.ofNanos(System.nanoTime() - started).toMillis());
         long expectedSubjects = expectedSubjects(eventCount);
@@ -118,7 +118,7 @@ class CatalogOperationCoalescingBenchmarkTest {
                 .isEqualTo(eventCount);
         assertThat(CatalogOperationBenchmarkFixture.subjectCount(jdbc)).isEqualTo(expectedSubjects);
         assertThat(CatalogOperationBenchmarkFixture.assetCount(jdbc)).isEqualTo(eventCount);
-        assertThat(CatalogOperationBenchmarkFixture.outboxCount(jdbc)).isEqualTo(expectedSubjects + 1);
+        assertThat(CatalogOperationBenchmarkFixture.outboxCount(jdbc)).isEqualTo(expectedSubjects);
         if (enforceBudget) assertThat(elapsedMillis).isLessThanOrEqualTo(10_000);
 
         var ingestSnap = ingestTelemetry != null ? ingestTelemetry.snapshot() : null;
@@ -145,7 +145,7 @@ class CatalogOperationCoalescingBenchmarkTest {
     private void warmUpAndReset() {
         ingest(WARM_UP_EVENTS);
         stage.acceptWatermark(watermark(WARM_UP_EVENTS));
-        awaitCatalogCommitted(Instant.now().plus(WARM_UP_DIAGNOSTIC_BUDGET));
+        awaitReconciled(Instant.now().plus(WARM_UP_DIAGNOSTIC_BUDGET));
         CatalogOperationBenchmarkFixture.reset(jdbc);
         if (ingestTelemetry != null) ingestTelemetry.reset();
         if (finalizerTelemetry != null) finalizerTelemetry.reset();
@@ -193,12 +193,13 @@ class CatalogOperationCoalescingBenchmarkTest {
                 null);
     }
 
-    private long awaitCatalogCommitted(Instant diagnosticDeadline) {
+    /** Relay tắt trong benchmark này, nên watermark cuối không thể broker-ack để chuyển CATALOG_COMMITTED. */
+    private long awaitReconciled(Instant diagnosticDeadline) {
         long started = System.nanoTime();
-        while (!"CATALOG_COMMITTED".equals(status())) {
+        while (pendingUnits() != 0) {
             if (Instant.now().isAfter(diagnosticDeadline)) {
                 logOperationDiagnostics();
-                throw new IllegalStateException("Catalog finalizer did not converge");
+                throw new IllegalStateException("Catalog reconciliation units did not converge");
             }
             java.util.concurrent.locks.LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
         }
@@ -227,18 +228,26 @@ class CatalogOperationCoalescingBenchmarkTest {
         Long received = count("select received_record_count from catalog_approval_operation where operation_id = ?");
         Long completed = count("select completed_subject_count from catalog_approval_operation where operation_id = ?");
         Long snapshots = count("select final_snapshot_count from catalog_approval_operation where operation_id = ?");
-        Integer pendingLanes = jdbc.queryForObject(
-                "select count(*) from catalog_operation_lane where operation_id = ? and status <> 'COMPLETED'",
+        Integer pendingUnits = jdbc.queryForObject(
+                "select count(*) from catalog_operation_reconcile_unit where operation_id = ? and status <> 'COMPLETED'",
                 Integer.class,
                 CatalogOperationBenchmarkFixture.operationId());
         LOGGER.warn(
                 "FT-055 typed ingest timeout diagnostics operationStatus={}, received={}, completedSubjects={}, "
-                        + "finalSnapshots={}, pendingLanes={}",
+                        + "finalSnapshots={}, pendingUnits={}",
                 operationStatus,
                 received,
                 completed,
                 snapshots,
-                pendingLanes);
+                pendingUnits);
+    }
+
+    private int pendingUnits() {
+        Integer value = jdbc.queryForObject(
+                "select count(*) from catalog_operation_reconcile_unit where operation_id = ? and status <> 'COMPLETED'",
+                Integer.class,
+                CatalogOperationBenchmarkFixture.operationId());
+        return value == null ? 0 : value;
     }
 
     private static long elapsedMillis(long started) {

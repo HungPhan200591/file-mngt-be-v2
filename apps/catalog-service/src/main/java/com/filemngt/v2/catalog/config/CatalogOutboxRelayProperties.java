@@ -20,6 +20,9 @@ public class CatalogOutboxRelayProperties {
     private int fetchSize = 2_000;
 
     @Min(1)
+    private int maxInFlight = 500;
+
+    @Min(6)
     private long leaseSeconds = 30;
 
     @Min(1)
@@ -53,6 +56,14 @@ public class CatalogOutboxRelayProperties {
 
     public void setFetchSize(int fetchSize) {
         this.fetchSize = fetchSize;
+    }
+
+    public int getMaxInFlight() {
+        return maxInFlight;
+    }
+
+    public void setMaxInFlight(int maxInFlight) {
+        this.maxInFlight = maxInFlight;
     }
 
     public long getLeaseSeconds() {

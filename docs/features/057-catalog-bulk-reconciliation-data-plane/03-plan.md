@@ -1,6 +1,6 @@
 # FT-057 — Catalog Bulk Reconciliation Data Plane — Plan
 
-Status: `READY`
+Status: `IMPLEMENTED — verification deferred`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -100,4 +100,5 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
 - [x] Sửa SLO owner: Catalog tối thiểu 30K, stretch 40K; SLI-03 end-to-end P95 60s/P99 90s.
 - [x] Route `STATUS.md`, BT-09 context/break-task, Catalog context và architecture overview sang FT-057.
 - [x] Đánh dấu FT-056 failed được supersede cho hướng triển khai tiếp theo; giữ evidence lịch sử immutable.
-- [ ] Khi code hoàn tất, cập nhật benchmark result/dashboard và distill `STATUS.md` theo evidence thật.
+- [x] Mã nguồn FT-057: V23 typed input/workset/unit/relay lane, Java control plane, relay sliding window và parity test/benchmark đã được cập nhật.
+- [ ] Chạy Flyway/IT/Kafka failure matrix và benchmark ladder; chỉ cập nhật result/dashboard bằng evidence runtime thật.

@@ -44,6 +44,7 @@ catalog:
       lane-count: 64
       worker-count: ${CATALOG_OUTBOX_OPERATION_RELAY_WORKERS:4}
       fetch-size: ${CATALOG_OUTBOX_OPERATION_RELAY_FETCH_SIZE:2000}
+      max-in-flight: ${CATALOG_OUTBOX_OPERATION_RELAY_MAX_IN_FLIGHT:500}
       lease-seconds: ${CATALOG_OUTBOX_OPERATION_RELAY_LEASE_SECONDS:30}
       idle-backoff-millis: ${CATALOG_OUTBOX_OPERATION_RELAY_IDLE_BACKOFF_MS:5}
       maximum-failure-backoff-millis: ${CATALOG_OUTBOX_OPERATION_RELAY_MAX_FAILURE_BACKOFF_MS:5000}
@@ -56,6 +57,7 @@ catalog:
     finalizer-enabled: ${CATALOG_OPERATION_FINALIZER_ENABLED:false}
     instance-id: ${CATALOG_OPERATION_INSTANCE_ID:${HOSTNAME:catalog-finalizer}}
     worker-count: ${CATALOG_OPERATION_WORKER_COUNT:4}
+    reconcile-unit-count: ${CATALOG_OPERATION_RECONCILE_UNIT_COUNT:16}
     subject-page-size: ${CATALOG_OPERATION_SUBJECT_PAGE_SIZE:500}
     lease-seconds: ${CATALOG_OPERATION_LEASE_SECONDS:30}
     statement-timeout-ms: ${CATALOG_OPERATION_STATEMENT_TIMEOUT_MS:20000}

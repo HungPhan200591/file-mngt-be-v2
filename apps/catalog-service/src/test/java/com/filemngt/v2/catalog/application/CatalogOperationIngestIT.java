@@ -21,8 +21,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Integration test cho FT-055 Typed Fast Ingest: kiểm tra correctness của typed COPY path,
- * durable dedupe, cardinality, lane hash golden vector và rollback safety.
+ * Integration test FT-057 typed immutable ingest: COPY, durable dedupe, partition progress và routing bucket.
  */
 @Testcontainers
 @SpringBootTest(
@@ -67,7 +66,7 @@ class CatalogOperationIngestIT {
 
         assertThat(inserted).isEqualTo(1);
         assertThat(stageRowCount()).isEqualTo(1);
-        assertThat(receivedCount()).isEqualTo(1);
+        assertThat(partitionProgress()).isEqualTo(1);
     }
 
     @Test
@@ -82,6 +81,26 @@ class CatalogOperationIngestIT {
         assertThat(firstInsert).isEqualTo(1);
         assertThat(retryInsert).isEqualTo(0);
         assertThat(stageRowCount()).isEqualTo(1);
+    }
+
+    @Test
+    void newEventAfterSealBlocksOperationButAffectsNoWorkset() {
+        ensureOperation();
+        var first = CatalogOperationBenchmarkFixture.discoveryEvent(0);
+        stage.ingest(List.of(first), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 0L)));
+        stage.acceptWatermark(CatalogOperationBenchmarkFixture.approvalCommittedWatermark(1));
+
+        int inserted = stage.ingest(
+                List.of(CatalogOperationBenchmarkFixture.discoveryEvent(1)),
+                List.of(new CatalogOperationStageStore.RecordCoordinate(0, 1L)));
+
+        assertThat(inserted).isZero();
+        assertThat(stageRowCount()).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                        "select status from catalog_approval_operation where operation_id = ?",
+                        String.class,
+                        CatalogOperationBenchmarkFixture.operationId()))
+                .isEqualTo("BLOCKED");
     }
 
     @Test
@@ -102,21 +121,20 @@ class CatalogOperationIngestIT {
     }
 
     @Test
-    void laneHashInStageMatchesJavaGoldenVector() {
-        // subject_lane lưu trong catalog_operation_subject phải khớp CatalogOperationLaneHash.stableLane()
+    void routingBucketInTypedInputMatchesJavaGoldenVector() {
         ensureOperation();
         var event = CatalogOperationBenchmarkFixture.discoveryEvent(0);
         stage.ingest(List.of(event), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 0L)));
 
         String subjectKey = CatalogOperationStageStore.subjectKey(event);
-        int expectedLane = CatalogOperationLaneHash.stableLane(subjectKey);
-        Integer storedLane = jdbc.queryForObject(
-                "select subject_lane from catalog_operation_subject where operation_id = ? and subject_key = ?",
+        int expectedBucket = CatalogOperationLaneHash.stableRoutingBucket(subjectKey);
+        Integer storedBucket = jdbc.queryForObject(
+                "select routing_bucket from catalog_operation_discovery_input where operation_id = ? and subject_key = ?",
                 Integer.class,
                 CatalogOperationBenchmarkFixture.operationId(),
                 subjectKey);
 
-        assertThat(storedLane).isEqualTo(expectedLane);
+        assertThat(storedBucket).isEqualTo(expectedBucket);
     }
 
     @Test
@@ -149,15 +167,15 @@ class CatalogOperationIngestIT {
 
     private long stageRowCount() {
         Long count = jdbc.queryForObject(
-                "select count(*) from catalog_discovery_stage where operation_id = ?",
+                "select count(*) from catalog_operation_discovery_input where operation_id = ?",
                 Long.class,
                 CatalogOperationBenchmarkFixture.operationId());
         return count == null ? 0 : count;
     }
 
-    private long receivedCount() {
+    private long partitionProgress() {
         Long count = jdbc.queryForObject(
-                "select received_record_count from catalog_approval_operation where operation_id = ?",
+                "select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?",
                 Long.class,
                 CatalogOperationBenchmarkFixture.operationId());
         return count == null ? 0 : count;

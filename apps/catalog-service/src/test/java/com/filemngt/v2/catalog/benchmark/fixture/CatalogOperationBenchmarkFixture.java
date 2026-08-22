@@ -31,6 +31,10 @@ public final class CatalogOperationBenchmarkFixture {
                     catalog_finalize_metadata,
                     catalog_finalize_state,
                     catalog_finalize_snapshot,
+                    catalog_operation_reconcile_unit,
+                    catalog_operation_work_subject,
+                    catalog_operation_ingest_partition,
+                    catalog_operation_discovery_input,
                     catalog_operation_asset_reduction,
                     catalog_operation_subject_reduction,
                     catalog_operation_lane,
@@ -139,7 +143,7 @@ public final class CatalogOperationBenchmarkFixture {
         return subjectCount * ASSETS_PER_SUBJECT;
     }
 
-    /** Manifest `APPROVAL_COMMITTED` để mở equality gate `READY_TO_COALESCE`. */
+    /** Manifest `APPROVAL_COMMITTED` để mở equality gate và seal FT-057 workset. */
     public static MediaApprovalWatermarkV1 approvalCommittedWatermark(int eventCount) {
         return approvalCommittedWatermark(eventCount, OPERATION_ID, SCAN_RUN_ID);
     }
