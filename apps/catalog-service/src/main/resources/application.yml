@@ -55,19 +55,25 @@ catalog:
       pressure-sample-ms: ${CATALOG_OUTBOX_OPERATION_RELAY_PRESSURE_SAMPLE_MS:1000}
   operation:
     finalizer-enabled: ${CATALOG_OPERATION_FINALIZER_ENABLED:false}
+    seal-enabled: ${CATALOG_OPERATION_SEAL_ENABLED:true}
     instance-id: ${CATALOG_OPERATION_INSTANCE_ID:${HOSTNAME:catalog-finalizer}}
     worker-count: ${CATALOG_OPERATION_WORKER_COUNT:4}
     reconcile-unit-count: ${CATALOG_OPERATION_RECONCILE_UNIT_COUNT:16}
+    seal-batch-size: ${CATALOG_OPERATION_SEAL_BATCH_SIZE:8}
+    seal-delay-ms: ${CATALOG_OPERATION_SEAL_DELAY_MS:10}
     subject-page-size: ${CATALOG_OPERATION_SUBJECT_PAGE_SIZE:500}
     lease-seconds: ${CATALOG_OPERATION_LEASE_SECONDS:30}
     statement-timeout-ms: ${CATALOG_OPERATION_STATEMENT_TIMEOUT_MS:20000}
+    maximum-unit-attempts: ${CATALOG_OPERATION_MAXIMUM_UNIT_ATTEMPTS:3}
     finalizer-delay-ms: ${CATALOG_OPERATION_FINALIZER_DELAY_MS:10}
     maximum-snapshot-bytes: ${CATALOG_OPERATION_MAXIMUM_SNAPSHOT_BYTES:921600}
-    missing-input-deadline-seconds: ${CATALOG_OPERATION_MISSING_INPUT_DEADLINE_SECONDS:300}
-    watchdog-delay-ms: ${CATALOG_OPERATION_WATCHDOG_DELAY_MS:30000}
+    watchdog-enabled: ${CATALOG_OPERATION_WATCHDOG_ENABLED:true}
+    watchdog-delay-ms: ${CATALOG_OPERATION_WATCHDOG_DELAY_MS:1000}
   kafka:
     operation-consumer:
       enabled: ${CATALOG_OPERATION_CONSUMER_ENABLED:false}
+      topic-provisioning-enabled: ${CATALOG_OPERATION_TOPIC_PROVISIONING_ENABLED:true}
+      topic-partitions: ${CATALOG_OPERATION_TOPIC_PARTITIONS:12}
       max-poll-records: ${CATALOG_OPERATION_MAX_POLL_RECORDS:2000}
       max-poll-bytes: ${CATALOG_OPERATION_MAX_POLL_BYTES:16777216}
       slice-records: ${CATALOG_OPERATION_SLICE_RECORDS:2000}

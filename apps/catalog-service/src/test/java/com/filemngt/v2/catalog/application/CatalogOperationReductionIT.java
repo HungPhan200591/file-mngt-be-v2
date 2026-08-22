@@ -2,6 +2,7 @@ package com.filemngt.v2.catalog.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.filemngt.v2.catalog.application.operation.CatalogOperationSealStore;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationUnitStore;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
@@ -26,6 +27,7 @@ import org.testcontainers.utility.DockerImageName;
         properties = {
             "catalog.outbox.enabled=false",
             "catalog.operation.finalizer-enabled=false",
+            "catalog.operation.seal-enabled=false",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=false",
             "catalog.kafka.dlt-observer.enabled=false",
@@ -41,6 +43,9 @@ class CatalogOperationReductionIT {
 
     @Autowired
     CatalogOperationUnitStore units;
+
+    @Autowired
+    CatalogOperationSealStore seals;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -100,6 +105,7 @@ class CatalogOperationReductionIT {
                 events.size(), first.operationId(), first.scanRunId());
         stage.acceptWatermark(manifest);
         stage.acceptWatermark(manifest);
+        assertThat(seals.sealNext(16)).isPresent();
 
         assertThat(count("catalog_operation_work_subject")).isEqualTo(1);
         assertThat(count("catalog_operation_reconcile_unit")).isEqualTo(16);
@@ -109,6 +115,7 @@ class CatalogOperationReductionIT {
         MediaFileDiscoveredV2 first = events.getFirst();
         stage.acceptWatermark(CatalogOperationBenchmarkFixture.approvalCommittedWatermark(
                 events.size(), first.operationId(), first.scanRunId()));
+        assertThat(seals.sealNext(16)).isPresent();
     }
 
     private void drainUnits() {

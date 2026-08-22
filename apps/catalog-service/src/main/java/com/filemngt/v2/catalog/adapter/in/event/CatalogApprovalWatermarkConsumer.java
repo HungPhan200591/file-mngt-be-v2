@@ -26,12 +26,18 @@ public class CatalogApprovalWatermarkConsumer {
             autoStartup = "${catalog.kafka.operation-consumer.enabled:false}")
     public void consume(ConsumerRecord<String, String> record) {
         try (var ignored = KafkaTracingHeaderPropagation.extractAndSetMdc(record)) {
-            var watermark = json.readValue(record.value(), MediaApprovalWatermarkV1.class);
+            var watermark = parse(record);
             if (watermark.stageSequence() != 10 || !"APPROVAL_COMMITTED".equals(watermark.stage())) return;
             var trace = KafkaTracingHeaderPropagation.captureOutboxTraceContext();
             stage.acceptWatermark(watermark, trace.correlationId(), trace.traceparent());
+        }
+    }
+
+    private MediaApprovalWatermarkV1 parse(ConsumerRecord<String, String> record) {
+        try {
+            return json.readValue(record.value(), MediaApprovalWatermarkV1.class);
         } catch (Exception exception) {
-            throw new IllegalArgumentException("Could not process approval watermark", exception);
+            throw new CatalogInputContractException("Could not parse approval watermark", exception);
         }
     }
 }

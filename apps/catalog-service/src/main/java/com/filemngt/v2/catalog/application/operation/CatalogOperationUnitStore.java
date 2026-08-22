@@ -45,7 +45,8 @@ public class CatalogOperationUnitStore {
                     join catalog_approval_operation operation using (operation_id)
                     where operation.processing_version = 57
                       and operation.status = 'RECONCILING'
-                      and unit.status <> 'COMPLETED'
+                      and operation.deadline_at > ?
+                      and unit.status not in ('COMPLETED', 'BLOCKED')
                       and (unit.lease_until is null or unit.lease_until < ?)
                     order by operation.updated_at, unit.operation_id, unit.unit_id
                     for update of unit skip locked
@@ -65,6 +66,7 @@ public class CatalogOperationUnitStore {
                         result.getTimestamp("lease_until").toInstant(),
                         result.getLong("fence_token")),
                 Timestamp.from(now),
+                Timestamp.from(now),
                 owner,
                 Timestamp.from(leaseUntil),
                 Timestamp.from(now));
@@ -73,6 +75,12 @@ public class CatalogOperationUnitStore {
 
     @Transactional
     public int reconcile(CatalogOperationUnitClaim claim) {
+        jdbc.queryForObject("""
+                select operation_id from catalog_approval_operation
+                where operation_id = ? and status = 'RECONCILING'
+                  and processing_version = 57 and deadline_at > clock_timestamp()
+                for share
+                """, java.util.UUID.class, claim.operationId());
         jdbc.queryForObject(
                 "select set_config('statement_timeout', ?, true)", String.class, Long.toString(statementTimeoutMillis));
         Integer processed = jdbc.queryForObject(
@@ -84,16 +92,6 @@ public class CatalogOperationUnitStore {
                 claim.fenceToken(),
                 maximumSnapshotBytes);
         return processed == null ? 0 : processed;
-    }
-
-    @Transactional
-    public void release(CatalogOperationUnitClaim claim) {
-        jdbc.update("""
-                update catalog_operation_reconcile_unit
-                set status = 'PENDING', lease_owner = null, lease_until = null, last_heartbeat_at = now()
-                where operation_id = ? and unit_id = ? and lease_owner = ? and fence_token = ?
-                  and status = 'RUNNING'
-                """, claim.operationId(), claim.unitId(), claim.owner(), claim.fenceToken());
     }
 
     /** Chỉ emit final watermark sau khi mọi subject snapshot của operation đã broker-ack. */
@@ -117,7 +115,8 @@ public class CatalogOperationUnitStore {
                           where work.operation_id = operation.operation_id and work.changed = true)
                       and not exists (
                           select 1 from catalog_operation_reconcile_unit unit
-                          where unit.operation_id = operation.operation_id and unit.status <> 'COMPLETED')
+                          where unit.operation_id = operation.operation_id
+                            and unit.status not in ('COMPLETED', 'BLOCKED'))
                       and not exists (
                           select 1 from catalog_outbox_event snapshot
                           where snapshot.operation_id = operation.operation_id

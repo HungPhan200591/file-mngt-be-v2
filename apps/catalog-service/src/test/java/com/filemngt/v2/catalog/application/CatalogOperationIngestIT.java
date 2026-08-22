@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.filemngt.v2.catalog.application.operation.CatalogOperationLaneHash;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationSealStore;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import org.testcontainers.utility.DockerImageName;
         properties = {
             "catalog.outbox.enabled=false",
             "catalog.operation.finalizer-enabled=false",
+            "catalog.operation.seal-enabled=false",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=false",
             "catalog.kafka.dlt-observer.enabled=false",
@@ -40,6 +42,9 @@ class CatalogOperationIngestIT {
 
     @Autowired
     CatalogOperationStageStore stage;
+
+    @Autowired
+    CatalogOperationSealStore seals;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -89,6 +94,7 @@ class CatalogOperationIngestIT {
         var first = CatalogOperationBenchmarkFixture.discoveryEvent(0);
         stage.ingest(List.of(first), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 0L)));
         stage.acceptWatermark(CatalogOperationBenchmarkFixture.approvalCommittedWatermark(1));
+        assertThat(seals.sealNext(16)).isPresent();
 
         int inserted = stage.ingest(
                 List.of(CatalogOperationBenchmarkFixture.discoveryEvent(1)),

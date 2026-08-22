@@ -53,8 +53,12 @@ For `IMAGE`, `GIF` or `null` role events, Catalog ignores `tagNames` for primary
 ## Compatibility and failure
 
 - v2 là contract runtime duy nhất của SC-01 sau khi reset dữ liệu/E2E; event type khác v2 bị reject và đưa vào DLT.
-- Delivery is at-least-once. Kafka retry is two retries after one second; unrecoverable records go to
-  `<source-topic>.DLT`; SC-01 observer theo dõi `media.file.discovered.v2.DLT`.
+- Delivery is at-least-once. Payload/contract không hợp lệ là non-retryable và đi thẳng DLT. Lỗi database/broker
+  tạm thời retry tối đa ba lần với exponential backoff `250ms → 500ms → 1s`, jitter `±100ms` và trần `2s`.
+- `media.file.discovered.v2.DLT` được provision cùng số partition với source topic; recoverer giữ nguyên source
+  partition. Nếu publish DLT lỗi, handler không commit source offset mà reseek để recovery có thể chạy lại.
+- SC-01 observer theo dõi `media.file.discovered.v2.DLT`; poison record có `operationId` chuyển operation sang
+  `BLOCKED/CATALOG_INPUT_DLT`.
 - V2 là runtime target duy nhất của study environment; BT-09B/BT-09D thay thẳng producer/consumer và có thể
   reset local topic/data, không duy trì payload cũ thiếu operation metadata.
 - Correlation/trace context is carried in Kafka headers, not JSON. Unknown event versions fail and are retained

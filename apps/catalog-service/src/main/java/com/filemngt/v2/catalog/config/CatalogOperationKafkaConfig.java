@@ -24,6 +24,8 @@ public class CatalogOperationKafkaConfig {
         factory.setConcurrency(concurrency);
         factory.setCommonErrorHandler(catalogKafkaErrorHandler);
         factory.getContainerProperties().setAckMode(AckMode.BATCH);
+        factory.getContainerProperties().setMicrometerEnabled(false);
+        factory.getContainerProperties().setObservationEnabled(true);
         return factory;
     }
 }

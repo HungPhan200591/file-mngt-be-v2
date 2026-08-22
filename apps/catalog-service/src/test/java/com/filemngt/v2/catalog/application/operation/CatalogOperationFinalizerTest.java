@@ -1,6 +1,7 @@
 package com.filemngt.v2.catalog.application.operation;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -16,22 +17,26 @@ import org.springframework.dao.QueryTimeoutException;
 
 class CatalogOperationFinalizerTest {
     @Test
-    void releasesUnitImmediatelyWhenReconciliationTimesOut() {
+    void schedulesBoundedRetryWhenReconciliationTimesOut() {
         CatalogOperationUnitStore units = mock(CatalogOperationUnitStore.class);
         CatalogOperationFailureStore failures = mock(CatalogOperationFailureStore.class);
         CatalogOutboxPressureGate pressureGate = mock(CatalogOutboxPressureGate.class);
         CatalogOperationFinalizerTelemetry telemetry = mock(CatalogOperationFinalizerTelemetry.class);
+        CatalogOperationReliabilityMetrics reliabilityMetrics = mock(CatalogOperationReliabilityMetrics.class);
         CatalogOperationUnitClaim claim = claim();
-        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry);
+        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry, reliabilityMetrics);
 
         when(pressureGate.isPaused()).thenReturn(false);
         when(units.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
         when(units.reconcile(claim)).thenThrow(new QueryTimeoutException("statement timeout"));
+        when(failures.recordRetryOrBlock(claim, QueryTimeoutException.class.getName(), "statement timeout", 3))
+                .thenReturn(CatalogOperationFailureStore.FailureDisposition.RETRY_SCHEDULED);
 
         try {
             finalizer.finalizeReady();
 
-            verify(units).release(claim);
+            verify(failures).recordRetryOrBlock(claim, QueryTimeoutException.class.getName(), "statement timeout", 3);
+            verify(reliabilityMetrics).recordRetry("reconcile-unit");
             verify(units).beginCommittingEligibleOperations();
         } finally {
             finalizer.close();
@@ -44,8 +49,9 @@ class CatalogOperationFinalizerTest {
         CatalogOperationFailureStore failures = mock(CatalogOperationFailureStore.class);
         CatalogOutboxPressureGate pressureGate = mock(CatalogOutboxPressureGate.class);
         CatalogOperationFinalizerTelemetry telemetry = mock(CatalogOperationFinalizerTelemetry.class);
+        CatalogOperationReliabilityMetrics reliabilityMetrics = mock(CatalogOperationReliabilityMetrics.class);
         CatalogOperationUnitClaim claim = claim();
-        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry);
+        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry, reliabilityMetrics);
 
         when(pressureGate.isPaused()).thenReturn(false);
         when(units.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
@@ -55,7 +61,7 @@ class CatalogOperationFinalizerTest {
             finalizer.finalizeReady();
 
             verify(failures).blockSnapshotTooLarge(claim);
-            verify(units, never()).release(claim);
+            verify(failures, never()).recordRetryOrBlock(any(), anyString(), anyString(), anyInt());
         } finally {
             finalizer.close();
         }
@@ -67,8 +73,9 @@ class CatalogOperationFinalizerTest {
         CatalogOperationFailureStore failures = mock(CatalogOperationFailureStore.class);
         CatalogOutboxPressureGate pressureGate = mock(CatalogOutboxPressureGate.class);
         CatalogOperationFinalizerTelemetry telemetry = mock(CatalogOperationFinalizerTelemetry.class);
+        CatalogOperationReliabilityMetrics reliabilityMetrics = mock(CatalogOperationReliabilityMetrics.class);
         CatalogOperationUnitClaim claim = claim();
-        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry);
+        CatalogOperationFinalizer finalizer = finalizer(units, failures, pressureGate, telemetry, reliabilityMetrics);
 
         when(pressureGate.isPaused()).thenReturn(false);
         when(units.acquire(anyString(), any(), any())).thenReturn(Optional.of(claim));
@@ -89,8 +96,10 @@ class CatalogOperationFinalizerTest {
             CatalogOperationUnitStore units,
             CatalogOperationFailureStore failures,
             CatalogOutboxPressureGate pressureGate,
-            CatalogOperationFinalizerTelemetry telemetry) {
-        return new CatalogOperationFinalizer(units, failures, pressureGate, telemetry, "test-finalizer", 1, 30);
+            CatalogOperationFinalizerTelemetry telemetry,
+            CatalogOperationReliabilityMetrics reliabilityMetrics) {
+        var settings = new CatalogOperationFinalizerSettings("test-finalizer", 1, 30, 3);
+        return new CatalogOperationFinalizer(units, failures, pressureGate, telemetry, reliabilityMetrics, settings);
     }
 
     private static CatalogOperationUnitClaim claim() {

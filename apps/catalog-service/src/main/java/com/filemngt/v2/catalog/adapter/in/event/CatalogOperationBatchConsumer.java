@@ -74,7 +74,8 @@ public class CatalogOperationBatchConsumer {
         } catch (RuntimeException exception) {
             batch.flush();
             LOGGER.debug("Catalog operation durable prefix inserted={} failedIndex={}", batch.inserted, index);
-            throw new BatchListenerFailedException("Invalid catalog operation record", exception, record);
+            throw new BatchListenerFailedException(
+                    "Invalid catalog operation record", asContractFailure(exception), record);
         }
         if (event.operationId() == null) {
             batch.flush();
@@ -90,7 +91,7 @@ public class CatalogOperationBatchConsumer {
                 || event.region() == null
                 || event.subjectType() == null
                 || event.identityKey() == null) {
-            throw new IllegalArgumentException("operation discovery required fields are missing");
+            throw new CatalogInputContractException("operation discovery required fields are missing");
         }
         Region.valueOf(event.region());
         SubjectType.valueOf(event.subjectType());
@@ -99,7 +100,7 @@ public class CatalogOperationBatchConsumer {
 
     private void validateOperationMetadata(MediaFileDiscoveredV2 event) {
         if (event.batchId() == null || event.batchId().isBlank() || event.scanRunId() == null) {
-            throw new IllegalArgumentException("operation discovery metadata is missing");
+            throw new CatalogInputContractException("operation discovery metadata is missing");
         }
     }
 
@@ -112,12 +113,18 @@ public class CatalogOperationBatchConsumer {
         try {
             var eventType = json.readTree(record.value()).path("eventType").asText(null);
             if (!"media.file.discovered.v2".equals(eventType)) {
-                throw new IllegalArgumentException("Unsupported media discovery eventType: " + eventType);
+                throw new CatalogInputContractException("Unsupported media discovery eventType: " + eventType);
             }
             return json.readValue(record.value(), MediaFileDiscoveredV2.class);
         } catch (Exception exception) {
-            throw new IllegalArgumentException("Could not parse catalog operation record", exception);
+            if (exception instanceof CatalogInputContractException contractFailure) throw contractFailure;
+            throw new CatalogInputContractException("Could not parse catalog operation record", exception);
         }
+    }
+
+    private CatalogInputContractException asContractFailure(RuntimeException exception) {
+        if (exception instanceof CatalogInputContractException contractFailure) return contractFailure;
+        return new CatalogInputContractException("Catalog operation input violates its contract", exception);
     }
 
     private final class BatchAccumulator {

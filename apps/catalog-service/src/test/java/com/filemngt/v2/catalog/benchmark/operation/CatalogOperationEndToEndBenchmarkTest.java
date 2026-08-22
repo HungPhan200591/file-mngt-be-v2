@@ -57,6 +57,7 @@ import tools.jackson.databind.ObjectMapper;
             "catalog.operation.finalizer-delay-ms=1",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=true",
+            "catalog.kafka.operation-consumer.topic-provisioning-enabled=false",
             "catalog.kafka.operation-consumer.concurrency=4",
             "catalog.kafka.operation-consumer.max-poll-records=2000",
             "catalog.kafka.operation-consumer.slice-records=2000",

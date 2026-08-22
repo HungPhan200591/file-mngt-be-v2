@@ -13,6 +13,11 @@ class CatalogOperationEndToEndBenchmarkTopicConfiguration {
     }
 
     @Bean
+    NewTopic mediaFileDiscoveredDltTopic() {
+        return topic("media.file.discovered.v2.DLT", 4);
+    }
+
+    @Bean
     NewTopic mediaApprovalWatermarkTopic() {
         return topic("media.approval.watermark.v1", 1);
     }

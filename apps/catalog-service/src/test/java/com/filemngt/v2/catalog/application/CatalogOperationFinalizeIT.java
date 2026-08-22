@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.filemngt.v2.catalog.application.operation.CatalogOperationFailureStore;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationSealStore;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationUnitClaim;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationUnitStore;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
@@ -32,6 +33,7 @@ import org.testcontainers.utility.DockerImageName;
         properties = {
             "catalog.outbox.enabled=false",
             "catalog.operation.finalizer-enabled=false",
+            "catalog.operation.seal-enabled=false",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=false",
             "catalog.kafka.dlt-observer.enabled=false",
@@ -50,6 +52,9 @@ class CatalogOperationFinalizeIT {
 
     @Autowired
     CatalogOperationFailureStore failures;
+
+    @Autowired
+    CatalogOperationSealStore seals;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -225,6 +230,7 @@ class CatalogOperationFinalizeIT {
         var first = events.getFirst();
         stage.acceptWatermark(CatalogOperationBenchmarkFixture.approvalCommittedWatermark(
                 events.size(), first.operationId(), first.scanRunId()));
+        assertThat(seals.sealNext(16)).isPresent();
     }
 
     private void drain() {

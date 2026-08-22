@@ -64,6 +64,7 @@ phase SLI-03C, không phải tuyên bố toàn pipeline đạt 30–40K/s.
 
 ## Route đọc tiếp
 
+- Deep-Dive chi tiết dòng chảy & tối ưu Catalog Service: [01-catalog-coalescing-and-reconciliation-deep-dive.md](../../../../deep-dive/catalog-service/01-catalog-coalescing-and-reconciliation-deep-dive.md).
 - Kiến trúc As-Is/To-Be và trade-off: [FT-057 Design](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/02-design.md).
 - File/symbol, verify và rollback: [FT-057 Plan](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md).
 - SLO/boundary chính thức: [SC-01 performance SLO](../07-performance-slo-and-benchmarks.md).

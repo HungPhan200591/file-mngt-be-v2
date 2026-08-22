@@ -60,6 +60,7 @@ import tools.jackson.databind.ObjectMapper;
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=true",
             "catalog.kafka.operation-consumer.concurrency=8",
+            "catalog.kafka.operation-consumer.topic-partitions=8",
             "catalog.kafka.operation-consumer.max-poll-records=5000",
             "catalog.kafka.operation-consumer.slice-records=5000",
             "spring.kafka.consumer.properties.max.poll.records=5000",

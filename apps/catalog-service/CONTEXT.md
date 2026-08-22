@@ -22,7 +22,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   input records/s chỉ là stretch capacity result, không chặn release.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
-  `media.subject.changed.v2` phát final full snapshot theo operation cho Query; implementation FT-057 còn pending.
+  `media.subject.changed.v2` phát final full snapshot theo operation cho Query. FT-057 data plane và FT-058
+  reliability source đã implement; build/IT/benchmark FT-058 còn pending.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.
@@ -35,6 +36,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Subject identity dùng key chuẩn hóa theo region/kind.
 - Khi feature có business event, mọi thay đổi publish qua transactional outbox.
 - Consumer Kafka idempotent; không ghi projection Query trực tiếp.
+- Operation ingest không seal trong transaction ghi stage. Seal coordinator chỉ claim committed progress bằng
+  `FOR UPDATE SKIP LOCKED`; operation có total deadline 120 giây và retry unit tối đa ba failure có fence.
 - Outbox publisher của Catalog và Scan dùng bounded lease claim, publish ngoài transaction và conditional
   update; DLT observer theo dõi `media.file.discovered.v2.DLT`.
 - Mọi thay đổi asset phải làm aggregate subject tiến version trước khi enqueue outbox; không được tái sử dụng

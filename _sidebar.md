@@ -9,6 +9,9 @@
     * [Learning hub — Senior Java / Microservices](/manual/learning/README.md)
     * [📖 Từ vựng Nghiệp vụ & Kỹ thuật Dự án (Technical & Domain Glossary)](/manual/learning/technical-glossary.md)
     * **deep-dive**
+      * **catalog-service**
+        * [🧭 Deep-Dive: Toàn Cảnh Dòng Chảy Dự Án & Tiến Trình Tối Ưu Hóa Catalog Service 1.000.000 Records](/manual/learning/deep-dive/catalog-service/01-catalog-coalescing-and-reconciliation-deep-dive.md)
+        * [📦 Catalog Service Deep-Dive & Architecture Hub](/manual/learning/deep-dive/catalog-service/README.md)
       * **cqrs-read-projection**
         * [📖 CQRS Lite & Eventual Consistency Overview](/manual/learning/deep-dive/cqrs-read-projection/00-overview.md)
         * [⚡ Dual-Store Search: Fast Hit & Hydration Pattern](/manual/learning/deep-dive/cqrs-read-projection/01-elasticsearch-redis-hydration.md)
@@ -33,6 +36,11 @@
         * [🧠 Java Concurrency: The Ultimate Mental Model & Architectural Guide](/manual/learning/deep-dive/java-concurrency/00-overview-mental-model.md)
         * [🔒 Java Locks Deep-Dive: From `synchronized` to `StampedLock` & Modern Concurrency](/manual/learning/deep-dive/java-concurrency/01-java-locks-deep-dive.md)
         * [🏛️ Distributed Locks: PostgreSQL-backed Lease vs. Redis Redlock & The Great Debate](/manual/learning/deep-dive/java-concurrency/02-distributed-locks-redis-vs-db-lease.md)
+        * [🧵 ThreadLocal vs ScopedValue: Truyền Context Trong Kỷ Nguyên Virtual Threads](/manual/learning/deep-dive/java-concurrency/03-threadlocal-vs-scoped-value.md)
+        * [🚨 "Framework Lo Hết Rồi, Cần Gì Quan Tâm ThreadLocal?": 4 Cú Tát Thực Tế & Lời Giải ScopedValue](/manual/learning/deep-dive/java-concurrency/04-why-threadlocal-matters-spring-reality-check.md)
+        * [🗺️ Phân Tầng Concurrency & Connection Pool: Từ Ứng Dụng Java Đến Database](/manual/learning/deep-dive/java-concurrency/05-concurrency-landscape-app-vs-db-layer-demystified.md)
+        * **assets**
+          * [📜 BÍ KÍP VÕ HỌC: QUY ĐỔI JAVA CONCURRENCY SANG KIẾM HIỆP](/manual/learning/deep-dive/java-concurrency/assets/concurrency-wuxia-mapping-guide.md)
       * **media-asset-management-architecture**
         * [Deep-Dive: Bối cảnh Nghiệp vụ Thực tế & Kinh tế học Phần cứng trong Hệ thống Media Ingestion](/manual/learning/deep-dive/media-asset-management-architecture/01-business-context-and-hardware-economics.md)
         * [Deep-Dive: Giới hạn Vật lý Phần cứng & Cơ sở Thiết lập SLO cho 1 Triệu Bản Ghi](/manual/learning/deep-dive/media-asset-management-architecture/02-performance-slo-and-hardware-benchmarks.md)
@@ -62,6 +70,7 @@
         * [💡 Scan Service: Technical Assessment & Improvement Ideas](/manual/learning/deep-dive/scan-service/03-improvements-and-ideas.md)
         * [⚡ Kafka Integration Deep-Dive trong Scan Service](/manual/learning/deep-dive/scan-service/04-kafka-integration-deep-dive.md)
         * [⚡ Deep-Dive Kiến trúc Outbox Relay: FT-053 (Lane-Fenced) vs FT-052 (JPA Per-Event Lease)](/manual/learning/deep-dive/scan-service/05-ft053-lane-fenced-outbox-vs-ft052-deep-dive.md)
+        * [🧭 Deep-Dive: Toàn cảnh Kiến trúc & Data Pipeline Scan Preview 1.000.000 Files (< 30s)](/manual/learning/deep-dive/scan-service/06-deep-dive-scan-preview-pipeline-under-30s.md)
       * **transactional-outbox**
         * [📦 Transactional Outbox Pattern: Overview & Fundamentals](/manual/learning/deep-dive/transactional-outbox/00-overview.md)
         * [🏗️ Outbox Architecture & Implementation Details](/manual/learning/deep-dive/transactional-outbox/01-architecture-implementation.md)
@@ -109,14 +118,13 @@
           * **question-bank**
             * [SC-01 — Question chain phỏng vấn](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/question-bank/01-question-chain.md)
           * **references**
-            * [🧭 Deep-Dive: Toàn cảnh Kiến trúc & Data Pipeline Scan Preview 1.000.000 Files (< 30s)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/deep-dive-scan-preview-pipeline-under-30s.md)
             * [Giải thích chi tiết: Master Pipeline Map toàn cảnh 7 lát cắt của BT-09](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/explain-bt09-master-pipeline-map.md)
             * [Giải thích chi tiết BT-09A: Cơ chế Watermark, Completion Barrier & Cache Generation](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/explain-bt09a-watermark-and-completion-barrier.md)
             * [📊 Giải thích chi tiết: Tại sao chọn Chunk Size 25.000 cho BT-09B? (Trade-off & Mathematical Proof)](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/explain-bt09b-chunk-size-tradeoff-and-benchmark.md)
             * [BT-09A capsule — Operation contract & watermark](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09a-watermark-and-contract.md)
             * [Reference Capsule: BT-09B — Scan Decision & Outbox Chunking](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09b-scan-decision-chunking.md)
             * [Reference Capsule: BT-09C — Outbox Continuous Drain](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09c-outbox-continuous-drain.md)
-            * [Reference Capsule: BT-09D — Catalog Batch Coalescing](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md)
+            * [Reference Capsule: BT-09D — Catalog Bulk Reconciliation](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md)
             * [Reference Capsule: BT-09E — Query Bulk Projection & Cache Generation](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09e-query-bulk-projection.md)
             * [Reference Capsule: BT-09F — Failure Isolation & DLT Replay](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09f-dlt-and-replay-runbook.md)
             * [Reference Capsule: BT-09G — Capacity Model & Benchmarking](/manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09g-capacity-and-benchmarking.md)
@@ -472,6 +480,27 @@
       * [FT-053 — Lane-Fenced Outbox Data Plane](/docs/features/053-lane-fenced-outbox-data-plane/01-brief.md)
       * [FT-053 — Lane-Fenced Outbox Data Plane — Design](/docs/features/053-lane-fenced-outbox-data-plane/02-design.md)
       * [FT-053 — Lane-Fenced Outbox Data Plane — Plan](/docs/features/053-lane-fenced-outbox-data-plane/03-plan.md)
+    * **054-catalog-operation-coalescing**
+      * [FT-054 — Operation-Scoped Catalog Coalescing](/docs/features/054-catalog-operation-coalescing/01-brief.md)
+      * [FT-054 — Operation-Scoped Catalog Coalescing — Design](/docs/features/054-catalog-operation-coalescing/02-design.md)
+      * [FT-054 — Operation-Scoped Catalog Coalescing — Plan](/docs/features/054-catalog-operation-coalescing/03-plan.md)
+      * [FT-054 — Operation Coalescing Runbook](/docs/features/054-catalog-operation-coalescing/04-runbook.md)
+    * **055-catalog-typed-ingest**
+      * [FT-055 — BT-09D1 Catalog Typed Fast Ingest](/docs/features/055-catalog-typed-ingest/01-brief.md)
+      * [FT-055 — BT-09D1 Catalog Typed Fast Ingest — Design](/docs/features/055-catalog-typed-ingest/02-design.md)
+      * [FT-055 — BT-09D1 Catalog Typed Fast Ingest — Plan](/docs/features/055-catalog-typed-ingest/03-plan.md)
+    * **056-catalog-set-based-cte-merge**
+      * [FT-056 — BT-09D2 Catalog Set-Based CTE Merge](/docs/features/056-catalog-set-based-cte-merge/01-brief.md)
+      * [FT-056 — BT-09D2 Catalog Set-Based CTE Merge — Design](/docs/features/056-catalog-set-based-cte-merge/02-design.md)
+      * [FT-056 — BT-09D2 Catalog Set-Based CTE Merge — Plan](/docs/features/056-catalog-set-based-cte-merge/03-plan.md)
+    * **057-catalog-bulk-reconciliation-data-plane**
+      * [FT-057 — Catalog Bulk Reconciliation Data Plane](/docs/features/057-catalog-bulk-reconciliation-data-plane/01-brief.md)
+      * [FT-057 — Catalog Bulk Reconciliation Data Plane — Design](/docs/features/057-catalog-bulk-reconciliation-data-plane/02-design.md)
+      * [FT-057 — Catalog Bulk Reconciliation Data Plane — Plan](/docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md)
+    * **058-catalog-operation-reliability-hardening**
+      * [FT-058 — Catalog Operation Reliability Hardening](/docs/features/058-catalog-operation-reliability-hardening/01-brief.md)
+      * [FT-058 — Catalog Operation Reliability Hardening — Design](/docs/features/058-catalog-operation-reliability-hardening/02-design.md)
+      * [FT-058 — Catalog Operation Reliability Hardening — Plan](/docs/features/058-catalog-operation-reliability-hardening/03-plan.md)
   * **reviews**
     * [Backend V2 — Review chất lượng, kiến trúc và Production Readiness](/docs/reviews/2026-08-12-backend-quality-architecture-production-readiness.md)
     * [Đánh giá throughput approve bulk — 5.000 records calibration cho SC-01](/docs/reviews/2026-08-13-approve-5000-query-performance-assessment.md)

@@ -1,6 +1,6 @@
 # FT-058 — Catalog Operation Reliability Hardening — Plan
 
-Status: `READY`
+Status: `IMPLEMENTED — verification pending`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -86,5 +86,5 @@ Design: [02-design.md](./02-design.md)
 ## Verification status
 
 - Plan/design review: `READY`.
-- Implementation: chưa bắt đầu.
-- Build/test/migration/benchmark: chưa chạy trong task lập Plan này.
+- Implementation mục 1–4: hoàn tất source, migration V24, Kafka/DLT topology, deadline/retry và test matrix.
+- Build/test/migration/benchmark: chưa chạy sau implementation này.

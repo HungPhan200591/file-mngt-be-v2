@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -27,9 +26,11 @@ public class CatalogOperationFinalizer {
     private final CatalogOperationFailureStore failures;
     private final CatalogOutboxPressureGate pressureGate;
     private final CatalogOperationFinalizerTelemetry telemetry;
+    private final CatalogOperationReliabilityMetrics reliabilityMetrics;
     private final String owner;
     private final int workerCount;
     private final long leaseSeconds;
+    private final int maximumAttempts;
     private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
     private final AtomicBoolean accepting = new AtomicBoolean(true);
 
@@ -39,16 +40,17 @@ public class CatalogOperationFinalizer {
             CatalogOperationFailureStore failures,
             CatalogOutboxPressureGate pressureGate,
             CatalogOperationFinalizerTelemetry telemetry,
-            @Value("${catalog.operation.instance-id:${HOSTNAME:catalog-finalizer}}") String owner,
-            @Value("${catalog.operation.worker-count:4}") int workerCount,
-            @Value("${catalog.operation.lease-seconds:30}") long leaseSeconds) {
+            CatalogOperationReliabilityMetrics reliabilityMetrics,
+            CatalogOperationFinalizerSettings settings) {
         this.units = units;
         this.failures = failures;
         this.pressureGate = pressureGate;
         this.telemetry = telemetry;
-        this.owner = owner;
-        this.workerCount = positive(workerCount, "worker-count");
-        this.leaseSeconds = positive(leaseSeconds, "lease-seconds");
+        this.reliabilityMetrics = reliabilityMetrics;
+        this.owner = settings.owner();
+        this.workerCount = settings.workerCount();
+        this.leaseSeconds = settings.leaseSeconds();
+        this.maximumAttempts = settings.maximumAttempts();
     }
 
     @Scheduled(fixedDelayString = "${catalog.operation.finalizer-delay-ms:10}")
@@ -61,7 +63,9 @@ public class CatalogOperationFinalizer {
         int processed = tasks.stream().mapToInt(CompletableFuture::join).sum();
         long completionStarted = System.nanoTime();
         int committing = units.beginCommittingEligibleOperations();
-        telemetry.recordCompleteOperation(System.nanoTime() - completionStarted);
+        long completionNanos = System.nanoTime() - completionStarted;
+        telemetry.recordCompleteOperation(completionNanos);
+        reliabilityMetrics.recordPhase("commit-gate", completionNanos);
         if (processed > 0 || committing > 0) {
             LOGGER.debug(
                     "Catalog operation finalizer processedSubjects={} committingOperations={}", processed, committing);
@@ -82,12 +86,15 @@ public class CatalogOperationFinalizer {
         if (claimed.isEmpty()) return 0;
 
         CatalogOperationUnitClaim unit = claimed.get();
+        long reconcileStarted = System.nanoTime();
         try {
-            long reconcileStarted = System.nanoTime();
             int processed = units.reconcile(unit);
-            telemetry.recordUnit(processed, System.nanoTime() - reconcileStarted);
+            long reconcileNanos = System.nanoTime() - reconcileStarted;
+            telemetry.recordUnit(processed, reconcileNanos);
+            reliabilityMetrics.recordPhase("reconcile", reconcileNanos);
             return processed;
         } catch (RuntimeException exception) {
+            reliabilityMetrics.recordPhase("reconcile", System.nanoTime() - reconcileStarted);
             if (isSnapshotTooLarge(exception)) {
                 failures.blockSnapshotTooLarge(unit);
                 LOGGER.warn(
@@ -95,28 +102,25 @@ public class CatalogOperationFinalizer {
                         unit.operationId(),
                         unit.unitId());
             } else {
-                releaseAfterFailure(unit);
-                LOGGER.warn(
-                        "Catalog operation finalizer retryable failure operationId={} unit={} errorType={} causeType={}",
-                        unit.operationId(),
-                        unit.unitId(),
-                        exception.getClass().getSimpleName(),
-                        causeType(exception));
+                handleRetryableFailure(unit, exception);
             }
             return 0;
         }
     }
 
-    private void releaseAfterFailure(CatalogOperationUnitClaim unit) {
-        try {
-            units.release(unit);
-        } catch (RuntimeException releaseFailure) {
-            LOGGER.warn(
-                    "Catalog operation finalizer could not release failed unit operationId={} unit={} errorType={}",
-                    unit.operationId(),
-                    unit.unitId(),
-                    releaseFailure.getClass().getSimpleName());
+    private void handleRetryableFailure(CatalogOperationUnitClaim unit, RuntimeException exception) {
+        var disposition = failures.recordRetryOrBlock(
+                unit, exception.getClass().getName(), exception.getMessage(), maximumAttempts);
+        if (disposition == CatalogOperationFailureStore.FailureDisposition.RETRY_SCHEDULED) {
+            reliabilityMetrics.recordRetry("reconcile-unit");
         }
+        LOGGER.warn(
+                "Catalog operation finalizer failure operationId={} unit={} disposition={} errorType={} causeType={}",
+                unit.operationId(),
+                unit.unitId(),
+                disposition,
+                exception.getClass().getSimpleName(),
+                causeType(exception));
     }
 
     private static boolean isSnapshotTooLarge(Throwable failure) {
@@ -130,15 +134,5 @@ public class CatalogOperationFinalizer {
     private static String causeType(Throwable exception) {
         Throwable cause = exception.getCause();
         return cause == null ? "none" : cause.getClass().getSimpleName();
-    }
-
-    private static int positive(int value, String property) {
-        if (value < 1) throw new IllegalArgumentException("catalog.operation." + property + " must be positive");
-        return value;
-    }
-
-    private static long positive(long value, String property) {
-        if (value < 1) throw new IllegalArgumentException("catalog.operation." + property + " must be positive");
-        return value;
     }
 }

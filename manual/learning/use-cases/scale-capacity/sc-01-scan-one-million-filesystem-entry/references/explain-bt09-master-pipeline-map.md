@@ -88,15 +88,30 @@ flowchart TD
 ```
 
 ---
+    style W_CAT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style K2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style Q_CONS fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style Q_DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style Q_CACHE fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style BARRIER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style W_READY fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style Q_ES fill:#455A64,stroke:#fff,stroke-width:2px,color:#fff
+    style DLT fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style BLOCKED fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style REPLAY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style LADDER fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+---
 
 ## 2. Ý nghĩa kỹ thuật của từng lát cắt
 
 | Lát cắt | Service sở hữu | Trách nhiệm kỹ thuật cốt lõi |
 | :--- | :--- | :--- |
 | **`BT-09A`** | Cross-service | Thiết kế khung Hợp đồng & Watermarks (cấp vé `[1] ACCEPTED`, chốt 5 mốc). |
-| **`BT-09B`** | `scan-service` | Ghi decision + outbox atomic theo bounded chunks 25.000 items $\to$ `[2] APPROVAL_COMMITTED`. |
-| **`BT-09C`** | `scan-service` Relay | Continuous Drain Relay xả liên tục lên Kafka với in-flight buffer 2.000 messages. |
-| **`BT-09D`** | `catalog-service` | Append-only ingest, one-time bulk reduction, canonical/outbox và indexed sliding relay; gate 30K/s, stretch 40K/s $\to$ `[3] CATALOG_COMMITTED`. |
+| **`BT-09B`** | `scan-service` | Ghi decision + outbox atomic theo bounded chunks 25.000 items $\to$ `[2] APPROVAL_COMMITTED` ([Deep-Dive Scan](../../../../deep-dive/scan-service/06-deep-dive-scan-preview-pipeline-under-30s.md)). |
+| **`BT-09C`** | `scan-service` Relay | Continuous Drain Relay xả liên tục lên Kafka với in-flight buffer 2.000 messages ([Deep-Dive Outbox](../../../../deep-dive/scan-service/05-ft053-lane-fenced-outbox-vs-ft052-deep-dive.md)). |
+| **`BT-09D`** | `catalog-service` | Append-only ingest, one-time bulk reduction, canonical/outbox và indexed sliding relay; gate 30K/s, stretch 40K/s $\to$ `[3] CATALOG_COMMITTED` ([Deep-Dive Catalog](../../../../deep-dive/catalog-service/01-catalog-coalescing-and-reconciliation-deep-dive.md)). |
 | **`BT-09E`** | `query-service` | Bulk Projection (COPY/Upsert), Equality Gate $\to$ `[4] QUERY_DB_READY` & `[5] SEARCH_READY`. |
 | **`BT-09F`** | Toàn hệ thống | Cô lập Poison pill sang DLT, chuyển `BLOCKED` để bảo vệ data, Runbook replay. |
 | **`BT-09G`** | Hạ tầng & Benchmark | Chạy tải thực nghiệm 1K $\to$ 1M; Catalog SLI-03C 30–40K/s và end-to-end SLI-03 P95 60 giây. |

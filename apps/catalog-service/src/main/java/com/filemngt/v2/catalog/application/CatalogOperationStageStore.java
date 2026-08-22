@@ -23,23 +23,16 @@ public class CatalogOperationStageStore {
     private final ObjectMapper json;
     private final CatalogOperationIngestStore ingestStore;
     private final CatalogOperationDltGateStore dltGate;
-    private final int reconcileUnitCount;
 
     public CatalogOperationStageStore(
             JdbcTemplate jdbc,
             ObjectMapper json,
             CatalogOperationIngestStore ingestStore,
-            CatalogOperationDltGateStore dltGate,
-            @org.springframework.beans.factory.annotation.Value("${catalog.operation.reconcile-unit-count:16}")
-                    int reconcileUnitCount) {
+            CatalogOperationDltGateStore dltGate) {
         this.jdbc = jdbc;
         this.json = json;
         this.ingestStore = ingestStore;
         this.dltGate = dltGate;
-        if (reconcileUnitCount < 8 || reconcileUnitCount > 64) {
-            throw new IllegalArgumentException("catalog.operation.reconcile-unit-count must be between 8 and 64");
-        }
-        this.reconcileUnitCount = reconcileUnitCount;
     }
 
     @Transactional
@@ -87,9 +80,7 @@ public class CatalogOperationStageStore {
         }
         long mappingNanos = System.nanoTime() - mappingStarted;
         operationScanRuns.forEach(this::ensureOperation);
-        int inserted = ingestStore.ingest(input, mappingNanos);
-        operationScanRuns.keySet().forEach(this::evaluateGate);
-        return inserted;
+        return ingestStore.ingest(input, mappingNanos);
     }
 
     @Transactional
@@ -135,7 +126,6 @@ public class CatalogOperationStageStore {
                         : java.sql.Timestamp.from(Instant.now()));
         if (accepted == 0) rejectConflictingManifest(watermark);
         dltGate.synchronize(watermark.operationId());
-        if ("APPROVAL_COMMITTED".equals(watermark.stage())) evaluateGate(watermark.operationId());
     }
 
     private void ensureOperation(UUID operationId, UUID scanRunId) {
@@ -143,10 +133,6 @@ public class CatalogOperationStageStore {
                 insert into catalog_approval_operation(operation_id, scan_run_id, processing_version) values (?, ?, 57)
                 on conflict (operation_id) do nothing
                 """, operationId, scanRunId);
-    }
-
-    private void evaluateGate(UUID operationId) {
-        jdbc.queryForObject("select catalog_seal_operation(?, ?)", Boolean.class, operationId, reconcileUnitCount);
     }
 
     private void rejectConflictingManifest(MediaApprovalWatermarkV1 watermark) {
