@@ -1,6 +1,6 @@
 # FT-056 — Set-Based CTE Merge
 
-Status: `V20/V21 FAILED — V22 recovery plan READY`
+Status: `V20/V21 FAILED — V22 IMPLEMENTED, qualification pending`
 
 Test: [`CatalogOperationMergeBenchmarkTest.java`](../operation/CatalogOperationMergeBenchmarkTest.java)
 
@@ -53,6 +53,8 @@ User report 2026-08-22: calibration chậm hơn V19 và qualification 1M vẫn t
 ### Candidate V22 typed reduction + direct merge
 
 Plan: [FT-056 V22](../../../../../../../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md).
+Implementation có V22 logged reduction schema/rebuild và V22.1 direct finalizer; chưa chạy Flyway,
+Testcontainers hoặc benchmark nên bảng không có số V22.
 Recovery gate là ba measured run 1M đều `< 60 s`; nếu duy trì reduction trong ingest thì combined D1+D2 cũng
 phải `< 60 s`. Gate lịch sử D2 `<= 5 s` vẫn là stretch target, chưa tuyên bố.
 

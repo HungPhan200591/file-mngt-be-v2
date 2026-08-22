@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.filemngt.v2.catalog.application.CatalogOperationStageStore;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationFinalizerTelemetry;
+import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Đo {@code catalog_finalize_operation_page} (FT-056 nested-loop merge) trên finalizer Spring thật.
+ * Đo {@code catalog_finalize_operation_page} V22 typed-reduction trên finalizer Spring thật.
  * Seed ingest không nằm trong đồng hồ; {@code mergeMs} bắt đầu lúc {@code acceptWatermark}
  * tới workset {@code COMPLETED}. Không đợi {@code CATALOG_COMMITTED}, không enforce gate D2.
  */
@@ -59,6 +60,7 @@ class CatalogOperationMergeBenchmarkTest {
     private static final int PAGE_SIZE = 500;
     private static final int SEED_SLICE = 5_000;
     private static final int CALIBRATION_SUBJECTS = 2_500;
+    private static final int SCALE_CHECK_SUBJECTS = 25_000;
     private static final int QUALIFICATION_SUBJECTS = 100_000;
     private static final Duration WARM_UP_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration CALIBRATION_TIMEOUT = Duration.ofSeconds(90);
@@ -93,6 +95,9 @@ class CatalogOperationMergeBenchmarkTest {
     @Autowired
     CatalogOperationFinalizerTelemetry telemetry;
 
+    @Autowired
+    CatalogOperationIngestTelemetry ingestTelemetry;
+
     @BeforeEach
     void resetDatabase() {
         resetState();
@@ -108,20 +113,28 @@ class CatalogOperationMergeBenchmarkTest {
     @Test
     @Order(1)
     @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    void measuresCteMergeForTwentyFiveHundredSubjects() {
+    void measuresTypedReductionMergeForTwentyFiveHundredSubjects() {
         measureMerge(CALIBRATION_SUBJECTS, CALIBRATION_TIMEOUT);
     }
 
     @Test
     @Order(2)
     @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    void measuresCteMergeForOneHundredThousandSubjects() {
+    void measuresTypedReductionMergeForTwentyFiveThousandSubjects() {
+        measureMerge(SCALE_CHECK_SUBJECTS, QUALIFICATION_TIMEOUT);
+    }
+
+    @Test
+    @Order(3)
+    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void measuresTypedReductionMergeForOneHundredThousandSubjects() {
         measureMerge(QUALIFICATION_SUBJECTS, QUALIFICATION_TIMEOUT);
     }
 
     private void measureMerge(int subjectCount, Duration mergeTimeout) {
         int eventCount = CatalogOperationBenchmarkFixture.eventCountForSubjects(subjectCount);
         warmUpAndReset();
+        ingestTelemetry.reset();
         long seedMs = seedEvents(eventCount);
         assertStaged(eventCount, subjectCount);
         telemetry.reset();
@@ -201,7 +214,7 @@ class CatalogOperationMergeBenchmarkTest {
     private void logResult(int eventCount, int subjectCount, long seedMs, long mergeMs) {
         LOGGER.info(
                 "FT-056 merge: events={}, subjects={}, workers={}, pageSize={}, "
-                        + "seedMs={}, mergeMs={}, subjectsPerSecond={}\n  -> {}",
+                        + "seedMs={}, mergeMs={}, subjectsPerSecond={}\n  -> ingest={} finalizer={}",
                 eventCount,
                 subjectCount,
                 WORKER_COUNT,
@@ -209,12 +222,14 @@ class CatalogOperationMergeBenchmarkTest {
                 seedMs,
                 mergeMs,
                 throughput(subjectCount, mergeMs),
+                ingestTelemetry.snapshot(),
                 telemetry.snapshot());
     }
 
     private void resetState() {
         CatalogOperationBenchmarkFixture.reset(jdbc);
         telemetry.reset();
+        ingestTelemetry.reset();
     }
 
     private long count(String sql) {

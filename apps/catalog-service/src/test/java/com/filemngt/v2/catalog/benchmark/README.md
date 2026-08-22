@@ -9,7 +9,7 @@
 Seed ingest không nằm trong `mergeMs`. Await workset `COMPLETED`, không đợi `CATALOG_COMMITTED` và không
 claim gate D2. Result report: [03-ft056-set-based-cte-merge.md](./results/03-ft056-set-based-cte-merge.md).
 V19 baseline 2026-08-21: 2.500 subject `2.032 s` (pageExec avg 106ms); 100.000 subject timeout `> 2 min`.
-V20 hash-join: 25K `2.633 s` / 1M gãy connection. V21 nested-loop: user report 2026-08-22 chậm hơn V19, 1M timeout; exact metrics pending. V22 recovery plan đặt gate 1M `< 60 s` và không được dời chi phí sang ingest ngoài combined D1+D2 clock.
+V20 hash-join: 25K `2.633 s` / 1M gãy connection. V21 nested-loop: user report 2026-08-22 chậm hơn V19, 1M timeout; exact metrics pending. V22 typed reduction/direct finalizer đã implement nhưng chưa chạy; recovery gate 1M `< 60 s` và không được dời chi phí sang ingest ngoài combined D1+D2 clock.
 
 ## FT-055 Kafka backlog drain
 

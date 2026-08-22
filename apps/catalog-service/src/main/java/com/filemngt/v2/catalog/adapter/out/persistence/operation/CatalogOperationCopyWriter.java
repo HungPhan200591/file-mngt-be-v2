@@ -32,6 +32,16 @@ public class CatalogOperationCopyWriter {
                 region text not null,
                 subject_type text not null,
                 identity_key text not null,
+                display_title text,
+                base_code text,
+                part text,
+                studio_code text,
+                actress_names jsonb not null,
+                storage_key text,
+                relative_path text,
+                asset_role text,
+                tag_names jsonb not null,
+                event_time timestamptz not null,
                 event_payload jsonb not null
             ) on commit delete rows
             """;
@@ -39,12 +49,11 @@ public class CatalogOperationCopyWriter {
             copy catalog_discovery_ingest_slice(
                 event_id, operation_id, batch_id, scan_run_id,
                 source_partition, source_offset, correlation_id, traceparent,
-                subject_key, subject_lane, region, subject_type, identity_key, event_payload
+                subject_key, subject_lane, region, subject_type, identity_key,
+                display_title, base_code, part, studio_code, actress_names,
+                storage_key, relative_path, asset_role, tag_names, event_time, event_payload
             ) from stdin with (format csv)
             """;
-
-    private static final java.util.Set<Integer> INITIALIZED_CONNECTIONS =
-            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
     private final JdbcTemplate jdbc;
 
@@ -67,17 +76,26 @@ public class CatalogOperationCopyWriter {
             String region,
             String subjectType,
             String identityKey,
+            String displayTitle,
+            String baseCode,
+            String part,
+            String studioCode,
+            String actressNamesJson,
+            String storageKey,
+            String relativePath,
+            String assetRole,
+            String tagNamesJson,
+            String eventTime,
             String eventPayloadJson) {}
 
     public long copyTypedRows(List<TypedIngestRow> rows) {
         if (rows.isEmpty()) return 0;
         Long copied = jdbc.execute((ConnectionCallback<Long>) connection -> {
             PGConnection pgConnection = connection.unwrap(PGConnection.class);
-            int connectionId = System.identityHashCode(pgConnection);
-            if (INITIALIZED_CONNECTIONS.add(connectionId)) {
-                try (var statement = connection.createStatement()) {
-                    statement.execute(CREATE_TEMP);
-                }
+            // Temp table thuộc physical JDBC connection, không phải JdbcTemplate hay transaction.
+            // CREATE ... IF NOT EXISTS phải chạy cho từng connection được pool cấp vào transaction.
+            try (var statement = connection.createStatement()) {
+                statement.execute(CREATE_TEMP);
             }
             CopyIn copy = pgConnection.getCopyAPI().copyIn(COPY_TEMP);
             try {
@@ -93,8 +111,8 @@ public class CatalogOperationCopyWriter {
 
     private String buildCsvRow(TypedIngestRow row) {
         // Thứ tự column: event_id,operation_id,batch_id,scan_run_id,
-        //   source_partition,source_offset,correlation_id,traceparent,
-        //   subject_key,subject_lane,region,subject_type,identity_key,event_payload
+        //   source_partition,source_offset,correlation_id,traceparent,subject_key,subject_lane,
+        //   region,subject_type,identity_key,typed reduction fields,event_payload
         return String.join(
                 ",",
                 row.eventId().toString(),
@@ -110,6 +128,16 @@ public class CatalogOperationCopyWriter {
                 csvField(row.region()),
                 csvField(row.subjectType()),
                 csvField(row.identityKey()),
+                csvOptional(row.displayTitle()),
+                csvOptional(row.baseCode()),
+                csvOptional(row.part()),
+                csvOptional(row.studioCode()),
+                csvField(row.actressNamesJson()),
+                csvOptional(row.storageKey()),
+                csvOptional(row.relativePath()),
+                csvOptional(row.assetRole()),
+                csvField(row.tagNamesJson()),
+                csvField(row.eventTime()),
                 csvField(row.eventPayloadJson()));
     }
 

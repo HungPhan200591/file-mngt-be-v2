@@ -2,7 +2,6 @@ package com.filemngt.v2.catalog.application;
 
 import com.filemngt.v2.catalog.adapter.out.persistence.operation.CatalogOperationCopyWriter;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationDltGateStore;
-import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationLaneHash;
 import com.filemngt.v2.contracts.events.MediaApprovalWatermarkV1;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
@@ -11,7 +10,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,30 +21,18 @@ import tools.jackson.databind.ObjectMapper;
 public class CatalogOperationStageStore {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
-    private final CatalogOperationCopyWriter copyWriter;
+    private final CatalogOperationIngestStore ingestStore;
     private final CatalogOperationDltGateStore dltGate;
-    private final CatalogOperationIngestTelemetry telemetry;
 
     public CatalogOperationStageStore(
             JdbcTemplate jdbc,
             ObjectMapper json,
-            CatalogOperationCopyWriter copyWriter,
+            CatalogOperationIngestStore ingestStore,
             CatalogOperationDltGateStore dltGate) {
-        this(jdbc, json, copyWriter, dltGate, new CatalogOperationIngestTelemetry());
-    }
-
-    @Autowired
-    public CatalogOperationStageStore(
-            JdbcTemplate jdbc,
-            ObjectMapper json,
-            CatalogOperationCopyWriter copyWriter,
-            CatalogOperationDltGateStore dltGate,
-            CatalogOperationIngestTelemetry telemetry) {
         this.jdbc = jdbc;
         this.json = json;
-        this.copyWriter = copyWriter;
+        this.ingestStore = ingestStore;
         this.dltGate = dltGate;
-        this.telemetry = telemetry;
     }
 
     @Transactional
@@ -81,11 +67,21 @@ public class CatalogOperationStageStore {
                     event.region(),
                     event.subjectType(),
                     event.identityKey(),
+                    event.displayTitle(),
+                    event.baseCode(),
+                    event.part(),
+                    event.studioCode(),
+                    jsonArray(event.actressNames()),
+                    event.storageKey(),
+                    event.relativePath(),
+                    event.role(),
+                    jsonArray(event.tagNames()),
+                    event.timestamp().toString(),
                     payloadJson(event)));
         }
         long mappingNanos = System.nanoTime() - mappingStarted;
         operationScanRuns.forEach(this::ensureOperation);
-        return ingestSetBased(input, mappingNanos);
+        return ingestStore.ingest(input, mappingNanos);
     }
 
     @Transactional
@@ -132,58 +128,6 @@ public class CatalogOperationStageStore {
         if (accepted == 0) rejectConflictingManifest(watermark);
         dltGate.synchronize(watermark.operationId());
         if ("APPROVAL_COMMITTED".equals(watermark.stage())) evaluateGate(watermark.operationId());
-    }
-
-    private int ingestSetBased(List<CatalogOperationCopyWriter.TypedIngestRow> input, long mappingNanos) {
-        long sliceStarted = System.nanoTime();
-
-        long copyStarted = System.nanoTime();
-        long copied = copyWriter.copyTypedRows(input);
-        if (copied != input.size()) throw new IllegalStateException("Catalog operation COPY cardinality mismatch");
-        long copyNanos = System.nanoTime() - copyStarted;
-
-        long stageInsertStarted = System.nanoTime();
-        // CTE đọc thẳng typed columns từ temp table — không cần parse/cast JSON nữa;
-        // subject_lane đã tính từ Java, không dùng md5() trên DB.
-        Integer inserted = jdbc.queryForObject("""
-                with input as (
-                    select event_id, operation_id, batch_id, scan_run_id,
-                        source_partition, source_offset, correlation_id, traceparent,
-                        subject_key, subject_lane, region, subject_type, identity_key, event_payload
-                    from catalog_discovery_ingest_slice
-                ), inserted as (
-                    insert into catalog_discovery_stage(
-                        event_id, operation_id, batch_id, scan_run_id, source_partition,
-                        source_offset, correlation_id, traceparent, subject_key, region,
-                        subject_type, identity_key, payload)
-                    select event_id, operation_id, batch_id, scan_run_id, source_partition,
-                        source_offset, correlation_id, traceparent, subject_key, region,
-                        subject_type, identity_key, event_payload
-                    from input on conflict (event_id) do nothing
-                    returning event_id, operation_id, subject_key
-                ), workset as (
-                    insert into catalog_operation_subject(operation_id, subject_key, subject_lane)
-                    select distinct operation_id, subject_key, subject_lane
-                    from input
-                    on conflict (operation_id, subject_key) do nothing
-                ), received as (
-                    select operation_id, count(*) record_count from inserted group by operation_id
-                ), updated as (
-                    update catalog_approval_operation operation
-                    set received_record_count = operation.received_record_count + received.record_count,
-                        updated_at = now()
-                    from received where operation.operation_id = received.operation_id
-                    returning received.record_count
-                )
-                select coalesce(sum(record_count), 0)::integer from updated
-                """, Integer.class);
-        long stageInsertNanos = System.nanoTime() - stageInsertStarted;
-        long totalNanos = System.nanoTime() - sliceStarted;
-
-        if (telemetry != null) {
-            telemetry.recordSlice(input.size(), mappingNanos, copyNanos, stageInsertNanos, totalNanos);
-        }
-        return inserted == null ? 0 : inserted;
     }
 
     private void ensureOperation(UUID operationId, UUID scanRunId) {
@@ -251,6 +195,14 @@ public class CatalogOperationStageStore {
             return json.writeValueAsString(event);
         } catch (JacksonException exception) {
             throw new IllegalArgumentException("Could not serialize discovery event payload", exception);
+        }
+    }
+
+    private String jsonArray(List<String> values) {
+        try {
+            return json.writeValueAsString(values);
+        } catch (JacksonException exception) {
+            throw new IllegalArgumentException("Could not serialize typed discovery collection", exception);
         }
     }
 

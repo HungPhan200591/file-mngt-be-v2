@@ -1,6 +1,6 @@
 # FT-056 — BT-09D2 Catalog Set-Based CTE Merge — Plan
 
-Status: `READY — V22 recovery candidate (< 60 s)`
+Status: `IMPLEMENTED — V22 qualification pending (< 60 s recovery gate)`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -95,7 +95,8 @@ Design: [02-design.md](./02-design.md)
 ## Tài liệu cần cập nhật
 
 - [x] Brief/Design/Plan ghi V21 fail định tính và V22 recovery candidate.
-- [x] `docs/STATUS.md` route BT-09D2 sang V22 READY.
+- [x] V22/V22.1 migration, typed ingest reduction, rebuild path và direct finalizer đã triển khai; chưa chạy migration/test.
+- [x] `docs/STATUS.md` route BT-09D2 sang V22 implementation/qualification pending.
 - [x] Benchmark report/dashboard/README ghi V21 fail, exact metrics pending.
 - [ ] Cập nhật số liệu V21/V22 chỉ từ log thật và run manifest.
-- [ ] Khi implementation hoàn tất, audit `STATUS.md`; không thêm history DONE vào snapshot.
+- [x] Audit `STATUS.md`; không thêm history DONE vào snapshot.

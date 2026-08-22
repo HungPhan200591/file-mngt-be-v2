@@ -31,6 +31,8 @@ public final class CatalogOperationBenchmarkFixture {
                     catalog_finalize_metadata,
                     catalog_finalize_state,
                     catalog_finalize_snapshot,
+                    catalog_operation_asset_reduction,
+                    catalog_operation_subject_reduction,
                     catalog_operation_lane,
                     catalog_operation_subject,
                     catalog_discovery_stage,
