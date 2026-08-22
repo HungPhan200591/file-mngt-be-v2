@@ -30,7 +30,7 @@ public class CatalogOperationStageStore {
             ObjectMapper json,
             CatalogOperationIngestStore ingestStore,
             CatalogOperationDltGateStore dltGate,
-            @org.springframework.beans.factory.annotation.Value("\${catalog.operation.reconcile-unit-count:16}")
+            @org.springframework.beans.factory.annotation.Value("${catalog.operation.reconcile-unit-count:16}")
                     int reconcileUnitCount) {
         this.jdbc = jdbc;
         this.json = json;
