@@ -143,53 +143,159 @@ Tại sao các kỹ sư lại tạo ra **4.096 Routing Buckets** trung gian thay
 
 ---
 
-## 5. Kịch Bản Cá Biệt (Worst-Case Scenario) & 2 Lớp Phòng Vệ Của Hệ Thống
+## 5. Kịch Bản Cá Biệt (Worst-Case Scenario) & Thực Tế Triển Khai 2 Lớp Phòng Vệ
 
 Dù xác suất phân bố đều là $99.9\%$, nhưng trong kỹ thuật phần mềm, chúng ta luôn phải chuẩn bị cho **kịch bản xấu nhất (Worst-Case)**:
 
 > ❓ **Điều gì xảy ra nếu có một Subject "Siêu Quái Vật" chứa 50.000 Files nằm riêng trong 1 thư mục?**
 
-Hàm băm bắt buộc phải gom toàn bộ 50.000 files này vào chung 1 Unit. Khi đó, Unit đó chắc chắn sẽ nặng gấp 5 lần các Unit khác!
+Hàm băm bắt buộc phải gom toàn bộ 50.000 files này vào chung 1 Unit. Khi đó, Unit đó chắc chắn sẽ nặng gấp nhiều lần các Unit khác!
 
-Hệ thống **FT-057** tự động kích hoạt **2 cơ chế phòng vệ tự động**:
+Hệ thống **FT-057** tự động kích hoạt **2 cơ chế phòng vệ tự động được hiện thực hóa trực tiếp trong mã nguồn**:
+
+### 🏛️ Sơ Đồ Thiết Kế Thành Phần (Component Design)
 
 ```mermaid
-flowchart LR
-    subgraph DEF1["Lớp Phòng Vệ 1: Dynamic Worker Stealing"]
-        W1["Worker 1: Xong Unit 0 (0.6s)\n-> Bốc tiếp Unit 4"]
-        W2["Worker 2: Đang gánh Unit Siêu Quái Vật (3.0s)"]
-        W3["Worker 3: Xong Unit 2 (0.6s)\n-> Bốc tiếp Unit 5"]
-        W4["Worker 4: Xong Unit 3 (0.6s)\n-> Bốc tiếp Unit 6"]
+flowchart TD
+    subgraph JAVA["[1] Java Service (CatalogOperationFinalizer)"]
+        direction TB
+        EXEC["Virtual Threads Executor\n(4 Workers song song)"]
+        W1["Worker 1"]
+        W2["Worker 2 (ôm Unit Nặng)"]
+        W3["Worker 3"]
+        W4["Worker 4"]
+        EXEC --> W1
+        EXEC --> W2
+        EXEC --> W3
+        EXEC --> W4
     end
 
-    subgraph DEF2["Lớp Phòng Vệ 2: Snapshot Byte Cap"]
-        CAP{"Payload JSON\n> 900KB ?"}
-        BLOCK["Chặn đứng (BLOCKED)\nBảo vệ Kafka & Memory"]
-        PASS["Cho phép đi tiếp"]
+    subgraph DB_CLAIM["[2] PostgreSQL Queue: FOR UPDATE SKIP LOCKED"]
+        direction TB
+        STORE["CatalogOperationUnitStore.acquire()"]
+        TABLE_UNITS[("catalog_operation_reconcile_unit\n- Unit 0 (DONE)\n- Unit 1 (RUNNING by W2)\n- Unit 2 (RUNNING by W3)\n- Unit 3...15 (PENDING)")]
+        STORE -->|"SELECT ... FOR UPDATE SKIP LOCKED"| TABLE_UNITS
     end
 
-    DEF1 -.-> DEF2
-    CAP -->|Vượt ngưỡng| BLOCK
-    CAP -->|An toàn| PASS
+    subgraph DB_EXEC["[3] PostgreSQL Engine: Reconciliation Transaction"]
+        direction TB
+        PROC["catalog_reconcile_operation_unit()"]
+        MERGE["Bulk Merge Subject / Asset"]
+        CHECK_SIZE{"octet_length(payload)\n> 900KB ?"}
+        OUTBOX[("catalog_outbox_event\n(Gán relay_lane_id)")]
+        PROC --> MERGE --> CHECK_SIZE
+        CHECK_SIZE -->|"<= 900KB (An toàn)"| OUTBOX
+    end
 
-    style DEF1 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    subgraph FAIL_GUARD["[4] Error Boundary: REQUIRES_NEW Transaction"]
+        direction TB
+        RAISE["RAISE EXCEPTION\n'SUBJECT_SNAPSHOT_TOO_LARGE'"]
+        ROLLBACK["1. Rollback Unit Transaction 100%"]
+        FAIL_STORE["CatalogOperationFailureStore\n(@Transactional REQUIRES_NEW)"]
+        BLOCK_OP[("catalog_approval_operation\nSET status = 'BLOCKED'")]
+        CHECK_SIZE -->|"> 900KB (Quá khổ)"| RAISE
+        RAISE --> ROLLBACK --> FAIL_STORE --> BLOCK_OP
+    end
+
+    W1 -->|"1. Claim & Reconcile"| STORE
+    W2 -->|"1. Claim & Reconcile"| STORE
+    W3 -->|"1. Claim & Reconcile"| STORE
+    W4 -->|"1. Claim & Reconcile"| STORE
+    STORE --> PROC
+
+    style JAVA fill:#1A237E,stroke:#fff,stroke-width:2px,color:#fff
+    style EXEC fill:#283593,stroke:#fff,stroke-width:2px,color:#fff
     style W1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style W2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style W3 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style W4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style DEF2 fill:#1A237E,stroke:#fff,stroke-width:2px,color:#fff
-    style CAP fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style BLOCK fill:#D50000,stroke:#fff,stroke-width:2px,color:#fff
-    style PASS fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style DB_CLAIM fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style STORE fill:#00796B,stroke:#fff,stroke-width:2px,color:#fff
+    style TABLE_UNITS fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style DB_EXEC fill:#311B92,stroke:#fff,stroke-width:2px,color:#fff
+    style PROC fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
+    style MERGE fill:#7B1FA2,stroke:#fff,stroke-width:2px,color:#fff
+    style CHECK_SIZE fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style OUTBOX fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style FAIL_GUARD fill:#B71C1C,stroke:#fff,stroke-width:2px,color:#fff
+    style RAISE fill:#D32F2F,stroke:#fff,stroke-width:2px,color:#fff
+    style ROLLBACK fill:#D32F2F,stroke:#fff,stroke-width:2px,color:#fff
+    style FAIL_STORE fill:#C2185B,stroke:#fff,stroke-width:2px,color:#fff
+    style BLOCK_OP fill:#880E4F,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-1. **Lớp 1 — Rút Việc Động (Dynamic Worker Stealing)**:
-   * Worker 2 nhận phải Unit "siêu quái vật" sẽ mất $3.0$ giây để xử lý.
-   * Nhưng 3 Worker còn lại (Worker 1, 3, 4) xử lý các Unit nhẹ chỉ mất $0.6$ giây $\to$ Chúng sẽ **liên tục rút và xử lý hết tất cả các Unit còn lại trong hàng đợi**.
-   * Khi Worker 2 vừa làm xong Unit quái vật thì toàn bộ các Unit khác cũng đã được 3 Worker kia xử lý xong $\to$ **Tổng thời gian toàn hệ thống chỉ tăng thêm rất ít, không hề bị nghẽn (No Head-of-Line Blocking)**.
-2. **Lớp 2 — Chốt Chặn Kích Thước Bản Tin (`maximum_snapshot_bytes`)**:
-   * Nếu Subject 50.000 files đó sinh ra chuỗi JSON snapshot lớn hơn **900KB** (vượt ngưỡng cho phép của Kafka message):
-   * Stored Procedure sẽ tung ngoại lệ `SUBJECT_SNAPSHOT_TOO_LARGE` và đưa Operation về trạng thái `BLOCKED` để bảo vệ hệ thống, không để bản tin quá khổ làm sập Kafka Broker.
+---
+
+### 🔍 Vi Phẫu Mã Nguồn Thực Tế (Code Deep-Dive)
+
+#### 1. Thực tế triển khai Lớp 1: Rút việc Động bằng `FOR UPDATE SKIP LOCKED`
+
+Trong file [CatalogOperationUnitStore.java](../../../apps/catalog-service/src/main/java/com/filemngt/v2/catalog/application/operation/CatalogOperationUnitStore.java), câu lệnh SQL claim công việc được viết như sau:
+
+```sql
+WITH candidate AS (
+    SELECT unit.operation_id, unit.unit_id
+    FROM catalog_operation_reconcile_unit unit
+    JOIN catalog_approval_operation operation USING (operation_id)
+    WHERE operation.processing_version = 57
+      AND operation.status = 'RECONCILING'
+      AND unit.status <> 'COMPLETED'
+      AND (unit.lease_until IS NULL OR unit.lease_until < :now)
+    ORDER BY operation.updated_at, unit.operation_id, unit.unit_id
+    FOR UPDATE OF unit SKIP LOCKED  -- ◄◄ VŨ KHÍ BÍ MẬT Ở ĐÂY
+    LIMIT 1
+)
+UPDATE catalog_operation_reconcile_unit unit
+SET status = 'RUNNING', 
+    lease_owner = :owner, 
+    lease_until = :leaseUntil,
+    fence_token = unit.fence_token + 1, 
+    last_heartbeat_at = :now
+FROM candidate
+WHERE unit.operation_id = candidate.operation_id AND unit.unit_id = candidate.unit_id
+RETURNING unit.operation_id, unit.unit_id, unit.lease_owner, unit.lease_until, unit.fence_token;
+```
+
+* **Cơ chế tại PostgreSQL Engine (`SKIP LOCKED`)**:
+  * Khi 4 Worker cùng gọi hàm `acquire()` đồng thời:
+  * PostgreSQL tự động **bỏ qua ngay lập tức các dòng Unit đang bị Worker khác giữ khóa** mà không bắt luồng phải chờ đợi (`Zero Lock Wait`).
+  * **Kịch bản thực tế khi gặp Unit Nặng**:
+    1. `Worker 2` bốc phải `Unit 1` (nặng 50.000 files), nó đang thực thi và giữ khóa `Unit 1`.
+    2. `Worker 1` xử lý xong `Unit 0` (nhẹ) trong $0.5$ giây $\to$ `Worker 1` gọi `acquire()`.
+    3. Postgres thấy `Unit 1` đang bị Worker 2 khóa $\to$ Postgres tự động **nhảy qua (SKIP) Unit 1** và cấp ngay `Unit 2` cho `Worker 1`.
+    4. Tương tự, `Worker 3`, `Worker 4` tiếp tục được cấp `Unit 3`, `Unit 4`, `Unit 5`...
+    5. 👉 **3 Worker kia đã xử lý xong sạch sẽ 15 Units còn lại trong khi Worker 2 vẫn đang ung dung làm Unit nặng $\to$ Toàn bộ hệ thống không hề bị nghẽn (No Blocking)!**
+
+---
+
+#### 2. Thực tế triển khai Lớp 2: Chốt chặn Kích thước Bản tin (`maximum_snapshot_bytes`)
+
+Nếu Subject 50.000 files đó sinh ra chuỗi JSON Snapshot quá lớn, nó sẽ kích hoạt cơ chế tự vệ qua 2 bước:
+
+##### Bước 1: Kiểm tra dung lượng trong Stored Procedure ([V23 Migration](../../../apps/catalog-service/src/main/resources/db/migration/V23__add_catalog_bulk_reconciliation_data_plane.sql#L706-L712))
+```sql
+-- Đo độ dài thực tế của chuỗi JSON Snapshot bằng hàm octet_length()
+IF EXISTS (
+    SELECT 1 FROM tmp_catalog_snapshot
+    WHERE octet_length(payload::text) > maximum_snapshot_bytes -- Mặc định: 921.600 bytes (~900KB)
+) THEN
+    RAISE EXCEPTION 'SUBJECT_SNAPSHOT_TOO_LARGE'; -- ◄◄ Ném lỗi lập tức
+END IF;
+```
+
+##### Bước 2: Bắt lỗi và Khóa an toàn trong Java ([CatalogOperationFinalizer.java](../../../apps/catalog-service/src/main/java/com/filemngt/v2/catalog/application/operation/CatalogOperationFinalizer.java#L98-L104) & [CatalogOperationFailureStore.java](../../../apps/catalog-service/src/main/java/com/filemngt/v2/catalog/application/operation/CatalogOperationFailureStore.java#L18-L41))
+1. Khi Stored Procedure tung lỗi `SUBJECT_SNAPSHOT_TOO_LARGE`:
+   * Toàn bộ Transaction của Unit đó bị **Rollback $100\%$ ngay lập tức** $\to$ Không có bất kỳ dòng rác nào hay bản tin quá khổ nào lọt vào bảng `media_subject` hoặc Outbox.
+2. Java bắt ngoại lệ và gọi `failures.blockSnapshotTooLarge(unit)` chạy trong một Transaction mới riêng biệt (`@Transactional(propagation = Propagation.REQUIRES_NEW)`):
+   ```sql
+   UPDATE catalog_approval_operation
+   SET status = 'BLOCKED',
+       failure_code = 'SUBJECT_SNAPSHOT_TOO_LARGE',
+       last_error_message = 'Subject snapshot exceeds configured byte limit',
+       blocked_at = now()
+   WHERE operation_id = :operationId;
+   ```
+3. 👉 **Kết quả**: Toàn bộ Operation bị chuyển sang trạng thái `BLOCKED` an toàn, **chặn đứng việc phát Watermark `CATALOG_COMMITTED`** $\to$ Bảo vệ tuyệt đối Kafka Broker và Query Service không bị sập vì bản tin quá tải!
 
 ---
 
