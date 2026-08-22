@@ -1,6 +1,6 @@
 # FT-056 — Set-Based CTE Merge
 
-Status: `V20/V21 FAILED — V22 IMPLEMENTED, qualification pending`
+Status: `V20/V21/V22 FAILED`
 
 Test: [`CatalogOperationMergeBenchmarkTest.java`](../operation/CatalogOperationMergeBenchmarkTest.java)
 
@@ -52,11 +52,14 @@ User report 2026-08-22: calibration chậm hơn V19 và qualification 1M vẫn t
 
 ### Candidate V22 typed reduction + direct merge
 
-Plan: [FT-056 V22](../../../../../../../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md).
-Implementation có V22 logged reduction schema/rebuild và V22.1 direct finalizer; chưa chạy Flyway,
-Testcontainers hoặc benchmark nên bảng không có số V22.
-Recovery gate là ba measured run 1M đều `< 60 s`; nếu duy trì reduction trong ingest thì combined D1+D2 cũng
-phải `< 60 s`. Gate lịch sử D2 `<= 5 s` vẫn là stretch target, chưa tuyên bố.
+Nguồn: log người dùng cung cấp ngày 2026-08-22. Implementation dùng typed reduction schema/rebuild và V22.1 direct finalizer.
+
+| Workload | seedMs | mergeMs | Throughput | Telemetry |
+| --- | ---: | ---: | ---: | --- |
+| Calibration 2.500 subjects (25K events) | 7.031 s | **39.278 s** | **64 subject/s** | pages=64, acquire=326ms, pageExecTotal=134962ms (min=564ms, avg=2108ms, p95=3854ms, max=4140ms), drain=223ms, completeOp=4ms; ingest avgPerSlice=3125.6ms (stageSql 87.3%); retryable QueryTimeoutException lane 22 |
+| Qualification 100.000 subjects (1M events) | — | **TIMED OUT** | — | Timeout (> 2 min); candidate V22 thất bại, chậm hơn V19 gần 20 lần ở 25K |
+
+V22 thất bại do overhead của typed reduction rebuild/dual-write và pageExec avg 2.108 ms (so với V19 avg 106 ms), 1M tiếp tục timeout.
 
 `pageExecTotal` là tổng SQL trên mọi worker, nên lớn hơn `mergeMs` khi 4 worker chạy song song
 (6825 / 4 ≈ 1.7 s + acquire/drain ≈ `mergeMs`).

@@ -1,15 +1,14 @@
 # FT-056 — BT-09D2 Catalog Set-Based CTE Merge — Plan
 
-Status: `IMPLEMENTED — V22 qualification pending (< 60 s recovery gate)`
+Status: `FAILED — V22 qualification failed (25K 39.278 s, 1M timeout)`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
 
 - Owner: `catalog-service` / `catalog_db`.
 - Evidence: V19 calibration `2.032 s`, 1M timeout; V20 calibration `2.633 s`, 1M connection failure;
-  V21 user-reported chậm hơn V19 và 1M timeout, exact metrics chưa có trong repo.
-- Scope/files: V19/V20/V21 **immutable**; migration V22 cho durable typed reduction + finalizer mới;
-  typed ingest store/row chỉ để duy trì reduction atomic; IT ingest/rebuild/finalize; benchmark + phase telemetry;
+  V21 user-reported chậm hơn V19 và 1M timeout; V22 measured `39.278 s` ở 25K (avg 2.108 ms/page) và 1M timeout. V20–V22 đều thất bại.
+- Scope/files: V19/V20/V21/V22 **immutable**;
   report `benchmark/results/03-ft056-set-based-cte-merge.md`, dashboard và README.
 - Must preserve: lane fence, claim-per-page, ingest dedupe, equality/watermark, reducer primary/tags/tombstone,
   unique outbox v2, snapshot-size block, cardinality, `statement_timeout < lease`, Catalog DB ownership.
@@ -19,7 +18,7 @@ Design: [02-design.md](./02-design.md)
   [subject v2](../../contracts/events/media.subject.changed.v2.md), `apps/catalog-service/CONTEXT.md`,
   `$author-backend-tests` và `03-CODING_RULES.md` trước khi sửa Java/test.
 
-## Quyết định V22
+## Quyết định V22 (Thất bại)
 
 1. Không tối ưu tiếp global UNLOGGED scratch của V21 và không sửa migration đã apply.
 2. Tạo hai projection logged, operation-scoped:
@@ -30,8 +29,7 @@ Design: [02-design.md](./02-design.md)
    Raw `catalog_discovery_stage` vẫn là audit/rebuild source; không biến reduction thành nguồn không thể phục hồi.
 4. Finalizer đọc typed reduction theo operation/lane/page, bulk canonical write và dựng post-state/snapshot một
    lần/subject. Không copy/delete raw JSONB qua scratch và không parse cùng field nhiều lần.
-5. Recovery gate trước mắt là 1M event `< 60 s`. Gate lịch sử D2 `<= 5 s` và Catalog canonical `<= 10 s`
-   vẫn là stretch/final budget; không tuyên bố đạt từ recovery run.
+5. **Kết quả đo thực tế V22**: 25K mất 39.278 s (chậm hơn V19 gấp 20 lần), 1M tiếp tục timeout $\rightarrow$ V22 FAILED.
 
 ## Bước triển khai
 
