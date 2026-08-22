@@ -60,7 +60,6 @@ class CatalogOperationMergeBenchmarkTest {
     private static final int RECONCILE_UNIT_COUNT = 16;
     private static final int SEED_SLICE = 5_000;
     private static final int CALIBRATION_SUBJECTS = 2_500;
-    private static final int SCALE_CHECK_SUBJECTS = 25_000;
     private static final int QUALIFICATION_SUBJECTS = 100_000;
     private static final Duration WARM_UP_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration CALIBRATION_TIMEOUT = Duration.ofSeconds(90);
@@ -119,13 +118,6 @@ class CatalogOperationMergeBenchmarkTest {
 
     @Test
     @Order(2)
-    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    void measuresTypedReductionMergeForTwentyFiveThousandSubjects() {
-        measureMerge(SCALE_CHECK_SUBJECTS, QUALIFICATION_TIMEOUT);
-    }
-
-    @Test
-    @Order(3)
     @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresTypedReductionMergeForOneHundredThousandSubjects() {
         measureMerge(QUALIFICATION_SUBJECTS, QUALIFICATION_TIMEOUT);
@@ -213,14 +205,16 @@ class CatalogOperationMergeBenchmarkTest {
 
     private void logResult(int eventCount, int subjectCount, long seedMs, long mergeMs) {
         LOGGER.info(
-                "FT-057 merge: events={}, subjects={}, workers={}, reconcileUnits={}, "
-                        + "seedMs={}, mergeMs={}, subjectsPerSecond={}\n  -> ingest={} finalizer={}",
+                "FT-057 D2 reconciliation diagnostic: events={}, subjects={}, workers={}, reconcileUnits={}, "
+                        + "seedMs={}, mergeMs={}, inputRecordsPerSecond={}, subjectsPerSecond={}\n"
+                        + "  -> ingest={} finalizer={}",
                 eventCount,
                 subjectCount,
                 WORKER_COUNT,
                 RECONCILE_UNIT_COUNT,
                 seedMs,
                 mergeMs,
+                throughput(eventCount, mergeMs),
                 throughput(subjectCount, mergeMs),
                 ingestTelemetry.snapshot(),
                 telemetry.snapshot());

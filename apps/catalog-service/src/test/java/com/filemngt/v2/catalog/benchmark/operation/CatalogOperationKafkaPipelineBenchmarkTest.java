@@ -5,14 +5,10 @@ import static org.awaitility.Awaitility.await;
 
 import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
+import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationKafkaBenchmarkSupport;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +42,7 @@ import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Benchmark backlog-drain của {@code CatalogOperationBatchConsumer} qua Kafka Testcontainer.
+ * FT-057 D1 diagnostic: backlog-drain của {@code CatalogOperationBatchConsumer} qua Kafka Testcontainer.
  * Topology chủ đích: 8 partition / 8 consumer / {@code max.poll.records=5000} /
  * {@code slice-records=5000}; không phải default production ({@code concurrency=4}, poll/slice=2000).
  * {@code drainMs} bắt đầu lúc {@code resume()} sau khi consumer đã assigned và pause — không gồm
@@ -172,35 +168,8 @@ class CatalogOperationKafkaPipelineBenchmarkTest {
     }
 
     private long seedEvents(int eventCount) {
-        long started = System.nanoTime();
-        try (var producerPool = Executors.newVirtualThreadPerTaskExecutor()) {
-            var tasks = new ArrayList<Future<?>>();
-            for (int start = 0; start < eventCount; start += PRODUCE_BATCH_SIZE) {
-                int sliceStart = start;
-                int count = Math.min(PRODUCE_BATCH_SIZE, eventCount - start);
-                tasks.add(producerPool.submit(() -> publishSlice(sliceStart, count)));
-            }
-            for (var task : tasks) {
-                task.get();
-            }
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Kafka seed interrupted", exception);
-        } catch (ExecutionException exception) {
-            throw new IllegalStateException("Kafka seed failed", exception.getCause());
-        }
-        kafkaTemplate.flush();
-        return elapsedMillis(started);
-    }
-
-    private void publishSlice(int sliceStart, int count) {
-        var sends = new ArrayList<CompletableFuture<?>>(count);
-        for (int index = sliceStart; index < sliceStart + count; index++) {
-            var event = CatalogOperationBenchmarkFixture.discoveryEvent(index);
-            sends.add(kafkaTemplate.send(
-                    TOPIC, CatalogOperationBenchmarkFixture.partitionKey(event), json.writeValueAsString(event)));
-        }
-        CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
+        return CatalogOperationKafkaBenchmarkSupport.seedDiscoveries(
+                kafkaTemplate, json, TOPIC, eventCount, PRODUCE_BATCH_SIZE);
     }
 
     private void awaitAssignment() {
@@ -247,7 +216,7 @@ class CatalogOperationKafkaPipelineBenchmarkTest {
     private void logResult(int eventCount, long assignmentMs, long produceMs, long drainMs) {
         var snap = telemetry != null ? telemetry.snapshot() : null;
         LOGGER.info(
-                "FT-055 Kafka backlog drain: events={}, subjects={}, partitions={}, concurrency={}, "
+                "FT-057 D1 Kafka-to-stage diagnostic: events={}, subjects={}, partitions={}, concurrency={}, "
                         + "maxPollRecords={}, sliceRecords={}, hikariPool={}, assignmentMs={}, produceMs={}, "
                         + "drainMs={}, throughputPerSecond={}\n  -> {}",
                 eventCount,

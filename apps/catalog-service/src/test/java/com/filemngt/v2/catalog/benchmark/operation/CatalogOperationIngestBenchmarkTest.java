@@ -29,7 +29,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** FT-055 / BT-09D1: Dedicated fast typed ingest benchmark đo độc lập throughput stage.ingest với 4 concurrent workers. */
+/** FT-057 D1 diagnostic: đo độc lập typed {@code stage.ingest} với bốn worker concurrent. */
 @Tag("benchmark")
 @Testcontainers
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -89,14 +89,14 @@ class CatalogOperationIngestBenchmarkTest {
 
     @Test
     @Order(1)
-    @Timeout(value = 1, unit = TimeUnit.MINUTES)
+    @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresIngestForTwentyFiveThousandEvents() {
         measureIngest(25_000);
     }
 
     @Test
     @Order(2)
-    @Timeout(value = 2, unit = TimeUnit.MINUTES)
+    @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresIngestForOneMillionEvents() {
         measureIngest(1_000_000);
     }

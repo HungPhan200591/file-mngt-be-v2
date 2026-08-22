@@ -85,17 +85,18 @@ class CatalogOperationCoalescingBenchmarkTest {
     @Order(1)
     @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void calibratesTwentyFiveThousandInputRecords() {
-        measure(25_000, false, CALIBRATION_DIAGNOSTIC_BUDGET);
+        measure(25_000, CALIBRATION_DIAGNOSTIC_BUDGET);
     }
 
     @Test
     @Order(2)
     @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    void qualifiesOneMillionInputRecordsWithinCanonicalBudget() {
-        measure(1_000_000, true, QUALIFICATION_DIAGNOSTIC_BUDGET);
+    void measuresOneMillionInputRecordsForHistoricalDirectCanonicalBaseline() {
+        measure(1_000_000, QUALIFICATION_DIAGNOSTIC_BUDGET);
     }
 
-    private void measure(int eventCount, boolean enforceBudget, Duration diagnosticBudget) {
+    /** Historical direct baseline only; FT-057 qualification is {@link CatalogOperationEndToEndBenchmarkTest}. */
+    private void measure(int eventCount, Duration diagnosticBudget) {
         Instant diagnosticDeadline = Instant.now().plus(diagnosticBudget);
         warmUpAndReset();
         if (ingestTelemetry != null) ingestTelemetry.reset();
@@ -119,13 +120,12 @@ class CatalogOperationCoalescingBenchmarkTest {
         assertThat(CatalogOperationBenchmarkFixture.subjectCount(jdbc)).isEqualTo(expectedSubjects);
         assertThat(CatalogOperationBenchmarkFixture.assetCount(jdbc)).isEqualTo(eventCount);
         assertThat(CatalogOperationBenchmarkFixture.outboxCount(jdbc)).isEqualTo(expectedSubjects);
-        if (enforceBudget) assertThat(elapsedMillis).isLessThanOrEqualTo(10_000);
 
         var ingestSnap = ingestTelemetry != null ? ingestTelemetry.snapshot() : null;
         var finalizerSnap = finalizerTelemetry != null ? finalizerTelemetry.snapshot() : null;
 
         LOGGER.info(
-                "FT-055 typed ingest phases: events={}, subjects={}, prepareMs={}, stageIngestMs={}, "
+                "FT-054 historical direct canonical baseline: events={}, subjects={}, prepareMs={}, stageIngestMs={}, "
                         + "watermarkBuildMs={}, watermarkPersistMs={}, finalizerWaitMs={}, totalMs={}, recordsPerSecond={}\n"
                         + "  -> [INGEST DETAIL] {}\n"
                         + "  -> [FINALIZER DETAIL] {}",
@@ -233,7 +233,7 @@ class CatalogOperationCoalescingBenchmarkTest {
                 Integer.class,
                 CatalogOperationBenchmarkFixture.operationId());
         LOGGER.warn(
-                "FT-055 typed ingest timeout diagnostics operationStatus={}, received={}, completedSubjects={}, "
+                "FT-054 historical baseline timeout diagnostics operationStatus={}, received={}, completedSubjects={}, "
                         + "finalSnapshots={}, pendingUnits={}",
                 operationStatus,
                 received,

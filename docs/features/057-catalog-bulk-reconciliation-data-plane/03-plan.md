@@ -25,7 +25,9 @@ Design: [02-design.md](./02-design.md)
 
 1. **Khóa baseline và combined clock**
    - Giữ V19–V22 immutable; ghi current 25K/1M failure boundary vào benchmark report FT-057.
-   - Thêm operation timer từ first Catalog receive tới broker ack snapshot/watermark cuối và phase telemetry.
+   - Combined gate đo `resume()` tới final broker ack, bắt đầu ngay trước first receive; durable clock từ immutable
+     input đầu tiên persisted (`received_at`) tới `published_at` của final watermark chỉ dùng để bóc phase. Không
+     gọi seed/assignment/warm-up là throughput.
    - Không tối ưu nếu benchmark không báo input count, subject count, output count và exact failed phase.
 
 2. **Thay ingest bằng immutable typed stage**
@@ -63,7 +65,7 @@ Design: [02-design.md](./02-design.md)
 6. **Parity, failure và scale qualification**
    - Chạy correctness IT cho new/no-op/update, duplicate/reorder, election/tags/tombstone, size block và fence.
    - Chạy crash/restart ở seal/workset, unit transaction và relay; broker ack-before-mark phải replay không mất effect.
-   - Chạy ladder `1K → 5K → 50K → 250K → 1M`, sau đó ba measured 1M run cùng manifest.
+   - Workload benchmark chốt: calibration 25K và qualification 1M; sau calibration chạy ba measured 1M run cùng manifest.
    - Chỉ đánh dấu implementation `DONE` khi cả ba run `<= 33.334 ms`, correctness exact và resource bounded.
      `<= 25.000 ms` là stretch, không chặn DONE.
 
@@ -100,5 +102,6 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
 - [x] Sửa SLO owner: Catalog tối thiểu 30K, stretch 40K; SLI-03 end-to-end P95 60s/P99 90s.
 - [x] Route `STATUS.md`, BT-09 context/break-task, Catalog context và architecture overview sang FT-057.
 - [x] Đánh dấu FT-056 failed được supersede cho hướng triển khai tiếp theo; giữ evidence lịch sử immutable.
-- [x] Mã nguồn FT-057: V23 typed input/workset/unit/relay lane, Java control plane, relay sliding window và parity test/benchmark đã được cập nhật.
-- [ ] Chạy Flyway/IT/Kafka failure matrix và benchmark ladder; chỉ cập nhật result/dashboard bằng evidence runtime thật.
+- [x] Mã nguồn FT-057: V23 typed input/workset/unit/relay lane, Java control plane, relay sliding window, phase diagnostics và combined Kafka/finalizer/relay benchmark đã được cập nhật.
+- [x] Correctness IT: `CatalogOperationIngestIT` (7), `CatalogOperationReductionIT` (3), `CatalogOperationFinalizeIT` (9) passed ngày 2026-08-22.
+- [ ] Chạy Kafka failure matrix và benchmark 25K/1M; chỉ cập nhật result/dashboard bằng evidence runtime thật.

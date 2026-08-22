@@ -1,51 +1,40 @@
 # Catalog Service Benchmark Results Dashboard
 
+## FT-057 — Combined Catalog data plane
+
+| Workload | Clock | Target | Result | Status |
+| --- | --- | --- | --- | --- |
+| 25K input records | `resumeToFinalAckMs` | Diagnostic calibration | Chưa chạy | Harness ready; không có throughput claim |
+| 1M input records | `resumeToFinalAckMs` | `<= 33.334 ms` (>= 30K rec/s) | Chưa chạy | Cần ba run 1M cùng manifest trước implementation gate |
+
+Chi tiết contract và manifest: [04-ft057-bulk-reconciliation-data-plane.md](./results/04-ft057-bulk-reconciliation-data-plane.md).
+`resumeToFinalAckMs` là clock gate bảo thủ; `firstPersistToFinalAckMs` chỉ để bóc phase. Không ghi số liệu
+cho tới khi log runtime thật có input/subject/output cardinality, telemetry phase và kết quả durable assertion.
+
+## FT-054 — Historical legacy/direct baseline
+
 | Benchmark | Legacy 25K | Legacy 1M | Candidate FT054 | Status |
 | --- | ---: | ---: | ---: | --- |
-| FT-054 Catalog record processing | 59 rec/s (423.898 ms) | TIMED OUT (> 2m) | 4,325 rec/s (5,781 ms) / 1M TIMED OUT (> 5m) | Qualification thất bại; đã thêm V19 + phase timing, chưa chạy |
+| Catalog record processing | 59 rec/s (423.898 ms) | TIMED OUT (> 2m) | 4,325 rec/s (5,781 ms) / 1M TIMED OUT (> 5m) | Historical evidence; không phải FT-057 comparison |
 
 Chi tiết workload và boundary: [01-ft054-legacy-catalog-record-baseline.md](./results/01-ft054-legacy-catalog-record-baseline.md).
 
-Test: [`CatalogLegacyRecordProcessingBenchmarkTest.java`](./legacy/CatalogLegacyRecordProcessingBenchmarkTest.java).
-Candidate: [`CatalogOperationCoalescingBenchmarkTest.java`](./operation/CatalogOperationCoalescingBenchmarkTest.java).
-
-Bằng chứng candidate mới nhất là run do người dùng cung cấp ngày 2026-08-20: calibration 25K hoàn tất trong
-5.781 s (5,781 ms); qualification 1M không đạt `CATALOG_COMMITTED` trong năm phút và finalizer Catalog log retryable
-`QueryTimeoutException`. Candidate test hiện ghi timing preparation, stage ingest, watermark và finalizer wait
-cho lần chạy kế tiếp.
-
-Không ghi claim throughput hoặc SLO trước khi có run manifest và số đo thật.
-
-## FT-056 V19 merge baseline
+## FT-056 — Historical V19–V22 merge evidence
 
 | Workload | mergeMs | Throughput | pageExec | Status |
 | --- | ---: | ---: | --- | --- |
 | 2.500 subjects (25K events) | 2.032 s | 1.230 subject/s | avg 106ms, p95 155ms, 64 pages | Local evidence 2026-08-21 |
 | 100.000 subjects (1M events) | TIMED OUT (> 2 min) | — | — | JUnit timeout 2 min |
 
-Chi tiết topology và boundary: [03-ft056-set-based-cte-merge.md](./results/03-ft056-set-based-cte-merge.md).
-Test: [`CatalogOperationMergeBenchmarkTest.java`](./operation/CatalogOperationMergeBenchmarkTest.java).
+V20 hash-join: 25K `2.633 s`, 1M connection failure. V21 nested-loop: user report chậm hơn V19, 1M timeout.
+V22 typed reduction/direct merge: 25K `39.278 s`, 1M timeout. Chi tiết: [03-ft056-set-based-cte-merge.md](./results/03-ft056-set-based-cte-merge.md).
 
-`mergeMs` gồm persist equality gate, không gồm seed ingest, Kafka hay relay. Không so isolated ingest và không claim gate D2 (`< 5 ms/page`, 100K `<= 5 s`).
+## FT-055 — Historical Kafka-to-stage diagnostic
 
-### FT-056 candidate
-
-| Attempt | 2.500 subjects | 100.000 subjects | Status |
+| Workload | drainMs | Throughput | Status |
 | --- | ---: | ---: | --- |
-| V20 UNLOGGED hash-join | 2.633 s / avg 129ms | `DataAccessResourceFailureException` | Bỏ access path; chậm hơn V19, gãy 1M |
-| V21 LATERAL nested-loop | `< V19` về hiệu năng (không có exact log) | TIMED OUT | User report 2026-08-22; candidate fail |
-| V22 typed reduction + direct merge | 39.278 s / avg 2.108ms | TIMED OUT (> 2 min) | User report 2026-08-22; chậm hơn V19 ~20x ở 25K, 1M timeout |
+| 25K | 1.164 s | 21.478 rec/s | Local evidence 2026-08-21 |
+| 1M | 24.527 s | 40.771 rec/s | Testcontainers `fsync=off`, 8 partition / 8 consumer / slice 5000 |
 
-Candidate V22 thất bại hoàn toàn.
-
-## FT-055 Kafka backlog drain
-
-| Workload | drainMs | Throughput | Telemetry | Status |
-| --- | ---: | ---: | --- | --- |
-| 25K (2.500 subjects) | 1.164 s | 21.478 rec/s | slices=16, avgPerSlice=274.9ms, stageSql 63.6% | Local evidence 2026-08-21 |
-| 1M (100.000 subjects) | 24.527 s | 40.771 rec/s | slices=232, avgPerSlice=643.7ms, stageSql 82.0% | Local evidence 2026-08-21 |
-
-Chi tiết topology, boundary và log: [02-ft055-kafka-backlog-drain.md](./results/02-ft055-kafka-backlog-drain.md).
-Test: [`CatalogOperationKafkaPipelineBenchmarkTest.java`](./operation/CatalogOperationKafkaPipelineBenchmarkTest.java).
-
-`drainMs` không gồm assignment/produce/rebalance. Topology 8 partition / 8 consumer / slice 5000, Testcontainers `fsync=off`. Không so với isolated ingest và không claim SLO `QUERY_DB_READY`.
+`drainMs` không gồm assignment/produce/rebalance và không gồm finalizer/relay. Chi tiết:
+[02-ft055-kafka-backlog-drain.md](./results/02-ft055-kafka-backlog-drain.md).
