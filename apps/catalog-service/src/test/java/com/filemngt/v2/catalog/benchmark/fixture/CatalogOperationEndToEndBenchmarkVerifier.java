@@ -10,8 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public final class CatalogOperationEndToEndBenchmarkVerifier {
     private CatalogOperationEndToEndBenchmarkVerifier() {}
 
-    public static Result assertDurableCompletion(
-            JdbcTemplate jdbc, int eventCount, long resumeToFinalAckMs, long firstPersistToFinalAckMs) {
+    public static Result assertDurableCompletion(JdbcTemplate jdbc, int eventCount, long pipelineToFinalAckMs) {
         long expectedSubjects = CatalogOperationBenchmarkFixture.expectedSubjects(eventCount);
         assertThat(
                         count(
@@ -58,7 +57,7 @@ public final class CatalogOperationEndToEndBenchmarkVerifier {
                         CatalogOperationBenchmarkFixture.operationId()))
                 .isEqualTo((short) 59);
 
-        return new Result(resumeToFinalAckMs, firstPersistToFinalAckMs);
+        return new Result(pipelineToFinalAckMs);
     }
 
     private static long count(JdbcTemplate jdbc, String sql) {
@@ -83,12 +82,11 @@ public final class CatalogOperationEndToEndBenchmarkVerifier {
             Result result,
             Object ingestTelemetry,
             Object finalizerTelemetry) {
-        long resumeRecordsPerSecond = throughput(eventCount, result.resumeToFinalAckMs());
-        long durableRecordsPerSecond = throughput(eventCount, result.firstPersistToFinalAckMs());
+        long pipelineRecordsPerSecond = throughput(eventCount, result.pipelineToFinalAckMs());
         logger.info(
                 "FT-059 combined Catalog pipeline: events={}, subjects={}, completionShards={}, discoveryPartitions={}, "
-                        + "operationConcurrency={}, discoverySeedMs={}, completionSeedMs={}, watermarkSeedMs={}, resumeToFinalAckMs={}, "
-                        + "firstPersistToFinalAckMs={}, resumeRecordsPerSecond={}, durableRecordsPerSecond={}, "
+                        + "operationConcurrency={}, discoverySeedMs={}, completionSeedMs={}, watermarkSeedMs={}, pipelineToFinalAckMs={}, "
+                        + "pipelineRecordsPerSecond={}, "
                         + "minimumTargetMet={}, stretchTargetMet={}\n  -> ingest={} finalizer={}",
                 eventCount,
                 CatalogOperationBenchmarkFixture.expectedSubjects(eventCount),
@@ -98,15 +96,13 @@ public final class CatalogOperationEndToEndBenchmarkVerifier {
                 discoverySeedMs,
                 completionSeedMs,
                 watermarkSeedMs,
-                result.resumeToFinalAckMs(),
-                result.firstPersistToFinalAckMs(),
-                resumeRecordsPerSecond,
-                durableRecordsPerSecond,
-                resumeRecordsPerSecond >= CatalogOperationEndToEndBenchmarkSettings.MINIMUM_TARGET_RECORDS_PER_SECOND,
-                resumeRecordsPerSecond >= CatalogOperationEndToEndBenchmarkSettings.STRETCH_TARGET_RECORDS_PER_SECOND,
+                result.pipelineToFinalAckMs(),
+                pipelineRecordsPerSecond,
+                pipelineRecordsPerSecond >= CatalogOperationEndToEndBenchmarkSettings.MINIMUM_TARGET_RECORDS_PER_SECOND,
+                pipelineRecordsPerSecond >= CatalogOperationEndToEndBenchmarkSettings.STRETCH_TARGET_RECORDS_PER_SECOND,
                 ingestTelemetry,
                 finalizerTelemetry);
     }
 
-    public record Result(long resumeToFinalAckMs, long firstPersistToFinalAckMs) {}
+    public record Result(long pipelineToFinalAckMs) {}
 }

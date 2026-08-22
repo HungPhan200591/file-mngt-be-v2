@@ -63,7 +63,8 @@ public class CatalogOperationIngestStore {
                         or (operation.processing_version = 59 and (
                             operation.status not in ('INGESTING', 'RECONCILING')
                             or (operation.completion_shard_count is not null
-                                and coalesce(shard.status, 'BLOCKED') <> 'INGESTING')
+                                and shard.status is not null
+                                and shard.status <> 'INGESTING')
                         ))
                     )
                     group by input.operation_id
@@ -106,7 +107,9 @@ public class CatalogOperationIngestStore {
                         (operation.processing_version = 57 and operation.status = 'INGESTING')
                         or (operation.processing_version = 59
                             and operation.status in ('INGESTING', 'RECONCILING')
-                            and (operation.completion_shard_count is null or shard.status = 'INGESTING'))
+                            and (operation.completion_shard_count is null
+                                or shard.status is null
+                                or shard.status = 'INGESTING'))
                       )
                     on conflict (event_id) do nothing
                     returning operation_id, source_partition, routing_bucket

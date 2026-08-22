@@ -21,6 +21,33 @@ public final class CatalogOperationBenchmarkFixture {
     private static final UUID OPERATION_ID = stableUuid("operation", 1);
     private static final UUID SCAN_RUN_ID = stableUuid("scan-run", 1);
 
+    private static final List<String> RESET_DELETE_ORDER = List.of(
+            "catalog_finalize_page",
+            "catalog_finalize_latest",
+            "catalog_finalize_event",
+            "catalog_finalize_asset",
+            "catalog_finalize_primary",
+            "catalog_finalize_metadata",
+            "catalog_finalize_state",
+            "catalog_finalize_snapshot",
+            "catalog_operation_reconcile_unit",
+            "catalog_operation_work_subject",
+            "catalog_operation_ingest_partition",
+            "catalog_operation_discovery_input",
+            "catalog_operation_asset_reduction",
+            "catalog_operation_subject_reduction",
+            "catalog_operation_lane",
+            "catalog_operation_subject",
+            "catalog_discovery_stage",
+            "catalog_approval_operation",
+            "catalog_dead_letter_event",
+            "catalog_outbox_event",
+            "catalog_processed_event",
+            "catalog_removed_asset_locator",
+            "media_subject",
+            "actress",
+            "master_data_import");
+
     private CatalogOperationBenchmarkFixture() {}
 
     public static void reset(JdbcTemplate jdbcTemplate) {
@@ -53,6 +80,14 @@ public final class CatalogOperationBenchmarkFixture {
                     master_data_import
                 CASCADE
                 """);
+        jdbcTemplate.update("UPDATE master_data_registry SET version = 0 WHERE id = 1");
+    }
+
+    /** Reset cho benchmark có scheduler sống; tránh AccessExclusiveLock của TRUNCATE tranh với runtime query. */
+    public static void resetWithoutExclusiveTableLocks(JdbcTemplate jdbcTemplate) {
+        for (String table : RESET_DELETE_ORDER) {
+            jdbcTemplate.update("delete from " + table);
+        }
         jdbcTemplate.update("UPDATE master_data_registry SET version = 0 WHERE id = 1");
     }
 

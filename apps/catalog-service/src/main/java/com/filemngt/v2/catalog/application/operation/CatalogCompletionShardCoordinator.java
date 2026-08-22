@@ -24,7 +24,7 @@ public class CatalogCompletionShardCoordinator {
             CatalogCompletionShardStore shards,
             CatalogOperationReliabilityMetrics metrics,
             @Value("${catalog.operation.subject-page-size:500}") int pageSize,
-            @Value("${catalog.operation.seal-batch-size:8}") int batchSize) {
+            @Value("${catalog.operation.seal-batch-size:1}") int batchSize) {
         this.shards = shards;
         this.metrics = metrics;
         this.pageSize = bounded(pageSize, 1, 1_000, "subject-page-size");

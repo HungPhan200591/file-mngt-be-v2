@@ -4,13 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
-import org.springframework.kafka.listener.MessageListenerContainer;
 
-/** Điều khiển cooperative pause/resume để seed Kafka nằm ngoài benchmark clock mà không rebalance consumer group. */
+/** Xác nhận consumer assignment ổn định trước khi combined benchmark bắt đầu publish workload. */
 public final class CatalogOperationKafkaConsumerControl {
     private CatalogOperationKafkaConsumerControl() {}
 
@@ -40,57 +36,6 @@ public final class CatalogOperationKafkaConsumerControl {
                     assertThat(assignedPartitions(registry, completionGroup, completionTopic))
                             .isEqualTo(completionPartitions);
                 });
-    }
-
-    public static void pause(KafkaListenerEndpointRegistry registry, List<String> groupIds, Duration timeout) {
-        for (var container : containers(registry, groupIds)) {
-            container.pause();
-        }
-        await().alias("Catalog input consumers paused without leaving their groups")
-                .pollInterval(Duration.ofMillis(20))
-                .atMost(timeout)
-                .untilAsserted(() -> assertThat(listenerContainers(registry, groupIds))
-                        .isNotEmpty()
-                        .allMatch(MessageListenerContainer::isContainerPaused));
-    }
-
-    public static void resume(KafkaListenerEndpointRegistry registry, List<String> groupIds) {
-        for (var container : containers(registry, groupIds)) {
-            container.resume();
-        }
-    }
-
-    public static void awaitResumed(KafkaListenerEndpointRegistry registry, List<String> groupIds, Duration timeout) {
-        await().alias("Catalog input consumers resumed after a completed poll")
-                .pollInterval(Duration.ofMillis(20))
-                .atMost(timeout)
-                .untilAsserted(() -> assertThat(listenerContainers(registry, groupIds))
-                        .isNotEmpty()
-                        .allMatch(container -> !container.isPauseRequested() && !container.isContainerPaused()));
-    }
-
-    private static List<MessageListenerContainer> containers(
-            KafkaListenerEndpointRegistry registry, List<String> groupIds) {
-        var containers = new ArrayList<MessageListenerContainer>();
-        for (var container : registry.getListenerContainers()) {
-            if (groupIds.contains(container.getGroupId())) {
-                containers.add(container);
-            }
-        }
-        return containers;
-    }
-
-    private static List<MessageListenerContainer> listenerContainers(
-            KafkaListenerEndpointRegistry registry, List<String> groupIds) {
-        var listeners = new ArrayList<MessageListenerContainer>();
-        for (var container : containers(registry, groupIds)) {
-            if (container instanceof ConcurrentMessageListenerContainer<?, ?> concurrent) {
-                listeners.addAll(concurrent.getContainers());
-            } else {
-                listeners.add(container);
-            }
-        }
-        return listeners;
     }
 
     private static int assignedPartitions(KafkaListenerEndpointRegistry registry, String groupId, String topic) {

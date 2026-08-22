@@ -29,8 +29,10 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   units checkpoint đồng thời không lock-upgrade deadlock; Flyway V24 đã verify trên PostgreSQL 18 Testcontainers.
   Combined 25K hoàn tất trong 4.935 ms (`5.066 input records/s`); combined 1M vượt deadline 120 giây do
   reconciliation units lặp lại statement timeout 20 giây và operation còn `RECONCILING`. FT-058 đã dừng ở
-  `FEASIBILITY_FAILED`; FT-059 không có benchmark/qualification trong lần implementation này và không tiếp tục
-  tối ưu cùng 16-unit transaction shape.
+  `FEASIBILITY_FAILED`. FT-059 stable mode dùng một ingest consumer, một finalizer worker và seal từng shard;
+  combined 25K tới final broker acknowledgement đã đạt 3/3 lượt độc lập trong `25.492–31.407 ms`. Race
+  marker/data dưới PostgreSQL `READ COMMITTED` đã có IT khóa lại. Đây là correctness baseline chậm, chưa phải
+  throughput hoặc scale qualification.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.
