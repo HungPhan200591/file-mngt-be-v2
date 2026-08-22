@@ -95,14 +95,22 @@ public class CatalogOutboxRelayLaneStore {
     }
 
     public int markFailed(UUID eventId, CatalogOutboxRelayLaneClaim claim, String error, Instant now) {
-        return jdbc.update("""
+        return jdbc.update(
+                """
                 update catalog_outbox_event event
                 set attempt_count = attempt_count + 1, last_error = ?
                 from catalog_outbox_relay_lane lane
                 where event.id = ? and event.published_at is null
                   and event.relay_lane_id = ?
                   and lane.lane_id = ? and lane.lease_owner = ? and lane.fence_token = ? and lane.lease_until > ?
-                """, error, eventId, claim.laneId(), claim.laneId(), claim.owner(), claim.fenceToken(), Timestamp.from(now));
+                """,
+                error,
+                eventId,
+                claim.laneId(),
+                claim.laneId(),
+                claim.owner(),
+                claim.fenceToken(),
+                Timestamp.from(now));
     }
 
     public void release(CatalogOutboxRelayLaneClaim claim) {

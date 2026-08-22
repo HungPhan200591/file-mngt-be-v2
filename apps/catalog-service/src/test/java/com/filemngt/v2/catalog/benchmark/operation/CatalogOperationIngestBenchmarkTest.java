@@ -126,7 +126,9 @@ class CatalogOperationIngestBenchmarkTest {
         long elapsedMillis = (System.nanoTime() - started) / 1_000_000L;
 
         long expectedSubjects = CatalogOperationBenchmarkFixture.expectedSubjects(eventCount);
-        assertThat(count("select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?"))
+        assertThat(
+                        count(
+                                "select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?"))
                 .isEqualTo(eventCount);
         assertThat(count("select count(*) from catalog_operation_discovery_input where operation_id = ?"))
                 .isEqualTo(eventCount);

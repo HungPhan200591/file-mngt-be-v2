@@ -54,10 +54,12 @@ public class CatalogOperationIngestStore {
                         correlation_id, traceparent, subject_key, routing_bucket, region, subject_type,
                         identity_key, display_title, base_code, part, studio_code, actress_names,
                         storage_key, relative_path, asset_role, tag_names, event_time)
-                    select event_id, operation_id, batch_id, scan_run_id, source_partition, source_offset,
-                        correlation_id, traceparent, subject_key, routing_bucket, region, subject_type,
-                        identity_key, display_title, base_code, part, studio_code, actress_names,
-                        storage_key, relative_path, asset_role, tag_names, event_time
+                    select input.event_id, input.operation_id, input.batch_id, input.scan_run_id,
+                        input.source_partition, input.source_offset, input.correlation_id, input.traceparent,
+                        input.subject_key, input.routing_bucket, input.region, input.subject_type,
+                        input.identity_key, input.display_title, input.base_code, input.part,
+                        input.studio_code, input.actress_names, input.storage_key, input.relative_path,
+                        input.asset_role, input.tag_names, input.event_time
                     from input
                     join catalog_approval_operation operation using (operation_id)
                     where operation.status = 'INGESTING'

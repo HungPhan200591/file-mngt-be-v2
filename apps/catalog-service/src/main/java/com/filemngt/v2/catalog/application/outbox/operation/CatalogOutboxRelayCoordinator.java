@@ -106,8 +106,7 @@ public class CatalogOutboxRelayCoordinator {
      * Không đợi slowest acknowledgement của cả fetch. Cửa sổ bounded được refill khi bất kỳ send nào hoàn tất,
      * rồi durable mark ngay để retry chỉ còn phần chưa ack.
      */
-    private int publishWithSlidingWindow(
-            List<CatalogOutboxRelayRecord> events, CatalogOutboxRelayLaneClaim claim) {
+    private int publishWithSlidingWindow(List<CatalogOutboxRelayRecord> events, CatalogOutboxRelayLaneClaim claim) {
         Iterator<CatalogOutboxRelayRecord> pending = events.iterator();
         List<CompletableFuture<DeliveryResult>> inFlight = new ArrayList<>(properties.getMaxInFlight());
         int published = 0;

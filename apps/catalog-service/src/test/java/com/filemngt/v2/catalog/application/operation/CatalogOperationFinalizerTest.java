@@ -94,6 +94,7 @@ class CatalogOperationFinalizerTest {
     }
 
     private static CatalogOperationUnitClaim claim() {
-        return new CatalogOperationUnitClaim(UUID.randomUUID(), 7, "test-finalizer", Instant.now().plusSeconds(30), 4);
+        return new CatalogOperationUnitClaim(
+                UUID.randomUUID(), 7, "test-finalizer", Instant.now().plusSeconds(30), 4);
     }
 }

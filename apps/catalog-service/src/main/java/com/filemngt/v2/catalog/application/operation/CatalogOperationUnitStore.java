@@ -64,7 +64,10 @@ public class CatalogOperationUnitStore {
                         result.getString("lease_owner"),
                         result.getTimestamp("lease_until").toInstant(),
                         result.getLong("fence_token")),
-                Timestamp.from(now), owner, Timestamp.from(leaseUntil), Timestamp.from(now));
+                Timestamp.from(now),
+                owner,
+                Timestamp.from(leaseUntil),
+                Timestamp.from(now));
         return claims.stream().findFirst();
     }
 

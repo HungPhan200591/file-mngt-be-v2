@@ -233,8 +233,9 @@ class CatalogOperationKafkaPipelineBenchmarkTest {
         await().alias("Kafka consumers ingest all records into database")
                 .pollInterval(Duration.ofMillis(50))
                 .atMost(timeout)
-                .untilAsserted(() -> assertThat(count(
-                                "select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?"))
+                .untilAsserted(() -> assertThat(
+                                count(
+                                        "select coalesce(sum(inserted_record_count), 0) from catalog_operation_ingest_partition where operation_id = ?"))
                         .isEqualTo(eventCount));
     }
 

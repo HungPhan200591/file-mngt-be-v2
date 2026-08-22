@@ -22,22 +22,28 @@ import org.testcontainers.utility.DockerImageName;
 
 /** FT-057: typed input là immutable; seal tạo workset đúng một lần, winner chỉ tính lúc reconcile. */
 @Testcontainers
-@SpringBootTest(properties = {
-    "catalog.outbox.enabled=false",
-    "catalog.operation.finalizer-enabled=false",
-    "catalog.kafka.consumer.enabled=false",
-    "catalog.kafka.operation-consumer.enabled=false",
-    "catalog.kafka.dlt-observer.enabled=false",
-    "p6spy.enabled=false"
-})
+@SpringBootTest(
+        properties = {
+            "catalog.outbox.enabled=false",
+            "catalog.operation.finalizer-enabled=false",
+            "catalog.kafka.consumer.enabled=false",
+            "catalog.kafka.operation-consumer.enabled=false",
+            "catalog.kafka.dlt-observer.enabled=false",
+            "p6spy.enabled=false"
+        })
 class CatalogOperationReductionIT {
     @Container
     @SuppressWarnings("rawtypes")
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
 
-    @Autowired CatalogOperationStageStore stage;
-    @Autowired CatalogOperationUnitStore units;
-    @Autowired JdbcTemplate jdbc;
+    @Autowired
+    CatalogOperationStageStore stage;
+
+    @Autowired
+    CatalogOperationUnitStore units;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -66,11 +72,16 @@ class CatalogOperationReductionIT {
     @Test
     void sourceOrderElectsWinnerDuringReconcileRatherThanDuringIngest() {
         var original = CatalogOperationBenchmarkFixture.discoveryEvent(0);
-        var winner = copy(original, UUID.randomUUID(), "Artist_Alex - winner", original.timestamp().plusSeconds(1));
+        var winner = copy(
+                original,
+                UUID.randomUUID(),
+                "Artist_Alex - winner",
+                original.timestamp().plusSeconds(1));
         var older = copy(original, UUID.randomUUID(), "Artist_Alex - older", original.timestamp());
         stage.ingest(
                 List.of(winner, older),
-                List.of(new CatalogOperationStageStore.RecordCoordinate(4, 20),
+                List.of(
+                        new CatalogOperationStageStore.RecordCoordinate(4, 20),
                         new CatalogOperationStageStore.RecordCoordinate(4, 10)));
         openGate(List.of(winner, older));
 
@@ -84,8 +95,11 @@ class CatalogOperationReductionIT {
     void duplicateManifestDoesNotRebuildSealedWorkset() {
         var events = CatalogOperationBenchmarkFixture.sliceEvents(0, 10);
         stage.ingest(events, CatalogOperationBenchmarkFixture.sliceCoordinates(0, 10));
-        openGate(events);
-        openGate(events);
+        MediaFileDiscoveredV2 first = events.getFirst();
+        var manifest = CatalogOperationBenchmarkFixture.approvalCommittedWatermark(
+                events.size(), first.operationId(), first.scanRunId());
+        stage.acceptWatermark(manifest);
+        stage.acceptWatermark(manifest);
 
         assertThat(count("catalog_operation_work_subject")).isEqualTo(1);
         assertThat(count("catalog_operation_reconcile_unit")).isEqualTo(16);
@@ -99,7 +113,8 @@ class CatalogOperationReductionIT {
 
     private void drainUnits() {
         for (int step = 0; step < 64; step++) {
-            var claim = units.acquire("reduction-it", Instant.now(), Instant.now().plusSeconds(30));
+            var claim =
+                    units.acquire("reduction-it", Instant.now(), Instant.now().plusSeconds(30));
             if (claim.isEmpty()) return;
             units.reconcile(claim.orElseThrow());
         }
@@ -107,23 +122,42 @@ class CatalogOperationReductionIT {
     }
 
     private long count(String table) {
-        Long value = jdbc.queryForObject("select count(*) from " + table + " where operation_id = ?", Long.class,
+        Long value = jdbc.queryForObject(
+                "select count(*) from " + table + " where operation_id = ?",
+                Long.class,
                 CatalogOperationBenchmarkFixture.operationId());
         return value == null ? 0 : value;
     }
 
     private long sum(String column, String table) {
-        Long value = jdbc.queryForObject("select coalesce(sum(" + column + "), 0) from " + table
-                + " where operation_id = ?", Long.class, CatalogOperationBenchmarkFixture.operationId());
+        Long value = jdbc.queryForObject(
+                "select coalesce(sum(" + column + "), 0) from " + table + " where operation_id = ?",
+                Long.class,
+                CatalogOperationBenchmarkFixture.operationId());
         return value == null ? 0 : value;
     }
 
     private static MediaFileDiscoveredV2 copy(
             MediaFileDiscoveredV2 event, UUID eventId, String displayTitle, Instant timestamp) {
         return new MediaFileDiscoveredV2(
-                eventId, event.eventType(), timestamp, event.operationId(), event.batchId(), event.scanRunId(),
-                event.proposalId(), event.region(), event.subjectType(), event.identityKey(), event.baseCode(),
-                event.part(), event.studioCode(), displayTitle, event.actressNames(), event.tagNames(), event.role(),
-                event.storageKey(), event.relativePath());
+                eventId,
+                event.eventType(),
+                timestamp,
+                event.operationId(),
+                event.batchId(),
+                event.scanRunId(),
+                event.proposalId(),
+                event.region(),
+                event.subjectType(),
+                event.identityKey(),
+                event.baseCode(),
+                event.part(),
+                event.studioCode(),
+                displayTitle,
+                event.actressNames(),
+                event.tagNames(),
+                event.role(),
+                event.storageKey(),
+                event.relativePath());
     }
 }

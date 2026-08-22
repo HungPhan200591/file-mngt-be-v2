@@ -28,23 +28,31 @@ import org.testcontainers.utility.DockerImageName;
 
 /** FT-057 parity: one set-based reconciliation transaction per coarse unit, no subject pages. */
 @Testcontainers
-@SpringBootTest(properties = {
-    "catalog.outbox.enabled=false",
-    "catalog.operation.finalizer-enabled=false",
-    "catalog.kafka.consumer.enabled=false",
-    "catalog.kafka.operation-consumer.enabled=false",
-    "catalog.kafka.dlt-observer.enabled=false",
-    "p6spy.enabled=false"
-})
+@SpringBootTest(
+        properties = {
+            "catalog.outbox.enabled=false",
+            "catalog.operation.finalizer-enabled=false",
+            "catalog.kafka.consumer.enabled=false",
+            "catalog.kafka.operation-consumer.enabled=false",
+            "catalog.kafka.dlt-observer.enabled=false",
+            "p6spy.enabled=false"
+        })
 class CatalogOperationFinalizeIT {
     @Container
     @SuppressWarnings("rawtypes")
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
 
-    @Autowired CatalogOperationStageStore stage;
-    @Autowired CatalogOperationUnitStore units;
-    @Autowired CatalogOperationFailureStore failures;
-    @Autowired JdbcTemplate jdbc;
+    @Autowired
+    CatalogOperationStageStore stage;
+
+    @Autowired
+    CatalogOperationUnitStore units;
+
+    @Autowired
+    CatalogOperationFailureStore failures;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -99,19 +107,24 @@ class CatalogOperationFinalizeIT {
     @Test
     void untaggedVideoWinsPrimaryElectionAndSubjectTagsFollowPrimary() {
         ingestAndDrain(CatalogOperationBenchmarkFixture.sliceEvents(0, 10));
-        String primaryPath = jdbc.queryForObject(
-                "select relative_path from media_asset where role = 'PRIMARY_VIDEO'", String.class);
+        String primaryPath =
+                jdbc.queryForObject("select relative_path from media_asset where role = 'PRIMARY_VIDEO'", String.class);
         assertThat(primaryPath).endsWith("asset-01.mp4");
-        assertThat(jdbc.queryForObject("select count(*) from media_subject_tag", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from media_subject_tag", Integer.class))
+                .isZero();
     }
 
     @Test
     void tombstoneSuppressesOlderDiscovery() {
         var event = CatalogOperationBenchmarkFixture.discoveryEvent(0);
-        jdbc.update("""
+        jdbc.update(
+                """
                 insert into catalog_removed_asset_locator(storage_key, relative_path, removed_at)
                 values (?, ?, ?)
-                """, event.storageKey(), event.relativePath(), Timestamp.from(event.timestamp().plus(1, ChronoUnit.HOURS)));
+                """,
+                event.storageKey(),
+                event.relativePath(),
+                Timestamp.from(event.timestamp().plus(1, ChronoUnit.HOURS)));
         ingestAndDrain(List.of(event));
         assertThat(CatalogOperationBenchmarkFixture.assetCount(jdbc)).isZero();
     }
@@ -119,8 +132,10 @@ class CatalogOperationFinalizeIT {
     @Test
     void actressInsertBumpsRegistryOnce() {
         ingestAndDrain(CatalogOperationBenchmarkFixture.sliceEvents(0, 10));
-        assertThat(jdbc.queryForObject("select count(*) from actress", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("select version from master_data_registry where id = 1", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from actress", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("select version from master_data_registry where id = 1", Integer.class))
+                .isEqualTo(1);
     }
 
     @Test
@@ -152,7 +167,12 @@ class CatalogOperationFinalizeIT {
         var claim = claimForWork();
         assertThatThrownBy(() -> jdbc.queryForObject(
                         "select catalog_reconcile_operation_unit(?, ?, ?, ?, ?)",
-                        Integer.class, claim.operationId(), claim.unitId(), claim.owner(), claim.fenceToken(), 1))
+                        Integer.class,
+                        claim.operationId(),
+                        claim.unitId(),
+                        claim.owner(),
+                        claim.fenceToken(),
+                        1))
                 .hasMessageContaining("SUBJECT_SNAPSHOT_TOO_LARGE");
         failures.blockSnapshotTooLarge(claim);
 
@@ -166,16 +186,24 @@ class CatalogOperationFinalizeIT {
         var events = CatalogOperationBenchmarkFixture.sliceEvents(0, 10);
         ingest(events);
         openGate(events);
-        var claim = units.acquire("catalog-finalize-it", Instant.now(), Instant.now().plusSeconds(30)).orElseThrow();
+        var claim = units.acquire(
+                        "catalog-finalize-it", Instant.now(), Instant.now().plusSeconds(30))
+                .orElseThrow();
         assertThatThrownBy(() -> jdbc.queryForObject(
                         "select catalog_reconcile_operation_unit(?, ?, ?, ?, ?)",
-                        Integer.class, claim.operationId(), claim.unitId(), claim.owner(), claim.fenceToken() + 1, 921600))
+                        Integer.class,
+                        claim.operationId(),
+                        claim.unitId(),
+                        claim.owner(),
+                        claim.fenceToken() + 1,
+                        921600))
                 .hasMessageContaining("fence was lost");
     }
 
     private static List<MediaFileDiscoveredV2> tenEvents(UUID operationId, UUID scanRunId) {
         var events = new ArrayList<MediaFileDiscoveredV2>(10);
-        for (int index = 0; index < 10; index++) events.add(CatalogOperationBenchmarkFixture.discoveryEvent(index, operationId, scanRunId));
+        for (int index = 0; index < 10; index++)
+            events.add(CatalogOperationBenchmarkFixture.discoveryEvent(index, operationId, scanRunId));
         return events;
     }
 
@@ -201,7 +229,8 @@ class CatalogOperationFinalizeIT {
 
     private void drain() {
         for (int step = 0; step < 64; step++) {
-            var claim = units.acquire("catalog-finalize-it", Instant.now(), Instant.now().plusSeconds(30));
+            var claim = units.acquire(
+                    "catalog-finalize-it", Instant.now(), Instant.now().plusSeconds(30));
             if (claim.isEmpty()) return;
             units.reconcile(claim.orElseThrow());
         }
@@ -210,7 +239,8 @@ class CatalogOperationFinalizeIT {
 
     private CatalogOperationUnitClaim claimForWork() {
         for (int step = 0; step < 64; step++) {
-            var claim = units.acquire("catalog-finalize-it", Instant.now(), Instant.now().plusSeconds(30))
+            var claim = units.acquire(
+                            "catalog-finalize-it", Instant.now(), Instant.now().plusSeconds(30))
                     .orElseThrow();
             Integer work = jdbc.queryForObject(
                     "select count(*) from catalog_operation_work_subject where operation_id = ? and unit_id = ?",
@@ -260,7 +290,9 @@ class CatalogOperationFinalizeIT {
     }
 
     private String operationStatus() {
-        return jdbc.queryForObject("select status from catalog_approval_operation where operation_id = ?", String.class,
+        return jdbc.queryForObject(
+                "select status from catalog_approval_operation where operation_id = ?",
+                String.class,
                 CatalogOperationBenchmarkFixture.operationId());
     }
 }

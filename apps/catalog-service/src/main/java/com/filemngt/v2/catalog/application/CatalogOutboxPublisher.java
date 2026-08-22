@@ -14,10 +14,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(name = "catalog.outbox.enabled", havingValue = "true", matchIfMissing = true)
-@ConditionalOnProperty(
-        name = "catalog.outbox.operation-relay.enabled",
-        havingValue = "false",
-        matchIfMissing = true)
+@ConditionalOnProperty(name = "catalog.outbox.operation-relay.enabled", havingValue = "false", matchIfMissing = true)
 public class CatalogOutboxPublisher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogOutboxPublisher.class);

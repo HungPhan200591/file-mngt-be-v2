@@ -313,6 +313,8 @@ begin
         part varchar(128),
         studio_code varchar(256),
         actress_names jsonb not null,
+        source_partition integer not null,
+        source_offset bigint not null,
         event_time timestamptz not null,
         primary key(subject_key, storage_key_is_null, storage_key_key, relative_path)
     ) on commit delete rows;
@@ -376,14 +378,16 @@ begin
 
     insert into tmp_catalog_asset_winner(
         subject_key, storage_key, storage_key_is_null, storage_key_key, relative_path,
-        asset_role, tag_names, display_title, base_code, part, studio_code, actress_names, event_time
+        asset_role, tag_names, display_title, base_code, part, studio_code, actress_names,
+        source_partition, source_offset, event_time
     )
     select distinct on (
         input.subject_key, input.storage_key is null, coalesce(input.storage_key, ''), input.relative_path
     )
         input.subject_key, input.storage_key, input.storage_key is null, coalesce(input.storage_key, ''),
         input.relative_path, input.asset_role, input.tag_names, input.display_title, input.base_code,
-        input.part, input.studio_code, input.actress_names, input.event_time
+        input.part, input.studio_code, input.actress_names, input.source_partition, input.source_offset,
+        input.event_time
     from catalog_operation_discovery_input input
     join catalog_operation_work_subject work
       on work.operation_id = input.operation_id and work.subject_key = input.subject_key
@@ -493,9 +497,16 @@ begin
     select distinct on (target.subject_id) target.subject_id, asset.id
     from tmp_catalog_target target
     join media_asset asset on asset.subject_id = target.subject_id and asset.role in ('VIDEO', 'PRIMARY_VIDEO')
+    left join tmp_catalog_asset_winner staged
+      on staged.subject_key = target.subject_key
+     and staged.storage_key is not distinct from asset.storage_key
+     and staged.relative_path = asset.relative_path
     order by target.subject_id,
         exists (select 1 from media_asset_tag tag where tag.asset_id = asset.id),
         case when asset.role = 'PRIMARY_VIDEO' then 0 else 1 end,
+        case when staged.subject_key is null then 1 else 0 end,
+        staged.source_partition,
+        staged.source_offset,
         asset.created_at, asset.id;
 
     with demoted as (

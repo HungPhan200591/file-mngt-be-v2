@@ -63,7 +63,8 @@ public class CatalogOperationFinalizer {
         int committing = units.beginCommittingEligibleOperations();
         telemetry.recordCompleteOperation(System.nanoTime() - completionStarted);
         if (processed > 0 || committing > 0) {
-            LOGGER.debug("Catalog operation finalizer processedSubjects={} committingOperations={}", processed, committing);
+            LOGGER.debug(
+                    "Catalog operation finalizer processedSubjects={} committingOperations={}", processed, committing);
         }
     }
 
@@ -89,13 +90,18 @@ public class CatalogOperationFinalizer {
         } catch (RuntimeException exception) {
             if (isSnapshotTooLarge(exception)) {
                 failures.blockSnapshotTooLarge(unit);
-                LOGGER.warn("Catalog operation blocked because a subject snapshot exceeds its limit operationId={} unit={}",
-                        unit.operationId(), unit.unitId());
+                LOGGER.warn(
+                        "Catalog operation blocked because a subject snapshot exceeds its limit operationId={} unit={}",
+                        unit.operationId(),
+                        unit.unitId());
             } else {
                 releaseAfterFailure(unit);
                 LOGGER.warn(
                         "Catalog operation finalizer retryable failure operationId={} unit={} errorType={} causeType={}",
-                        unit.operationId(), unit.unitId(), exception.getClass().getSimpleName(), causeType(exception));
+                        unit.operationId(),
+                        unit.unitId(),
+                        exception.getClass().getSimpleName(),
+                        causeType(exception));
             }
             return 0;
         }
@@ -105,14 +111,18 @@ public class CatalogOperationFinalizer {
         try {
             units.release(unit);
         } catch (RuntimeException releaseFailure) {
-            LOGGER.warn("Catalog operation finalizer could not release failed unit operationId={} unit={} errorType={}",
-                    unit.operationId(), unit.unitId(), releaseFailure.getClass().getSimpleName());
+            LOGGER.warn(
+                    "Catalog operation finalizer could not release failed unit operationId={} unit={} errorType={}",
+                    unit.operationId(),
+                    unit.unitId(),
+                    releaseFailure.getClass().getSimpleName());
         }
     }
 
     private static boolean isSnapshotTooLarge(Throwable failure) {
         for (Throwable current = failure; current != null; current = current.getCause()) {
-            if (current.getMessage() != null && current.getMessage().contains("SUBJECT_SNAPSHOT_TOO_LARGE")) return true;
+            if (current.getMessage() != null && current.getMessage().contains("SUBJECT_SNAPSHOT_TOO_LARGE"))
+                return true;
         }
         return false;
     }
