@@ -1,6 +1,6 @@
 # FT-058 — Catalog Operation Reliability Hardening — Plan
 
-Status: `IMPLEMENTED — verification pending`
+Status: `IMPLEMENTED — functional verification passed, benchmark pending`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -87,4 +87,6 @@ Design: [02-design.md](./02-design.md)
 
 - Plan/design review: `READY`.
 - Implementation mục 1–4: hoàn tất source, migration V24, Kafka/DLT topology, deadline/retry và test matrix.
-- Build/test/migration/benchmark: chưa chạy sau implementation này.
+- Compile + unit + targeted PostgreSQL/Kafka regression: `35/35 PASS` trên JDK 25 ngày 2026-08-22.
+- Flyway V24: validate và migrate thành công trên PostgreSQL 18 Testcontainers; chưa áp dụng lên database môi trường thật.
+- Combined benchmark: chưa chạy; còn đúng hai workload `25K` rồi `1M`, mỗi operation bị chặn ở 120 giây.

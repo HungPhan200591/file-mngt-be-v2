@@ -1,7 +1,6 @@
 package com.filemngt.v2.catalog.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -9,8 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.filemngt.v2.catalog.adapter.in.event.CatalogInputContractException;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -32,12 +31,14 @@ class CatalogKafkaErrorHandlingConfigTest {
         @SuppressWarnings("unchecked")
         Consumer<Object, Object> consumer = mock(Consumer.class);
         when(kafka.partitionsFor("media.file.discovered.v2.DLT"))
-                .thenReturn(List.of(new PartitionInfo(
-                        "media.file.discovered.v2.DLT",
-                        3,
-                        null,
-                        new org.apache.kafka.common.Node[0],
-                        new org.apache.kafka.common.Node[0])));
+                .thenReturn(IntStream.range(0, 4)
+                        .mapToObj(partition -> new PartitionInfo(
+                                "media.file.discovered.v2.DLT",
+                                partition,
+                                null,
+                                new org.apache.kafka.common.Node[0],
+                                new org.apache.kafka.common.Node[0]))
+                        .toList());
         when(kafka.send(any(ProducerRecord.class)))
                 .thenReturn(CompletableFuture.<SendResult<Object, Object>>failedFuture(
                         new KafkaException("broker unavailable")));
@@ -47,10 +48,9 @@ class CatalogKafkaErrorHandlingConfigTest {
         var source = new ConsumerRecord<>("media.file.discovered.v2", 3, 42L, "key", "payload");
         MessageListenerContainer container = mock(MessageListenerContainer.class);
 
-        assertThatThrownBy(() ->
-                        handler.handleOne(new CatalogInputContractException("poison"), source, consumer, container))
-                .isInstanceOf(KafkaException.class);
+        boolean recovered = handler.handleOne(new CatalogInputContractException("poison"), source, consumer, container);
 
+        assertThat(recovered).isFalse();
         verify(consumer, never()).commitSync();
         verify(consumer, never()).commitAsync();
     }
@@ -61,8 +61,8 @@ class CatalogKafkaErrorHandlingConfigTest {
                 CatalogKafkaErrorHandlingConfig.retryBackOff().start();
 
         assertThat(execution.nextBackOff()).isBetween(150L, 350L);
-        assertThat(execution.nextBackOff()).isBetween(400L, 600L);
-        assertThat(execution.nextBackOff()).isBetween(900L, 1_100L);
+        assertThat(execution.nextBackOff()).isBetween(300L, 700L);
+        assertThat(execution.nextBackOff()).isBetween(600L, 1_400L);
         assertThat(execution.nextBackOff()).isEqualTo(BackOffExecution.STOP);
     }
 

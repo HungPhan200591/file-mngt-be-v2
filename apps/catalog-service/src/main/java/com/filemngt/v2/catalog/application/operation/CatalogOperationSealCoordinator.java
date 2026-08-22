@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 
 /** Durable control plane tách equality gate khỏi transaction ingest chạy đồng thời theo Kafka partition. */
 @Component
-@ConditionalOnProperty(name = "catalog.operation.seal-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(
+        name = {"catalog.operation.finalizer-enabled", "catalog.operation.seal-enabled"},
+        havingValue = "true")
 public class CatalogOperationSealCoordinator {
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogOperationSealCoordinator.class);
 

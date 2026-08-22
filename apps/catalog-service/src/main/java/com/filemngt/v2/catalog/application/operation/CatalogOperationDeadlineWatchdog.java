@@ -10,7 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Enforce một deadline 120 giây xuyên INGESTING, RECONCILING và COMMITTING. */
 @Component
-@ConditionalOnProperty(name = "catalog.operation.watchdog-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(
+        name = {"catalog.operation.finalizer-enabled", "catalog.operation.watchdog-enabled"},
+        havingValue = "true")
 public class CatalogOperationDeadlineWatchdog {
     private final JdbcTemplate jdbc;
     private final CatalogOperationReliabilityMetrics metrics;

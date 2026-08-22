@@ -20,7 +20,7 @@ public class CatalogKafkaErrorHandlingConfig {
 
     private static final long INITIAL_BACK_OFF_MILLIS = 250;
     private static final long MAXIMUM_BACK_OFF_MILLIS = 2_000;
-    private static final long BACK_OFF_JITTER_MILLIS = 100;
+    private static final long BASE_BACK_OFF_JITTER_MILLIS = 100;
     private static final long RETRY_ATTEMPTS = 3;
 
     @Bean
@@ -52,7 +52,7 @@ public class CatalogKafkaErrorHandlingConfig {
 
     static ExponentialBackOff retryBackOff() {
         var backOff = new ExponentialBackOff(INITIAL_BACK_OFF_MILLIS, 2.0);
-        backOff.setJitter(BACK_OFF_JITTER_MILLIS);
+        backOff.setJitter(BASE_BACK_OFF_JITTER_MILLIS);
         backOff.setMaxInterval(MAXIMUM_BACK_OFF_MILLIS);
         backOff.setMaxAttempts(RETRY_ATTEMPTS);
         return backOff;

@@ -54,7 +54,8 @@ For `IMAGE`, `GIF` or `null` role events, Catalog ignores `tagNames` for primary
 
 - v2 là contract runtime duy nhất của SC-01 sau khi reset dữ liệu/E2E; event type khác v2 bị reject và đưa vào DLT.
 - Delivery is at-least-once. Payload/contract không hợp lệ là non-retryable và đi thẳng DLT. Lỗi database/broker
-  tạm thời retry tối đa ba lần với exponential backoff `250ms → 500ms → 1s`, jitter `±100ms` và trần `2s`.
+  tạm thời retry tối đa ba lần với exponential backoff `250ms → 500ms → 1s`, base jitter `100ms` được Spring
+  scale theo interval và trần `2s`.
 - `media.file.discovered.v2.DLT` được provision cùng số partition với source topic; recoverer giữ nguyên source
   partition. Nếu publish DLT lỗi, handler không commit source offset mà reseek để recovery có thể chạy lại.
 - SC-01 observer theo dõi `media.file.discovered.v2.DLT`; poison record có `operationId` chuyển operation sang
