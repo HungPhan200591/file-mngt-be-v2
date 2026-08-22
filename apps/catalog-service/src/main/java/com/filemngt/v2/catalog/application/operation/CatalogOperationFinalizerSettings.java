@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 public record CatalogOperationFinalizerSettings(String owner, int workerCount, long leaseSeconds, int maximumAttempts) {
     public CatalogOperationFinalizerSettings(
             @Value("${catalog.operation.instance-id:${HOSTNAME:catalog-finalizer}}") String owner,
-            @Value("${catalog.operation.worker-count:4}") int workerCount,
+            @Value("${catalog.operation.worker-count:1}") int workerCount,
             @Value("${catalog.operation.lease-seconds:30}") long leaseSeconds,
             @Value("${catalog.operation.maximum-unit-attempts:3}") int maximumAttempts) {
         this.owner = owner;

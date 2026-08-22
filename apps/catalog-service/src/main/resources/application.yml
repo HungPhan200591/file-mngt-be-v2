@@ -59,9 +59,9 @@ catalog:
     shard-seal-enabled: ${CATALOG_OPERATION_SHARD_SEAL_ENABLED:true}
     default-processing-version: ${CATALOG_OPERATION_DEFAULT_PROCESSING_VERSION:59}
     instance-id: ${CATALOG_OPERATION_INSTANCE_ID:${HOSTNAME:catalog-finalizer}}
-    worker-count: ${CATALOG_OPERATION_WORKER_COUNT:4}
+    worker-count: ${CATALOG_OPERATION_WORKER_COUNT:1}
     reconcile-unit-count: ${CATALOG_OPERATION_RECONCILE_UNIT_COUNT:16}
-    seal-batch-size: ${CATALOG_OPERATION_SEAL_BATCH_SIZE:8}
+    seal-batch-size: ${CATALOG_OPERATION_SEAL_BATCH_SIZE:1}
     seal-delay-ms: ${CATALOG_OPERATION_SEAL_DELAY_MS:10}
     completion-shard-delay-ms: ${CATALOG_OPERATION_COMPLETION_SHARD_DELAY_MS:10}
     subject-page-size: ${CATALOG_OPERATION_SUBJECT_PAGE_SIZE:500}
@@ -82,7 +82,7 @@ catalog:
       max-poll-bytes: ${CATALOG_OPERATION_MAX_POLL_BYTES:16777216}
       slice-records: ${CATALOG_OPERATION_SLICE_RECORDS:2000}
       slice-bytes: ${CATALOG_OPERATION_SLICE_BYTES:16777216}
-      concurrency: ${CATALOG_OPERATION_CONSUMER_CONCURRENCY:4}
+      concurrency: ${CATALOG_OPERATION_CONSUMER_CONCURRENCY:1}
     consumer:
       enabled: ${CATALOG_KAFKA_CONSUMER_ENABLED:true}
       concurrency: ${CATALOG_KAFKA_CONSUMER_CONCURRENCY:8}

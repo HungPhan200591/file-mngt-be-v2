@@ -9,25 +9,23 @@
 - Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
 - Current run report: [05-ft058-reliability-hardening.md](./results/05-ft058-reliability-hardening.md)
 
-Combined gate chạy ba workload: **25K**, **250K**, rồi **1M input records**. Nó seed đủ 64 logical-shard
-completion marker và global watermark FT-059 trước khi resume consumer. Phase diagnostic để tìm điểm nghẽn;
-chỉ combined gate được đối chiếu release deadline 1M/120 giây. Hai mốc 30K/40K input records/s là
-capacity indicators, không phải release acceptance gate.
+Combined gate chạy ba workload: **25K**, **250K**, rồi **1M input records**. Consumer được assignment ổn định
+rồi chạy liên tục trong lúc test publish discovery, đủ 64 logical-shard completion marker và global watermark
+FT-059. Phase diagnostic để tìm điểm nghẽn; chỉ combined gate được đối chiếu release deadline 1M/120 giây.
+Mức tối thiểu là 8.333 input records/s; 30K input records/s là stretch indicator.
 
 `CatalogOperationEndToEndBenchmarkTest` dùng Kafka input thật, shard-completion marker, typed stage, bounded-page
 finalizer, operation relay và
 `KafkaCatalogOutboxMessagePublisher` thật. Test chỉ hoàn tất khi operation là `CATALOG_COMMITTED`, tất cả
-snapshot đã `published_at` và final watermark đã được broker acknowledge rồi durable mark. Nó log hai clock:
+snapshot đã `published_at` và final watermark đã được broker acknowledge rồi durable mark. Nó log một clock:
 
-- `resumeToFinalAckMs`: clock gate có kiểm soát, bắt đầu sau assignment/seed khi listener được `resume()`.
-  Nó bắt đầu ngay trước first receive nên bảo thủ so với SLO Catalog receive-to-final-ack.
-- `firstPersistToFinalAckMs`: từ lúc probe 5 ms của test quan sát input bền vững đầu tiên đến final watermark
-  broker-ack. Đây là phase diagnostic sau durable ingest, không thay thế SLO clock; nó không dùng timestamp
-  PostgreSQL để tránh méo số do thời điểm transaction.
+- `pipelineToFinalAckMs`: bắt đầu trước khi publish discovery đầu tiên và kết thúc sau final watermark
+  broker-ack/durable mark. Clock gồm cả JSON/Kafka seed nên bảo thủ hơn SLO first-receive-to-final-ack.
 
-Seed Kafka, assignment và rebalance không nằm trong throughput. Mỗi run dùng Testcontainers mới; không warm-up
-rồi reset DB trên cùng Kafka consumer group vì record đã poll có thể trộn vào workload đo. PostgreSQL của combined
-gate chạy cấu hình durability mặc định. Vì vậy không so kết quả này với D1/D2 diagnostic dùng `fsync=off`.
+Chỉ assignment ban đầu nằm ngoài throughput. Benchmark không pause/resume consumer và mặc định dùng một ingest
+consumer, một finalizer worker, một shard seal mỗi tick để ưu tiên liveness có thể lặp lại. Mỗi run dùng
+Testcontainers mới; PostgreSQL chạy cấu hình durability mặc định. Vì vậy không so kết quả này với D1/D2 diagnostic
+dùng `fsync=off`.
 
 ## Phase diagnostics
 

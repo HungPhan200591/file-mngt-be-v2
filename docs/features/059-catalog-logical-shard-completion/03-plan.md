@@ -1,6 +1,6 @@
 # FT-059 — Catalog Logical Shard Completion Contract — Plan
 
-Status: `IMPLEMENTED — targeted contract/UT/IT verified; reliability and scale qualification pending`
+Status: `IMPLEMENTED — stable 25K path verified; reliability and scale qualification pending`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -90,7 +90,15 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
   page materialization và global convergence. DLT có `routing_bucket`; DLT unresolved chặn seal shard
   tương ứng trước seal, còn payload không route được hoặc DLT đến sau seal fail-closed ở parent operation.
 - Đã chạy targeted UT/IT cho router, Scan checkpoint/outbox, Catalog marker/data ordering, conflict/late
-  input, DLT isolation và Kafka DLT topology. Không benchmark nào được chạy trong lần triển khai này.
+  input, DLT isolation và Kafka DLT topology. Stable mode tuần tự hóa ingest/finalizer/seal; combined benchmark
+  để consumer chạy tự nhiên, không pause/resume làm sai lifecycle.
+- Ngày 2026-08-23 đã khóa race PostgreSQL `READ COMMITTED`: transaction ingest chờ parent row có thể thấy
+  `completion_shard_count` mới nhưng chưa thấy child shard rows trong cùng statement snapshot. Trạng thái shard
+  `MISSING` vì marker chưa visible được coi là data-before-marker hợp lệ; chỉ shard đã tồn tại và terminal mới
+  từ chối late input. `CatalogCompletionShardIT` đạt 9/9.
+- Combined 25K đạt 3/3 lượt độc lập tới final broker acknowledgement: `25.492 ms` (981 records/s),
+  `31.407 ms` (796 records/s), `27.403 ms` (912 records/s). Đây là correctness/stability evidence cục bộ,
+  chưa đạt minimum throughput target và không phải 250K/1M hay production qualification.
 
 ## Rollout và rollback
 
@@ -109,4 +117,4 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
 - [x] Cập nhật contract index, discovery/global watermark compatibility và BT-09 routing/status.
 - [x] Cập nhật SC-01 architecture cùng Scan/Catalog context owner.
 - [x] Ghi migration/source/test thực tế của implementation.
-- [ ] Ghi benchmark report sau scale ladder được cấp quyền; không ghi số giả định là evidence.
+- [x] Ghi stable-mode 25K evidence; scale ladder 250K/1M và qualification vẫn còn mở.

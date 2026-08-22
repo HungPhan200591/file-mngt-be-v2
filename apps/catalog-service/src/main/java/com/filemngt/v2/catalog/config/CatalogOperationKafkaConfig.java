@@ -16,7 +16,7 @@ public class CatalogOperationKafkaConfig {
     ConcurrentKafkaListenerContainerFactory<String, String> catalogOperationBatchFactory(
             ConsumerFactory<String, String> consumerFactory,
             CommonErrorHandler catalogKafkaErrorHandler,
-            @Value("${catalog.kafka.operation-consumer.concurrency:4}") int concurrency) {
+            @Value("${catalog.kafka.operation-consumer.concurrency:1}") int concurrency) {
         if (concurrency < 1) throw new IllegalArgumentException("operation consumer concurrency must be positive");
         var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
         factory.setConsumerFactory(consumerFactory);

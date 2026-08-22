@@ -127,6 +127,27 @@ class CatalogCompletionShardIT {
     }
 
     @Test
+    void dataBeforeMarkerRemainsAcceptableWhenTheShardLedgerIsNotVisibleYet() {
+        MediaFileDiscoveredV2 event = CatalogOperationBenchmarkFixture.discoveryEvent(0);
+        jdbc.update(
+                """
+                insert into catalog_approval_operation(
+                    operation_id, scan_run_id, processing_version, partitioning_version, completion_shard_count)
+                values (?, ?, ?, ?, ?)
+                """,
+                event.operationId(),
+                event.scanRunId(),
+                ApprovalCompletionShardRouter.PROCESSING_VERSION,
+                ApprovalCompletionShardRouter.PARTITIONING_VERSION,
+                SHARD_COUNT);
+
+        assertThat(stage.ingest(List.of(event), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 0))))
+                .isEqualTo(1);
+        assertThat(operationStatus()).isEqualTo("INGESTING");
+        assertThat(typedInputCount()).isEqualTo(1);
+    }
+
+    @Test
     void conflictingMarkerBlocksTheOperationInsteadOfLastWriteWins() {
         MediaFileDiscoveredV2 event = CatalogOperationBenchmarkFixture.discoveryEvent(0);
         int shardId = shardId(event);
