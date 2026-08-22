@@ -1,5 +1,6 @@
 package com.filemngt.v2.catalog.benchmark.fixture;
 
+import com.filemngt.v2.contracts.events.MediaApprovalShardCompletedV1;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,19 @@ public final class CatalogOperationKafkaBenchmarkSupport {
         return elapsedMillis(started);
     }
 
+    public static long seedApprovalShardCompletedMarkers(
+            KafkaTemplate<String, String> kafka, ObjectMapper json, String topic, int eventCount) {
+        long started = System.nanoTime();
+        var markers = CatalogOperationBenchmarkFixture.approvalShardCompletedMarkers(eventCount);
+        var sends = new ArrayList<CompletableFuture<?>>(markers.size());
+        for (MediaApprovalShardCompletedV1 marker : markers) {
+            sends.add(kafka.send(topic, completionShardKey(marker), json.writeValueAsString(marker)));
+        }
+        CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
+        kafka.flush();
+        return elapsedMillis(started);
+    }
+
     private static void publishDiscoverySlice(
             KafkaTemplate<String, String> kafka, ObjectMapper json, String topic, int sliceStart, int count) {
         List<CompletableFuture<?>> sends = new ArrayList<>(count);
@@ -60,6 +74,10 @@ public final class CatalogOperationKafkaBenchmarkSupport {
                     topic, CatalogOperationBenchmarkFixture.partitionKey(event), json.writeValueAsString(event)));
         }
         CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
+    }
+
+    private static String completionShardKey(MediaApprovalShardCompletedV1 marker) {
+        return marker.operationId() + ":" + marker.completionShardId();
     }
 
     private static long elapsedMillis(long startedNanos) {

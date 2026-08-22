@@ -106,6 +106,27 @@ class CatalogCompletionShardIT {
     }
 
     @Test
+    void sealNextRecountsDurableInputWhenTheCachedShardCounterIsStale() {
+        MediaFileDiscoveredV2 event = CatalogOperationBenchmarkFixture.discoveryEvent(0);
+        int completionShardId = shardId(event);
+        shards.accept(marker(event, completionShardId, 1), null, null);
+
+        assertThat(shardReceivedRecordCount(completionShardId)).isZero();
+        stage.ingest(List.of(event), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 0)));
+        assertThat(shardReceivedRecordCount(completionShardId)).isEqualTo(1);
+
+        jdbc.update("""
+                update catalog_operation_completion_shard
+                set received_record_count = 0
+                where operation_id = ? and completion_shard_id = ?
+                """, event.operationId(), completionShardId);
+
+        assertThat(shards.sealNext(250))
+                .hasValueSatisfying(result -> assertThat(result.sealed()).isTrue());
+        assertThat(shardReceivedRecordCount(completionShardId)).isEqualTo(1);
+    }
+
+    @Test
     void conflictingMarkerBlocksTheOperationInsteadOfLastWriteWins() {
         MediaFileDiscoveredV2 event = CatalogOperationBenchmarkFixture.discoveryEvent(0);
         int shardId = shardId(event);
@@ -130,6 +151,7 @@ class CatalogCompletionShardIT {
         assertThat(stage.ingest(List.of(late), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 1))))
                 .isZero();
         assertThat(operationStatus()).isEqualTo("BLOCKED");
+        assertThat(operationLastErrorMessage()).isEqualTo("completion-shard-status=RECONCILING");
         assertThat(typedInputCount()).isEqualTo(1);
     }
 
@@ -243,6 +265,13 @@ class CatalogCompletionShardIT {
                 CatalogOperationBenchmarkFixture.operationId());
     }
 
+    private String operationLastErrorMessage() {
+        return jdbc.queryForObject(
+                "select last_error_message from catalog_approval_operation where operation_id = ?",
+                String.class,
+                CatalogOperationBenchmarkFixture.operationId());
+    }
+
     private long typedInputCount() {
         Long count = jdbc.queryForObject(
                 "select count(*) from catalog_operation_discovery_input where operation_id = ?",
@@ -256,6 +285,15 @@ class CatalogCompletionShardIT {
                 select count(*) from catalog_outbox_event
                 where operation_id = ? and event_type = 'media.subject.changed.v2'
                 """, Long.class, CatalogOperationBenchmarkFixture.operationId());
+        return count == null ? 0 : count;
+    }
+
+    private long shardReceivedRecordCount(int completionShardId) {
+        Long count =
+                jdbc.queryForObject("""
+                select received_record_count from catalog_operation_completion_shard
+                where operation_id = ? and completion_shard_id = ?
+                """, Long.class, CatalogOperationBenchmarkFixture.operationId(), completionShardId);
         return count == null ? 0 : count;
     }
 

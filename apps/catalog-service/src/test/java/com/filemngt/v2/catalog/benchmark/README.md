@@ -1,6 +1,6 @@
 # Catalog Benchmark Suite
 
-## FT-057 — current benchmark contract
+## FT-059 — current benchmark contract
 
 - Combined gate: [CatalogOperationEndToEndBenchmarkTest](./operation/CatalogOperationEndToEndBenchmarkTest.java)
 - D1 direct-stage diagnostic: [CatalogOperationIngestBenchmarkTest](./operation/CatalogOperationIngestBenchmarkTest.java)
@@ -9,21 +9,25 @@
 - Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
 - Current run report: [05-ft058-reliability-hardening.md](./results/05-ft058-reliability-hardening.md)
 
-Mỗi class chỉ chạy hai workload: **25K** rồi **1M input records**. Phase diagnostic để tìm điểm nghẽn;
+Combined gate chạy ba workload: **25K**, **250K**, rồi **1M input records**. Nó seed đủ 64 logical-shard
+completion marker và global watermark FT-059 trước khi resume consumer. Phase diagnostic để tìm điểm nghẽn;
 chỉ combined gate được đối chiếu release deadline 1M/120 giây. Hai mốc 30K/40K input records/s là
 capacity indicators, không phải release acceptance gate.
 
-`CatalogOperationEndToEndBenchmarkTest` dùng Kafka input thật, typed stage, finalizer, operation relay và
+`CatalogOperationEndToEndBenchmarkTest` dùng Kafka input thật, shard-completion marker, typed stage, bounded-page
+finalizer, operation relay và
 `KafkaCatalogOutboxMessagePublisher` thật. Test chỉ hoàn tất khi operation là `CATALOG_COMMITTED`, tất cả
 snapshot đã `published_at` và final watermark đã được broker acknowledge rồi durable mark. Nó log hai clock:
 
-- `resumeToFinalAckMs`: clock gate có kiểm soát, bắt đầu sau assignment/seed/warm-up khi listener được `resume()`.
+- `resumeToFinalAckMs`: clock gate có kiểm soát, bắt đầu sau assignment/seed khi listener được `resume()`.
   Nó bắt đầu ngay trước first receive nên bảo thủ so với SLO Catalog receive-to-final-ack.
-- `firstPersistToFinalAckMs`: từ `min(catalog_operation_discovery_input.received_at)` đến `published_at` của
-  final watermark. Đây là phase diagnostic sau durable ingest, không thay thế SLO clock.
+- `firstPersistToFinalAckMs`: từ lúc probe 5 ms của test quan sát input bền vững đầu tiên đến final watermark
+  broker-ack. Đây là phase diagnostic sau durable ingest, không thay thế SLO clock; nó không dùng timestamp
+  PostgreSQL để tránh méo số do thời điểm transaction.
 
-Seed Kafka, assignment, rebalance và warm-up không nằm trong throughput. PostgreSQL của combined gate chạy
-cấu hình durability mặc định. Vì vậy không so kết quả này với D1/D2 diagnostic dùng `fsync=off`.
+Seed Kafka, assignment và rebalance không nằm trong throughput. Mỗi run dùng Testcontainers mới; không warm-up
+rồi reset DB trên cùng Kafka consumer group vì record đã poll có thể trộn vào workload đo. PostgreSQL của combined
+gate chạy cấu hình durability mặc định. Vì vậy không so kết quả này với D1/D2 diagnostic dùng `fsync=off`.
 
 ## Phase diagnostics
 
@@ -41,4 +45,4 @@ Kafka hay relay. Các test này log telemetry để tối ưu đúng phase, khô
 - FT-057 combined benchmark contract/template trước reliability hardening: [result](./results/04-ft057-bulk-reconciliation-data-plane.md)
 
 `CatalogOperationCoalescingBenchmarkTest` được giữ làm direct canonical baseline FT-054. Nó không chạy relay
-và không còn performance gate 10 giây; không dùng nó để qualify FT-057.
+và không còn performance gate 10 giây; không dùng nó để qualify FT-059.

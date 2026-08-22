@@ -1,6 +1,8 @@
 package com.filemngt.v2.catalog.benchmark.fixture;
 
 import com.filemngt.v2.catalog.application.CatalogOperationStageStore;
+import com.filemngt.v2.contracts.events.ApprovalCompletionShardRouter;
+import com.filemngt.v2.contracts.events.MediaApprovalShardCompletedV1;
 import com.filemngt.v2.contracts.events.MediaApprovalWatermarkV1;
 import com.filemngt.v2.contracts.events.MediaFileDiscoveredV2;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /** Fixture deterministic cho ingest/merge benchmark Catalog (synthetic sạch, 10 asset/subject). */
 public final class CatalogOperationBenchmarkFixture {
     public static final int ASSETS_PER_SUBJECT = 10;
+    public static final int COMPLETION_SHARD_COUNT = 64;
     public static final String STORAGE_KEY = "benchmark-catalog-legacy";
     public static final int WARM_UP_EVENTS = 1_000;
     private static final Instant EVENT_BASE_TIME = Instant.parse("2026-01-01T00:00:00Z");
@@ -139,6 +142,30 @@ public final class CatalogOperationBenchmarkFixture {
         return (eventCount + ASSETS_PER_SUBJECT - 1L) / ASSETS_PER_SUBJECT;
     }
 
+    public static List<MediaApprovalShardCompletedV1> approvalShardCompletedMarkers(int eventCount) {
+        long[] expectedRecordsByShard = new long[COMPLETION_SHARD_COUNT];
+        for (int index = 0; index < eventCount; index++) {
+            expectedRecordsByShard[completionShardId(discoveryEvent(index))]++;
+        }
+        var markers = new java.util.ArrayList<MediaApprovalShardCompletedV1>(COMPLETION_SHARD_COUNT);
+        for (int shardId = 0; shardId < COMPLETION_SHARD_COUNT; shardId++) {
+            long expectedRecords = expectedRecordsByShard[shardId];
+            markers.add(new MediaApprovalShardCompletedV1(
+                    stableUuid("completion-shard:" + OPERATION_ID, shardId),
+                    MediaApprovalShardCompletedV1.EVENT_TYPE,
+                    OPERATION_ID,
+                    SCAN_RUN_ID,
+                    ApprovalCompletionShardRouter.PARTITIONING_VERSION,
+                    shardId,
+                    COMPLETION_SHARD_COUNT,
+                    expectedRecords,
+                    expectedRecords,
+                    sourceBatchCount(expectedRecords),
+                    Instant.now()));
+        }
+        return markers;
+    }
+
     public static int eventCountForSubjects(int subjectCount) {
         return subjectCount * ASSETS_PER_SUBJECT;
     }
@@ -193,6 +220,16 @@ public final class CatalogOperationBenchmarkFixture {
 
     public static UUID scanRunId() {
         return SCAN_RUN_ID;
+    }
+
+    public static int completionShardId(MediaFileDiscoveredV2 event) {
+        return ApprovalCompletionShardRouter.completionShardId(
+                ApprovalCompletionShardRouter.routingBucket(event.region(), event.subjectType(), event.identityKey()),
+                COMPLETION_SHARD_COUNT);
+    }
+
+    private static long sourceBatchCount(long recordCount) {
+        return (recordCount + 24_999L) / 25_000L;
     }
 
     private static long count(JdbcTemplate jdbcTemplate, String sql) {

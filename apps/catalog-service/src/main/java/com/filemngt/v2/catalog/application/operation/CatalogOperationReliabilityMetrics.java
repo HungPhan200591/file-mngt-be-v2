@@ -37,6 +37,7 @@ public class CatalogOperationReliabilityMetrics {
                 .register(registry);
         phaseTimers = Map.of(
                 "seal", phaseTimer(registry, "seal"),
+                "completion-shard-seal", phaseTimer(registry, "completion-shard-seal"),
                 "reconcile", phaseTimer(registry, "reconcile"),
                 "commit-gate", phaseTimer(registry, "commit-gate"),
                 "watchdog", phaseTimer(registry, "watchdog"));

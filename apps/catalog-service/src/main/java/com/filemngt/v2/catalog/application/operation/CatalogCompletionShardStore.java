@@ -58,15 +58,46 @@ public class CatalogCompletionShardStore {
     public Optional<SealResult> sealNext(int pageSize) {
         List<ShardCandidate> candidates = jdbc.query(
                 """
+                with locked_operation as materialized (
+                    select operation.operation_id, operation.completion_shard_count
+                    from catalog_approval_operation operation
+                    where operation.processing_version = ?
+                      and operation.status in ('INGESTING', 'RECONCILING')
+                      and exists (
+                          select 1
+                          from catalog_operation_completion_shard shard
+                          where shard.operation_id = operation.operation_id
+                            and shard.status = 'INGESTING'
+                            and shard.manifest_event_id is not null
+                            and shard.expected_record_count = (
+                                select count(*)
+                                from catalog_operation_discovery_input input
+                                where input.operation_id = shard.operation_id
+                                  and input.routing_bucket >=
+                                      shard.completion_shard_id * (4096 / operation.completion_shard_count)
+                                  and input.routing_bucket <
+                                      (shard.completion_shard_id + 1) * (4096 / operation.completion_shard_count)
+                            )
+                      )
+                    order by operation.updated_at, operation.operation_id
+                    for update skip locked
+                    limit 1
+                )
                 select shard.operation_id, shard.completion_shard_id
                 from catalog_operation_completion_shard shard
-                join catalog_approval_operation operation using (operation_id)
-                where operation.processing_version = ?
-                  and operation.status in ('INGESTING', 'RECONCILING')
-                  and shard.status = 'INGESTING'
+                join locked_operation operation using (operation_id)
+                where shard.status = 'INGESTING'
                   and shard.manifest_event_id is not null
-                  and shard.expected_record_count = shard.received_record_count
-                order by operation.updated_at, shard.operation_id, shard.completion_shard_id
+                  and shard.expected_record_count = (
+                      select count(*)
+                      from catalog_operation_discovery_input input
+                      where input.operation_id = shard.operation_id
+                        and input.routing_bucket >=
+                            shard.completion_shard_id * (4096 / operation.completion_shard_count)
+                        and input.routing_bucket <
+                            (shard.completion_shard_id + 1) * (4096 / operation.completion_shard_count)
+                  )
+                order by shard.completion_shard_id
                 for update of shard skip locked
                 limit 1
                 """,
@@ -219,7 +250,7 @@ public class CatalogCompletionShardStore {
         }
         jdbc.update("""
                 update catalog_operation_completion_shard
-                set received_record_count = ?, updated_at = now()
+                set received_record_count = greatest(received_record_count, ?), updated_at = now()
                 where operation_id = ? and completion_shard_id = ?
                 """, received == null ? 0 : received, marker.operationId(), marker.completionShardId());
     }

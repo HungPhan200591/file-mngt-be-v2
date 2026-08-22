@@ -1,15 +1,29 @@
 package com.filemngt.v2.catalog.benchmark.operation;
 
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.ASSIGNMENT_TIMEOUT;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.COMPLETION_GROUP;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.COMPLETION_TOPIC;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.DISCOVERY_PARTITIONS;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.DISCOVERY_TOPIC;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.OPERATION_COMPLETION_TIMEOUT;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.OPERATION_CONCURRENCY;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.OPERATION_GROUP;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.PRODUCE_BATCH_SIZE;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.WATERMARK_GROUP;
+import static com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkSettings.WATERMARK_TOPIC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.filemngt.v2.catalog.application.operation.CatalogOperationFinalizerTelemetry;
 import com.filemngt.v2.catalog.application.operation.CatalogOperationIngestTelemetry;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
+import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkDiagnostics;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationEndToEndBenchmarkVerifier;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationKafkaBenchmarkSupport;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationKafkaConsumerControl;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -36,9 +50,10 @@ import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Combined FT-057 benchmark: Kafka receive, typed stage, finalizer, operation relay và Kafka broker acknowledgement.
+ * Combined FT-059 benchmark: Kafka receive, logical-shard marker, bounded-page finalizer, operation relay và broker
+ * acknowledgement.
  * Đồng hồ ngoài chạy từ lúc resume consumer đến final watermark broker-ack; đồng hồ durable chạy từ input đầu tiên
- * được Catalog persist tới timestamp broker-ack được relay mark. Seed, assignment và warm-up luôn ở ngoài hai clock.
+ * được Catalog persist tới timestamp broker-ack được relay mark. Seed và assignment luôn ở ngoài hai clock.
  */
 @Tag("benchmark")
 @Testcontainers
@@ -52,8 +67,13 @@ import tools.jackson.databind.ObjectMapper;
             "catalog.outbox.operation-relay.max-in-flight=500",
             "catalog.outbox.operation-relay.scheduler-delay-ms=1",
             "catalog.operation.finalizer-enabled=true",
+            "catalog.operation.seal-enabled=false",
+            "catalog.operation.shard-seal-enabled=true",
+            "catalog.operation.default-processing-version=59",
             "catalog.operation.worker-count=4",
-            "catalog.operation.reconcile-unit-count=16",
+            "catalog.operation.seal-batch-size=64",
+            "catalog.operation.completion-shard-delay-ms=1",
+            "catalog.operation.subject-page-size=500",
             "catalog.operation.finalizer-delay-ms=1",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=true",
@@ -69,19 +89,7 @@ import tools.jackson.databind.ObjectMapper;
 @Import(CatalogOperationEndToEndBenchmarkTopicConfiguration.class)
 class CatalogOperationEndToEndBenchmarkTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogOperationEndToEndBenchmarkTest.class);
-    private static final String DISCOVERY_TOPIC = "media.file.discovered.v2";
-    private static final String WATERMARK_TOPIC = "media.approval.watermark.v1";
-    private static final String OPERATION_GROUP = "catalog-operation-coalescing";
-    private static final String WATERMARK_GROUP = "catalog-operation-watermark";
-    private static final int DISCOVERY_PARTITIONS = 4;
-    private static final int OPERATION_CONCURRENCY = 4;
-    private static final int PRODUCE_BATCH_SIZE = 10_000;
-    private static final Duration ASSIGNMENT_TIMEOUT = Duration.ofSeconds(30);
-    private static final Duration WARM_UP_TIMEOUT = Duration.ofSeconds(60);
-    // Chỉ giới hạn đoạn Catalog xử lý event sau resume; không tính fixture seed hay warm-up.
-    private static final Duration OPERATION_COMPLETION_TIMEOUT = Duration.ofMinutes(2);
-    private static final long MINIMUM_TARGET_RECORDS_PER_SECOND = 30_000;
-    private static final long STRETCH_TARGET_RECORDS_PER_SECOND = 40_000;
+    // Chỉ giới hạn đoạn Catalog xử lý event sau resume; không tính fixture seed hay assignment.
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"));
@@ -128,6 +136,12 @@ class CatalogOperationEndToEndBenchmarkTest {
 
     @Test
     @Order(2)
+    void measuresCombinedPipelineForTwoHundredFiftyThousandInputRecords() {
+        measureCombinedPipeline(250_000, OPERATION_COMPLETION_TIMEOUT);
+    }
+
+    @Test
+    @Order(3)
     void measuresCombinedPipelineForOneMillionInputRecords() {
         measureCombinedPipeline(1_000_000, OPERATION_COMPLETION_TIMEOUT);
     }
@@ -138,81 +152,102 @@ class CatalogOperationEndToEndBenchmarkTest {
                 OPERATION_GROUP,
                 DISCOVERY_TOPIC,
                 DISCOVERY_PARTITIONS,
+                OPERATION_CONCURRENCY,
                 WATERMARK_GROUP,
                 WATERMARK_TOPIC,
+                COMPLETION_GROUP,
+                COMPLETION_TOPIC,
+                DISCOVERY_PARTITIONS,
                 ASSIGNMENT_TIMEOUT);
         pauseInputConsumers();
-        warmUpAndReset();
         long discoverySeedMs = CatalogOperationKafkaBenchmarkSupport.seedDiscoveries(
                 kafka, json, DISCOVERY_TOPIC, eventCount, PRODUCE_BATCH_SIZE);
+        long completionSeedMs = CatalogOperationKafkaBenchmarkSupport.seedApprovalShardCompletedMarkers(
+                kafka, json, COMPLETION_TOPIC, eventCount);
         long watermarkSeedMs = CatalogOperationKafkaBenchmarkSupport.seedApprovalCommittedWatermark(
                 kafka, json, WATERMARK_TOPIC, eventCount);
 
         long resumeStarted = System.nanoTime();
         resumeInputConsumers();
+        long firstPersistedInputAt = awaitFirstInputPersisted(completionTimeout);
+        awaitAllInputPersisted(eventCount, completionTimeout);
         awaitCatalogCommitted(completionTimeout);
-        long resumeToFinalAckMs = elapsedMillis(resumeStarted);
+        long resumeToFinalAckMs = CatalogOperationEndToEndBenchmarkVerifier.elapsedMillis(resumeStarted);
+        long firstPersistToFinalAckMs = CatalogOperationEndToEndBenchmarkVerifier.elapsedMillis(firstPersistedInputAt);
         pauseInputConsumers();
 
-        var result =
-                CatalogOperationEndToEndBenchmarkVerifier.assertDurableCompletion(jdbc, eventCount, resumeToFinalAckMs);
-        logResult(eventCount, discoverySeedMs, watermarkSeedMs, result);
-    }
-
-    private void warmUpAndReset() {
-        CatalogOperationKafkaBenchmarkSupport.seedDiscoveries(
-                kafka, json, DISCOVERY_TOPIC, CatalogOperationBenchmarkFixture.WARM_UP_EVENTS, PRODUCE_BATCH_SIZE);
-        CatalogOperationKafkaBenchmarkSupport.seedApprovalCommittedWatermark(
-                kafka, json, WATERMARK_TOPIC, CatalogOperationBenchmarkFixture.WARM_UP_EVENTS);
-        resumeInputConsumers();
-        awaitCatalogCommitted(WARM_UP_TIMEOUT);
-        pauseInputConsumers();
-        resetState();
+        var result = CatalogOperationEndToEndBenchmarkVerifier.assertDurableCompletion(
+                jdbc, eventCount, resumeToFinalAckMs, firstPersistToFinalAckMs);
+        CatalogOperationEndToEndBenchmarkVerifier.logResult(
+                LOGGER,
+                eventCount,
+                discoverySeedMs,
+                completionSeedMs,
+                watermarkSeedMs,
+                result,
+                ingestTelemetry.snapshot(),
+                finalizerTelemetry.snapshot());
     }
 
     private void pauseInputConsumers() {
         CatalogOperationKafkaConsumerControl.pause(
-                listenerRegistry(), List.of(OPERATION_GROUP, WATERMARK_GROUP), ASSIGNMENT_TIMEOUT);
+                listenerRegistry(), List.of(OPERATION_GROUP, WATERMARK_GROUP, COMPLETION_GROUP), ASSIGNMENT_TIMEOUT);
     }
 
     private void resumeInputConsumers() {
-        CatalogOperationKafkaConsumerControl.resume(listenerRegistry(), List.of(OPERATION_GROUP, WATERMARK_GROUP));
+        var groupIds = List.of(OPERATION_GROUP, WATERMARK_GROUP, COMPLETION_GROUP);
+        CatalogOperationKafkaConsumerControl.resume(listenerRegistry(), groupIds);
+        CatalogOperationKafkaConsumerControl.awaitResumed(listenerRegistry(), groupIds, ASSIGNMENT_TIMEOUT);
+    }
+
+    private void awaitAllInputPersisted(int eventCount, Duration timeout) {
+        try {
+            org.awaitility.Awaitility.await()
+                    .alias("Catalog combined benchmark ingests all discovery input")
+                    .pollInterval(Duration.ofMillis(50))
+                    .atMost(timeout)
+                    .untilAsserted(() -> assertThat(ingestedRecordCount()).isEqualTo(eventCount));
+        } catch (ConditionTimeoutException exception) {
+            LOGGER.error(
+                    "Catalog combined benchmark input persistence timeout: {}; ingest={}; finalizer={}",
+                    CatalogOperationEndToEndBenchmarkDiagnostics.describe(
+                            jdbc, CatalogOperationBenchmarkFixture.operationId()),
+                    ingestTelemetry.snapshot(),
+                    finalizerTelemetry.snapshot());
+            throw exception;
+        }
+    }
+
+    private long awaitFirstInputPersisted(Duration timeout) {
+        var firstPersistedAt = new AtomicLong();
+        org.awaitility.Awaitility.await()
+                .alias("Catalog combined benchmark persists the first discovery input")
+                .pollInterval(Duration.ofMillis(5))
+                .atMost(timeout)
+                .until(() -> {
+                    if (ingestedRecordCount() == 0) return false;
+                    firstPersistedAt.compareAndSet(0, System.nanoTime());
+                    return true;
+                });
+        return firstPersistedAt.get();
     }
 
     private void awaitCatalogCommitted(Duration timeout) {
-        org.awaitility.Awaitility.await()
-                .alias("Catalog operation final watermark broker acknowledgement")
-                .pollInterval(Duration.ofMillis(50))
-                .atMost(timeout)
-                .untilAsserted(() -> assertThat(operationStatus()).isEqualTo("CATALOG_COMMITTED"));
-    }
-
-    private void logResult(
-            int eventCount,
-            long discoverySeedMs,
-            long watermarkSeedMs,
-            CatalogOperationEndToEndBenchmarkVerifier.Result result) {
-        long resumeRecordsPerSecond = throughput(eventCount, result.resumeToFinalAckMs());
-        long durableRecordsPerSecond = throughput(eventCount, result.firstPersistToFinalAckMs());
-        LOGGER.info(
-                "FT-057 combined Catalog pipeline: events={}, subjects={}, discoveryPartitions={}, "
-                        + "operationConcurrency={}, discoverySeedMs={}, watermarkSeedMs={}, resumeToFinalAckMs={}, "
-                        + "firstPersistToFinalAckMs={}, resumeRecordsPerSecond={}, durableRecordsPerSecond={}, "
-                        + "minimumTargetMet={}, stretchTargetMet={}\n  -> ingest={} finalizer={}",
-                eventCount,
-                CatalogOperationBenchmarkFixture.expectedSubjects(eventCount),
-                DISCOVERY_PARTITIONS,
-                OPERATION_CONCURRENCY,
-                discoverySeedMs,
-                watermarkSeedMs,
-                result.resumeToFinalAckMs(),
-                result.firstPersistToFinalAckMs(),
-                resumeRecordsPerSecond,
-                durableRecordsPerSecond,
-                resumeRecordsPerSecond >= MINIMUM_TARGET_RECORDS_PER_SECOND,
-                resumeRecordsPerSecond >= STRETCH_TARGET_RECORDS_PER_SECOND,
-                ingestTelemetry.snapshot(),
-                finalizerTelemetry.snapshot());
+        try {
+            org.awaitility.Awaitility.await()
+                    .alias("Catalog operation final watermark broker acknowledgement")
+                    .pollInterval(Duration.ofMillis(50))
+                    .atMost(timeout)
+                    .untilAsserted(() -> assertThat(operationStatus()).isEqualTo("CATALOG_COMMITTED"));
+        } catch (ConditionTimeoutException exception) {
+            LOGGER.error(
+                    "Catalog combined benchmark terminal timeout: {}; ingest={}; finalizer={}",
+                    CatalogOperationEndToEndBenchmarkDiagnostics.describe(
+                            jdbc, CatalogOperationBenchmarkFixture.operationId()),
+                    ingestTelemetry.snapshot(),
+                    finalizerTelemetry.snapshot());
+            throw exception;
+        }
     }
 
     private String operationStatus() {
@@ -221,6 +256,14 @@ class CatalogOperationEndToEndBenchmarkTest {
                 String.class,
                 CatalogOperationBenchmarkFixture.operationId());
         return statuses.isEmpty() ? null : statuses.getFirst();
+    }
+
+    private long ingestedRecordCount() {
+        Long count = jdbc.queryForObject(
+                "select count(*) from catalog_operation_discovery_input where operation_id = ?",
+                Long.class,
+                CatalogOperationBenchmarkFixture.operationId());
+        return count == null ? 0 : count;
     }
 
     private KafkaListenerEndpointRegistry listenerRegistry() {
@@ -233,13 +276,5 @@ class CatalogOperationEndToEndBenchmarkTest {
         CatalogOperationBenchmarkFixture.reset(jdbc);
         ingestTelemetry.reset();
         finalizerTelemetry.reset();
-    }
-
-    private static long elapsedMillis(long startedNanos) {
-        return Math.max(1, Duration.ofNanos(System.nanoTime() - startedNanos).toMillis());
-    }
-
-    private static long throughput(int eventCount, long elapsedMillis) {
-        return Math.round(eventCount * 1_000.0 / elapsedMillis);
     }
 }

@@ -23,6 +23,16 @@ class CatalogOperationEndToEndBenchmarkTopicConfiguration {
     }
 
     @Bean
+    NewTopic mediaApprovalShardCompletedTopic() {
+        return topic("media.approval.shard.completed.v1", 4);
+    }
+
+    @Bean
+    NewTopic mediaApprovalShardCompletedDltTopic() {
+        return topic("media.approval.shard.completed.v1.DLT", 4);
+    }
+
+    @Bean
     NewTopic mediaSubjectChangedTopic() {
         return topic("media.subject.changed.v2", 4);
     }

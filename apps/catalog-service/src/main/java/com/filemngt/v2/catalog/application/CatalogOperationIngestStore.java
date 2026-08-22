@@ -44,7 +44,12 @@ public class CatalogOperationIngestStore {
                     order by operation.operation_id
                     for update of operation
                 ), rejected_operation as (
-                    select distinct input.operation_id
+                    select input.operation_id,
+                        min(case
+                            when operation.status not in ('INGESTING', 'RECONCILING')
+                                then concat('operation-status=', operation.status)
+                            else concat('completion-shard-status=', coalesce(shard.status, 'MISSING'))
+                        end) as rejection_reason
                     from input
                     join operation_lock operation using (operation_id)
                     left join catalog_operation_discovery_input known on known.event_id = input.event_id
@@ -61,16 +66,20 @@ public class CatalogOperationIngestStore {
                                 and coalesce(shard.status, 'BLOCKED') <> 'INGESTING')
                         ))
                     )
+                    group by input.operation_id
                 ), blocked as (
                     update catalog_approval_operation operation
                     set status = 'BLOCKED',
                         failure_code = case when operation.processing_version = 59
                             then 'CATALOG_SHARD_LATE_INPUT'
                             else 'CATALOG_LATE_INPUT_AFTER_SEAL' end,
+                        last_error_type = 'CatalogShardLateInput',
+                        last_error_message = rejected.rejection_reason,
+                        blocked_at = now(),
                         updated_at = now()
                     from rejected_operation rejected
                     where operation.operation_id = rejected.operation_id
-                      and operation.status <> 'CATALOG_COMMITTED'
+                      and operation.status in ('INGESTING', 'RECONCILING')
                 ), inserted as (
                     insert into catalog_operation_discovery_input(
                         event_id, operation_id, batch_id, scan_run_id, source_partition, source_offset,
