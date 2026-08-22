@@ -47,8 +47,8 @@ production capacity.
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`SLI-01`** | **Cold Scan 1M Files**: Walk → Staging → Parse → Proposal DB | **≤ 30s** | **≤ 45s** | **≥ 33.000 files/s** | FT-048 cold run: 25,371s / 39.415 files/s; các run gần đây khoảng 25–26s; chưa đủ qualification P95/P99 |
 | **`SLI-02`** | **Warm Scan 1M Files**: periodic re-scan, 0 changed | **≤ 8s** | **≤ 12s** | **≥ 125.000 files/s** | Chưa đủ evidence lặp lại theo workload manifest |
-| **`SLI-03C`** | **Catalog 1M Input Records**: first receive → final output broker ack | **≤ 33,334s** | **≤ 45s** | **≥ 30.000 input records/s; stretch 40.000** | FT-057 target; current V22 failed 25K và timeout 1M |
-| **`SLI-03`** | **Approve 1M Records** tới `QUERY_DB_READY` | **≤ 60s** | **≤ 90s** | **≥ 16.700 records/s** | Target contract đã rebudget theo Catalog 30K; chưa có runtime evidence |
+| **`SLI-03C`** | **Catalog 1M Input Records**: first receive → final output broker ack | **≤ 120s** | **hard deadline 120s** | **≥ 8.333 input records/s; stretch 30K–40K** | FT-058 reliability/release gate; chưa có valid runtime evidence |
+| **`SLI-03`** | **Approve 1M Records** tới `QUERY_DB_READY` | **TBD sau BT-09E** | **TBD** | **TBD** | Budget 60s cũ không còn hợp lệ khi Catalog có deadline 120s; phải đo Query trước khi chốt lại |
 | **`SLI-04`** | **Search Ready 1M Records** qua Elasticsearch bulk async | **≤ 60s** | **≤ 90s** | **≥ 16.700 docs/s** | Async SLO riêng; chưa có runtime evidence |
 
 ## 3. Latency budget
@@ -78,27 +78,27 @@ Boundary chuẩn:
 - `inputRecordsPerSecond = expectedDiscoveryRecordCount / (catalogCompletedAt - catalogStartedAt)`;
 - output rate báo riêng bằng `changedSubjectCount / relayElapsed`, không dùng output cardinality nhỏ hơn để
   thay mẫu số input;
-- gate tối thiểu `>= 30.000 input records/s` (`<= 33.334 ms` cho 1M), stretch `>= 40.000 input records/s`
-  (`<= 25.000 ms`).
+- release gate `>= 8.333 input records/s` (`<= 120.000 ms` cho 1M); `>= 30.000–40.000 input records/s` chỉ là
+  stretch capacity result và không chặn release;
+- total operation deadline 120 giây phải đưa operation về terminal success hoặc failure; không cho phép
+  `INGESTING`, `RECONCILING` hoặc `COMMITTING` retry vô hạn.
 
 Workload qualification phải ghi rõ subject cardinality/fan-out. Profile chuẩn hiện tại là 1M input,
 100K subjects, 10 assets/subject; output tối đa khoảng 100K final subject snapshots cộng watermark, không phải
 1M output messages. Timer gồm ingest, durable stage, reduction, canonical/outbox và broker ack cuối.
 
-Chi tiết architecture và implementation gate thuộc
-[FT-057](../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/01-brief.md).
+Data plane thuộc [FT-057](../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/01-brief.md);
+reliability và release gate thuộc
+[FT-058](../../../../../docs/features/058-catalog-operation-reliability-hardening/01-brief.md).
 
-### 3.3. Approve 1M → `QUERY_DB_READY` — tổng P95 budget 60s
+### 3.3. Approve 1M → `QUERY_DB_READY` — budget cần đo lại
 
-| Phase | Budget |
-| --- | ---: |
-| Scan decision + outbox commit | 5,0s |
-| Scan outbox drain → Kafka | 4,0s |
-| Catalog first receive → final output broker ack (`SLI-03C`) | 33,334s |
-| Query bulk projection/upsert | 6,5s |
-| Query watermark + cache generation switch | 0,5s |
-| Queue/I/O/GC variance reserve | 10,666s |
-| **Tổng** | **60,0s** |
+Budget P95 60 giây cũ bị hủy vì nhỏ hơn Catalog reliability deadline 120 giây. Không đặt một con số mới bằng
+ước lượng. Sau BT-09E, budget end-to-end phải được tính từ evidence cùng workload manifest:
+
+`Scan decision/outbox + Kafka transfer + Catalog SLI-03C + Query projection + variance reserve`.
+
+Cho tới lúc đó `SLI-03` là `UNQUALIFIED`; không dùng mục tiêu lịch sử để chặn hoặc tuyên bố pipeline đạt SLO.
 
 `SEARCH_READY` không nằm trong budget `QUERY_DB_READY`; search có budget và backlog watermark riêng.
 

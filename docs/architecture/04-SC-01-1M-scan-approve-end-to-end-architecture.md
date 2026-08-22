@@ -315,20 +315,21 @@ outbox age tăng
 
 Catalog là owner duy nhất của subject, asset, actress, studio và tag.
 
-Target flow được chốt tại
-[FT-057](../features/057-catalog-bulk-reconciliation-data-plane/02-design.md) và capsule
+Data plane được chốt tại [FT-057](../features/057-catalog-bulk-reconciliation-data-plane/02-design.md),
+reliability control plane tại [FT-058](../features/058-catalog-operation-reliability-hardening/02-design.md) và capsule
 [BT-09D](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md).
 FT-054 và FT-056 là failed evidence; không tiếp tục tối ưu incremental reduction/page loop. Coalesce phải bao
 phủ toàn operation, không chỉ một Kafka poll:
 
 ~~~text
-Kafka batch → immutable typed COPY + durable dedupe/partition progress
-→ manifest + exact progress equality gate → seal operation
+Kafka batch → immutable typed COPY + durable dedupe/partition progress → commit
+→ durable seal coordinator claim operation → exact progress/DLT gate → seal operation
 → one-time subject workset + coarse unit ledger
 → PostgreSQL set-based unit delta trực tiếp từ typed stage
 → canonical write + grouped final snapshot outbox atomic theo unit
 → indexed relay lane + bounded sliding Kafka sends
 → CATALOG_COMMITTED sau final broker ack và exact DLT/cardinality gate
+→ hard deadline đưa operation quá 120 giây về terminal failure có replay evidence
 ~~~
 
 Durable staging cần thiết vì cùng subject có thể nằm ở nhiều poll/batchId và completion manifest có thể đến
@@ -346,8 +347,8 @@ Trade-off:
 - shard/chunk/relay in-flight phải bounded theo DB pool, lease và broker capacity.
 
 CATALOG_COMMITTED chỉ phát khi đủ unique discovery events, không còn unresolved DLT và mọi affected subject đã có final snapshot.
-Catalog phase SLI đo từ first receive tới final output broker ack, dùng 1M input làm mẫu số: gate tối thiểu
-`>= 30.000 records/s` (`<= 33.334 ms`), stretch `>= 40.000 records/s` (`<= 25.000 ms`).
+Catalog phase SLI đo từ first receive tới final output broker ack, dùng 1M input làm mẫu số. Release gate là
+`>= 8.333 records/s` (`<= 120.000 ms`); `>= 30.000–40.000 records/s` chỉ là stretch capacity result.
 
 ## 10. Query: read model
 

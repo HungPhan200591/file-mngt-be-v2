@@ -14,10 +14,12 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   canonical và subject identity; implementation FT-034 có Flyway V8, nhưng direct verification còn deferred.
 - Event target SC-01: `media.subject.changed.v2`; runtime v1 sẽ được thay thẳng ở BT-09D, không dual-publish.
   `media.metadata.changed.v1` không đổi trong BT-09A.
-- Data plane target BT-09D thuộc [FT-057](../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md):
+- Data plane BT-09D thuộc [FT-057](../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md),
+  reliability hardening thuộc [FT-058](../../docs/features/058-catalog-operation-reliability-hardening/03-plan.md):
   immutable typed ingest, sealed workset, PostgreSQL coarse-unit set-based reconciliation và indexed sliding
   relay; Java chỉ giữ control plane, không làm 1M-row in-memory reducer.
-  Combined Catalog gate là tối thiểu 30K, stretch 40K input records/s từ first receive tới final broker ack.
+  Combined Catalog release gate là 1M trong tối đa 120 giây từ first receive tới final broker ack; 30K–40K
+  input records/s chỉ là stretch capacity result, không chặn release.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
   `media.subject.changed.v2` phát final full snapshot theo operation cho Query; implementation FT-057 còn pending.

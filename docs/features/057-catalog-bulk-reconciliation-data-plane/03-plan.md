@@ -1,7 +1,12 @@
 # FT-057 — Catalog Bulk Reconciliation Data Plane — Plan
 
-Status: `IMPLEMENTED — verification deferred`
+Status: `IMPLEMENTED — reliability qualification failed; superseded by FT-058`
 Design: [02-design.md](./02-design.md)
+
+Runtime 2026-08-22 phát hiện concurrent ingest deadlock tại seal gate và DLT partition mismatch trước khi có
+throughput measurement hợp lệ. Reliability hardening và release gate 1M/120 giây chuyển sang
+[FT-058](../058-catalog-operation-reliability-hardening/03-plan.md); mục tiêu 30–40K/s của FT-057 chỉ còn là
+stretch capacity evidence.
 
 ## Execution capsule
 
@@ -104,4 +109,5 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
 - [x] Đánh dấu FT-056 failed được supersede cho hướng triển khai tiếp theo; giữ evidence lịch sử immutable.
 - [x] Mã nguồn FT-057: V23 typed input/workset/unit/relay lane, Java control plane, relay sliding window, phase diagnostics và combined Kafka/finalizer/relay benchmark đã được cập nhật.
 - [x] Correctness IT: `CatalogOperationIngestIT` (7), `CatalogOperationReductionIT` (3), `CatalogOperationFinalizeIT` (9) passed ngày 2026-08-22.
-- [ ] Chạy Kafka failure matrix và benchmark 25K/1M; chỉ cập nhật result/dashboard bằng evidence runtime thật.
+- [x] Combined 25K đã chạy nhưng thất bại tại seal deadlock/DLT topology; không có throughput evidence hợp lệ.
+- [ ] Tiếp tục Kafka failure matrix và benchmark 25K/1M trong FT-058 sau reliability hardening.

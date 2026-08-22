@@ -19,15 +19,16 @@ Mục tiêu cốt lõi: Thông luồng và tối ưu pipeline approve **1.000.00
 Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bulk projection → QUERY_DB_READY
 ```
 
-SLO đã rebudget ngày 2026-08-22: `QUERY_DB_READY` P95 `<= 60s`; riêng Catalog từ first receive tới final
-output broker ack phải đạt tối thiểu `30.000 input records/s`, stretch `40.000 input records/s`.
+Catalog release gate đã rebudget ngày 2026-08-22: 1M từ first receive tới final output broker ack tối đa
+`120s` (`>= 8.333 input records/s`); `30K–40K/s` chỉ là stretch. `QUERY_DB_READY` 60s cũ bị hủy và giữ
+`UNQUALIFIED` tới khi BT-09E có Query evidence.
 
 ### Roadmap triển khai BT-09 theo thứ tự:
 1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
 2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
 3. **`BT-09C — Outbox drain` (`FT-053 IMPLEMENTED — qualification pending`)**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; immediate-ack 1M đạt `8.264 ms`/`121.007 records/s`. Đây chưa là real-Kafka, representative payload, repeated-run, crash/reclaim hoặc production evidence.
 
-4. **`BT-09D — Catalog bulk reconciliation` (`FT-057 IMPLEMENTED — benchmark pending`)**: [FT-055](./features/055-catalog-typed-ingest/03-plan.md) và [FT-056](./features/056-catalog-set-based-cte-merge/03-plan.md) chỉ còn là evidence lịch sử; V20–V22 đều thất bại và V22 làm 25K mất 39.278 s, 1M timeout. [FT-057](./features/057-catalog-bulk-reconciliation-data-plane/03-plan.md) đã thêm immutable typed stage, sealed workset, PostgreSQL coarse-unit set-based canonical/outbox, indexed sliding relay và combined Kafka/finalizer/relay benchmark. Correctness IT 7+3+9 đã pass ngày 2026-08-22; Kafka failure matrix và 25K/1M benchmark chưa chạy nên chưa có claim throughput. Combined gate 1M vẫn `<= 33.334 ms` (30K/s), stretch `<= 25.000 ms` (40K/s).
+4. **`BT-09D — Catalog bulk reconciliation` (`FT-058 READY`)**: FT-057 data plane đã implement và correctness IT 7+3+9 pass, nhưng combined 25K ngày 2026-08-22 phát hiện seal deadlock và DLT partition mismatch, operation kẹt `INGESTING`; run không tạo throughput evidence hợp lệ. [FT-058](./features/058-catalog-operation-reliability-hardening/03-plan.md) tách seal coordinator, harden retry/DLT, thêm total deadline 120s rồi qualify 25K/1M. Không rewrite reconciliation SQL trước khi reliability gate pass.
 5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
 6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
 7. **`BT-09G — Scale ladder`**: Chạy benchmark scale ladder 1K → 5K → 50K → 250K → 1M đo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool.
@@ -83,8 +84,8 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **Verify FT-057 Catalog bulk reconciliation**: chạy Flyway + correctness IT, Kafka failure matrix và benchmark ladder trên IntelliJ; qualification dùng một combined clock từ first Catalog receive tới final broker ack. Không claim SLO trước evidence runtime.
+1. **Implement FT-058 Catalog reliability hardening** theo đúng thứ tự: tách seal khỏi ingest → sửa retry/DLT topology → terminal deadline/retry exhaustion → concurrent Kafka failure matrix → benchmark 25K rồi ba run 1M.
 2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
-3. **Sau FT-057:** mở **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Không bắt đầu BT-09E khi Catalog mới đúng semantics nhưng chưa đạt combined gate 1M tối thiểu 30K input records/s.
+3. **Sau FT-058:** nếu ba run 1M đều `<= 120s`, đóng băng Catalog và mở **`BT-09E`** (Query bulk) → **`BT-09F`** → **`BT-09G`**. Nếu vượt 120s, mở contract partition/shard completion; không tạo thêm SQL candidate cùng shape.
 4. **Giai đoạn sau khi thông luồng SC-01:** thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
 5. **Giai đoạn phát triển tính năng mới:** triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.
