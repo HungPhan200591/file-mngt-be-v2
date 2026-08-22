@@ -22,8 +22,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.config.KafkaListenerConfigUtils;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -104,7 +106,7 @@ class CatalogOperationEndToEndBenchmarkTest {
     CatalogOperationFinalizerTelemetry finalizerTelemetry;
 
     @Autowired
-    KafkaListenerEndpointRegistry listenerRegistry;
+    ApplicationContext applicationContext;
 
     @BeforeEach
     void resetDatabase() {
@@ -135,7 +137,7 @@ class CatalogOperationEndToEndBenchmarkTest {
 
     private void measureCombinedPipeline(int eventCount, Duration completionTimeout) {
         CatalogOperationKafkaConsumerControl.awaitAssignments(
-                listenerRegistry,
+                listenerRegistry(),
                 OPERATION_GROUP,
                 DISCOVERY_TOPIC,
                 DISCOVERY_PARTITIONS,
@@ -173,11 +175,11 @@ class CatalogOperationEndToEndBenchmarkTest {
 
     private void pauseInputConsumers() {
         CatalogOperationKafkaConsumerControl.pause(
-                listenerRegistry, List.of(OPERATION_GROUP, WATERMARK_GROUP), ASSIGNMENT_TIMEOUT);
+                listenerRegistry(), List.of(OPERATION_GROUP, WATERMARK_GROUP), ASSIGNMENT_TIMEOUT);
     }
 
     private void resumeInputConsumers() {
-        CatalogOperationKafkaConsumerControl.resume(listenerRegistry, List.of(OPERATION_GROUP, WATERMARK_GROUP));
+        CatalogOperationKafkaConsumerControl.resume(listenerRegistry(), List.of(OPERATION_GROUP, WATERMARK_GROUP));
     }
 
     private void awaitCatalogCommitted(Duration timeout) {
@@ -222,6 +224,12 @@ class CatalogOperationEndToEndBenchmarkTest {
                 String.class,
                 CatalogOperationBenchmarkFixture.operationId());
         return statuses.isEmpty() ? null : statuses.getFirst();
+    }
+
+    private KafkaListenerEndpointRegistry listenerRegistry() {
+        return applicationContext.getBean(
+                KafkaListenerConfigUtils.KAFKA_LISTENER_ENDPOINT_REGISTRY_BEAN_NAME,
+                KafkaListenerEndpointRegistry.class);
     }
 
     private void resetState() {
