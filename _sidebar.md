@@ -11,6 +11,7 @@
     * **deep-dive**
       * **catalog-service**
         * [🧭 Deep-Dive: Toàn Cảnh Dòng Chảy Dự Án & Tiến Trình Tối Ưu Hóa Catalog Service 1.000.000 Records](/manual/learning/deep-dive/catalog-service/01-catalog-coalescing-and-reconciliation-deep-dive.md)
+        * [🎲 Deep-Dive: Bí Mật Phân Bổ Đồng Đều Dữ Liệu Qua 4.096 Routing Buckets & Luật Số Lớn](/manual/learning/deep-dive/catalog-service/02-routing-buckets-and-hash-distribution-deep-dive.md)
         * [📦 Catalog Service Deep-Dive & Architecture Hub](/manual/learning/deep-dive/catalog-service/README.md)
       * **cqrs-read-projection**
         * [📖 CQRS Lite & Eventual Consistency Overview](/manual/learning/deep-dive/cqrs-read-projection/00-overview.md)

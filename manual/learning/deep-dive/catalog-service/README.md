@@ -13,6 +13,12 @@ Chào mừng bạn đến với chuyên mục nghiên cứu chuyên sâu (Deep-D
    * Capacity model đạt $\ge 30.000 - 40.000\text{ records/s}$.
    * Cẩm nang câu hỏi phỏng vấn Senior/Architect.
 
+2. **[🎲 Bí Mật Phân Bổ Đồng Đều Dữ Liệu Qua 4.096 Routing Buckets & Luật Số Lớn](./02-routing-buckets-and-hash-distribution-deep-dive.md)**
+   * Tại sao hàm băm không biết số lượng Asset mà vẫn chia đều được?
+   * Bằng chứng toán học: Luật số lớn (Law of Large Numbers) & Phân phối chuẩn đều.
+   * Tại sao cần tầng đệm 4.096 Routing Buckets thay vì chia thẳng `mod 16`?
+   * 2 Lớp phòng vệ khi gặp Subject "Siêu quái vật" (Dynamic Worker Stealing & Payload Cap).
+
 ---
 
 ## 🗺️ Vị Trí Trong Toàn Bộ Hệ Thống
