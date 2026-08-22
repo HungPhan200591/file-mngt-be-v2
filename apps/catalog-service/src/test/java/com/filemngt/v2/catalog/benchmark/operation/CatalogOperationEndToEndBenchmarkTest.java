@@ -10,14 +10,12 @@ import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationKafkaBenchmarkS
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationKafkaConsumerControl;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,8 +77,8 @@ class CatalogOperationEndToEndBenchmarkTest {
     private static final int PRODUCE_BATCH_SIZE = 10_000;
     private static final Duration ASSIGNMENT_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration WARM_UP_TIMEOUT = Duration.ofSeconds(60);
-    private static final Duration CALIBRATION_TIMEOUT = Duration.ofMinutes(2);
-    private static final Duration QUALIFICATION_TIMEOUT = Duration.ofMinutes(5);
+    // Chỉ giới hạn đoạn Catalog xử lý event sau resume; không tính fixture seed hay warm-up.
+    private static final Duration OPERATION_COMPLETION_TIMEOUT = Duration.ofMinutes(2);
     private static final long MINIMUM_TARGET_RECORDS_PER_SECOND = 30_000;
     private static final long STRETCH_TARGET_RECORDS_PER_SECOND = 40_000;
 
@@ -123,16 +121,14 @@ class CatalogOperationEndToEndBenchmarkTest {
 
     @Test
     @Order(1)
-    @Timeout(value = 3, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresCombinedPipelineForTwentyFiveThousandInputRecords() {
-        measureCombinedPipeline(25_000, CALIBRATION_TIMEOUT);
+        measureCombinedPipeline(25_000, OPERATION_COMPLETION_TIMEOUT);
     }
 
     @Test
     @Order(2)
-    @Timeout(value = 6, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresCombinedPipelineForOneMillionInputRecords() {
-        measureCombinedPipeline(1_000_000, QUALIFICATION_TIMEOUT);
+        measureCombinedPipeline(1_000_000, OPERATION_COMPLETION_TIMEOUT);
     }
 
     private void measureCombinedPipeline(int eventCount, Duration completionTimeout) {
