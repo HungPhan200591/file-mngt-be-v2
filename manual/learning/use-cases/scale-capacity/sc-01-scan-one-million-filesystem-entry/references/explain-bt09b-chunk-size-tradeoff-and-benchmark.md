@@ -60,7 +60,7 @@ flowchart TD
    - Catalog và Query Service bị "bỏ đói" (Idle) trong 2 giây đầu tiên, biến hệ thống thành mô hình tuần tự (Stop-and-Wait).
 2. **Blast Radius quá lớn (Chết chùm)**:
    - Nếu có sự cố (đứt mạng, hết disk, restart container) ở giây thứ 1,7 $\implies$ Postgres rollback toàn bộ 1 triệu bản ghi.
-   - Hệ thống **không thể Resume** mà phải làm lại từ con số 0, lãng phí thời gian và làm sập hoàn toàn SLO 30 giây.
+   - Hệ thống **không thể Resume** mà phải làm lại từ con số 0, lãng phí thời gian và làm sập hoàn toàn SLO end-to-end 60 giây.
 3. **Phình to WAL và Nghẽn Lock**:
    - 1 transaction 1,5GB WAL làm tắc nghẽn tiến trình Checkpointer, tăng vọt Replication Lag sang máy Standby, và giữ Exclusive Lock trên bảng trong suốt gần 2 giây.
 

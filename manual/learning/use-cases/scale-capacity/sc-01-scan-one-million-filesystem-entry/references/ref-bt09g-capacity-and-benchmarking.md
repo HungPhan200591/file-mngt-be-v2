@@ -21,21 +21,24 @@ Ladder 5: 1.000.000 records -> Target workload chính thức
 
 ## 2. Phân bổ Ngân sách Latency (Latency Budget Target)
 
-Đối với workload 1.000.000 records:
+Đối với workload 1.000.000 records, SLI-03 end-to-end tới `QUERY_DB_READY` có P95 target 60 giây.
+Catalog có phase SLI-03C riêng: tối thiểu 30K input records/s (`<= 33,334s`), stretch 40K/s (`<= 25s`).
 
-| Chặng xử lý | % Thời gian mục tiêu | Trọng tâm tối ưu |
-| --- | --- | --- |
-| **Scan Decision + Outbox Chunking** | 25% – 30% | JDBC batch, không hydrate entity, chunk 25.000 items. |
-| **Kafka Relay & Outbox Drain** | 15% – 20% | Continuous drain, async non-blocking publish. |
-| **Catalog Coalesce & Bulk DB** | 25% – 30% | In-memory coalesce theo subject, giảm 70% DB writes. |
-| **Query Bulk Projection + cache switch** | 20% – 25% | Bulk COPY/Upsert, `subjectVersion` guard, `cacheGeneration` O(1). |
-| **Tổng cộng tới `QUERY_DB_READY`** | **100%** | **Budget phân bổ; chưa phải runtime evidence** |
+| Chặng xử lý | P95 budget | Trọng tâm tối ưu |
+| --- | ---: | --- |
+| **Scan Decision + Outbox Chunking** | 5,000s | Bounded chunk, không hydrate entity, decision/outbox atomic. |
+| **Scan Kafka Relay & Outbox Drain** | 4,000s | Continuous drain, bounded async publish. |
+| **Catalog first receive → final broker ack** | 33,334s | Append-only ingest, one-time reduction, bulk reconciliation, indexed sliding relay. |
+| **Query Bulk Projection + cache switch** | 7,000s | Bulk COPY/Upsert, `subjectVersion` guard, `cacheGeneration` O(1). |
+| **Queue/I/O/GC reserve** | 10,666s | Variance budget, không dùng để che backlog tăng vô hạn. |
+| **Tổng cộng tới `QUERY_DB_READY`** | **60,000s** | **Budget phân bổ; chưa phải runtime evidence** |
 
 ---
 
 ## 3. Các chỉ số quan trắc then chốt (Mandatory Metrics)
 
-1. **Throughput (Records/giây)**: Đo tốc độ trung bình và peak của từng chặng.
+1. **Throughput (Records/giây)**: Catalog dùng input count/tổng Catalog clock; output snapshot rate báo riêng,
+   không trộn hai cardinality.
 2. **PostgreSQL Connection Pool**: Active connections vs Wait count (phải giữ wait count = 0).
 3. **PostgreSQL WAL Rate & Lock Time**: Đảm bảo không nghẽn I/O đĩa cứng.
 4. **Kafka Consumer Lag**: Lag của consumer group `catalog-service` và `query-service`.

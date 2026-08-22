@@ -14,9 +14,12 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   canonical và subject identity; implementation FT-034 có Flyway V8, nhưng direct verification còn deferred.
 - Event target SC-01: `media.subject.changed.v2`; runtime v1 sẽ được thay thẳng ở BT-09D, không dual-publish.
   `media.metadata.changed.v1` không đổi trong BT-09A.
+- Data plane target BT-09D thuộc [FT-057](../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md):
+  append-only ingest, one-time operation reduction, coarse canonical reconciliation và indexed sliding relay.
+  Combined Catalog gate là tối thiểu 30K, stretch 40K input records/s từ first receive tới final broker ack.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
-  `media.subject.changed.v2` phát final full snapshot theo operation cho Query; implementation còn pending BT-09D.
+  `media.subject.changed.v2` phát final full snapshot theo operation cho Query; implementation FT-057 còn pending.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.

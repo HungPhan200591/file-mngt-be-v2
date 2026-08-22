@@ -31,7 +31,7 @@ Giả sử Scan bắn 1.000.000 file vào Kafka. Catalog nhận và gom thành 1
 Query Service nhận các subject events từ 12 Kafka partitions. 
 - Khi Query đã ghi được 100.000 subjects... Query có biết đã hết chưa? **Không.**
 - Khi Query ghi được 148.320 subjects... Query có biết còn 1 cái nữa hay đã hết? **Không thể biết.**
-- Nếu không có mốc chốt chặn, Query sẽ phải dùng một "đồng hồ hẹn giờ mò" (ví dụ: không thấy message nào trong 5 giây thì coi như xong). Điều này hoặc sẽ làm báo hoàn thành sớm (khi Kafka bị lag nhẹ) dẫn đến mất dữ liệu trên UI, hoặc phải chờ lãng phí hàng chục giây làm vi phạm SLO 30 giây!
+- Nếu không có mốc chốt chặn, Query sẽ phải dùng một "đồng hồ hẹn giờ mò" (ví dụ: không thấy message nào trong 5 giây thì coi như xong). Điều này hoặc sẽ làm báo hoàn thành sớm (khi Kafka bị lag nhẹ) dẫn đến mất dữ liệu trên UI, hoặc phải chờ lãng phí hàng chục giây làm vi phạm SLO end-to-end 60 giây!
 
 ### ✅ Giải pháp: Completion Barrier (Hàng rào chốt số lượng)
 
@@ -115,7 +115,7 @@ Hệ thống được chuẩn hóa thành 5 mốc rõ ràng:
 ### Chi tiết từng mốc:
 1. **`ACCEPTED` (Scan)**: 
    - Ngay khi nhận HTTP request, Scan tạo 1 dòng `operation` trong database với trạng thái `ACCEPTED` ($O(1)$ mất ~5ms), trả về ngay HTTP `202 Accepted` kèm `operationId`. 
-   - **Đây là điểm mốc $T_0$ bắt đầu tính thời gian cho SLO 30 giây.**
+   - **Đây là điểm mốc $T_0$ bắt đầu tính thời gian cho SLO end-to-end 60 giây.**
 2. **`APPROVAL_COMMITTED` (Scan)**:
    - Worker nền của Scan chạy chia nhỏ 1.000.000 records thành từng chunk (ví dụ 25.000 records/chunk) với `@Transactional(REQUIRES_NEW)`.
    - Khi chunk cuối cùng commit xong, Scan phát watermark `APPROVAL_COMMITTED`.
@@ -187,7 +187,7 @@ Trong thiết kế trước, có sự phân vân giữa việc giữ `media.subj
 
 ### Vì sao không nên làm Backward Compatibility (Dual-Publish v1 + v2)?
 - Nếu Catalog vừa phát `v1` vừa phát `v2`, số lượng message trên Kafka sẽ bị nhân đôi (từ 150.000 lên 300.000 messages).
-- Query Service phải duy trì 2 consumer listener, gây lãng phí gấp đôi CPU, Disk I/O và RAM trong lúc đang cần tối ưu từng milli-giây để đạt SLO 30 giây.
+- Query Service phải duy trì 2 consumer listener, gây lãng phí gấp đôi CPU, Disk I/O và RAM trong lúc đang cần tối ưu để đạt SLO end-to-end 60 giây.
 - Vì SC-01 là bài toán target mới, việc dứt khoát chuyển sang `v2` giúp loại bỏ toàn bộ code tương thích phức tạp, giữ kiến trúc sạch sẽ và tối đa hóa hiệu năng.
 
 ### Các cải tiến quan trọng trong `media.subject.changed.v2`:

@@ -36,7 +36,7 @@ BT-09 tương ứng.
 - Break-task owner: [BT-09](./04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
 - **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
 - **BT-09B**: Scan decision/outbox chunking (**`IMPLEMENTED — verification deferred`**, FT-045/050/051).
-- **BT-09D**: Catalog batch/coalesce (FT-054 đã đóng do qualification fail; D1 `DONE` tại [FT-055](../../../../../docs/features/055-catalog-typed-ingest/03-plan.md); D2 `READY` tại [FT-056](../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md); sau đó D3 → D4).
+- **BT-09D**: Catalog bulk reconciliation (**`READY`** tại [FT-057](../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md)); FT-054–FT-056 chỉ còn là failed/historical evidence. Combined gate tối thiểu 30K input records/s, stretch 40K/s.
 - **BT-09E**: Query bulk projection (chưa lập feature trong context này).
 - **BT-09F–09G**: Failure evidence và scale ladder 1K → 5K → 50K → 250K → 1M.
 
@@ -51,7 +51,7 @@ BT-09 tương ứng.
 | **`BT-09A`** | Operation Contract, Watermark flow (`APPROVAL_COMMITTED` → `QUERY_DB_READY` → `SEARCH_READY`), Idempotency | [ref-bt09a-watermark-and-contract.md](./references/ref-bt09a-watermark-and-contract.md) |
 | **`BT-09B`** | Scan Decision & Outbox Chunking (`REQUIRES_NEW`), tránh JPA dirty checking & WAL overflow | [ref-bt09b-scan-decision-chunking.md](./references/ref-bt09b-scan-decision-chunking.md) |
 | **`BT-09C`** | Outbox Continuous Drain, Bounded in-flight async publish, Lease budget | [ref-bt09c-outbox-continuous-drain.md](./references/ref-bt09c-outbox-continuous-drain.md) |
-| **`BT-09D` (D1..D4)** | Typed Ingest, Set-Based CTE Merge, Continuous Lane Drain, Continuous Outbox Relay | [ref-bt09d-catalog-batch-coalescing.md](./references/ref-bt09d-catalog-batch-coalescing.md) |
+| **`BT-09D`** | Append-only Ingest, One-time Reduction, Bulk Reconciliation, Indexed Sliding Relay | [ref-bt09d-catalog-batch-coalescing.md](./references/ref-bt09d-catalog-batch-coalescing.md) |
 | **`BT-09E`** | Query Bulk Projection (COPY/Upsert), Version Guard, Redis Pipeline Invalidation | [ref-bt09e-query-bulk-projection.md](./references/ref-bt09e-query-bulk-projection.md) |
 | **`BT-09F`** | Xử lý Poison pill trong Batch, Dead-Letter Topic (DLT) isolation, Idempotent replay | [ref-bt09f-dlt-and-replay-runbook.md](./references/ref-bt09f-dlt-and-replay-runbook.md) |
 | **`BT-09G`** | Scale Ladder (1K → 5K → 50K → 250K → 1M), Latency budget, Đo lường DB pool/WAL/lag | [ref-bt09g-capacity-and-benchmarking.md](./references/ref-bt09g-capacity-and-benchmarking.md) |

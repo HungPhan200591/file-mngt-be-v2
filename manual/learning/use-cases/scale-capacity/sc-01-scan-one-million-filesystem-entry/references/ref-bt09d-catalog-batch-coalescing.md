@@ -1,42 +1,67 @@
-# Reference Capsule: BT-09D — Catalog Operation Coalescing
+# Reference Capsule: BT-09D — Catalog Bulk Reconciliation
 
-> Implementation owners: FT-054 monolithic **`CLOSED — QUALIFICATION FAILED`**; BT-09D1 `DONE` ở [FT-055](../../../../../../docs/features/055-catalog-typed-ingest/03-plan.md); BT-09D2 `READY` ở [FT-056](../../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md); D3–D4 mở Feature riêng theo thứ tự.
+> Implementation owner: [FT-057](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md) `READY`.
+> FT-054–FT-056 là failed/historical evidence, không còn là route triển khai.
 > Phạm vi: `media.file.discovered.v2` → canonical Catalog → `media.subject.changed.v2` + `CATALOG_COMMITTED`.
 
-## Vấn đề & Bằng chứng Baseline Telemetry (25K records)
+## Vì sao kiến trúc cũ bị thay
 
-FT-054 monolithic one-shot đã thất bại ở ngưỡng 1M (timeout); candidate mới nhất xử lý 25K trong `5.781 ms` (`4.325 records/s`). Telemetry bóc tách micro-phases chỉ rõ các điểm nghẽn vật lý:
-1. **Ingest SQL (`stageSql` khoảng `1.211 ms`, 66% ingest time)**: wrapper JSON bị parse/cast lặp lại trong SQL CTE và lane hash được tính từng row.
-2. **Finalizer DDL storm (`avg 144 ms/page` × 64 page ≈ `9.216 ms`)**: 7 `CREATE TEMPORARY TABLE` + 4 index + 4 `ANALYZE` mỗi page gây Catalog lock/DDL overhead.
-3. **Lease reacquire overhead (`2.054 ms`)**: 4 worker liên tục release/reacquire sau từng page nhỏ.
+- FT-055 từng đạt isolated 1M `20,464s` và Kafka drain `24,527s`, nhưng chỉ đo ingest với profile local
+  thuận lợi; chưa gồm canonical merge và relay.
+- V22 25K mất ingest `7,031s` + merge `39,278s`; 1M timeout với `QueryTimeoutException`.
+- Ingest duy trì subject/asset reduction bằng conflict-upsert từng slice; `stageSql=87,3%`.
+- Finalizer gọi operation-wide reduction/recount trong page path, rồi claim/release theo page trên 64 lane.
+- Relay hash `partition_key` lúc fetch pending và chờ toàn bộ async batch bằng `allOf` wave barrier.
 
-## 4 Lát cắt tối ưu độc lập (BT-09D1 .. BT-09D4)
+Kết luận: pass D1/D2/D3/D4 riêng làm chi phí bị chuyển giữa phase. BT-09D từ FT-057 chỉ có một combined
+Catalog clock; không tăng timeout/workers để che repeated work.
+
+## Kiến trúc đích
 
 ```text
-BT-09D1 (Fast Ingest Path): Typed CSV COPY + Raw Payload + Java Stable Lane Hash
-  ↓
-BT-09D2 (Set-Based CTE Merge): In-Query CTE (Không Per-Page Temp DDL) + Bypass before_hash cho New Subject
-  ↓
-BT-09D3 (Continuous Lane Drain): Worker Drain toàn bộ pages trong 1 Claim + Bounded Acquire Overhead
-  ↓
-BT-09D4 (Relay & 1M Qualification): Continuous Sliding Window Outbox Relay 64 Lanes + 1M Catalog Gate
+Kafka discovery
+→ bounded typed append-only COPY + durable dedupe/counters
+→ operation watermark + exact equality/DLT gate
+→ one-time set-based subject/asset winner materialization
+→ bounded coarse shard reconciliation
+→ canonical write + final snapshot outbox + checkpoint atomic
+→ persisted/indexed relay lane + bounded sliding Kafka sends
+→ exact published/cardinality/DLT gate
+→ CATALOG_COMMITTED
 ```
+
+Raw stage là durable rebuild source. Ingest không upsert reduction. Reduction build đúng một lần sau equality
+gate; canonical chunk không scan/recount toàn operation. Relay bắt đầu từ chunk outbox đầu để overlap merge,
+nhưng completion chỉ tính sau broker ack cuối.
 
 ## Invariants
 
-1. Staging là logged/durable; không giữ 1M event trong Java heap.
-2. Dedupe input theo `eventId`; unique output theo `(operationId, subjectId)`.
-3. Subject reducer deterministic theo Kafka source order; giữ primary election, tags và tombstone semantics.
-4. Canonical write, final outbox và lane checkpoint atomic trong `catalog_db`.
-5. Manifest/data reorder hội tụ bằng equality gate; unresolved DLT cấm `CATALOG_COMMITTED`.
-6. Output relay dùng lane lease/fence + native fetch/mark + bounded async send; fixed-delay publisher chỉ rollback.
-7. Query implementation không thuộc BT-09D; output contract duy nhất là `media.subject.changed.v2`.
+1. Dedupe input theo event ID; exact unique input count mới mở equality gate.
+2. Subject/asset winner deterministic theo `(sourcePartition, sourceOffset, eventId)`.
+3. Giữ primary election, tags từ primary, tombstone, version và snapshot-size semantics.
+4. Canonical write, final outbox và checkpoint atomic trong `catalog_db`.
+5. Một final `media.subject.changed.v2` tối đa cho mỗi `(operationId, changedSubjectId)`.
+6. Unresolved DLT hoặc cardinality mismatch cấm `CATALOG_COMMITTED`.
+7. Relay dùng lease/fence, bounded in-flight, broker ack và conditional bulk mark; Query dedupe/version guard.
+8. Không đổi REST/event schema, database ownership hoặc cho Catalog ghi Query DB.
 
-## Target Performance & Gates cho từng lát
+## Target và boundary
 
-- **BT-09D1**: 25K `stageSql` median `<= 100 ms`, max `<= 150 ms`; D1 ingest 1M `<= 4s` (`>= 250.000 rec/s`) trên profile 100K subject × 10 asset.
-- **BT-09D2** ([FT-056](../../../../../../docs/features/056-catalog-set-based-cte-merge/03-plan.md)): SQL merge median `< 5 ms/page`; merge 100K subject `<= 5s`; không còn temp DDL/index/analyze trong page loop và phải parity business semantics.
-- **BT-09D3**: một claim drain nhiều page; tổng acquire/lease overhead `< 5%` finalizer elapsed; 64 lane không deadlock, starvation hoặc fence violation.
-- **BT-09D4**: canonical Catalog `<= 10s`, relay `<= 2s`, toàn Catalog phase `<= 12s`; data loss `0`, duplicate canonical effect `0`, unresolved DLT `0`.
+- Profile chuẩn: 1M unique discovery input, 100K subjects, fan-out 10 assets/subject.
+- Bắt đầu: first discovery record Catalog nhận.
+- Kết thúc: broker ack cuối cùng của final snapshots và `CATALOG_COMMITTED`.
+- Throughput: `expectedDiscoveryRecordCount / elapsedSeconds`; output rate báo riêng.
+- Gate tối thiểu: `<= 33,334s` / `>= 30.000 input records/s`.
+- Stretch: `<= 25s` / `>= 40.000 input records/s`.
+- Ba measured run liên tiếp là implementation gate; P95/P99 chính thức cần đủ 30/100 observations.
+- 25K, `fsync=off`, isolated phase hoặc run không gồm broker ack không thay thế combined 1M gate.
 
-`30s` là SLI-03 end-to-end từ operation accepted tới `QUERY_DB_READY`, không phải budget riêng của BT-09D. D4 chỉ đóng Catalog gate; BT-09G mới qualification toàn pipeline và P95/P99.
+SLI-03 end-to-end tới `QUERY_DB_READY` đã rebudget thành P95 `<= 60s`, P99 `<= 90s`. Catalog target trên là
+phase SLI-03C, không phải tuyên bố toàn pipeline đạt 30–40K/s.
+
+## Route đọc tiếp
+
+- Kiến trúc As-Is/To-Be và trade-off: [FT-057 Design](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/02-design.md).
+- File/symbol, verify và rollback: [FT-057 Plan](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md).
+- SLO/boundary chính thức: [SC-01 performance SLO](../07-performance-slo-and-benchmarks.md).
+- Reducer semantics lịch sử cần preserve: [FT-054 Design](../../../../../../docs/features/054-catalog-operation-coalescing/02-design.md).

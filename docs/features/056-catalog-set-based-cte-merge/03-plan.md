@@ -1,7 +1,9 @@
 # FT-056 — BT-09D2 Catalog Set-Based CTE Merge — Plan
 
-Status: `FAILED — V22 qualification failed (25K 39.278 s, 1M timeout)`
+Status: `FAILED — superseded by FT-057 (V22 25K 39.278 s, 1M timeout)`
 Design: [02-design.md](./02-design.md)
+
+Hướng triển khai tiếp theo: [FT-057 Catalog Bulk Reconciliation Data Plane](../057-catalog-bulk-reconciliation-data-plane/03-plan.md).
 
 ## Execution capsule
 

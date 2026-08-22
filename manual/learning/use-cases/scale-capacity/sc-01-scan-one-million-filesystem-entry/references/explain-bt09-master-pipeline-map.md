@@ -10,29 +10,26 @@
 ```mermaid
 flowchart TD
     UI(["User: POST /approve<br/>(1.000.000 records)"])
-    
     subgraph STAGE_A["BT-09A: Contract &amp; Watermarks"]
         W_ACC(["[1] ACCEPTED<br/>(HTTP 202, Bắt đầu SLO)"])
     end
-
     subgraph STAGE_B["BT-09B: Scan Chunking"]
         S_CHUNK["Scan Chunk Executor<br/>(25.000 items/chunk)"]
         S_DB[("scan_db<br/>(decision + outbox)")]
         W_SCAN(["[2] APPROVAL_COMMITTED<br/>(Scan xong 1M file)"])
     end
-
     subgraph STAGE_C["BT-09C: Continuous Drain"]
         RELAY["Outbox Drain Relay<br/>(Async in-flight 2.000)"]
         K1{{"Kafka Topic:<br/>media.file.discovered.v2<br/>(1M messages)"}}
     end
-
-    subgraph STAGE_D["BT-09D: Catalog Coalescing"]
-        C_CONS["Catalog Batch Consumer<br/>(In-Memory Coalescing)"]
-        C_DB[("catalog_db<br/>(Bulk canonical writes)")]
-        W_CAT(["[3] CATALOG_COMMITTED<br/>(chốt expectedSubjectCount)"])
-        K2{{"Kafka Topic:<br/>media.subject.changed.v2<br/>(~148K snapshots)"}}
+    subgraph STAGE_D["BT-09D: Bulk Reconciliation"]
+        C_INGEST["Append-only ingest"]
+        C_REDUCE["One-time reduction"]
+        C_DB[("catalog_db<br/>(Canonical + outbox)")]
+        C_RELAY["Indexed sliding relay"]
+        K2{{"Kafka Topic:<br/>media.subject.changed.v2<br/>(~100K profile chuẩn)"}}
+        W_CAT(["[3] CATALOG_COMMITTED<br/>(Sau final broker ack)"])
     end
-
     subgraph STAGE_E["BT-09E: Query Bulk &amp; O(1) Cache"]
         Q_CONS["Query Bulk Consumer<br/>(COPY / Upsert Version Guard)"]
         Q_DB[("query_db<br/>(Read Model ready)")]
@@ -41,35 +38,30 @@ flowchart TD
         W_READY(["[4] QUERY_DB_READY<br/>(Dừng đồng hồ đo SLO)"])
         Q_ES>"[5] SEARCH_READY<br/>(Async Elasticsearch Bulk)"]
     end
-
     subgraph STAGE_F["BT-09F: Error Isolation &amp; DLT"]
         DLT{{"*.DLT Topic<br/>(Poison pill isolation)"}}
         BLOCKED(["Watermark: BLOCKED<br/>(Khi có DLT &gt; 0)"])
         REPLAY["Idempotent Replay Runbook"]
     end
-
     subgraph STAGE_G["BT-09G: Scale Ladder"]
         LADDER["Scale Ladder Benchmark:<br/>1K -> 5K -> 50K -> 250K -> 1M<br/>(Đo p95/p99, WAL, Pool)"]
     end
-
     UI --> W_ACC --> S_CHUNK
     S_CHUNK --> S_DB --> W_SCAN
     W_SCAN --> RELAY --> K1
-    K1 --> C_CONS
-    C_CONS --> C_DB --> W_CAT --> K2
+    K1 --> C_INGEST
+    C_INGEST --> C_REDUCE --> C_DB --> C_RELAY --> K2
+    K2 -->|"Final broker ack"| W_CAT
     K2 --> Q_CONS
     Q_CONS --> Q_DB --> Q_CACHE --> BARRIER
     BARRIER -->|"Đủ 100%"| W_READY
     W_READY -.-> Q_ES
-
-    C_CONS -.->|"Poison error"| DLT
+    C_INGEST -.->|"Poison error"| DLT
     Q_CONS -.->|"Poison error"| DLT
     DLT --> BLOCKED
     REPLAY -.-> K1
     REPLAY -.-> K2
-
     W_READY -.-> LADDER
-
     style UI fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style W_ACC fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style S_CHUNK fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
@@ -77,8 +69,10 @@ flowchart TD
     style W_SCAN fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style RELAY fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style K1 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style C_CONS fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style C_INGEST fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style C_REDUCE fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style C_DB fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style C_RELAY fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style W_CAT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style K2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style Q_CONS fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
@@ -102,7 +96,7 @@ flowchart TD
 | **`BT-09A`** | Cross-service | Thiết kế khung Hợp đồng & Watermarks (cấp vé `[1] ACCEPTED`, chốt 5 mốc). |
 | **`BT-09B`** | `scan-service` | Ghi decision + outbox atomic theo bounded chunks 25.000 items $\to$ `[2] APPROVAL_COMMITTED`. |
 | **`BT-09C`** | `scan-service` Relay | Continuous Drain Relay xả liên tục lên Kafka với in-flight buffer 2.000 messages. |
-| **`BT-09D`** | `catalog-service` | In-Memory Batch Coalescing gom 1M file thành ~148K subject $\to$ `[3] CATALOG_COMMITTED`. |
+| **`BT-09D`** | `catalog-service` | Append-only ingest, one-time bulk reduction, canonical/outbox và indexed sliding relay; gate 30K/s, stretch 40K/s $\to$ `[3] CATALOG_COMMITTED`. |
 | **`BT-09E`** | `query-service` | Bulk Projection (COPY/Upsert), Equality Gate $\to$ `[4] QUERY_DB_READY` & `[5] SEARCH_READY`. |
 | **`BT-09F`** | Toàn hệ thống | Cô lập Poison pill sang DLT, chuyển `BLOCKED` để bảo vệ data, Runbook replay. |
-| **`BT-09G`** | Hạ tầng & Benchmark | Chạy tải thực nghiệm 1K $\to$ 1M để chứng minh đạt mục tiêu SLO 30 giây. |
+| **`BT-09G`** | Hạ tầng & Benchmark | Chạy tải thực nghiệm 1K $\to$ 1M; Catalog SLI-03C 30–40K/s và end-to-end SLI-03 P95 60 giây. |
