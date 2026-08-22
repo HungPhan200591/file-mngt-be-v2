@@ -44,6 +44,17 @@ Chúng phải nằm trong payload/outbox để
 completion counter và replay không phụ thuộc transient Kafka headers. Catalog đếm unique input theo
 `(operationId, eventId)` và đối chiếu `expectedRecordCount` từ `media.approval.watermark.v1`.
 
+## Logical completion shard compatibility
+
+FT-059 giữ nguyên payload v2. Với operation processing version mới, Scan và Catalog cùng derive
+`routingBucket`/`completionShardId` từ đúng partition key `region:subjectType:identityKey` theo
+[`media.approval.shard.completed.v1`](./media.approval.shard.completed.v1.md). Mọi file event của cùng subject
+phải vào cùng logical shard; shard không phụ thuộc Kafka partition vật lý.
+
+Discovery event không mang `completionShardId` để tránh lặp metadata trên 1M payload. Routing version và shard
+count nằm trong durable operation/shard completion contract; Catalog fail closed nếu marker conflict hoặc một
+unique event đến sau shard seal.
+
 For video events, `tagNames` describes the candidate file. Catalog stores the tags on the asset,
 elects exactly one `PRIMARY_VIDEO`, and materializes subject `tagNames` from that primary. An untagged
 video outranks a tagged video; equal priority keeps the current primary. Scan producers should emit
@@ -62,5 +73,7 @@ For `IMAGE`, `GIF` or `null` role events, Catalog ignores `tagNames` for primary
   `BLOCKED/CATALOG_INPUT_DLT`.
 - V2 là runtime target duy nhất của study environment; BT-09B/BT-09D thay thẳng producer/consumer và có thể
   reset local topic/data, không duy trì payload cũ thiếu operation metadata.
+- Operation global-only cũ và operation FT-059 shard-aware được phân biệt bằng durable processing version;
+  không đổi completion protocol giữa một operation.
 - Correlation/trace context is carried in Kafka headers, not JSON. Unknown event versions fail and are retained
   in the corresponding DLT for operator action.

@@ -265,14 +265,15 @@ hai service phải chốt contract trước khi triển khai. Context ngắn đ�
 | **BT-09A — Operation contract** | Chốt `ACCEPTED`, `operationId`/`batchId`, completion cardinality, `APPROVAL_COMMITTED`, `QUERY_DB_READY`, `SEARCH_READY`, DLT và cache generation. | **`DONE`** (FT-044) | Brief/Design/contract được duyệt tại [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md). |
 | **BT-09B — Scan decision/outbox** | Ghi decision + outbox atomic theo bounded chunk; không hydrate 1M entity hoặc mở transaction 1M rows. | **`IMPLEMENTED — verification deferred`** (FT-045/050/051) | Đo statement count, transaction time, WAL, lock/pool wait và rollback chunk. |
 | **BT-09C — Outbox drain** | Continuous drain, bounded in-flight, deadline/backpressure, lease budget và partition-key ordering. | **`READY`** ([FT-053](../../../../../docs/features/053-lane-fenced-outbox-data-plane/03-plan.md)) | Có publish latency, backlog age, lease-loss, duplicate và broker-failure evidence. |
-| **BT-09D — Catalog bulk reconciliation** | Giữ durable stage/equality/outbox semantics nhưng thay incremental reduction/page-loop bằng immutable typed stage, sealed workset và PostgreSQL coarse-unit set-based reconciliation; Java chỉ giữ control plane. FT-054–FT-056 là failed/historical evidence. | **`READY`** ([FT-057](../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md)) | Một combined clock từ first Catalog receive tới final broker ack: 1M `<= 33.334 ms` (`>= 30K/s`), stretch `<= 25.000 ms` (`>= 40K/s`); exact correctness và resource bounded. |
+| **BT-09D — Catalog bulk reconciliation** | Logical completion shard theo canonical subject key, transactional Scan shard marker, Catalog shard equality gate và bounded page checkpoint để overlap ingest/reconcile/relay. FT-057/FT-058 là implemented/failed evidence của global 16-unit shape. | **`READY — implementation pending`** ([FT-059](../../../../../docs/features/059-catalog-logical-shard-completion/03-plan.md)) | Ba combined run 1M từ first Catalog receive tới final broker ack `<= 120s`; exact cardinality, zero unresolved DLT và resource bounded. `30K–40K/s` chỉ là stretch. |
 | **BT-09E — Query bulk projection** | Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event và watermark. | `PLANNED` | `QUERY_DB_READY` chỉ sau projection commit; Redis/Search không kéo dài critical path. |
 | **BT-09F — Failure/operation evidence** | DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim. | `PLANNED` | Có terminal state, operator visibility và replay/idempotency proof. |
 | **BT-09G — Scale ladder** | Chạy cùng workload ở 1K → 5K → 50K → 250K → 1M để tìm phase bottleneck và capacity ceiling. | `PLANNED` | Báo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool và cost; chưa có evidence thì không chốt SLO. |
 
 Dependency tối thiểu: BT-07 decision job, BT-08A event/DLT và BT-08B outbox capacity. BT-09 không
 được coi là hoàn tất chỉ vì cold scan 1M hoặc một Catalog sub-phase đạt benchmark; approve path phải có
-watermark và end-to-end evidence riêng. SLI-03 hiện là P95 `<= 60s`, P99 `<= 90s`.
+watermark và end-to-end evidence riêng. SLI-03 hiện `TBD` tới khi BT-09E có Query evidence; budget 60/90 giây
+cũ đã hủy sau khi Catalog release gate được rebudget 120 giây.
 
 ## Verification/debt còn mở nhưng không tự biến thành BT mới
 

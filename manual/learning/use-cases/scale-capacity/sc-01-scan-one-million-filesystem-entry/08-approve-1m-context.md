@@ -36,7 +36,7 @@ BT-09 tương ứng.
 - Break-task owner: [BT-09](./04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned).
 - **BT-09A**: Operation contract / watermark (**`DONE`** — [FT-044](../../../../../docs/features/044-approve-1m-operation-contract/01-brief.md)).
 - **BT-09B**: Scan decision/outbox chunking (**`IMPLEMENTED — verification deferred`**, FT-045/050/051).
-- **BT-09D**: Catalog bulk reconciliation (**`READY`** tại [FT-057](../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md)); FT-054–FT-056 chỉ còn là failed/historical evidence. Combined gate tối thiểu 30K input records/s, stretch 40K/s.
+- **BT-09D**: Catalog logical shard completion (**`READY — implementation pending`** tại [FT-059](../../../../../docs/features/059-catalog-logical-shard-completion/03-plan.md)); FT-057/FT-058 là evidence của global 16-unit shape đã fail 1M/120s. Gate mới là ba combined run 1M `<= 120s`; 30K–40K/s chỉ là stretch.
 - **BT-09E**: Query bulk projection (chưa lập feature trong context này).
 - **BT-09F–09G**: Failure evidence và scale ladder 1K → 5K → 50K → 250K → 1M.
 

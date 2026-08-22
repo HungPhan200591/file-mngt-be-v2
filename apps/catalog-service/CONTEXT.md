@@ -14,10 +14,11 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   canonical và subject identity; implementation FT-034 có Flyway V8, nhưng direct verification còn deferred.
 - Event target SC-01: `media.subject.changed.v2`; runtime v1 sẽ được thay thẳng ở BT-09D, không dual-publish.
   `media.metadata.changed.v1` không đổi trong BT-09A.
-- Data plane BT-09D thuộc [FT-057](../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md),
-  reliability hardening thuộc [FT-058](../../docs/features/058-catalog-operation-reliability-hardening/03-plan.md):
-  immutable typed ingest, sealed workset, PostgreSQL coarse-unit set-based reconciliation và indexed sliding
-  relay; Java chỉ giữ control plane, không làm 1M-row in-memory reducer.
+- Data plane global 16-unit của [FT-057](../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md)
+  và reliability [FT-058](../../docs/features/058-catalog-operation-reliability-hardening/03-plan.md) đã fail gate
+  1M/120s. Target `READY` là [FT-059](../../docs/features/059-catalog-logical-shard-completion/03-plan.md): logical
+  completion shard theo canonical subject key, Scan transactional marker, Catalog shard equality gate và bounded
+  page reconciliation; Java vẫn chỉ giữ bounded control plane, không làm 1M-row in-memory reducer.
   Combined Catalog release gate là 1M trong tối đa 120 giây từ first receive tới final broker ack; 30K–40K
   input records/s chỉ là stretch capacity result, không chặn release.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
@@ -27,7 +28,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   units checkpoint đồng thời không lock-upgrade deadlock; Flyway V24 đã verify trên PostgreSQL 18 Testcontainers.
   Combined 25K hoàn tất trong 4.935 ms (`5.066 input records/s`); combined 1M vượt deadline 120 giây do
   reconciliation units lặp lại statement timeout 20 giây và operation còn `RECONCILING`. FT-058 đã dừng ở
-  `FEASIBILITY_FAILED`; không tiếp tục tối ưu cùng 16-unit transaction shape.
+  `FEASIBILITY_FAILED`; FT-059 mới ở `READY`, chưa có source/benchmark và không tiếp tục tối ưu cùng 16-unit
+  transaction shape.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.
@@ -42,6 +44,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Consumer Kafka idempotent; không ghi projection Query trực tiếp.
 - Operation ingest không seal trong transaction ghi stage. Seal coordinator chỉ claim committed progress bằng
   `FOR UPDATE SKIP LOCKED`; operation có total deadline 120 giây và retry unit tối đa ba failure có fence.
+- Operation FT-059 chỉ seal logical shard khi `media.approval.shard.completed.v1` và unique input count của shard
+  hội tụ; Kafka partition vật lý không phải completion boundary. Global ready vẫn cần exact sum mọi shard.
 - Outbox publisher của Catalog và Scan dùng bounded lease claim, publish ngoài transaction và conditional
   update; DLT observer theo dõi `media.file.discovered.v2.DLT`.
 - Mọi thay đổi asset phải làm aggregate subject tiến version trước khi enqueue outbox; không được tái sử dụng

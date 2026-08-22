@@ -1,71 +1,58 @@
-# Reference Capsule: BT-09D — Catalog Bulk Reconciliation
+# Reference Capsule: BT-09D — Catalog Logical Shard Completion
 
-> Implementation owner: [FT-057](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md) `READY`.
-> FT-054–FT-056 là failed/historical evidence, không còn là route triển khai.
-> Phạm vi: `media.file.discovered.v2` → canonical Catalog → `media.subject.changed.v2` + `CATALOG_COMMITTED`.
+> Implementation owner: [FT-059](../../../../../../docs/features/059-catalog-logical-shard-completion/03-plan.md)
+> `READY — architecture/contract approved; implementation pending`.
+> FT-054–FT-058 là historical/failed evidence; không route implementation về 16-unit shape.
 
-## Vì sao kiến trúc cũ bị thay
+## Failure boundary hiện hành
 
-- FT-055 từng đạt isolated 1M `20,464s` và Kafka drain `24,527s`, nhưng chỉ đo ingest với profile local
-  thuận lợi; chưa gồm canonical merge và relay.
-- V22 25K mất ingest `7,031s` + merge `39,278s`; 1M timeout với `QueryTimeoutException`.
-- Ingest duy trì subject/asset reduction bằng conflict-upsert từng slice; `stageSql=87,3%`.
-- Finalizer gọi operation-wide reduction/recount trong page path, rồi claim/release theo page trên 64 lane.
-- Relay hash `partition_key` lúc fetch pending và chờ toàn bộ async batch bằng `allOf` wave barrier.
+- FT-058 functional regression đạt `36/36`; combined 25K hoàn tất trong `4,935s`.
+- Combined 1M vượt deadline 120 giây khi units `0–3` lặp `QueryTimeoutException`.
+- Một unit khoảng 6.250 subjects trong một transaction; timeout rollback toàn unit nên checkpoint không tiến.
+- Global completion barrier buộc Catalog đợi đủ operation trước reconciliation, giảm overlap với ingest/Query.
+- Không tăng timeout, retry, worker hoặc tạo SQL candidate mới cùng 16-unit transaction shape.
 
-Kết luận: pass D1/D2/D3/D4 riêng làm chi phí bị chuyển giữa phase. BT-09D từ FT-057 chỉ có một combined
-Catalog clock; không tăng timeout/workers để che repeated work.
-
-## Kiến trúc đích
+## Kiến trúc FT-059
 
 ```text
-Kafka discovery
-→ immutable typed COPY + durable dedupe/partition progress
-→ operation watermark + exact equality/DLT gate → seal
-→ one-time subject workset + coarse unit ledger
-→ set-based unit delta trực tiếp từ typed stage
-→ canonical write + grouped final snapshot outbox + checkpoint atomic
-→ persisted/indexed relay lane + bounded sliding Kafka sends
-→ exact published/cardinality/DLT gate
-→ CATALOG_COMMITTED
+Scan subject-key shard + exact transactional completion marker
+→ Kafka discovery + media.approval.shard.completed.v1
+→ Catalog typed ingest/dedupe + per-shard counter
+→ marker + exact equality + shard DLT gate → seal shard
+→ stable shard workset + durable bounded pages
+→ canonical + final snapshot outbox + page checkpoint atomic
+→ indexed sliding relay → Query consume sớm
+→ all shards + exact sums + final broker ACK → CATALOG_COMMITTED
 ```
 
-Typed stage là durable rebuild source. Ingest không upsert reduction/workset. Workset/unit ledger build đúng một
-lần sau equality gate; unit transaction re-derive temporary delta và không scan/recount toàn operation. Java
-chỉ giữ control plane, không kéo 1M stage row ra JVM rồi COPY winner trở lại. Relay bắt đầu từ unit outbox đầu
-để overlap merge, nhưng completion chỉ tính sau broker ack cuối.
+Logical shard dùng canonical `region:subjectType:identityKey`, không dùng Kafka partition vật lý hoặc proposal
+UUID. Contract version `SUBJECT_KEY_MD5_12_RANGE_V1` tạo 12-bit routing bucket; candidate 64 shards nhưng Scan/
+Catalog worker concurrency vẫn bounded riêng. Marker và data khác topic có thể đến lệch thứ tự; equality gate
+mới là authority.
 
 ## Invariants
 
-1. Dedupe input theo event ID; exact unique input count mới mở equality gate.
-2. Subject/asset winner deterministic theo `(sourcePartition, sourceOffset, eventId)`.
-3. Giữ primary election, tags từ primary, tombstone, version và snapshot-size semantics.
-4. Canonical write, final outbox và checkpoint atomic trong `catalog_db`.
-5. Một final `media.subject.changed.v2` tối đa cho mỗi `(operationId, changedSubjectId)`.
-6. Unresolved DLT hoặc cardinality mismatch cấm `CATALOG_COMMITTED`.
-7. Relay dùng lease/fence, bounded in-flight, broker ack và conditional bulk mark; Query dedupe/version guard.
-8. Không đổi REST/event schema, database ownership hoặc cho Catalog ghi Query DB.
-9. No-op/change dùng relational delta; grouped post-state snapshot chỉ dựng một lần, không gọi correlated
-   `catalog_subject_state_json` theo subject.
+1. Mọi discovery của cùng subject/operation nằm cùng shard; routing version/count immutable theo operation.
+2. Dedupe `eventId` trước shard counter; marker duplicate cùng payload là no-op, conflict phải block.
+3. Shard chỉ seal khi marker, exact unique count và DLT gate hội tụ; unique late input sau seal phải block.
+4. Winner vẫn theo `(sourcePartition, sourceOffset, eventId)`; giữ primary/tags/tombstone/version/size semantics.
+5. Canonical mutation, một final `media.subject.changed.v2`, outbox và page checkpoint commit atomic.
+6. Retry chỉ chạy page chưa commit; lease/fence ngăn stale worker checkpoint hoặc publish effect mới.
+7. Global `CATALOG_COMMITTED` chờ mọi shard, exact counts, zero unresolved DLT và final broker ACK durable mark.
+8. PostgreSQL vẫn là Catalog source of truth; không cross-database write/join hoặc Java whole-operation reducer.
 
-## Target và boundary
+## Gate và evidence boundary
 
-- Profile chuẩn: 1M unique discovery input, 100K subjects, fan-out 10 assets/subject.
-- Bắt đầu: first discovery record Catalog nhận.
-- Kết thúc: broker ack cuối cùng của final snapshots và `CATALOG_COMMITTED`.
-- Throughput: `expectedDiscoveryRecordCount / elapsedSeconds`; output rate báo riêng.
-- Gate tối thiểu: `<= 33,334s` / `>= 30.000 input records/s`.
-- Stretch: `<= 25s` / `>= 40.000 input records/s`.
-- Ba measured run liên tiếp là implementation gate; P95/P99 chính thức cần đủ 30/100 observations.
-- 25K, `fsync=off`, isolated phase hoặc run không gồm broker ack không thay thế combined 1M gate.
-
-SLI-03 end-to-end tới `QUERY_DB_READY` đã rebudget thành P95 `<= 60s`, P99 `<= 90s`. Catalog target trên là
-phase SLI-03C, không phải tuyên bố toàn pipeline đạt 30–40K/s.
+- Profile chuẩn: 1M discovery input, 100K subjects, fan-out 10 assets/subject.
+- Clock: first Catalog receive → final output broker ACK; seed/assignment/warm-up ngoài clock.
+- Implementation gate: ba measured run 1M liên tiếp `<= 120s`, exact cardinality và resource bounded.
+- `30K–40K input records/s` chỉ là stretch; output rate báo riêng.
+- Candidate 64 shards/page 250–500 là calibration hypothesis, không phải measured capacity.
+- Local/Testcontainers qualification không phải production P95/P99 và không qualify `QUERY_DB_READY`.
 
 ## Route đọc tiếp
 
-- Deep-Dive chi tiết dòng chảy & tối ưu Catalog Service: [01-catalog-coalescing-and-reconciliation-deep-dive.md](../../../../deep-dive/catalog-service/01-catalog-coalescing-and-reconciliation-deep-dive.md).
-- Kiến trúc As-Is/To-Be và trade-off: [FT-057 Design](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/02-design.md).
-- File/symbol, verify và rollback: [FT-057 Plan](../../../../../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md).
-- SLO/boundary chính thức: [SC-01 performance SLO](../07-performance-slo-and-benchmarks.md).
-- Reducer semantics lịch sử cần preserve: [FT-054 Design](../../../../../../docs/features/054-catalog-operation-coalescing/02-design.md).
+- Contract/architecture/rollback: [FT-059 Plan](../../../../../../docs/features/059-catalog-logical-shard-completion/03-plan.md).
+- Event payload/routing/idempotency: [shard completion contract](../../../../../../docs/contracts/events/media.approval.shard.completed.v1.md).
+- Long-term decision: [ADR-006](../../../../../../docs/adr/ADR-006-logical-completion-shards.md).
+- Failure evidence: [FT-058 report](../../../../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/05-ft058-reliability-hardening.md).

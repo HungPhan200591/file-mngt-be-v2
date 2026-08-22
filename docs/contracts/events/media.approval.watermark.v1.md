@@ -14,6 +14,8 @@ phát một watermark khi stage của mình hội tụ.
 - Partition key: `operationId`.
 - Delivery: at-least-once; consumer dedupe theo `eventId` và chỉ tiến state theo `stageSequence` lớn hơn.
 - Mọi stage event phải được ghi cùng transactional outbox với durable stage state của service phát.
+- FT-059 thêm [`media.approval.shard.completed.v1`](./media.approval.shard.completed.v1.md) để Catalog mở
+  logical shard sớm. Watermark này vẫn là global terminal contract, không bị thay thế bởi shard marker.
 
 ## Lifecycle và SLO boundary
 
@@ -74,12 +76,16 @@ dùng sequence lớn hơn stage cuối đã commit; consumer giữ trạng thái
 1. Scan commit operation row `ACCEPTED`, trả `202`, sau đó ghi decision + `media.file.discovered.v2`
    outbox theo bounded chunk.
 2. Scan phát `APPROVAL_COMMITTED` sau khi đếm đủ unique outbox record đã commit.
-3. Catalog đếm unique discovery event theo `(operationId, eventId)`. Chỉ khi đủ `expectedRecordCount`,
-   Catalog mới chốt `expectedSubjectCount` và phát đúng một `media.subject.changed.v2` final snapshot cho
-   mỗi `(operationId, subjectId)`.
-4. Catalog phát `CATALOG_COMMITTED`. Query đếm unique final snapshot theo `(operationId, subjectId)` và
+3. Với operation FT-059, Scan phát transactional shard marker khi từng logical subject shard commit exact.
+   Catalog đếm unique discovery theo `(operationId, eventId)` và có thể seal/reconcile shard khi marker +
+   shard equality hội tụ; marker/data khác topic có thể đến theo mọi thứ tự.
+4. Catalog phát đúng một `media.subject.changed.v2` final snapshot cho mỗi `(operationId, subjectId)` ngay khi
+   bounded page của sealed shard commit. Query có thể project sớm trong khi shard khác còn ingest/reconcile.
+5. Catalog chỉ phát global `CATALOG_COMMITTED` khi tổng shard input bằng `expectedRecordCount`, mọi shard/output
+   đã hoàn tất, final broker ACK được durable mark và unresolved DLT bằng 0.
+6. Query đếm unique final snapshot theo `(operationId, subjectId)` và
    chỉ commit `QUERY_DB_READY` khi đủ `expectedSubjectCount`, không có unresolved DLT.
-5. Scan consume control topic để materialize status cho tracking API. Mỗi service vẫn sở hữu database và
+7. Scan consume control topic để materialize status cho tracking API. Mỗi service vẫn sở hữu database và
    stage truth của chính mình; không có cross-database join/write.
 
 Counter được flush theo bounded batch, không `UPDATE` operation row cho từng record. Một stage manifest có

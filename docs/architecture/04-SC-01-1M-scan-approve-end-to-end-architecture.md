@@ -19,7 +19,8 @@ thế Plan của từng feature:
 | BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
 | BT-09B — scan decision/outbox chunking | [FT-051](../features/051-logical-approval-sharding/01-brief.md) | `IMPLEMENTED — shardCount=4 DEFAULT`; production qualification vẫn pending |
 | BT-09C — Scan outbox relay | [FT-053](../features/053-lane-fenced-outbox-data-plane/01-brief.md) | `READY`; FT-052 implementation không đạt performance gate |
-| BT-09D → BT-09G — Catalog, Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | BT-09D `D1 READY`; D2–D4 → E–G theo dependency map |
+| BT-09D — Catalog bulk reconciliation | [FT-059](../features/059-catalog-logical-shard-completion/03-plan.md) | `READY — architecture/contract approved; implementation pending`; FT-058 failed 1M/120s |
+| BT-09E → BT-09G — Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED`; chỉ mở sau FT-059 qualification |
 
 Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng
 đề xuất ở đây để ghi đè contract/Plan hoặc tuyên bố SLO đã đạt. Khi code khác proposal (ví dụ JDBC batch
@@ -40,11 +41,13 @@ Chọn mô hình **durable staged bulk pipeline**:
 
 1. API tạo durable approval operation và trả 202 Accepted cùng operationId.
 2. Scan cố định input snapshot/cutoff của một completed scan run.
-3. Scan xử lý bounded chunks; preparation có thể song song, source-of-truth commit vẫn có lane giới hạn.
+3. Scan xử lý bounded chunks; processing version FT-059 route logical shard theo canonical subject key,
+   còn số DB worker vẫn được giới hạn độc lập.
 4. Decision và Scan outbox commit atomic theo chunk bằng PostgreSQL bulk path; không mở transaction cho toàn bộ 1M.
 5. Outbox publisher drain độc lập, có lease, retry at-least-once và backpressure.
 6. Kafka vận chuyển event theo partition key của subject identity; aggregate khác nhau chạy song song.
-7. Catalog consume bounded batch, dedupe và coalesce nhiều file events thành final subject snapshots.
+7. Catalog consume bounded batch, dedupe và dùng shard completion equality để reconcile/publish final subject
+   snapshots theo durable page trước khi toàn operation kết thúc.
 8. Query consume final snapshots bằng staging/COPY hoặc native bulk upsert.
 9. Search chạy trên slow lane riêng; SEARCH_READY không chặn QUERY_DB_READY nếu business không yêu cầu.
 10. Control plane theo dõi watermark theo stage và chỉ phát ready khi cardinality, DLT và version invariant đạt.
@@ -89,11 +92,13 @@ Source-of-truth liên quan:
 - [Backend V2 high-level plan](02-PLAN.md)
 - [FT-044 — operation contract](../features/044-approve-1m-operation-contract/02-design.md)
 - [FT-045 — scan decision/outbox chunking](../features/045-scan-decision-chunking/02-design.md)
-- [FT-057 — Catalog bulk reconciliation data plane](../features/057-catalog-bulk-reconciliation-data-plane/02-design.md)
+- [FT-059 — logical shard completion](../features/059-catalog-logical-shard-completion/02-design.md)
+- [ADR-006 — logical completion shards](../adr/ADR-006-logical-completion-shards.md)
 - [005 Scan approval outbox](../features/005-scan-approval-outbox/02-design.md)
 - [037 Outbox backlog capacity](../features/037-outbox-backlog-capacity/02-design.md)
 - [037 scale and cloud rollout](../features/037-outbox-backlog-capacity/05-scale-and-cloud-rollout.md)
 - [media.approval.watermark.v1](../contracts/events/media.approval.watermark.v1.md)
+- [media.approval.shard.completed.v1](../contracts/events/media.approval.shard.completed.v1.md)
 - [approve-to-Query performance assessment](../reviews/2026-08-13-approve-5000-query-performance-assessment.md)
 
 ## 3. Business SLA theo stage
@@ -103,9 +108,9 @@ Không đặt cùng một SLA cho mọi stage. Các con số dưới đây là *
 | Mốc | Business meaning | Candidate |
 |---|---|---:|
 | ACCEPTED | Operation đã durable, HTTP có thể trả về | p95 < 1 giây |
-| APPROVAL_COMMITTED | Scan đã ghi đủ decision và discovery outbox | phase budget p95 5 giây |
-| CATALOG_COMMITTED | Canonical đã hội tụ và output được broker ack | Catalog phase tối thiểu 30K/s, stretch 40K/s |
-| QUERY_DB_READY | Gallery/Media Library đọc được Query DB | target p95 60 giây, p99 90 giây |
+| APPROVAL_COMMITTED | Scan đã ghi đủ decision và discovery outbox | local FT-051 1M shard-4 là 30,759 giây; qualification pending |
+| CATALOG_COMMITTED | Canonical đã hội tụ và output được broker ack | release gate 1M `<= 120s`; 30K–40K/s chỉ là stretch |
+| QUERY_DB_READY | Gallery/Media Library đọc được Query DB | `UNQUALIFIED` tới BT-09E; target 60 giây cũ đã hủy |
 | SEARCH_READY | Full-text/fuzzy search đã cập nhật | slow lane, candidate 15 phút |
 | MEDIA_READY | Thumbnail/GIF/hash/technical metadata đã xong | async theo media workload |
 
@@ -162,6 +167,7 @@ Durable metadata:
 
 - operationId, scanRunId, batchId;
 - expectedRecordCount;
+- partitioningVersion, completionShardCount và exact count theo logical shard với processing version FT-059;
 - expectedSubjectCount sau Catalog hội tụ;
 - input cutoff/snapshot;
 - counters theo stage;
@@ -182,6 +188,8 @@ BLOCKED / FAILED / CANCELLED
 ~~~
 
 Không tạo state song song có cùng ý nghĩa. QUERY_DB_READY không phụ thuộc SEARCH_READY trừ khi business explicitly yêu cầu.
+FT-059 thêm [media.approval.shard.completed.v1](../contracts/events/media.approval.shard.completed.v1.md) làm
+input cho Catalog shard equality gate; event này không thay global stage watermark.
 
 ## 6. Scan discovery 1M
 
@@ -265,15 +273,18 @@ transaction timeout chỉ để biến lần chạy shard 8 thành pass.
 
 Shard là logical partition, không phải bốn business tables. Bảng scan_approval_operation_shard chỉ giữ range/partition, cursor, counter, lease và status; các row vẫn nằm trong scan_proposal, scan_decision, scan_outbox_event.
 
-Hiện trạng triển khai:
+Hiện trạng FT-051:
 
-- một DB writer;
 - nhiều CPU preparation workers;
-- shardCount=4 (runtime default hiện tại);
-- đã có shard ledger và nhiều bounded shard workers; `shardCount=4` là runtime default theo benchmark hiện tại.
+- đã có shard ledger và nhiều bounded DB workers; `shardCount=4` là runtime default theo benchmark hiện tại.
   `shardCount=8` không đạt do transaction timeout; không tăng thêm nếu chưa có WAL/IOPS/lock/pool evidence.
 
 Nếu nhiều shard cùng operation, chia theo aggregate identity hoặc range có snapshot. Không chia theo proposal_id nếu downstream không xử lý được event out-of-order của cùng subject.
+
+FT-059 thực thi chính policy này cho processing version mới: shared router lấy 12 bit MD5 của canonical
+`region:subjectType:identityKey`, map vào candidate 64 logical completion shards và phát transactional completion
+marker cho từng shard. `completionShardCount` là số work unit durable, không phải số worker; current processing
+version cũ vẫn giữ proposal-ID shard cho tới khi drain/cancel, không đổi protocol giữa chừng.
 
 ## 8. Scan outbox và Kafka
 
@@ -315,28 +326,29 @@ outbox age tăng
 
 Catalog là owner duy nhất của subject, asset, actress, studio và tag.
 
-Data plane được chốt tại [FT-057](../features/057-catalog-bulk-reconciliation-data-plane/02-design.md),
-reliability control plane tại [FT-058](../features/058-catalog-operation-reliability-hardening/02-design.md) và capsule
-[BT-09D](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/references/ref-bt09d-catalog-batch-coalescing.md).
-FT-054 và FT-056 là failed evidence; không tiếp tục tối ưu incremental reduction/page loop. Coalesce phải bao
-phủ toàn operation, không chỉ một Kafka poll:
+FT-057/FT-058 đã triển khai immutable typed stage, coarse units và reliability control plane nhưng fail combined
+1M/120s vì transaction khoảng 6.250 subjects/unit lặp statement timeout. Successor hiện hành là
+[FT-059](../features/059-catalog-logical-shard-completion/02-design.md) cùng
+[ADR-006](../adr/ADR-006-logical-completion-shards.md). FT-054–FT-058 là historical/failed evidence; không tiếp
+tục tăng timeout/retry/worker hoặc viết SQL candidate cùng 16-unit shape:
 
 ~~~text
-Kafka batch → immutable typed COPY + durable dedupe/partition progress → commit
-→ durable seal coordinator claim operation → exact progress/DLT gate → seal operation
-→ one-time subject workset + coarse unit ledger
-→ PostgreSQL set-based unit delta trực tiếp từ typed stage
-→ canonical write + grouped final snapshot outbox atomic theo unit
+Kafka batch → immutable typed COPY + durable dedupe/shard counter → commit
+→ Scan shard marker + Catalog exact shard equality/DLT gate → seal logical shard
+→ stable subject workset + durable bounded page ledger
+→ PostgreSQL set-based page delta trực tiếp từ sealed typed input
+→ canonical write + grouped final snapshot outbox + page checkpoint atomic
 → indexed relay lane + bounded sliding Kafka sends
-→ CATALOG_COMMITTED sau final broker ack và exact DLT/cardinality gate
+→ Query consume sớm trong khi shard khác ingest/reconcile
+→ CATALOG_COMMITTED sau mọi shard, final broker ack và exact global DLT/cardinality gate
 → hard deadline đưa operation quá 120 giây về terminal failure có replay evidence
 ~~~
 
-Durable staging cần thiết vì cùng subject có thể nằm ở nhiều poll/batchId và completion manifest có thể đến
-trước hoặc sau data. Ingest chỉ append typed event; workset/unit ledger được build đúng một lần sau equality
-gate. Java giữ control plane, không đọc 1M stage row rồi COPY winner trở lại; PostgreSQL reconcile trực tiếp
-trên bounded unit và không scan/recount toàn operation trong loop. Relay bắt đầu từ unit outbox đầu để overlap
-merge nhưng combined Catalog clock chỉ dừng sau broker ack cuối.
+Durable staging cần thiết vì cùng subject có thể nằm ở nhiều poll/batchId và shard marker có thể đến trước hoặc
+sau data. Mọi event cùng subject nằm cùng logical shard. Ingest chỉ append/dedupe typed event; workset/page được
+build sau shard equality. Java giữ control plane, không đọc 1M stage row rồi COPY winner trở lại; PostgreSQL
+reconcile một bounded page. Relay bắt đầu từ page outbox đầu nhưng combined Catalog clock chỉ dừng sau broker
+ack cuối.
 
 Trade-off:
 
@@ -436,7 +448,7 @@ Backpressure gates: Scan outbox oldest age, Catalog DB pool wait và transaction
 | Query DB lỗi | Kafka giữ backlog, retry |
 | Redis lỗi | bypass/fallback Query DB |
 | Elasticsearch lỗi | search outbox retry, Query vẫn ready |
-| Một shard lỗi | retry đúng shard, parent chưa ready |
+| Một shard/page lỗi | retry đúng page chưa commit; shard/parent chưa ready |
 | Undo approve | compensating operation/reopen, không xóa audit |
 
 Invariants:
@@ -483,6 +495,7 @@ PostgreSQL declarative partitioning là physical partitioning khác logical shar
 ### P0 — Contract và quan sát
 
 - Giữ media.approval.watermark.v1.
+- Thêm media.approval.shard.completed.v1 và versioned subject-key routing theo ADR-006.
 - Chốt SLO theo stage.
 - Đo timeline từ acceptedAt đến Query/Search.
 - Thêm backlog, lag, WAL, IOPS, pool wait, batch p50/p95/p99, DLT.
@@ -490,7 +503,7 @@ PostgreSQL declarative partitioning là physical partitioning khác logical shar
 ### P1 — Scan approval
 
 - Snapshot/cutoff.
-- Shard ledger, mặc định một shard.
+- Processing version FT-059 route completion shard theo subject key; candidate 64 shard ledger, worker bounded riêng.
 - Parallel preparation bounded.
 - COPY decision/outbox cùng chunk transaction; JDBC batch chỉ là rollback/A-B fallback.
 - Loại duplicate pending index sau query audit.
@@ -507,10 +520,10 @@ PostgreSQL declarative partitioning là physical partitioning khác logical shar
 ### P3 — Catalog
 
 - Append-only Kafka ingest và durable dedupe/counter.
-- One-time operation reduction sau equality gate.
-- Coarse bounded canonical reconciliation và final snapshot outbox.
+- Per-shard manifest/equality gate; marker/data không phụ thuộc arrival order.
+- Stable shard workset, bounded page reconciliation/checkpoint và final snapshot outbox atomic.
 - Indexed sliding Catalog relay và CATALOG_COMMITTED sau final ack.
-- Combined 1M gate tối thiểu 30K/s, stretch 40K/s.
+- Combined gate ba run 1M `<= 120s`; 30K–40K/s chỉ là stretch.
 
 ### P4 — Query
 
@@ -553,6 +566,7 @@ Performance gate:
 
 - ACCEPTED không phụ thuộc 1M;
 - APPROVAL_COMMITTED đạt candidate p95/p99;
+- CATALOG_COMMITTED đạt ba run 1M `<= 120s` với exact shard/global cardinality và final broker ACK;
 - QUERY_DB_READY đo từ acceptedAt;
 - backlog không tăng vô hạn;
 - backpressure bảo vệ interactive lane.

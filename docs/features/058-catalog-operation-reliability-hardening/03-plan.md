@@ -65,8 +65,9 @@ Design: [02-design.md](./02-design.md)
   và warm-up nằm ngoài clock.
 - DONE khi run 1M hoàn tất trong 120 giây, exact cardinality, zero unresolved DLT và resource bounded.
 - Ghi throughput thật. `30–40K/s` là stretch result, không phải acceptance gate.
-- Nếu valid run vẫn vượt 120 giây: dừng FT-058 ở `FEASIBILITY_FAILED`, lưu phase evidence và mở feature mới cho
-  partition/shard completion contract. Không tạo thêm SQL candidate trong FT-058.
+- Nếu valid run vẫn vượt 120 giây: dừng FT-058 ở `FEASIBILITY_FAILED`, lưu phase evidence và chuyển sang
+  [FT-059 logical shard completion](../059-catalog-logical-shard-completion/03-plan.md). Không tạo thêm SQL
+  candidate trong FT-058.
 
 ## File dự kiến chạm
 
@@ -94,6 +95,7 @@ Design: [02-design.md](./02-design.md)
   `5.066` và `5.074 input records/s`; operation đạt `CATALOG_COMMITTED`, còn hai indicators 30K/40K đều `false`.
 - Combined 1M: `FAIL`; reconciliation units `0–3` lặp lại `QueryTimeoutException` tại statement timeout 20 giây,
   operation còn `RECONCILING` khi benchmark chạm total deadline 120 giây. Không có throughput hợp lệ.
-- Decision gate: `FEASIBILITY_FAILED`. Dừng FT-058 theo mục 5 và mở feature mới cho partition/shard completion
-  contract; không tăng timeout hoặc tiếp tục SQL candidate cùng 16-unit transaction shape.
+- Decision gate: `FEASIBILITY_FAILED`. Dừng FT-058 theo mục 5 và chuyển sang
+  [FT-059 logical shard completion](../059-catalog-logical-shard-completion/03-plan.md); không tăng timeout hoặc
+  tiếp tục SQL candidate cùng 16-unit transaction shape.
 - Evidence chi tiết: [05-ft058-reliability-hardening.md](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/05-ft058-reliability-hardening.md).
