@@ -8,6 +8,7 @@ import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixtur
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationKafkaBenchmarkSupport;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.NewTopic;
