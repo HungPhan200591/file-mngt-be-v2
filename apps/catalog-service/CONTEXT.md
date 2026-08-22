@@ -15,7 +15,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Event target SC-01: `media.subject.changed.v2`; runtime v1 sẽ được thay thẳng ở BT-09D, không dual-publish.
   `media.metadata.changed.v1` không đổi trong BT-09A.
 - Data plane target BT-09D thuộc [FT-057](../../docs/features/057-catalog-bulk-reconciliation-data-plane/03-plan.md):
-  append-only ingest, one-time operation reduction, coarse canonical reconciliation và indexed sliding relay.
+  immutable typed ingest, sealed workset, PostgreSQL coarse-unit set-based reconciliation và indexed sliding
+  relay; Java chỉ giữ control plane, không làm 1M-row in-memory reducer.
   Combined Catalog gate là tối thiểu 30K, stretch 40K input records/s từ first receive tới final broker ack.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot

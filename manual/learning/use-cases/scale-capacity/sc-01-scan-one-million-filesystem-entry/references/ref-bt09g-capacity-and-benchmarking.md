@@ -28,7 +28,7 @@ Catalog có phase SLI-03C riêng: tối thiểu 30K input records/s (`<= 33,334s
 | --- | ---: | --- |
 | **Scan Decision + Outbox Chunking** | 5,000s | Bounded chunk, không hydrate entity, decision/outbox atomic. |
 | **Scan Kafka Relay & Outbox Drain** | 4,000s | Continuous drain, bounded async publish. |
-| **Catalog first receive → final broker ack** | 33,334s | Append-only ingest, one-time reduction, bulk reconciliation, indexed sliding relay. |
+| **Catalog first receive → final broker ack** | 33,334s | Immutable typed ingest, sealed workset, coarse-unit set-based reconciliation, indexed sliding relay. |
 | **Query Bulk Projection + cache switch** | 7,000s | Bulk COPY/Upsert, `subjectVersion` guard, `cacheGeneration` O(1). |
 | **Queue/I/O/GC reserve** | 10,666s | Variance budget, không dùng để che backlog tăng vô hạn. |
 | **Tổng cộng tới `QUERY_DB_READY`** | **60,000s** | **Budget phân bổ; chưa phải runtime evidence** |

@@ -322,24 +322,25 @@ FT-054 và FT-056 là failed evidence; không tiếp tục tối ưu incremental
 phủ toàn operation, không chỉ một Kafka poll:
 
 ~~~text
-Kafka batch → typed append-only COPY + durable dedupe/counter
-→ manifest + exact counter equality gate
-→ one-time set-based subject/asset reduction
-→ bounded coarse shard drain từ materialized winner rows
-→ canonical write + final snapshot outbox atomic theo chunk
+Kafka batch → immutable typed COPY + durable dedupe/partition progress
+→ manifest + exact progress equality gate → seal operation
+→ one-time subject workset + coarse unit ledger
+→ PostgreSQL set-based unit delta trực tiếp từ typed stage
+→ canonical write + grouped final snapshot outbox atomic theo unit
 → indexed relay lane + bounded sliding Kafka sends
 → CATALOG_COMMITTED sau final broker ack và exact DLT/cardinality gate
 ~~~
 
 Durable staging cần thiết vì cùng subject có thể nằm ở nhiều poll/batchId và completion manifest có thể đến
-trước hoặc sau data. Ingest chỉ append; reduction được build đúng một lần sau equality gate. Canonical worker
-không scan/recount toàn operation trong chunk loop. Relay bắt đầu từ chunk outbox đầu để overlap merge nhưng
-combined Catalog clock chỉ dừng sau broker ack cuối.
+trước hoặc sau data. Ingest chỉ append typed event; workset/unit ledger được build đúng một lần sau equality
+gate. Java giữ control plane, không đọc 1M stage row rồi COPY winner trở lại; PostgreSQL reconcile trực tiếp
+trên bounded unit và không scan/recount toàn operation trong loop. Relay bắt đầu từ unit outbox đầu để overlap
+merge nhưng combined Catalog clock chỉ dừng sau broker ack cuối.
 
 Trade-off:
 
 - giảm write amplification và repeated full-operation work;
-- thêm one-time sort/materialization, staging/WAL và deterministic merge logic;
+- thêm typed stage, one-time workset, bounded unit sort/delta và deterministic merge logic;
 - phải định nghĩa conflict/election deterministic;
 - phải có version guard để event cũ không ghi đè state mới;
 - shard/chunk/relay in-flight phải bounded theo DB pool, lease và broker capacity.

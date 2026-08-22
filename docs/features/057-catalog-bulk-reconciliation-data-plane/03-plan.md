@@ -6,13 +6,15 @@ Design: [02-design.md](./02-design.md)
 ## Execution capsule
 
 - Owner: `catalog-service` / `catalog_db`.
-- Scope/files: Catalog operation consumer/stage store, ingest SQL, operation reduction/finalizer/lane stores,
-  Catalog outbox relay, additive Flyway V23+, operation benchmarks/results và configuration/telemetry liên quan.
-- Must preserve: durable raw stage, input dedupe, equality/DLT gate, source-order winner, primary/tags/tombstone,
+- Scope/files: Catalog operation consumer/typed stage store, partition progress, workset/reconcile-unit stores,
+  set-based unit SQL, Catalog outbox relay, additive Flyway V23+, benchmark/configuration/telemetry liên quan.
+- Must preserve: durable immutable input stage, input dedupe, equality/DLT gate, source-order winner, primary/tags/tombstone,
   subject version, snapshot-size guard, atomic canonical/outbox/checkpoint, unique final snapshot, fence/reclaim,
   Catalog DB ownership và ba event contracts hiện hành.
 - Must replace: reduction upsert trong ingest slice, rebuild/recount trong page loop, claim/release mỗi page,
-  runtime hash-scan outbox lane và `allOf` wave barrier.
+  correlated before/after snapshot, runtime hash-scan outbox lane và `allOf` wave barrier.
+- Engine chốt: Java là control plane; PostgreSQL reconcile set-based trực tiếp từ typed stage theo coarse unit.
+  Không triển khai Java reducer đọc stage ra JVM rồi COPY winner trở lại.
 - Read on demand: [Brief](./01-brief.md), [Design](./02-design.md),
   [FT-056 failed plan](../056-catalog-set-based-cte-merge/03-plan.md),
   [FT-054 reducer semantics](../054-catalog-operation-coalescing/02-design.md),
@@ -26,21 +28,31 @@ Design: [02-design.md](./02-design.md)
    - Thêm operation timer từ first Catalog receive tới broker ack snapshot/watermark cuối và phase telemetry.
    - Không tối ưu nếu benchmark không báo input count, subject count, output count và exact failed phase.
 
-2. **Tách append-only ingest khỏi reduction**
-   - Giữ typed bounded COPY và raw payload/source coordinates cần replay.
-   - Sau durable dedupe chỉ cập nhật exact operation counters/workset metadata tối thiểu.
-   - Bỏ subject/asset conflict-upsert khỏi mỗi ingest slice; chứng minh duplicate không tăng counter.
+2. **Thay ingest bằng immutable typed stage**
+   - Migration V23+ tạo `catalog_operation_discovery_input` chứa đủ typed input contract, source order, trace và
+     stable routing bucket; new processing version không persist/parse raw JSONB trong hot path.
+   - Bounded COPY + durable event-ID dedupe; chỉ cập nhật `catalog_operation_ingest_partition`, không upsert
+     subject/asset reduction, workset hoặc một hot operation counter theo slice.
+   - Chứng minh typed row reconstruct được input semantics và duplicate không tăng partition/operation count.
 
-3. **Build operation reduction đúng một lần**
-   - Migration V23+ bổ sung reduction state/checksum/index cần thiết, không sửa checksum migration cũ.
-   - Khi equality gate mở, materialize subject/asset winner set-based từ raw stage theo source-order hiện hành.
-   - Build idempotent, restart-safe; không `count(*)` raw stage hoặc rebuild lại trong canonical chunk loop.
+3. **Seal operation và build workset/unit đúng một lần**
+   - Equality/DLT gate tổng hợp exact partition progress, seal operation rồi materialize stable subject workset.
+   - Persist high-resolution routing buckets và nhóm thành `8–64` coarse units theo measured cardinality;
+     mỗi subject chỉ thuộc một unit, unit count là tuning configuration chứ không là business invariant.
+   - Build idempotent/restart-safe; unique event mới sau seal làm operation `BLOCKED`. Không `count(*)` stage
+     hoặc build lại workset trong unit loop.
 
-4. **Thay page finalizer bằng coarse bulk reconciliation**
-   - Tạo bounded shard/checkpoint/fence; một claim drain liên tục nhiều chunk tới empty/deadline.
-   - Mỗi chunk materialize winner/result set một lần rồi reuse cho subject, asset/tag/primary, snapshot và outbox.
-   - Canonical mutation, outbox và checkpoint cùng transaction; operation-wide completion check chạy ngoài
-     chunk hot path hoặc đúng một lần tại terminal transition.
+4. **Thay page finalizer bằng atomic coarse-unit reconciliation**
+   - Một claim/fence xử lý một unit trong bounded transaction; statement/transaction deadline nhỏ hơn lease.
+   - Trên pinned connection, materialize source-order winner và relational delta một lần vào temporary tables;
+     phân loại new/existing/no-op/change trước mutation, không blind conflict-upsert/delete-reinsert collection.
+   - Lock affected subject key theo thứ tự ổn định; set-based merge tombstone, subject, asset/tag, primary,
+     metadata/actress và version từ current canonical state.
+   - Dùng mutation result để xác định changed subject; aggregate post-state snapshot một lần, reuse cho byte guard,
+     outbox và checkpoint. Cấm gọi `catalog_subject_state_json` hoặc before/after JSON hash theo subject.
+   - Snapshot quá envelope phải rollback toàn unit rồi fenced-mark `BLOCKED` bằng control transaction riêng;
+     không commit canonical state nếu thiếu outbox tương ứng.
+   - Canonical mutation, final outbox và unit checkpoint cùng transaction. Completion check chỉ ở terminal path.
 
 5. **Thay Catalog relay data plane**
    - Persist/backfill `relay_lane_id`; tạo partial pending index theo lane/time/id.
@@ -50,7 +62,7 @@ Design: [02-design.md](./02-design.md)
 
 6. **Parity, failure và scale qualification**
    - Chạy correctness IT cho new/no-op/update, duplicate/reorder, election/tags/tombstone, size block và fence.
-   - Chạy crash/restart ở reduction, canonical và relay; broker ack-before-mark phải replay không mất effect.
+   - Chạy crash/restart ở seal/workset, unit transaction và relay; broker ack-before-mark phải replay không mất effect.
    - Chạy ladder `1K → 5K → 50K → 250K → 1M`, sau đó ba measured 1M run cùng manifest.
    - Chỉ đánh dấu implementation `DONE` khi cả ba run `<= 33.334 ms`, correctness exact và resource bounded.
      `<= 25.000 ms` là stretch, không chặn DONE.
@@ -60,8 +72,8 @@ Design: [02-design.md](./02-design.md)
 - Static/schema: Flyway V19–V22 checksum không đổi; empty DB và upgrade DB đều apply V23+; index/query plan dùng
   persisted relay lane, không seq/hash-scan pending set ngoài bounded expectation.
 - Unit: source-order reducer, relay lane derivation, capacity timer, terminal gate và configuration validation.
-- Integration/PostgreSQL: ingest dedupe/counter, one-time reduction checksum, canonical parity, fence rollback,
-  retry/rebuild và unique outbox.
+- Integration/PostgreSQL: typed-stage dedupe/partition progress, seal/workset cardinality, relational delta,
+  canonical parity, fence rollback, retry/rebuild temporary state và unique outbox.
 - Kafka/Testcontainers: real batch receive, bounded in-flight relay, duplicate/reorder/DLT, broker outage/recovery,
   ack-before-mark và `CATALOG_COMMITTED` ordering.
 - Benchmark: production-like durability, representative payload, run manifest đầy đủ; báo combined wall clock,
@@ -73,8 +85,8 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
 
 ## Rollout và rollback
 
-- Rollout additive: deploy schema/index trước, code path mới mặc định tắt; shadow-build reduction/checksum trên
-  operation fixture trước khi bật nhận operation mới.
+- Rollout additive: deploy schema/index trước, code path mới mặc định tắt; shadow-build typed workset/unit
+  cardinality trên operation fixture trước khi bật nhận operation mới.
 - Không trộn V22 và FT-057 giữa một operation. Operation ghi `processing_version`; worker chỉ xử lý đúng version.
 - Bật candidate cho workload nhỏ, qua ladder rồi mới mở 1M; pressure gate tự dừng claim mới khi resource breach.
 - Rollback code: tắt FT-057 trước khi accept operation mới; operation đang chạy hoàn tất cùng version hoặc chuyển

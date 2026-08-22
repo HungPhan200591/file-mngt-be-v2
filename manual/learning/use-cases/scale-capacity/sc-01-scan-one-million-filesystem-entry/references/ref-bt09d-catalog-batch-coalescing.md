@@ -20,19 +20,20 @@ Catalog clock; không tăng timeout/workers để che repeated work.
 
 ```text
 Kafka discovery
-→ bounded typed append-only COPY + durable dedupe/counters
-→ operation watermark + exact equality/DLT gate
-→ one-time set-based subject/asset winner materialization
-→ bounded coarse shard reconciliation
-→ canonical write + final snapshot outbox + checkpoint atomic
+→ immutable typed COPY + durable dedupe/partition progress
+→ operation watermark + exact equality/DLT gate → seal
+→ one-time subject workset + coarse unit ledger
+→ set-based unit delta trực tiếp từ typed stage
+→ canonical write + grouped final snapshot outbox + checkpoint atomic
 → persisted/indexed relay lane + bounded sliding Kafka sends
 → exact published/cardinality/DLT gate
 → CATALOG_COMMITTED
 ```
 
-Raw stage là durable rebuild source. Ingest không upsert reduction. Reduction build đúng một lần sau equality
-gate; canonical chunk không scan/recount toàn operation. Relay bắt đầu từ chunk outbox đầu để overlap merge,
-nhưng completion chỉ tính sau broker ack cuối.
+Typed stage là durable rebuild source. Ingest không upsert reduction/workset. Workset/unit ledger build đúng một
+lần sau equality gate; unit transaction re-derive temporary delta và không scan/recount toàn operation. Java
+chỉ giữ control plane, không kéo 1M stage row ra JVM rồi COPY winner trở lại. Relay bắt đầu từ unit outbox đầu
+để overlap merge, nhưng completion chỉ tính sau broker ack cuối.
 
 ## Invariants
 
@@ -44,6 +45,8 @@ nhưng completion chỉ tính sau broker ack cuối.
 6. Unresolved DLT hoặc cardinality mismatch cấm `CATALOG_COMMITTED`.
 7. Relay dùng lease/fence, bounded in-flight, broker ack và conditional bulk mark; Query dedupe/version guard.
 8. Không đổi REST/event schema, database ownership hoặc cho Catalog ghi Query DB.
+9. No-op/change dùng relational delta; grouped post-state snapshot chỉ dựng một lần, không gọi correlated
+   `catalog_subject_state_json` theo subject.
 
 ## Target và boundary
 
