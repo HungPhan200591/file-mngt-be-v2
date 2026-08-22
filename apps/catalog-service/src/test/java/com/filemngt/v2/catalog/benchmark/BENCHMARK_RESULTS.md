@@ -1,15 +1,15 @@
 # Catalog Service Benchmark Results Dashboard
 
-## FT-057 — Combined Catalog data plane
+## FT-058 — Combined Catalog reliability gate
 
 | Workload | Clock | Target | Result | Status |
 | --- | --- | --- | --- | --- |
-| 25K input records | `resumeToFinalAckMs` | Diagnostic calibration | Chưa chạy | Harness ready; không có throughput claim |
-| 1M input records | `resumeToFinalAckMs` | `<= 33.334 ms` (>= 30K rec/s) | Chưa chạy | Cần ba run 1M cùng manifest trước implementation gate |
+| 25K input records | `resumeToFinalAckMs` | Diagnostic calibration | `4.935 ms` / `5.066 rec/s` | PASS correctness; indicators 30K/40K đều không đạt |
+| 1M input records | `resumeToFinalAckMs` | `<= 120.000 ms` | `> 120.000 ms`; còn `RECONCILING` | **FEASIBILITY_FAILED** — unit SQL lặp lại statement timeout 20 giây |
 
-Chi tiết contract và manifest: [04-ft057-bulk-reconciliation-data-plane.md](./results/04-ft057-bulk-reconciliation-data-plane.md).
+Chi tiết run và failure boundary: [05-ft058-reliability-hardening.md](./results/05-ft058-reliability-hardening.md).
 `resumeToFinalAckMs` là clock gate bảo thủ; `firstPersistToFinalAckMs` chỉ để bóc phase. Không ghi số liệu
-cho tới khi log runtime thật có input/subject/output cardinality, telemetry phase và kết quả durable assertion.
+1M vì operation không đạt terminal success và không có final broker acknowledgement.
 
 ## FT-054 — Historical legacy/direct baseline
 

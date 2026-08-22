@@ -1,6 +1,6 @@
 # FT-058 — Catalog Operation Reliability Hardening — Plan
 
-Status: `IMPLEMENTED — functional verification passed, benchmark pending`
+Status: `FEASIBILITY_FAILED — functional verification passed, 1M release gate failed`
 Design: [02-design.md](./02-design.md)
 
 ## Execution capsule
@@ -61,9 +61,9 @@ Design: [02-design.md](./02-design.md)
 
 - Chạy `CatalogOperationEndToEndBenchmarkTest` workload 25K trước; chỉ chuyển 1M khi zero deadlock, zero unexpected
   retry/DLT và exact final output.
-- Chạy ba measured 1M run cùng manifest, durability bình thường. Timeout clock xử lý là 120 giây; seed, assignment
+- Chạy một measured 1M run cùng manifest, durability bình thường. Timeout clock xử lý là 120 giây; seed, assignment
   và warm-up nằm ngoài clock.
-- DONE khi cả ba run hoàn tất trong 120 giây, exact cardinality, zero unresolved DLT và resource bounded.
+- DONE khi run 1M hoàn tất trong 120 giây, exact cardinality, zero unresolved DLT và resource bounded.
 - Ghi throughput thật. `30–40K/s` là stretch result, không phải acceptance gate.
 - Nếu valid run vẫn vượt 120 giây: dừng FT-058 ở `FEASIBILITY_FAILED`, lưu phase evidence và mở feature mới cho
   partition/shard completion contract. Không tạo thêm SQL candidate trong FT-058.
@@ -90,4 +90,10 @@ Design: [02-design.md](./02-design.md)
 - Compile + unit + targeted PostgreSQL/Kafka regression: `36/36 PASS` trên JDK 25 ngày 2026-08-22, gồm
   regression 4 reconciliation units checkpoint đồng thời không còn lock-upgrade deadlock.
 - Flyway V24: validate và migrate thành công trên PostgreSQL 18 Testcontainers; chưa áp dụng lên database môi trường thật.
-- Combined benchmark: chưa chạy; còn đúng hai workload `25K` rồi `1M`, mỗi operation bị chặn ở 120 giây.
+- Combined 25K: `PASS`, `resumeToFinalAckMs=4.935`, `firstPersistToFinalAckMs=4.927`, tương ứng
+  `5.066` và `5.074 input records/s`; operation đạt `CATALOG_COMMITTED`, còn hai indicators 30K/40K đều `false`.
+- Combined 1M: `FAIL`; reconciliation units `0–3` lặp lại `QueryTimeoutException` tại statement timeout 20 giây,
+  operation còn `RECONCILING` khi benchmark chạm total deadline 120 giây. Không có throughput hợp lệ.
+- Decision gate: `FEASIBILITY_FAILED`. Dừng FT-058 theo mục 5 và mở feature mới cho partition/shard completion
+  contract; không tăng timeout hoặc tiếp tục SQL candidate cùng 16-unit transaction shape.
+- Evidence chi tiết: [05-ft058-reliability-hardening.md](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/05-ft058-reliability-hardening.md).

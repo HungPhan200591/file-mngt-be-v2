@@ -24,8 +24,10 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
   `media.subject.changed.v2` phát final full snapshot theo operation cho Query. FT-057 data plane và FT-058
   reliability source đã implement; targeted unit/PostgreSQL/Kafka regression đạt 36/36, gồm 4 reconciliation
-  units checkpoint đồng thời không lock-upgrade deadlock; Flyway V24 đã verify trên PostgreSQL 18 Testcontainers;
-  combined benchmark 25K/1M còn pending.
+  units checkpoint đồng thời không lock-upgrade deadlock; Flyway V24 đã verify trên PostgreSQL 18 Testcontainers.
+  Combined 25K hoàn tất trong 4.935 ms (`5.066 input records/s`); combined 1M vượt deadline 120 giây do
+  reconciliation units lặp lại statement timeout 20 giây và operation còn `RECONCILING`. FT-058 đã dừng ở
+  `FEASIBILITY_FAILED`; không tiếp tục tối ưu cùng 16-unit transaction shape.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.

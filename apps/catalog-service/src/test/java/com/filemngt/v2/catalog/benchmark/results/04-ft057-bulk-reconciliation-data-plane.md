@@ -1,6 +1,8 @@
 # FT-057 — Combined Catalog Bulk Reconciliation Data Plane
 
-Status: `READY TO MEASURE — no runtime result recorded`
+Status: `SUPERSEDED — benchmark contract/template trước FT-058`
+
+Runtime evidence hiện hành: [05-ft058-reliability-hardening.md](./05-ft058-reliability-hardening.md).
 
 Test: [CatalogOperationEndToEndBenchmarkTest](../operation/CatalogOperationEndToEndBenchmarkTest.java)
 

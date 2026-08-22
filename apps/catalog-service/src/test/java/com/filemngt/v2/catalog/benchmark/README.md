@@ -7,10 +7,11 @@
 - D1 Kafka-to-stage diagnostic: [CatalogOperationKafkaPipelineBenchmarkTest](./operation/CatalogOperationKafkaPipelineBenchmarkTest.java)
 - D2 reconciliation diagnostic: [CatalogOperationMergeBenchmarkTest](./operation/CatalogOperationMergeBenchmarkTest.java)
 - Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
-- Run report template: [04-ft057-bulk-reconciliation-data-plane.md](./results/04-ft057-bulk-reconciliation-data-plane.md)
+- Current run report: [05-ft058-reliability-hardening.md](./results/05-ft058-reliability-hardening.md)
 
 Mỗi class chỉ chạy hai workload: **25K** rồi **1M input records**. Phase diagnostic để tìm điểm nghẽn;
-chỉ combined gate mới được đối chiếu mục tiêu Catalog tối thiểu 30K, stretch 40K input records/s.
+chỉ combined gate được đối chiếu release deadline 1M/120 giây. Hai mốc 30K/40K input records/s là
+capacity indicators, không phải release acceptance gate.
 
 `CatalogOperationEndToEndBenchmarkTest` dùng Kafka input thật, typed stage, finalizer, operation relay và
 `KafkaCatalogOutboxMessagePublisher` thật. Test chỉ hoàn tất khi operation là `CATALOG_COMMITTED`, tất cả
@@ -37,6 +38,7 @@ Kafka hay relay. Các test này log telemetry để tối ưu đúng phase, khô
 - FT-054 legacy/direct canonical baseline: [result](./results/01-ft054-legacy-catalog-record-baseline.md)
 - FT-055 Kafka backlog-drain evidence: [result](./results/02-ft055-kafka-backlog-drain.md)
 - FT-056 V19–V22 merge evidence: [result](./results/03-ft056-set-based-cte-merge.md)
+- FT-057 combined benchmark contract/template trước reliability hardening: [result](./results/04-ft057-bulk-reconciliation-data-plane.md)
 
 `CatalogOperationCoalescingBenchmarkTest` được giữ làm direct canonical baseline FT-054. Nó không chạy relay
 và không còn performance gate 10 giây; không dùng nó để qualify FT-057.
