@@ -68,5 +68,7 @@ class ScanOutboxRelayLaneStoreIT {
         assertThat(marked).isEqualTo(events.size());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM scan_outbox_event WHERE published_at IS NULL", Long.class))
                 .isEqualTo(2L - events.size());
+        assertThat(store.release(ownerA)).isEqualTo(1);
+        assertThat(store.acquire(laneId, "owner-b", now, now.plusSeconds(30))).isPresent();
     }
 }

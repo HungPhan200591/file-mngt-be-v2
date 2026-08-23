@@ -20,7 +20,7 @@ public class ScanOutboxRelayLaneStore {
                 SELECT lane_id
                 FROM scan_outbox_relay_lane
                 WHERE lane_id = ?
-                  AND (lease_owner = ? OR lease_until IS NULL OR lease_until < ?)
+                  AND (lease_until IS NULL OR lease_until < ?)
                 FOR UPDATE SKIP LOCKED
             )
             UPDATE scan_outbox_relay_lane lane
@@ -60,6 +60,11 @@ public class ScanOutboxRelayLaneStore {
               AND lane.fence_token = ?
               AND lane.lease_until > ?
             """;
+    private static final String RELEASE_LANE = """
+            UPDATE scan_outbox_relay_lane
+            SET lease_owner = NULL, lease_until = NULL
+            WHERE lane_id = ? AND lease_owner = ? AND fence_token = ?
+            """;
 
     private final JdbcTemplate jdbc;
 
@@ -77,12 +82,15 @@ public class ScanOutboxRelayLaneStore {
                         result.getTimestamp("lease_until").toInstant(),
                         result.getLong("fence_token")),
                 laneId,
-                owner,
                 Timestamp.from(now),
                 owner,
                 Timestamp.from(leaseUntil),
                 Timestamp.from(now));
         return claims.stream().findFirst();
+    }
+
+    public int release(OutboxRelayLaneClaim claim) {
+        return jdbc.update(RELEASE_LANE, claim.laneId(), claim.owner(), claim.fenceToken());
     }
 
     @Transactional(readOnly = true)

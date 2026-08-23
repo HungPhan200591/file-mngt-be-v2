@@ -19,6 +19,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -27,6 +29,8 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "scan.outbox.lane-relay-enabled", havingValue = "true")
 /** Bounded worker pool lease lane ledger, không lease hoặc hydrate từng outbox event. */
 public class ScanOutboxLaneRelayCoordinator {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanOutboxLaneRelayCoordinator.class);
+
     private final ScanOutboxRelayLaneStore store;
     private final OutboxMessagePublisher messages;
     private final OutboxDrainProperties properties;
@@ -73,12 +77,16 @@ public class ScanOutboxLaneRelayCoordinator {
         Instant now = Instant.now();
         var claim = store.acquire(laneId, owner, now, now.plusSeconds(properties.getLeaseSeconds()));
         if (claim.isEmpty()) return 0;
-        List<OutboxRelayRecord> events = store.fetchPending(laneId, fetchLimit());
-        if (events.isEmpty()) return 0;
-        List<DeliveryResult> results = publish(events);
-        int marked = markSuccessful(results, claim.get());
-        markFailed(results, claim.get());
-        return marked;
+        try {
+            List<OutboxRelayRecord> events = store.fetchPending(laneId, fetchLimit());
+            if (events.isEmpty()) return 0;
+            List<DeliveryResult> results = publish(events);
+            int marked = markSuccessful(results, claim.get());
+            markFailed(results, claim.get());
+            return marked;
+        } finally {
+            store.release(claim.get());
+        }
     }
 
     private int nextLaneId() {
@@ -120,14 +128,23 @@ public class ScanOutboxLaneRelayCoordinator {
                 .toList();
         int marked = store.markPublished(successIds, claim, Instant.now());
         metrics.published(marked);
+        if (marked > 0) {
+            LOGGER.debug("Lane {} marked {} events published", claim.laneId(), marked);
+        }
         for (int mismatch = marked; mismatch < successIds.size(); mismatch++) {
             metrics.leaseMismatch();
+            LOGGER.warn("Lane {} lease mismatch: marked {} of {}", claim.laneId(), marked, successIds.size());
         }
         return marked;
     }
 
     private void markFailed(List<DeliveryResult> results, OutboxRelayLaneClaim claim) {
         results.stream().filter(result -> !result.succeeded()).forEach(result -> {
+            LOGGER.warn(
+                    "Lane {} failed to publish event {}: {}",
+                    claim.laneId(),
+                    result.eventId(),
+                    result.failure() != null ? result.failure().getMessage() : "unknown");
             int marked = store.markFailed(result.eventId(), claim, errorMessage(result.failure()), Instant.now());
             if (marked == 1) {
                 metrics.failed();
