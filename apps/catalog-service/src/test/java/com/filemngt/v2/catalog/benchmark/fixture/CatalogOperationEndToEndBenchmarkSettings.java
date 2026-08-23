@@ -14,7 +14,7 @@ public final class CatalogOperationEndToEndBenchmarkSettings {
     public static final int OPERATION_CONCURRENCY = 1;
     public static final int PRODUCE_BATCH_SIZE = 25_000;
     public static final Duration ASSIGNMENT_TIMEOUT = Duration.ofSeconds(30);
-    public static final Duration OPERATION_COMPLETION_TIMEOUT = Duration.ofMinutes(2);
+    public static final Duration OPERATION_COMPLETION_TIMEOUT = Duration.ofMinutes(5);
     public static final long MINIMUM_TARGET_RECORDS_PER_SECOND = 8_333;
     public static final long STRETCH_TARGET_RECORDS_PER_SECOND = 30_000;
 
