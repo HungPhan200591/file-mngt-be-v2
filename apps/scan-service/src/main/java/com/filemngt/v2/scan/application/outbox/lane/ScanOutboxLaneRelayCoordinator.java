@@ -140,11 +140,12 @@ public class ScanOutboxLaneRelayCoordinator {
 
     private void markFailed(List<DeliveryResult> results, OutboxRelayLaneClaim claim) {
         results.stream().filter(result -> !result.succeeded()).forEach(result -> {
-            LOGGER.warn(
-                    "Lane {} failed to publish event {}: {}",
-                    claim.laneId(),
-                    result.eventId(),
-                    result.failure() != null ? result.failure().getMessage() : "unknown");
+            String errorMsg = result.failure() != null
+                    ? (result.failure().getMessage() != null
+                            ? result.failure().getMessage()
+                            : result.failure().getClass().getSimpleName())
+                    : "unknown";
+            LOGGER.warn("Lane {} failed to publish event {}: {}", claim.laneId(), result.eventId(), errorMsg);
             int marked = store.markFailed(result.eventId(), claim, errorMessage(result.failure()), Instant.now());
             if (marked == 1) {
                 metrics.failed();
@@ -163,10 +164,10 @@ public class ScanOutboxLaneRelayCoordinator {
 
     private static String errorMessage(Throwable failure) {
         if (failure == null) return "Unknown broker acknowledgement failure";
-        String message = failure.getMessage();
-        return message == null
-                ? failure.getClass().getSimpleName()
-                : message.substring(0, Math.min(message.length(), 2_000));
+        String message = failure.getMessage() != null
+                ? failure.getMessage()
+                : failure.getClass().getSimpleName();
+        return message.substring(0, Math.min(message.length(), 2_000));
     }
 
     private record DeliveryResult(UUID eventId, Throwable failure) {

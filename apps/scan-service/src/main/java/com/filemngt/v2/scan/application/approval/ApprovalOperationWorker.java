@@ -96,10 +96,12 @@ public class ApprovalOperationWorker {
             batches.process(claim, workerId);
         } catch (RuntimeException failure) {
             LOGGER.warn(
-                    "Approval operation thất bại tạm thời: operationId={}, scanRunId={}, failure={}",
+                    "Approval operation thất bại tạm thời: operationId={}, scanRunId={}, failure={}: {}",
                     claim.operationId(),
                     claim.scanRunId(),
-                    failure.getClass().getSimpleName());
+                    failure.getClass().getSimpleName(),
+                    failure.getMessage(),
+                    failure);
             states.retryOrFail(claim, workerId, failure);
         }
     }

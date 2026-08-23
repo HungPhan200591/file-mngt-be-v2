@@ -34,7 +34,7 @@ public class ScanDecisionChunkWriter {
         this.shards = shards;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 120)
     public ScanDecisionChunkExecutor.ChunkResult persist(
             ApprovalOperationClaim claim,
             String workerId,
@@ -83,7 +83,7 @@ public class ScanDecisionChunkWriter {
         decisions.insertOutbox(operationId, batchId, events, approvalProperties.getJdbcBatchSize());
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 120)
     public ScanDecisionChunkExecutor.ChunkResult complete(ApprovalOperationClaim claim, String workerId) {
         if (claim.shardId() != null) {
             shards.assertLease(claim.shardId(), workerId);

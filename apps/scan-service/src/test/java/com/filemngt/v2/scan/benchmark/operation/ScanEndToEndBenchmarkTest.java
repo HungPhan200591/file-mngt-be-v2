@@ -69,22 +69,24 @@ import org.testcontainers.utility.DockerImageName;
             "scan.approval-operation.enabled=true",
             "scan.approval-operation.fixed-delay-ms=1",
             "scan.approval-operation.completion-shard-count=64",
-            "scan.approval-operation.worker-concurrency=4",
+            "scan.approval-operation.worker-concurrency=16",
             "scan.outbox.enabled=true",
             "scan.outbox.lane-relay-enabled=true",
             "scan.outbox.scheduler-delay-ms=1",
             "scan.outbox.lane-count=64",
-            "scan.outbox.lane-worker-concurrency=4",
+            "scan.outbox.lane-worker-concurrency=16",
             "scan.outbox.lane-fetch-size=2000",
             "scan.outbox.lane-max-in-flight-events=5000",
             "scan.review-projection.enabled=false",
-            "scan.bulk-decision.enabled=false",
-            "scan.issue-recheck.enabled=false",
-            "spring.datasource.hikari.maximum-pool-size=30",
+            "scan.outbox.producer-delivery-timeout-ms=20000",
+            "scan.outbox.lease-seconds=60",
+            "spring.kafka.producer.properties.linger.ms=5",
+            "spring.kafka.producer.properties.batch.size=65536",
+            "spring.datasource.hikari.maximum-pool-size=50",
             "p6spy.enabled=false",
             "logging.level.org.apache.kafka=WARN",
             "logging.level.org.springframework.kafka=WARN",
-            "logging.level.com.filemngt.v2.scan.application.outbox=DEBUG"
+            "logging.level.com.filemngt.v2.scan.application.outbox=INFO"
         })
 @Import(ScanEndToEndBenchmarkTopicConfiguration.class)
 class ScanEndToEndBenchmarkTest {
