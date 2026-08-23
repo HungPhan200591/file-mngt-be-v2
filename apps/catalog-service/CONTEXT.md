@@ -26,9 +26,10 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   FT-063 chỉ nhận bounded local 25K index fix: hai page-aligned winner indexes giảm combined pipeline từ
   `10.981` xuống `7.765 ms` và reconciliation unit từ `5.892` xuống `2.386 ms`; targeted PostgreSQL IT đạt
   12/12. Hướng tiếp theo đã chốt là
-  [25K event-driven happy path](../../docs/features/063-catalog-reconciliation-page-access-paths/04-25k-event-driven-happy-path-plan.md):
-  direct progress sau commit/ACK, scheduler chỉ recovery; target <=3 giây, acceptance ceiling <=4 giây.
-  Đây không phải repeated-run/1M/production qualification. Capacity debt vẫn defer tại
+  [25K event-driven happy path](../../docs/features/063-catalog-reconciliation-page-access-paths/04-25k-event-driven-happy-path-plan.md)
+  đã được code và qua correctness/recovery, nhưng lượt cuối `7.391 ms` chỉ nhanh hơn V28 khoảng `4,8%`, không đạt
+  gate giữ candidate `20%`; candidate đã rollback. V28 là stable runtime hiện tại. Đây không phải
+  repeated-run/1M/production qualification. Capacity debt vẫn defer tại
   [TD-023](../../docs/TECHNICAL_DEBT.md#backlog-đang-mở) cho workload đại diện, deployment budget và SLO/cost ceiling.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot

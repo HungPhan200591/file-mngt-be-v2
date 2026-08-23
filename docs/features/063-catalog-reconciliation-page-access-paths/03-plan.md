@@ -3,10 +3,10 @@
 Status: `DONE`
 Design: [02-design.md](./02-design.md)
 
-V28 access-path delivery đã hoàn tất. Hướng tiếp theo đã chốt là loại scheduler khỏi happy path 25K, được quản lý
-tại [04-25k-event-driven-happy-path-plan.md](./04-25k-event-driven-happy-path-plan.md) với trạng thái
-`READY_TO_IMPLEMENT`. Two-phase/diff/pre-aggregation không còn là checklist mặc định; chỉ tối đa một residual
-candidate được chọn từ timeline sau direct-path implementation.
+V28 access-path delivery đã hoàn tất. Follow-up loại scheduler khỏi happy path 25K đã chạy hết budget tại
+[04-25k-event-driven-happy-path-plan.md](./04-25k-event-driven-happy-path-plan.md) và kết thúc
+`TARGET_NOT_MET — CANDIDATE_ROLLED_BACK`: `7.391 ms` chỉ nhanh hơn V28 `7.765 ms` khoảng `4,8%`, dưới gate giữ
+candidate `20%`. V28 tiếp tục là stable runtime; không mở thêm SQL candidate trong FT-063.
 
 ## Execution capsule
 

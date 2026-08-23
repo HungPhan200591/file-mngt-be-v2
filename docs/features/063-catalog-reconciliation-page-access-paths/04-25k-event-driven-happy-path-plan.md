@@ -1,10 +1,15 @@
 # FT-063 — 25K Event-driven Happy Path Plan
 
-Status: `READY_TO_IMPLEMENT`  
+Status: `DONE — TARGET_NOT_MET — CANDIDATE_ROLLED_BACK`
 Owner: `catalog-service` operation control plane  
 Baseline owner: [03-plan.md](./03-plan.md)
 
 ## Quyết định đã chốt
+
+Kết quả cuối ngày 2026-08-23: candidate event-driven đã được triển khai hết P1–P6, qua correctness/recovery gate
+nhưng không qua performance gate P7. Lượt cuối đạt `7.391 ms`, chỉ nhanh hơn baseline V28 `7.765 ms` khoảng
+`4,8%`, thấp hơn điều kiện giữ candidate `20%`; toàn bộ source/migration/test riêng của candidate đã rollback.
+Runtime được giữ ở V28 stable baseline. Evidence: [11-ft063-event-driven-happy-path-result.md](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/11-ft063-event-driven-happy-path-result.md).
 
 Ưu tiên hoàn tất workload 25K trước. Không tiếp tục thiết kế theo giả định 1M trong feature này vì 1M chưa đạt
 feasibility gate. V28 indexes được giữ; thay đổi tiếp theo tập trung loại scheduler/polling khỏi happy path, không
@@ -69,7 +74,7 @@ Baseline local 25K đã khóa:
 - Giữ V28 và benchmark shape: 25.000 input → 2.500 subject, một slice, một shard, một unit.
 - Không chạy benchmark 250K/1M và không tăng worker/concurrency.
 
-### P1 — Tạo operation-scoped progress API — `READY`
+### P1 — Tạo operation-scoped progress API — `COMPLETED_CANDIDATE_ROLLED_BACK`
 
 1. Tạo `CatalogOperationProgressCoordinator.request(operationId)` với signal coalescing bounded theo operation.
 2. Signal chỉ là wake-up hint; durable PostgreSQL state quyết định bước nào được chạy. Signal mất sau crash là an toàn.
@@ -87,7 +92,7 @@ Files dự kiến chạm:
 - `CatalogOperationFinalizer`, `CatalogOperationUnitStore`.
 - Một `CatalogOperationProgressCoordinator` và progress signal type mới trong `application.operation`.
 
-### P2 — Nối direct trigger sau transaction commit — `PENDING`
+### P2 — Nối direct trigger sau transaction commit — `COMPLETED_CANDIDATE_ROLLED_BACK`
 
 Phát progress signal **sau commit**, không phát khi dữ liệu còn uncommitted:
 
@@ -102,7 +107,7 @@ Consumers/stores dự kiến chạm:
 - `CatalogApprovalWatermarkConsumer`.
 - `CatalogApprovalShardCompletedConsumer` / `CatalogCompletionShardStore`.
 
-### P3 — Event-driven outbox relay và ACK continuation — `PENDING`
+### P3 — Event-driven outbox relay và ACK continuation — `COMPLETED_CANDIDATE_ROLLED_BACK`
 
 1. Thêm `operationId` vào relay projection/result nội bộ để biết operation nào vừa durable-mark `published_at`.
 2. Sau reconciliation commit, gọi non-blocking `requestDrain()` để relay chạy ngay, bỏ idle-backoff khỏi critical path.
@@ -118,7 +123,7 @@ Files dự kiến chạm:
 - `CatalogOutboxRelayCoordinator`, `CatalogOutboxRelayScheduler`.
 - Progress coordinator/signal bridge; không tạo dependency cycle giữa relay và operation packages.
 
-### P4 — Correctness và recovery gate — `PENDING`
+### P4 — Correctness và recovery gate — `PASS_CANDIDATE`
 
 Chạy trước benchmark:
 
@@ -129,7 +134,7 @@ Chạy trước benchmark:
 5. **Recovery proof:** suppress một direct signal; scheduler fallback vẫn đưa operation tới terminal state.
 6. Fail bất kỳ correctness/recovery gate nào thì sửa trong scope; không benchmark và không nới timeout.
 
-### P5 — Benchmark 25K lần 1 — `PENDING`
+### P5 — Benchmark 25K lần 1 — `FAILED_LIVENESS`
 
 - Chạy đúng `CatalogOperationEndToEndBenchmarkTest#measuresCombinedPipelineForTwentyFiveThousandInputRecords`.
 - Ghi wall-clock cho ingest committed, shard ready, unit claimed/completed, snapshots created/published,
@@ -138,7 +143,7 @@ Chạy trước benchmark:
 - Nếu `3.001–4.000 ms`: `ACCEPTED_WITH_DEBT`, chuyển P7.
 - Nếu `> 4.000 ms`: chỉ được mở P6 từ chính timeline của lượt này.
 
-### P6 — Tối đa một residual fix — `PENDING_CONDITIONAL`
+### P6 — Tối đa một residual fix — `COMPLETED_CANDIDATE_ROLLED_BACK`
 
 Chọn đúng một bottleneck lớn nhất, không quay lại danh sách giả thuyết chung:
 
@@ -149,13 +154,25 @@ Chọn đúng một bottleneck lớn nhất, không quay lại danh sách giả 
 
 Sau targeted correctness gate, chạy benchmark 25K lần 2 và cũng là lần cuối. Không thử candidate thứ hai.
 
-### P7 — Close feature — `PENDING`
+### P7 — Close feature — `DONE_TARGET_NOT_MET`
 
 - `TARGET_MET`: <=3 giây, cập nhật evidence và đóng 25K optimization.
 - `ACCEPTED_WITH_DEBT`: 3–4 giây, giữ stable implementation, ghi residual bottleneck vào TD-023 và chuyển BT-09E.
 - `TARGET_NOT_MET`: >4 giây sau P6; dừng local tuning. Giữ direct path chỉ khi correctness/recovery pass và nhanh
   hơn baseline ít nhất 20%; nếu không thì revert candidate. Ghi evidence trung thực rồi chuyển BT-09E.
 - Trong mọi trường hợp, 1M vẫn deferred tới workload/resource/SLO qualification riêng.
+
+## Kết quả thực thi P1–P7
+
+- P1–P4: candidate operation-scoped progress, post-commit signal, ACK continuation, scheduler recovery và
+  single-flight relay đã được code; targeted gate đạt **30/30 PASS** trước benchmark.
+- P5: lượt đầu timeout ở `RECONCILING`; 2.500 snapshots nằm trên 64 relay lanes nhưng direct wake chỉ drain lane
+  suy ra từ `operationId`, còn `2.468` outbox pending.
+- P6: dùng đúng một residual fix, đổi direct relay sang drain toàn bộ pending lanes của operation; targeted gate
+  sau fix tiếp tục **30/30 PASS**.
+- P7: lượt cuối PASS exact 25.000 input → 2.500 subjects và final broker ACK trong `7.391 ms`
+  (`3.382 records/s`), nhưng `TARGET_NOT_MET`. Candidate chỉ cải thiện khoảng `4,8%`, nên rollback theo gate.
+- Không chạy 250K/1M và không chạy benchmark lần ba. Hướng SQL two-phase/diff/pre-aggregation không được mở.
 
 ## Benchmark và scope budget
 
