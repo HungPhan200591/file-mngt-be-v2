@@ -5,9 +5,11 @@
 | Workload | Page | Pipeline | Hybrid unit | Status |
 | --- | ---: | ---: | ---: | --- |
 | 25K input / 2.500 subjects | 2.500 subjects | `7.696 ms` / `3.248 input/s` | `2.566 ms` | Exact + final ACK PASS; performance neutral |
+| 1M input / 100.000 subjects | 40 x 2.500 subjects | `224.954 ms` / `4.445 input/s` | `123.205 ms` sum | Exact + final ACK PASS; **120s CAPACITY FAILED** |
 
-Hybrid phase: read `170 ms`, virtual-thread reduce `34 ms`, COPY `149 ms`, SQL apply `2.203 ms`. So với V28
-`7.765 ms`, chênh lệch ~`0,9%` không đủ claim throughput gain. Chi tiết:
+25K hybrid phase: read `170 ms`, virtual-thread reduce `34 ms`, COPY `149 ms`, SQL apply `2.203 ms`. 1M hybrid
+phase: read `6.228 ms`, reduce `395 ms`, COPY `4.955 ms`, SQL apply `111.313 ms`; apply chiếm khoảng `90,3%`
+unit execution sum. So với V28 25K `7.765 ms`, chênh lệch ~`0,9%` không đủ claim throughput gain. Chi tiết:
 [12-ft064-hybrid-streaming-reconciliation.md](./results/12-ft064-hybrid-streaming-reconciliation.md).
 
 ## FT-060 — Bounded bulk-upsert parallelism

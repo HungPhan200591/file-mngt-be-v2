@@ -1,7 +1,7 @@
 # FT-064 — Hybrid streaming reconciliation
 
 Ngày đo: 2026-08-23  
-Kết luận: `FUNCTIONAL_PASS — PERFORMANCE_NEUTRAL`
+Kết luận: `FUNCTIONAL_PASS — 25K PERFORMANCE_NEUTRAL — 1M CAPACITY_FAILED`
 
 ## Shape
 
@@ -12,6 +12,7 @@ Kết luận: `FUNCTIONAL_PASS — PERFORMANCE_NEUTRAL`
 - Reduced winner rows COPY vào transaction-local temp tables.
 - Một set-based persistence transaction tạo canonical, relationship, snapshot/outbox và checkpoint.
 - Completion chỉ PASS sau final watermark broker ACK và durable published mark.
+- Lượt 1M dùng một discovery partition/consumer, một completion shard và 40 unit x 2.500 subject.
 
 ## Correctness gate
 
@@ -41,6 +42,30 @@ V28 stable baseline là `7.765 ms`; FT-064 giảm `69 ms` (~`0,9%`), không đ�
 Java reduction chỉ `34 ms`; bottleneck còn lại nằm ở set-based canonical/relationship/snapshot apply `2.203 ms`
 và coordination/seed ngoài unit. Page 2.500 đạt correctness/liveness nên không hạ xuống 1.250/625.
 
+## Combined 1M result
+
+| Metric | Result |
+| --- | ---: |
+| Pipeline tới final broker ACK | `224.954 ms` |
+| Throughput | `4.445 input records/s` |
+| Target | `<= 120.000 ms` — **FAIL** |
+| Discovery seed | `18.551 ms` |
+| Completion marker seed | `1.320 ms` |
+| Watermark seed | `10 ms` |
+| Ingest | 51 slices, `52.264 ms` CPU-time sum, `1.024,8 ms/slice` |
+| Reconciliation | 40 units / 100.000 subjects |
+| Unit execution sum | `123.205 ms` — avg `3.080 ms`, p95 `3.861 ms`, max `13.542 ms` |
+| Read full pages | `6.228 ms` |
+| Java virtual-thread reduction | `395 ms` |
+| COPY reduced winners | `4.955 ms` |
+| Set-based canonical/snapshot apply | `111.313 ms` |
+| Finalizer acquire | `4.755 ms` |
+| Complete operation gate | `1 ms` |
+
+Lượt 1M hoàn tất exact 1.000.000 input, 100.000 subject và final broker ACK, nhưng vượt target 120 giây
+`104.954 ms` (~`87,5%`). SQL apply chiếm khoảng `90,3%` unit execution sum; Java reduction chỉ `395 ms`, nên
+không có evidence để tăng Java concurrency. Đây là local single-run capacity failure, không phải production SLO.
+
 ## Command đã chạy
 
 ```powershell
@@ -56,6 +81,7 @@ $mavenArgs = @(
 & .\mvnw.cmd @mavenArgs
 ```
 
-Không chạy benchmark lần hai, 250K hoặc 1M. Hai cleanup cuối sau lần đo (thu hẹp transaction chỉ còn
-COPY/apply/finalize và hard cap 25.000 input rows/page) đã qua targeted test nhưng không benchmark lại. Vì vậy đây
-là local directional evidence trước cleanup, không phải số đo xác nhận revision cuối hay production SLO.
+Lượt 1M sau đó được chạy bằng cùng benchmark class với method
+`measuresCombinedPipelineForOneMillionInputRecords` và shared timeout 5 phút; không chạy 250K. Kết quả 25K là
+directional evidence trước hai cleanup cuối, còn kết quả 1M đo revision sau cleanup. Cả hai đều là local single-run
+evidence, không phải production SLO.

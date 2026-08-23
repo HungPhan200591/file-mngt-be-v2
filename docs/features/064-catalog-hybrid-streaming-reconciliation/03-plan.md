@@ -1,6 +1,6 @@
 # FT-064 — Catalog Hybrid Streaming Reconciliation — Plan
 
-Status: `DONE — FUNCTIONAL_PASS — PERFORMANCE_NEUTRAL`  
+Status: `DONE — FUNCTIONAL_PASS — 1M CAPACITY_FAILED`
 Owner: `catalog-service`  
 Brief: [01-brief.md](./01-brief.md)  
 Design: [02-design.md](./02-design.md)
@@ -69,8 +69,10 @@ Design: [02-design.md](./02-design.md)
 - Hybrid unit `2.566 ms`: read `170 ms`, Java reduce `34 ms`, COPY `149 ms`, SQL apply `2.203 ms`.
 - So với V28 stable `7.765 ms`, wall-clock chỉ giảm `69 ms` (~`0,9%`), nằm trong noise local; feature được giữ vì
   functional/architecture pass, không tuyên bố throughput gain. Không hạ page vì 2.500 không timeout/OOM/fail.
-- Không chạy benchmark lần hai, 250K hoặc 1M. Residual bottleneck là set-based canonical/snapshot apply, ghi tại
-  `TD-023`; không tiếp tục tuning trong FT-064.
+- Lượt 1M chạy sau khi đóng implementation đã đạt exact 1.000.000 input, 100.000 subject và final broker ACK trong
+  `224.954 ms` (`4.445 input/s`), vượt target 120 giây `104.954 ms`; không chạy 250K.
+- 40 unit có execution sum `123.205 ms`; read `6.228 ms`, Java reduce `395 ms`, COPY `4.955 ms`, SQL apply
+  `111.313 ms`. Residual bottleneck giữ tại `TD-023`; không tiếp tục tuning trong FT-064.
 - Hai cleanup cuối sau lần đo (thu hẹp transaction chỉ còn COPY/apply/finalize và hard cap 25.000 input rows/page)
   đã qua targeted test nhưng không benchmark lại; vì vậy `7.696 ms` là directional evidence trước cleanup, không phải
   số đo xác nhận chính xác cho revision cuối.

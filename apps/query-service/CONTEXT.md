@@ -4,6 +4,14 @@
 
 Read model tối ưu cho Gallery Web, Media Library, filter, card và search.
 
+## Active workstream
+
+- **BT-09E — Query bulk projection** là execution pointer hiện tại sau khi BT-09D đóng ở functional pass nhưng
+  Catalog 1M capacity failed. Scope kế tiếp: batch consumer cho `media.subject.changed.v2`, bounded staging/COPY
+  hoặc set-based upsert, version/idempotency guard, processed-event watermark và durable `QUERY_DB_READY` evidence.
+- Chưa có qualification hoặc feature implementation cho BT-09E; không suy diễn Catalog local benchmark thành Query
+  budget hay end-to-end SLO.
+
 ## Owns
 
 - Database `query_db`: projection và processed-event Query.

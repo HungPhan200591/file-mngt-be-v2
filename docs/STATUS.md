@@ -24,12 +24,16 @@ Theo [ADR-007](./adr/ADR-007-catalog-correctness-first-capacity-policy.md), Cata
 `UNQUALIFIED` tới khi có qualification trên deployment đại diện.
 
 ### Roadmap triển khai BT-09 theo thứ tự:
+
+**Execution pointer hiện tại: [`BT-09E — Query bulk projection`](../apps/query-service/CONTEXT.md). BT-09D đã đóng functional scope; Catalog capacity
+debt được defer, không chặn triển khai Query.**
+
 1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
 2. **`BT-09B — Scan decision/outbox` (`IMPLEMENTED — verification deferred`, FT-045/FT-050/FT-051)**: Durable approval operation, decision + outbox atomic theo bounded chunk tối đa 25.000 items, checkpoint/lease fence, proposal cutoff, bounded preparation, COPY/JDBC fallback và logical shard ledger. Một local benchmark FT-051 ghi nhận 30.759 ms cho 1M với 4 shard; đây chưa phải qualification P95/P99 hoặc evidence `QUERY_DB_READY`.
 3. **`BT-09C — Outbox drain` (`FT-053 IMPLEMENTED — qualification pending`)**: FT-052 continuous refill chỉ đạt `5.387 records/s` ở 25k và 1M không hoàn tất. FT-053 thay per-event JPA lease bằng lane-level lease/fence, native JDBC projection và set-based mark; immediate-ack 1M đạt `8.264 ms`/`121.007 records/s`. Đây chưa là real-Kafka, representative payload, repeated-run, crash/reclaim hoặc production evidence.
 
-4. **`BT-09D — Catalog bulk reconciliation` (`FT-064 IMPLEMENTED — PERFORMANCE_NEUTRAL`)**: [FT-064](./features/064-catalog-hybrid-streaming-reconciliation/03-plan.md) chuyển winner reduction sang Java virtual threads, COPY staging và set-based persistence tuần tự, page mặc định 2.500 subject. Targeted gate đạt 48/48; combined 25K exact + final ACK đạt `7.696 ms`, gần như ngang V28 `7.765 ms`. Không chạy 250K/1M. Throughput vẫn `UNQUALIFIED`; SQL apply `2.203 ms` còn là `TD-023`.
-5. **`BT-09E — Query bulk projection`**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark.
+4. **`BT-09D — Catalog bulk reconciliation` (`FT-064 DONE — FUNCTIONAL_PASS — 1M CAPACITY_FAILED`)**: [FT-064](./features/064-catalog-hybrid-streaming-reconciliation/03-plan.md) chuyển winner reduction sang Java virtual threads, COPY staging và set-based persistence tuần tự, page mặc định 2.500 subject. Targeted gate đạt 48/48; combined 25K đạt `7.696 ms`. Combined 1M hoàn tất exact + final broker ACK trong `224.954 ms` (`4.445 input/s`) nhưng fail target 120 giây; SQL apply sum `111.313 ms` còn là `TD-023`. Functional scope đóng, không tiếp tục tuning trong BT-09D.
+5. **`BT-09E — Query bulk projection` (`NEXT — ACTIVE CONTEXT`)**: Batch consumer, staging/COPY hoặc set-based upsert, version guard, processed-event watermark và durable `QUERY_DB_READY` evidence.
 6. **`BT-09F — Failure/operation evidence`**: DLT isolation/replay, crash/restart, duplicate, out-of-order, partial batch và reclaim.
 7. **`BT-09G — Scale ladder`**: Chạy benchmark scale ladder 1K → 5K → 50K → 250K → 1M đo p50/p95/p99, lag, backlog, DB/WAL/IOPS/pool.
 
@@ -84,7 +88,7 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **BT-09E Query bulk projection (`READY TO OPEN`)**: FT-063 đã đóng và giữ V28 stable. Tiếp tục batch consumer, staging/COPY hoặc set-based upsert, version guard và processed-event watermark; throughput vẫn `UNQUALIFIED`.
+1. **BT-09E Query bulk projection (`READY TO OPEN`)**: FT-064/V29 đã đóng functional Catalog flow; 1M hoàn tất nhưng fail capacity target. Tiếp tục batch consumer, staging/COPY hoặc set-based upsert, version guard và processed-event watermark; throughput vẫn `UNQUALIFIED`.
 2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
 3. Sau BT-09E tiếp tục **BT-09F** correctness/failure evidence rồi **BT-09G** scale qualification. Exact cardinality,
    zero unresolved DLT và final broker acknowledgement vẫn bắt buộc; elapsed local không còn block functional flow.
