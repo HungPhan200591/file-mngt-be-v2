@@ -11,8 +11,8 @@ theo slice: bốn ingest workers dùng parent `FOR SHARE`, durable input làm so
 Targeted regression đạt **35/35**; completion-shard IT riêng đạt **9/9**. Không có deadlock hoặc timeout.
 
 Gate 25K x3 đạt exact cardinality và telemetry sạch. Tuy nhiên physical 1M vượt decision threshold `110s` và
-được dừng sau khi PostgreSQL runtime inspection xác nhận đang active tại `synchronizeMasterData` trong phase
-bulk-upsert, không chờ lock. Vì vậy không chạy combined benchmark và không tối ưu vòng hai trong FT-061.
+được dừng sau khi PostgreSQL runtime inspection xác nhận đang active tại subject-ID hydration `UPDATE` trong
+phase bulk-upsert, không chờ lock. Vì vậy không chạy combined benchmark và không tối ưu vòng hai trong FT-061.
 
 ## Gate 25K x3
 

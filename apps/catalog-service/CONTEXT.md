@@ -46,7 +46,10 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   không cập nhật parent/shard counters theo slice. Late input block child rồi control plane propagate parent.
   Targeted regression đạt 35/35; gate 25K x3 bốn ingest workers đạt `2.688–3.307 ms`, exact cardinality và zero
   lock wait/deadlock. Physical 1M vượt 110 giây tại bulk-upsert synchronization nên dừng theo gate và không chạy
-  combined; đây là stable correctness baseline, chưa phải throughput qualification.
+  combined; đây là stable correctness baseline, chưa phải throughput qualification. FT-062 đã thử target mapping
+  khớp production V23: existing-subject path và 25K x3 pass, nhưng physical 1M vẫn vượt 90 giây trong hai
+  concurrent subject-upsert CTE. Không có production change; dừng micro-optimization và chuyển sang capacity/SLO
+  decision.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.

@@ -35,7 +35,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** Đo physical lower-bound 1M theo phase tuần tự; không scheduler, Kafka hay overlap. */
+/**
+ * Đo physical lower-bound 1M theo phase tuần tự; không scheduler, Kafka hay overlap.
+ *
+ * <p>Giữ các method tái hiện FT-059–062 trong một class dù vượt 250 dòng để dùng chung container, telemetry và
+ * cardinality assertions; tách class sẽ tạo các physical harness khác nhau và làm sai so sánh lịch sử.
+ */
 @Tag("benchmark")
 @Testcontainers
 @SpringBootTest(
@@ -136,6 +141,39 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         measure(EVENT_COUNT, 4, 2);
     }
 
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void validatesTwentyFiveThousandRecordsThreeTimesWithSubjectTargetMapping() {
+        repeatCalibration(4, 2);
+    }
+
+    @Test
+    @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void measuresOneMillionRecordsWithSubjectTargetMapping() {
+        measure(EVENT_COUNT, 4, 2);
+    }
+
+    @Test
+    void mapsExistingSubjectsWithoutRewritingReductionRows() {
+        int eventCount = 1_000;
+        int subjectCount = Math.toIntExact(CatalogOperationBenchmarkFixture.expectedSubjects(eventCount));
+        CatalogPhysicalFeasibilitySql.initializeOperation(
+                jdbc, CatalogOperationBenchmarkFixture.operationId(), CatalogOperationBenchmarkFixture.scanRunId());
+        var executor = new CatalogBoundedPhaseExecutor(stage, jdbc, transactions);
+        executor.ingestBySourcePartition(eventCount, 4);
+        inTransaction(() -> CatalogPhysicalFeasibilitySql.reduce(jdbc, CatalogOperationBenchmarkFixture.operationId()));
+
+        executor.bulkUpsert(2);
+        List<String> firstIds = subjectIds();
+        jdbc.update("truncate benchmark_catalog_subject_target");
+        executor.bulkUpsert(2);
+
+        assertThat(count("benchmark_catalog_subject_target")).isEqualTo(subjectCount);
+        assertThat(count("media_subject")).isEqualTo(subjectCount);
+        assertThat(count("media_asset")).isEqualTo(eventCount);
+        assertThat(subjectIds()).containsExactlyElementsOf(firstIds);
+    }
+
     private void repeatCalibration(int ingestWorkerCount, int upsertWorkerCount) {
         for (int repetition = 0; repetition < CALIBRATION_REPETITIONS; repetition++) {
             if (repetition > 0) resetDatabase();
@@ -165,6 +203,7 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         assertThat(count("benchmark_catalog_asset_reduction")).isEqualTo(eventCount);
 
         phases.add(sampler.measure("bulk-upsert-subject-assets", () -> executor.bulkUpsert(upsertWorkerCount)));
+        assertThat(count("benchmark_catalog_subject_target")).isEqualTo(subjectCount);
         assertThat(count("media_subject")).isEqualTo(subjectCount);
         assertThat(count("media_asset")).isEqualTo(eventCount);
 
@@ -222,6 +261,10 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         Long count =
                 jdbc.queryForObject("select count(*) from catalog_outbox_event where published_at is null", Long.class);
         return count == null ? 0 : count;
+    }
+
+    private List<String> subjectIds() {
+        return jdbc.queryForList("select id::text from media_subject order by id", String.class);
     }
 
     private void assertTelemetryClean(List<PhaseMeasurement> phases) {
