@@ -3,6 +3,11 @@
 Status: `DONE`
 Design: [02-design.md](./02-design.md)
 
+V28 access-path delivery đã hoàn tất. Hướng tiếp theo đã chốt là loại scheduler khỏi happy path 25K, được quản lý
+tại [04-25k-event-driven-happy-path-plan.md](./04-25k-event-driven-happy-path-plan.md) với trạng thái
+`READY_TO_IMPLEMENT`. Two-phase/diff/pre-aggregation không còn là checklist mặc định; chỉ tối đa một residual
+candidate được chọn từ timeline sau direct-path implementation.
+
 ## Execution capsule
 
 - Owner: `catalog-service` PostgreSQL reconciliation data plane.
