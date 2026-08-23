@@ -27,7 +27,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/** FT-057 parity: one set-based reconciliation transaction per coarse unit, no subject pages. */
+/** FT-064 hybrid reconciliation parity, transaction fence và durable checkpoint. */
 @Testcontainers
 @SpringBootTest(
         properties = {
@@ -195,15 +195,27 @@ class CatalogOperationFinalizeIT {
         var claim = units.acquire(
                         "catalog-finalize-it", Instant.now(), Instant.now().plusSeconds(30))
                 .orElseThrow();
-        assertThatThrownBy(() -> jdbc.queryForObject(
-                        "select catalog_reconcile_operation_unit(?, ?, ?, ?, ?)",
-                        Integer.class,
-                        claim.operationId(),
-                        claim.unitId(),
-                        claim.owner(),
-                        claim.fenceToken() + 1,
-                        921600))
-                .hasMessageContaining("fence was lost");
+        var wrongFence = new CatalogOperationUnitClaim(
+                claim.operationId(), claim.unitId(), claim.owner(), claim.leaseUntil(), claim.fenceToken() + 1);
+
+        assertThatThrownBy(() -> units.reconcile(wrongFence)).hasMessageContaining("fence was lost");
+    }
+
+    @Test
+    void expiredOperationDeadlineRejectsHybridApplyBeforeCanonicalMutation() {
+        var events = CatalogOperationBenchmarkFixture.sliceEvents(0, 10);
+        ingest(events);
+        openGate(events);
+        var claim = claimForWork();
+        jdbc.update(
+                "update catalog_approval_operation set deadline_at = clock_timestamp() + interval '100 milliseconds' where operation_id = ?",
+                claim.operationId());
+        jdbc.execute("select pg_sleep(0.2)");
+
+        assertThatThrownBy(() -> units.reconcile(claim)).hasMessageContaining("fence was lost");
+        assertThat(CatalogOperationBenchmarkFixture.subjectCount(jdbc)).isZero();
+        assertThat(snapshotOutboxCount()).isZero();
+        assertThat(worksetStatus()).isEqualTo("PENDING");
     }
 
     private static List<MediaFileDiscoveredV2> tenEvents(UUID operationId, UUID scanRunId) {

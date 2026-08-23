@@ -1,6 +1,6 @@
-# 🧭 Deep-Dive: Toàn Cảnh Dòng Chảy Dự Án & Tiến Trình Tối Ưu Hóa Catalog Service 1.000.000 Records
+# 🧭 Deep-Dive: Toàn Cảnh Dòng Chảy Dự Án & Tiến Trình Tiến Hóa Kiến Trúc Catalog Service 1.000.000 Records
 
-> **Mục tiêu tài liệu**: Đúc kết toàn diện từ First Principles kiến trúc, bản chất bài toán nghiệp vụ, nguyên nhân sâu xa của các thế hệ giải pháp thất bại (V19 $\to$ V22, FT-057/058, FT-059) và chiến lược tối ưu hóa Data Plane trong `catalog-service` từ Baseline đúng đắn ("Make it work") để hướng tới throughput mục tiêu cho 1 triệu bản ghi.  
+> **Mục tiêu tài liệu**: Đúc kết toàn diện từ First Principles kiến trúc, bản chất bài toán nghiệp vụ, biên niên sử tiến hóa qua các kỷ nguyên thất bại (FT-054 $\to$ FT-063), mổ xẻ các bẫy tư duy kỹ thuật của AI/kỹ sư, và chốt lại kiến trúc đích **Hybrid Streaming Reconciliation (FT-064 / ADR-008)** để đạt throughput cao và an toàn tuyệt đối cho 1.000.000 bản ghi.  
 > **Áp dụng dự án**: `file_mngt_microservice` (PostgreSQL 17 / Spring Boot 3.4 / JDK 25 Virtual Threads / Workload SC-01 BT-09).
 
 ---
@@ -14,39 +14,32 @@ flowchart LR
     subgraph SCAN["[1] Scan Service"]
         OUT["Scan Outbox\n(1M Files)"]
     end
-    
     subgraph KAFKA1["[2] Kafka Ingress"]
         DISC{{"media.file.discovered.v2\n(1.000.000 events)"}}
         WATER1(["Operation Watermark\n(START / SEAL)"])
     end
-    
-    subgraph CATALOG["[3] Catalog Service (BT-09D / FT-057)"]
+    subgraph CATALOG["[3] Catalog Service (BT-09D)"]
         direction TB
         INGEST["Append-Only Ingest\n(COPY -> Raw Stage)"]
-        SEAL["One-Time Bulk Seal\n(Equality Gate -> 16 Units)"]
-        RECON["Set-Based Unit Reconcile\n(Merge -> Entities + Outbox)"]
-        RELAY["Indexed Sliding Relay\n(Continuous Publish & Mark)"]
-        INGEST --> SEAL --> RECON --> RELAY
+        RECON["Hybrid Reconciliation\n(Java RAM + DB COPY)"]
+        RELAY["Indexed Sliding Relay\n(Continuous Publish)"]
+        INGEST --> RECON --> RELAY
     end
-    
     subgraph KAFKA2["[4] Kafka Egress"]
         SNAP{{"media.subject.changed.v2\n(100.000 snapshots)"}}
         WATER2(["CATALOG_COMMITTED\n(Watermark Stage 20)"])
     end
-    
     subgraph QUERY["[5] Query Service (BT-09E)"]
         PROJ["Query Read Projection\n(QUERY_DB_READY)"]
     end
-
     OUT --> DISC
     OUT --> WATER1
     DISC --> INGEST
-    WATER1 --> SEAL
+    WATER1 --> RECON
     RELAY --> SNAP
     RELAY --> WATER2
     SNAP --> PROJ
     WATER2 --> PROJ
-
     style SCAN fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style OUT fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     style KAFKA1 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
@@ -54,7 +47,6 @@ flowchart LR
     style WATER1 fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
     style CATALOG fill:#311B92,stroke:#fff,stroke-width:2px,color:#fff
     style INGEST fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style SEAL fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
     style RECON fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style RELAY fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
     style KAFKA2 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
@@ -85,7 +77,7 @@ flowchart LR
 
 ---
 
-## 2. D0 — Bối Cảnh Nghiệp Vụ & Tại Sao Catalog Lại Phức Tạp Hơn Scan?
+## 2. D0 — Bối Cảnh Nghiệp Vụ: Tại Sao Catalog Lại Phức Tạp Hơn Scan Gấp 10 Lần?
 
 Nhiều kỹ sư thường thắc mắc: *"Tại sao `scan-service` quét và ghi 1.000.000 files chỉ mất < 30 giây, mà `catalog-service` đưa dữ liệu từ bảng đệm sang bảng chính lại chật vật và timeout qua nhiều phiên bản?"*.
 
@@ -122,191 +114,175 @@ Câu trả lời nằm ở **Sự khác biệt bản chất về Mô hình Dữ 
 
 ---
 
-## 3. D2 — Dòng Chảy Tiến Hóa: Mổ Xẻ 4 Thế Hệ Thất Bại (Post-Mortem V19–V22)
+## 3. D1 — Biên Niên Sử Tiến Hóa: Toàn Cảnh Các Lần Triển Khai (FT-054 $\to$ FT-064)
 
-Để hiểu được vì sao kiến trúc hiện tại (**FT-057 / FT-058**) ra đời, chúng ta cần nhìn lại lịch sử các nỗ lực tối ưu và bài học xương máu rút ra từ các phiên bản trước:
+Dự án đã trải qua một hành trình thử-sai dài qua nhiều thế hệ giải pháp. Dưới đây là bảng tổng hợp toàn bộ các giai đoạn:
 
-| Phiên bản | Cơ chế cốt lõi | Kết quả đo 25K (Calibration) | Kết quả đo 1M (Qualification) | Nguyên nhân thất bại gốc rễ (Root Cause) |
-| :--- | :--- | :---: | :---: | :--- |
-| **FT-054** *(Legacy)* | JPA Entity Lifecycle & Row-by-row dirty check | $423\text{ms}$ ($59\text{ rec/s}$) | **TIMEOUT (> 5 phút)** | ORM Overhead: Sinh hàng triệu câu SQL `SELECT/UPDATE` rời rạc, làm nghẽn Hibernate session cache. |
-| **FT-055** *(Ingest)* | Khóa Ingest bằng PostgreSQL `COPY` + Typed Stage | $1.164\text{ms}$ ($21.478\text{ rec/s}$) | **$24.527\text{s}$ ($40.771\text{ rec/s}$)** | Ingest thành công xuất sắc, nhưng toàn bộ gánh nặng xử lý JSONB bị dồn sang bước SQL Merge. |
-| **FT-056 V19** | Stored Procedure + `TEMPORARY TABLE` + `ANALYZE` | $2.032\text{s}$ ($1.230\text{ subj/s}$) | **TIMEOUT (> 2 phút)** | **DDL Lock Contention**: Mỗi page 500 items tạo 7 bảng tạm, 4 index và 5 lệnh `ANALYZE` $\to$ Lock Postgres Catalog DDL liên tục. |
-| **FT-056 V20** | Common Table Expressions (CTE) thuần túy 700 dòng | $2.633\text{s}$ ($949\text{ subj/s}$) | **SẬP CONNECTION (OOM)** | **Query Planner Memory Spill**: Postgres Planner chuyển sang Hash Join trên 1M dòng JSONB, tràn bộ nhớ đệm `work_mem` $\to$ Disk spill, đứt kết nối. |
-| **FT-056 V21** | 8 Bảng `UNLOGGED` Scratch Tables cố định | Chậm hơn V19 | **TIMEOUT (> 2 phút)** | **Dead-Tuple Churn & I/O Bloat**: Mỗi page `INSERT INTO scratch` rồi `DELETE FROM scratch` $\to$ Sinh hàng triệu dead tuples, phình đĩa, vacuum quá tải. |
-| **FT-056 V22** | Dual-write Typed Reduction ngay lúc Ingest | $39.278\text{s}$ ($64\text{ subj/s}$) | **TIMEOUT (> 2 phút)** | **Ingest Churn + Lock Contention**: Ingest bị chậm gấp 10 lần (`stageSql=87.3%`), Finalizer gọi `count(*)` và kiểm tra rebuild trên từng page gây lock đè nhau. |
-| **FT-057 / FT-058** | 16 Coarse Units (~6.250 subjects/transaction) + Global Watermark | $5.200\text{ms}$ | **TIMEOUT (> 120s)** | **Coarse Transaction Timeout**: 1 Unit quá lớn dính `statement_timeout 20s`, rollback mất trắng tiến trình. Global Watermark triệt tiêu cơ hội pipeline overlap giữa Ingest, Reconcile và Relay. |
-| **FT-059** | 64 Logical Shards (`MD5 Range`) + Bounded Pages + Cross-Service Routing | Không vượt qua test | **FAIL IMPLEMENTATION** | **State Machine & Concurrency Hell**: Bùng nổ độ phức tạp khi code (Data đến trước Marker, Keyset pagination race conditions, DLT isolation, lỗi test tùm lum). |
-| **Current Baseline** | Fallback về luồng tuần tự tối giản (Make it work) | **$\approx 30\text{s}$ ($833\text{ rec/s}$)** | *Chưa đo* | **Chấp nhận chạy chậm để đúng**: Giữ nguyên tắc "Make it work, make it right, make it fast" — ưu tiên 100% Functional Correctness trước khi tối ưu hóa hiệu năng. |
+| Giai đoạn / FT | Ai làm Logic (Winner, Primary, JSON)? | Ai làm Lưu trữ (Storage / Persistence)? | Kết quả 1M Records | Nguyên nhân cốt lõi (Root Cause) |
+| :--- | :--- | :--- | :---: | :--- |
+| **FT-054** *(Legacy)* | **Java (JPA/Hibernate)** | **PostgreSQL (Row-by-row)** | **TIMEOUT (> 5 phút)** | **Thái cực 1 (Ngây thơ):** ORM Hibernate sinh 1 triệu câu SQL riêng lẻ, tràn Session Cache và GC Pauses. |
+| **FT-055** *(Ingest)* | Chưa làm | **PostgreSQL (`COPY` đệm)** | **24.5s ($40.7\text{k rec/s}$)** | Ingest thành công xuất sắc, nhưng dồn 100% gánh nặng merge phức tạp về phía sau. |
+| **FT-056 V19** | **100% PostgreSQL** *(Stored Proc)* | **100% PostgreSQL** | **TIMEOUT (> 2 phút)** | **DDL Lock Contention**: Tạo/xóa 7 bảng tạm DDL và 5 lệnh `ANALYZE` mỗi page 500 items làm lock catalog DB. |
+| **FT-056 V20** | **100% PostgreSQL** *(1 câu CTE 700 dòng)* | **100% PostgreSQL** | **SẬP OOM / DISK SPILL** | **Query Planner Memory Spill**: Gom 1M JSONB làm tràn `work_mem` RAM $\to$ xả đĩa (Disk spill) $\to$ đứt kết nối. |
+| **FT-056 V21** | **100% PostgreSQL** *(8 bảng UNLOGGED)* | **100% PostgreSQL** | **TIMEOUT (> 2 phút)** | **Dead-Tuple Churn & I/O Bloat**: Copy/Delete liên tục sinh hàng triệu dead tuples, phình đĩa, vacuum quá tải. |
+| **FT-056 V22** | **100% PostgreSQL** *(Dual-write Ingest)* | **100% PostgreSQL** | **TIMEOUT (> 2 phút)** | **Ingest Churn + Lock Contention**: Ingest bị chậm gấp 10 lần, Finalizer gọi `count(*)` gây lock đè nhau. |
+| **FT-057 / FT-058** | **100% PostgreSQL** *(Stored Proc V23)* | **100% PostgreSQL** *(16 Coarse Units)* | **TIMEOUT (> 120s)** | **Coarse Transaction Timeout**: 1 Unit (~6.250 subjects) dính Statement Timeout 20s. Chờ Global Watermark triệt tiêu pipeline overlap. |
+| **FT-059** | **100% PostgreSQL** *(Stored Proc V25)* | **100% PostgreSQL** *(64 Shards)* | **FAIL IMPLEMENTATION** | **State Machine Hell**: Bùng nổ độ phức tạp code (Data đến trước Marker, Keyset pagination race, DLT isolation). |
+| **FT-060 $\to$ FT-063** | **100% PostgreSQL** *(SQL bulkUpsert)* | **100% PostgreSQL** *(Multi-workers)* | **NEGATIVE SCALING** | **Single DB Contention**: Càng tăng worker thì DB càng chậm do tranh chấp CPU, Lock và WAL trên 1 instance. |
+| **Fallback Baseline** | Java tuần tự cơ bản | PostgreSQL JDBC Batch | **$\approx 30\text{s}$ / 25k ($833\text{ rec/s}$)** | **Make it work**: Chấp nhận chạy chậm nhưng 100% đúng đắn để làm mốc đối chứng (Ground Truth). |
+| **🔥 FT-064 (ĐÍCH)** | **JAVA (RAM / Virtual Threads)** | **POSTGRESQL (Set-based COPY)** | **$\approx 45 - 90\text{s}$ / 1M (Target)** | **LẦN ĐẦU TIÊN HYBRID**: Java gánh 100% Logic trên RAM, Postgres chỉ làm nhiệm vụ ghi nhận dữ liệu phẳng qua `COPY`. |
 
 ```mermaid
 flowchart TD
-    subgraph FAIL["Các Bài Học Thất Bại Lịch Sử (V19 - FT-059)"]
+    subgraph FAIL["Biên Niên Sử Thất Bại & Vòng Xoáy Thử-Sai"]
         direction TB
-        F1["V19-V22: DDL Lock Table,\nSpill work_mem & Dead Tuples"]
-        F2["FT-058: 16 Coarse Units quá lớn\n-> Statement Timeout 20s"]
-        F3["FT-059: 64 Logical Shards\n-> State Machine Hell & Race"]
-        F4["Current: Fallback tuần tự đơn giản\n-> Make it work (~30s / 25k)"]
+        F1["FT-054 (JPA Ngây Thơ)\n-> N+1 Query & Tràn Heap RAM"]
+        F2["FT-056 V19-V22 (100% SQL Stored Proc)\n-> DDL Lock, Spill work_mem & Dead Tuples"]
+        F3["FT-058 (16 Coarse Units)\n-> Statement Timeout 20s & Mất Pipeline Overlap"]
+        F4["FT-059-063 (64 Shards & Multi-Writers)\n-> State Machine Hell & Negative Scaling"]
     end
-
-    subgraph LESSON["Nguyên Tắc Kiến Trúc Đúc Kết"]
+    subgraph SOLUTION["Đột Phá Kiến Trúc Cuối Cùng (FT-064)"]
         direction TB
-        L1["[1] Ranh giới Transaction:\nKhông quá to (dính timeout),\nkhông quá nhỏ (bão hòa WAL)"]
-        L2["[2] Triết lý Kent Beck:\nMake it work -> Make it right\n-> Make it fast"]
-        L3["[3] Kiểm soát Concurrency:\nTránh nhồi nhét quá nhiều\nState Machine cùng một lúc"]
-        L4["[4] Pipeline Overlap:\nChia Shard cuốn chiếu nhưng\nphải giữ Code đơn giản"]
+        S1["[1] Bóc tách Compute khỏi DB:\nJava xử lý 100% Logic trên RAM"]
+        S2["[2] Triệt tiêu Lock Contention:\n1 Claimed Unit = 1 DB Transaction"]
+        S3["[3] Tối ưu hóa I/O:\nPostgreSQL nhận dữ liệu qua COPY phẳng"]
+        S4["[4] Triết lý Kent Beck:\nMake it work -> Make it right -> Make it fast"]
     end
-
-    FAIL --> LESSON
+    FAIL ==> SOLUTION
     style FAIL fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
     style F1 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style F2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style F3 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
     style F4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style LESSON fill:#1A237E,stroke:#fff,stroke-width:2px,color:#fff
-    style L1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style L2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style L3 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style L4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style SOLUTION fill:#1A237E,stroke:#fff,stroke-width:2px,color:#fff
+    style S1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style S2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style S4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
 ```
-
-> [!TIP]
-> ### 💡 Từ điển Thuật ngữ & Mental Model (Gốc từ & Cách liên tưởng)
->
-> 1. **Dead Tuple & Table Bloat (Xác dữ liệu chết & Phình bảng)**:
->    - **Nghĩa tiếng Anh thuần**: `Tuple` là *bản ghi / dòng dữ liệu*; `Dead` là *đã chết*; `Bloat` là *bị sưng phồng, phình to*.
->    - **Trong ngữ cảnh dự án**: Trong PostgreSQL, khi bạn chạy lệnh `DELETE` hoặc `UPDATE`, Postgres không xóa ngay dòng đó trên đĩa mà chỉ đánh dấu nó là "đã chết" (Dead Tuple) để phục vụ MVCC. Ở bản V21, việc liên tục nhét dữ liệu vào bảng tạm rồi DELETE sau mỗi 500 items đã sinh ra hàng triệu xác chết dữ liệu, khiến bảng phình to hàng Gigabyte và làm đĩa cứng nghẽn thở!
->    - **Cách liên tưởng**: *"Nhà ăn liên tục xả rác ra sàn sau mỗi lượt khách mà không kịp quét dọn, chẳng mấy chốc rác ngập đến trần nhà"*.
->
-> 2. **Disk Spill / Work_mem Exhaustion (Tràn đĩa cứng khi sắp xếp/gom nhóm)**:
->    - **Nghĩa tiếng Anh thuần**: `Spill` là *tràn ra ngoài*; `work_mem` là *bộ nhớ RAM cấp riêng cho một câu lệnh SQL để sắp xếp/tính toán*.
->    - **Trong ngữ cảnh dự án**: Khi câu lệnh SQL V20 cố gom 1 triệu dòng JSONB trong RAM, dung lượng vượt quá `work_mem` (mặc định 4MB-64MB) $\to$ Postgres buộc phải ghi tạm dữ liệu xuống đĩa cứng (Disk Spill) $\to$ Tốc độ tụt từ vài Gigabyte/s (trên RAM) xuống còn vài Megabyte/s (trên đĩa cứng).
->    - **Cách liên tưởng**: *"Bàn làm việc quá nhỏ không để vừa tài liệu, phải chạy đi chạy lại bê từng chồng tài liệu cất vào kho"*.
 
 ---
 
-## 4. D3 — Cuộc Cách Mạng Kiến Trúc: FT-057 (Bulk Reconciliation Data Plane)
+## 4. D2 — Mổ Xẻ Bản Chất: Tại Sao Ban Đầu Cố Đẩy Hết Cho DB & Tại Sao DB Lại Timeout?
 
-Để giải quyết triệt để 4 sai lầm trên, **FT-057** thiết lập lại toàn bộ Data Plane nội bộ của Catalog Service dựa trên **4 Trụ Cột Đột Phá**:
+### ❓ 1. Tại sao ban đầu lại cố "đẩy 100% tính toán xuống DB"?
+Ý đồ đẩy hết cho Database xuất phát từ **3 lý do nghe rất hợp lý nhưng lại là cái bẫy**:
+1. **Nguyên lý "Move Compute to Data"**: 1.000.000 events thô nặng hàng trăm Megabytes. Kéo lên Java sợ tốn băng thông mạng và kích hoạt GC Pauses.
+2. **Nỗi sợ ORM (JPA/Hibernate) từ FT-054**: Thất bại của JPA khiến các kỹ sư có tâm lý cực đoan: *"Java chậm lắm, phải viết 100% bằng SQL thuần/Stored Procedure mới là đẳng cấp!"*.
+3. **Sự quyến rũ của SQL Set-Based**: Tin rằng PostgreSQL viết bằng C/C++ sẽ tự động tối ưu hóa mọi phép tính nhanh hơn code Java.
+
+---
+
+### 💥 2. Vậy tại sao "đẩy hết cho DB" mà PostgreSQL vẫn CHẬM và TIMEOUT?
+Bởi vì bài toán Catalog **không phải là INSERT dữ liệu phẳng**, mà câu lệnh SQL Reconcile bị "sặc" bởi **5 kẻ giết người thầm lặng**:
+
+```text
+                  1.000.000 RAW DISCOVERY EVENTS
+                                │
+   ┌────────────────────────────┼────────────────────────────┐
+   ▼                            ▼                            ▼
+[1. WRITE AMPLIFICATION]   [2. 6 TẦNG LOGIC SQL]     [3. DISK SPILL]
+1M events dội xuống 6 bảng: • DISTINCT ON (Winner)   Sort/Hash 1M dòng
+• 100k subjects            • Window Function (Row)   vượt work_mem RAM
+• 1M assets                • unnest(tags)            -> Xả đĩa cứng tạm
+• 2M asset tags            • Hash comparison         -> Tốc độ tụt 100x!
+• 100k JSON outbox         • jsonb_build_object
+=> 15.000.000 WAL writes!  => Nghẽn CPU Bytecode
+```
+
+1. **Hệ số nhân ghi đĩa khủng khiếp (Write Amplification)**: 1 triệu sự kiện biến thành **hơn 15.000.000 lượt ghi vào Data Pages và B-Tree Indexes** trên 6 bảng quan hệ, làm nghẽn 100% IOPS của ổ đĩa SSD.
+2. **Postgres phải chạy 6 tầng thuật toán phức tạp trong SQL**: Sort, Distinct, Window Function (`ROW_NUMBER()`), Unnest Tags, Hash Check, JSONB build. Trình thông dịch Bytecode của Postgres bị quá tải CPU.
+3. **Tràn RAM `work_mem` $\to$ Disk Spill**: Bộ nhớ `work_mem` (4MB–64MB) bị tràn khi sắp xếp 1M dòng $\to$ Postgres xả file tạm ra đĩa cứng $\to$ Tốc độ tụt từ Gigabyte/s (RAM) xuống Megabyte/s (Đĩa).
+4. **Cơ chế MVCC & Xác dữ liệu chết (Dead Tuples Bloat)**: `UPDATE` liên tục hàng triệu dòng sinh ra núi rác Dead Tuples $\to$ Tiến trình ngầm **Autovacuum** nhảy vào quét dọn, giật hết CPU và Disk I/O.
+5. **Tranh chấp Khóa dòng (Row Lock Contention)**: Các worker tranh chấp khóa trên bảng cha $\to$ Dính **Statement Timeout 20s** $\to$ Rollback toàn bộ!
+
+---
+
+### 🧠 3. Bốn Cái Bẫy Tâm Lý & Thuật Toán Khiến AI Bị "Lú" Suốt 10 Features
+1. **Bẫy "Ám ảnh thất bại FT-054" (JPA Trauma Overcorrection)**: Sau khi JPA sập, AI bật chế độ cực đoan: coi việc kéo dữ liệu lên Java là "tội đồ", bắt buộc phải làm 100% trong Stored Procedure.
+2. **Vòng xoáy "Tối ưu hóa cục bộ" (Local Optimization Rabbit Hole)**: Khi V19 lỗi, AI chỉ chăm chăm sửa câu SQL thành V20, V21, V23, V25, V28... mà không bao giờ dám bước lùi lại để tự hỏi: *"Tại sao ngay từ đầu mình lại đi viết cái Stored Procedure này?"*.
+3. **Đánh giá quá cao Database và coi thường sức mạnh CPU/JVM hiện đại**: Quên mất rằng máy ảo PL/pgSQL của Postgres chạy đơn luồng rất chậm với logic điều kiện, trong khi **Java 25 với JIT C2 Compiler** xử lý `HashMap`/`Comparator` trên RAM với tốc độ **nanoseconds (nhanh gấp 100 lần Postgres)**.
+4. **Ảo tưởng "Kiến trúc càng phức tạp nghe càng Pro"**: AI thích sinh ra 64 Shards, State Machine phân tán, Lease Fencing vì trông "hoành tráng", mà bỏ qua giải pháp đơn giản thanh thoát ngay trước mắt.
+
+---
+
+## 5. D3 — Đột Phá Kiến Trúc Đích: FT-064 (Catalog Hybrid Streaming Reconciliation)
+
+Để giải quyết tận gốc rễ vấn đề, **FT-064** và **ADR-008** thiết lập mô hình **Hybrid (Lai ghép) chuẩn mực**:
 
 ```mermaid
-flowchart TD
-    subgraph P1["Trụ cột 1: Append-Only Ingest"]
-        C1["Kafka Consumer\n-> Direct COPY"] --> C2["Ghi vào bảng đệm\nraw discovery input"]
-        C2 --> C3["Tăng partition counter\n(atomic)"]
+flowchart LR
+    subgraph DBR["PostgreSQL Read Realm"]
+        direction TB
+        WORK[("Subject Workset\n(Durable Shard)")]
+        INPUT[("Discovery Input\n(Immutable Stage)")]
     end
-
-    subgraph P2["Trụ cột 2: One-Time Bulk Sealing"]
-        S1["Equality Gate mở\n(Nhận Watermark + Đủ 1M)"] --> S2["Chạy 1 LẦN DUY NHẤT\ncatalog_seal_operation()"]
-        S2 --> S3["Gom nhóm tìm Winner\nChia đều 16 Coarse Units"]
+    subgraph JVM["Java Application Realm (RAM)"]
+        direction TB
+        FETCH["Keyset Cursor Fetch\n(Page 2.500 Subjects)"]
+        REDUCE["Virtual-Thread Fan-Out\n(Winner, Primary, Tags, JSON)"]
+        STREAM(("Flattened Batch Stream"))
+        FETCH --> REDUCE --> STREAM
     end
-
-    subgraph P3["Trụ cột 3: Coarse Unit Reconciliation"]
-        U1["4 Workers tranh chấp\nclaim 16 Units (Lease)"] --> U2["catalog_reconcile_unit()\n(1 Unit = ~6.250 subjects)"]
-        U2 --> U3["Set-Based Bulk Merge\n+ Sinh Outbox Snapshot\ntrong 1 Transaction!"]
+    subgraph DBW["PostgreSQL Write Realm"]
+        direction TB
+        COPY[/"Transactional COPY\n(Temp Staging Table)"/]
+        APPLY["Set-Based SQL Mutation\n(Canonical & Outbox)"]
+        CHECK{{"Durable Checkpoint\n(1 Transaction / Unit)"}}
+        COPY --> APPLY --> CHECK
     end
-
-    subgraph P4["Trụ cột 4: Indexed Sliding Relay"]
-        R1["Truy vấn outbox theo\nrelay_lane_id (có Index)"] --> R2["Sliding Window Relay\n(CompletableFuture.anyOf)"]
-        R2 --> R3["Broker ACK đến đâu\n-> Mark DB đến đó\n-> CATALOG_COMMITTED"]
-    end
-
-    P1 ==> P2 ==> P3 ==> P4
-
-    style P1 fill:#1B5E20,stroke:#fff,stroke-width:2px,color:#fff
-    style C1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style C2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style C3 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style P2 fill:#E65100,stroke:#fff,stroke-width:2px,color:#fff
-    style S1 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style S2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style S3 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style P3 fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
-    style U1 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style U2 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style U3 fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
-    style P4 fill:#006064,stroke:#fff,stroke-width:2px,color:#fff
-    style R1 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
-    style R2 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
-    style R3 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
+    WORK -->|"1. Claim Unit"| FETCH
+    INPUT -->|"2. Read Full Subjects"| FETCH
+    STREAM -->|"3. Stream Flat Data"| COPY
+    style DBR fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
+    style WORK fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style INPUT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
+    style JVM fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style FETCH fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style REDUCE fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    style STREAM fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
+    style DBW fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style COPY fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style APPLY fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style CHECK fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-### 🔍 Đi sâu vào chi tiết 4 Trụ Cột của FT-057:
+### 🔍 4 Bước Thực Thi Chi Tiết Của FT-064:
 
-#### 1. Trụ cột 1: Append-Only Ingest Thuần Túy
-* **Nguyên tắc**: Trong lúc đang nhận bản tin từ Kafka, **tuyệt đối không tính toán hay gom nhóm**.
-* **Cơ chế**: Java map sự kiện thành các cột dữ liệu phẳng (`TypedIngestRow`), dùng PostgreSQL `COPY` đẩy thẳng vào bảng `catalog_operation_discovery_input` (có sẵn các cột typed như `storage_key`, `relative_path`, `role`, `tag_names` thay vì nhét cả cục JSON). Cập nhật số lượng vào `catalog_operation_ingest_partition`.
-* **Kết quả**: Tốc độ Ingest đạt mức tối đa của phần cứng ($\ge 40.000\text{ records/s}$).
-
-#### 2. Trụ cột 2: One-Time Bulk Sealing (`catalog_seal_operation`)
-* **Nguyên tắc**: Chờ khi nào có đủ 1.000.000 records và nhận được tín hiệu Watermark (Equality Gate) thì mới thực hiện gom nhóm **đúng 1 lần duy nhất**.
-* **Cơ chế**:
-  * Kiểm tra hợp lệ: `received_count == expected_count` và `unresolved_dlt_count == 0`.
-  * Chạy 1 câu lệnh `DISTINCT ON (subject_key)` để tìm subject winner, băm đều vào **16 Coarse Units** (sử dụng `mod(routing_bucket, 16)` trên 4.096 routing buckets).
-  * Chuyển trạng thái Operation từ `INGESTING` sang `RECONCILING`.
-
-#### 3. Trụ cột 3: Coarse Unit Reconciliation (`catalog_reconcile_operation_unit`)
-* **Nguyên tắc**: Thay vì chia vụn 200–256 mini-pages (500 items) làm bão hòa transaction, hệ thống chia thành **16 Units** (mỗi unit chứa khoảng $\sim 6.250\text{ subjects}$ và $\sim 62.500\text{ assets}$).
-* **Cơ chế**:
-  * 4 Worker luồng ảo của Java tranh chấp claim 16 units thông qua Lease Fencing (`lease_owner, lease_until, fence_token`).
-  * Toàn bộ quá trình Merge của 1 Unit được thực hiện gọn gàng trong **đúng 1 Database Transaction**:
-    1. Đọc winner từ input table vào bảng tạm có cấu trúc rõ ràng.
-    2. Bulk Insert vào `media_subject` (bỏ qua tính hash đối với subject mới tạo).
-    3. Bulk Insert vào `media_asset` và xử lý `media_asset_tag`.
-    4. Bầu chọn `PRIMARY_VIDEO` và cập nhật vai trò, đồng bộ tags lên subject.
-    5. Cập nhật diễn viên vào `media_subject_actress` và tăng version của `master_data_registry`.
-    6. Tăng `version` của Subject chỉ khi có sự thay đổi thực sự (`tmp_catalog_changed_subject`).
-    7. Sinh JSON snapshot đưa vào `catalog_outbox_event` (được gán sẵn `relay_lane_id`).
-    8. Đánh dấu Unit và Workset `COMPLETED` cùng lúc.
-
-#### 4. Trụ cột 4: Indexed Sliding-Window Outbox Relay
-* **Nguyên tắc**: Không bao giờ dùng `CompletableFuture.allOf` để chờ cả một khối bản tin lớn (vì 1 bản tin bị chậm mạng sẽ làm đơ toàn bộ các bản tin khác).
-* **Cơ chế**:
-  * Bảng `catalog_outbox_event` có cột `relay_lane_id` được gán tự động qua Trigger và có Partial Index:
-    ```sql
-    CREATE INDEX idx_catalog_outbox_pending_relay_lane_v23
-        ON catalog_outbox_event(relay_lane_id, created_at, id)
-        WHERE published_at IS NULL;
-    ```
-  * Relay Coordinator dùng cơ chế **Cửa sổ trượt (Sliding Window)** với `CompletableFuture.anyOf`: bản tin nào gửi sang Kafka nhận được ACK trước $\to$ thực hiện đánh dấu `published_at` vào Database ngay lập tức và kéo bản tin tiếp theo vào cửa sổ.
-  * Khi bản tin cuối cùng và Watermark được ACK $\to$ Trigger DB tự động đưa Operation lên trạng thái `CATALOG_COMMITTED` (Stage 20).
+1. **Bước 1: Đọc theo Subject Workset (Page 2.500 Subjects)**
+   - Không phân trang ngây thơ theo raw row id. Reader đọc trọn vẹn toàn bộ discovery files của đúng 2.500 subjects trong claimed unit.
+2. **Bước 2: Java Fan-Out Reduction trên RAM (0ms Disk I/O)**
+   - Dùng Virtual Threads chạy song song: gom nhóm Subject, bầu chọn Primary Video bằng `Comparator`, kế thừa Tags, tính Hash và build JSON Snapshot.
+   - ⚡ *Xử lý 2.500 subjects trên RAM chỉ tốn $\sim 30 - 50\text{ms}$.*
+3. **Bước 3: Transactional `COPY` vào Temp Staging**
+   - Java stream dữ liệu phẳng đã được làm sạch xuống bảng tạm `tmp_catalog_reduced_staging` qua giao thức PostgreSQL `COPY` (nhanh nhất có thể).
+4. **Bước 4: Set-Based SQL Mutation & Checkpoint**
+   - Chạy các câu lệnh SQL Set-Based đơn giản để cập nhật `media_subject`, `media_asset`, `media_asset_tag`, chèn vào `catalog_outbox_event` và đánh dấu Checkpoint trong **đúng 1 Transaction tuần tự cho mỗi Unit**.
 
 ---
 
-## 5. D3 — Bảng Định Mức Năng Lực & Phân Bổ Thời Gian (Capacity Model)
+### ⏱️ Bảng Định Mức Năng Lực Dự Kiến (Capacity Model Trên Máy Local)
 
-Để đạt được mục tiêu tổng thể $\ge 30.000\text{ records/s}$ (xử lý 1.000.000 records trong $\le 33.3\text{s}$), định mức thời gian cho từng chặng được thiết lập như sau:
+- **Tổng workload:** 1.000.000 raw events $\to$ $\approx 100.000\text{ subjects}$.
+- **Kích thước Page:** 2.500 subjects / page $\to$ **Tổng cộng có 40 pages (units)**.
+- **Thời gian xử lý 1 Page (2.500 subjects $\approx$ 25.000 files):**
+  - Đọc DB Workset: $\approx 100\text{ms}$
+  - Java In-Memory Compute: $\approx 50\text{ms}$
+  - `COPY` Staging + Set-based Mutation: $\approx 800 - 1.000\text{ms}$
+  - Commit & Checkpoint: $\approx 50\text{ms}$
+  - 👉 **Tổng thời gian 1 Page:** $\approx \mathbf{1.0 - 1.2\text{ giây}}$.
 
-| Chặng xử lý (Phase) | Ngưỡng cam kết tối thiểu (Gate) | Ngưỡng kỳ vọng (Stretch) | Cơ chế kỹ thuật đảm bảo |
-| :--- | :---: | :---: | :--- |
-| **1. Append-Only Ingest** | $\le 8.000\text{ms}$ ($\ge 125\text{k rec/s}$) | $\le 5.000\text{ms}$ ($\ge 200\text{k rec/s}$) | 8 Kafka Consumer threads + Direct PostgreSQL `COPY`. |
-| **2. One-Time Seal & Reconcile** | $\le 20.000\text{ms}$ ($\ge 50\text{k rec/s}$) | $\le 15.000\text{ms}$ ($\ge 66\text{k rec/s}$) | 16 Coarse Units + Set-Based Bulk Merge trên 4 Worker threads. |
-| **3. Sliding Outbox Relay** | $\le 5.334\text{ms}$ ($\ge 18.7\text{k msg/s}$) | $\le 5.000\text{ms}$ ($\ge 20\text{k msg/s}$) | Relay 100.000 subject snapshots bằng Indexed Sliding Window. |
-| **🏁 TỔNG THỜI GIAN TOÀN CATALOG** | **$\le 33.334\text{ms}$ ($\ge 30.000\text{ rec/s}$)** | **$\le 25.000\text{ms}$ ($\ge 40.000\text{ rec/s}$)** | **Hoàn thành trọn vẹn toàn bộ vòng đời của 1.000.000 records!** |
+$$ \text{Tổng thời gian hoàn tất toàn bộ 1.000.000 records} = 40 \text{ pages} \times 1.2\text{s} \approx \mathbf{48 \text{ đến } 60 \text{ GIÂY}}! $$
 
 ---
 
-## 6. D4 — Tiến Trình Thực Tế: FT-058 & FT-059 Thất Bại, Chiến Lược Fallback Baseline & Lộ Trình
+## 6. D4 — Chiến Lược Toàn Dự Án: ADR-007 & Lộ Trình Phía Trước (SC-01 BT-09)
 
-### 📍 Đánh giá thực tế các mốc phát triển gần nhất:
+Dự án đã chính thức ban hành **ADR-007 (Catalog Correctness-First Capacity Policy)** nhằm giải phóng toàn bộ tiến độ:
 
-1. **FT-058 (Coarse Units) Thất bại tại 1M Qualification**:
-   * **Bối cảnh**: FT-058 tăng cường Liveness, Deadline và Retry budget cho mô hình 16 Coarse Units.
-   * **Điểm nghẽn chí tử**: Ở quy mô 1M records, mỗi unit chứa khoảng $\sim 6.250\text{ subjects}$ trong một transaction duy nhất. Transaction quá nặng liên tục vượt **Statement Timeout 20 giây** $\to$ Rollback làm mất toàn bộ tiến trình của unit và retry lặp lại cùng failure domain.
-   * **Hạn chế cấu trúc**: Global Watermark (`APPROVAL_COMMITTED`) buộc Catalog phải đợi 100% toàn bộ 1M records đổ về mới bắt đầu Reconcile $\to$ Không thể tạo pipeline overlap giữa Ingest, Reconcile, Relay và Query.
-
-2. **FT-059 (Logical Shard Completion Contract) Thất bại ở Tầng Triển Khai (Coding Complexity)**:
-   * **Bối cảnh**: Chuyển đổi từ Global Barrier sang **64 Logical Shards** theo canonical subject key (`SUBJECT_KEY_MD5_12_RANGE_V1`) + Bounded Pages (250–500 subjects) + Event marker `media.approval.shard.completed.v1` để Reconcile cuốn chiếu từng shard.
-   * **Nguyên nhân thất bại**: Ý tưởng kiến trúc đúng nhưng **bùng nổ độ phức tạp khi code (State Machine & Concurrency Hell)**:
-     * Quá nhiều trạng thái chuyển tiếp (`INGESTING` $\to$ `SEALED` $\to$ `RECONCILING` $\to$ `COMPLETED`).
-     * Bài toán thứ tự bất đồng bộ (Marker đến trước Data hoặc Data đến trước Marker trên Kafka).
-     * Race conditions trong truy vấn Keyset Pagination trên index `(routing_bucket, id)`.
-     * Xung đột DLT isolation và ranh giới `@Transactional` của Spring khiến hệ thống phát sinh lỗi tùm lum, không vượt qua được bộ test tích hợp.
-
-3. **Hiện tại (Current State): Chiến lược Fallback Baseline ("Make It Work")**:
-   * **Quyết định kỹ thuật**: Tạm thời lùi lại một bước theo nguyên tắc kinh điển **"Make it work, make it right, make it fast"** (Kent Beck).
-   * **Hiện trạng**: Sử dụng một bản triển khai tối giản, đơn luồng/tuần tự, chấp nhận chạy chậm để đảm bảo **100% Functional Correctness** (không crash, không deadlock/hang, tính toán đúng đắn mọi thực thể).
-   * **Số liệu đo đạc thực tế**: Bản baseline hoàn thành **25.000 records trong gần 30 giây** ($\approx \mathbf{833\text{ rec/s}}$).
-   * **Ý nghĩa**: Dù còn cách mốc kỳ vọng 1M/120s ($\approx 8.333\text{ rec/s}$) khoảng $10\times$, nhưng hệ thống đã có **Ground Truth** vững chắc để làm bàn đạp tối ưu hóa từng bước nhỏ (batching, JDBC rewrite, connection tuning, concurrency).
+1. **Khóa Catalog ở Correctness Baseline:** Ưu tiên 100% đúng đắn dữ liệu (Exact Cardinality, Zero Loss). Throughput 1M/120s được đánh dấu là `UNQUALIFIED` và không còn là blocker.
+2. **Nới lỏng Watchdog Deadline:** Tăng deadline từ 120s lên 30 phút để bảo vệ các operation lớn không bị watchdog giết oan.
+3. **Mở ngay BT-09E (Query Bulk Projection):** Sau khi FT-064 hoàn tất, thông luồng dữ liệu sang Query Service để đạt trạng thái **`QUERY_DB_READY`**.
 
 ```text
 [ĐÃ XONG] BT-09A: Chốt Contract & Watermark Protocol (FT-044)
@@ -318,10 +294,8 @@ flowchart TD
 [ĐÃ XONG] BT-09C: Scan Outbox Continuous Lane Drain (FT-053: 121k rec/s)
    │
    ▼
-[THỰC TẾ] BT-09D: Catalog Bulk Reconciliation Data Plane
-   ├── FT-057 / FT-058 (16 Coarse Units): FAIL (Timeout 20s per unit trên 1M)
-   ├── FT-059 (64 Logical Shards): FAIL (Implementation & State Machine Complexity)
-   └── Current Baseline: Make it work (~833 rec/s, 25k records / 30s) -> Sẵn sàng tối ưu hóa
+[ĐANG LÀM] BT-09D: Catalog Bulk Reconciliation Data Plane
+   └── FT-064: Hybrid Streaming Reconciliation (Java Compute + DB COPY)
    │
    ▼
 [TIẾP THEO] BT-09E: Query Service Bulk Projection (Batch Consumer -> Upsert Read Model)
@@ -337,18 +311,15 @@ flowchart TD
 
 ## 7. Cẩm Nang Hỏi - Đáp Phỏng Vấn Kiến Trúc (Senior / Lead Q&A)
 
-### ❓ Câu hỏi 1: Tại sao không dùng Kafka Streams hoặc Apache Flink để gom nhóm (Coalesce) mà lại làm trong PostgreSQL?
-* **Trả lời 30 giây**: Dùng Kafka Streams hay Flink sẽ sinh ra thêm một cụm hạ tầng phân tán phức tạp cần vận hành (State Store, RocksDB changelog topic, rebalancing overhead). Trong khi đó, Catalog vẫn bắt buộc phải là Source of Truth lưu trữ dữ liệu bền vững (ACID) vào PostgreSQL. Kiến trúc Catalog tận dụng khả năng tính toán Set-Based cực mạnh của PostgreSQL kết hợp phân vùng hợp lý giúp hệ thống đạt throughput cao mà không cần cõng thêm một công nghệ hạ tầng nặng nề nào.
-* **Trả lời sâu 2 phút**: Phân tích trade-off giữa Operational Cost vs Throughput; giải thích cách phân Shard để vừa vặn trong `work_mem` của PostgreSQL mà không bị disk spill.
+### ❓ Câu hỏi 1: Tại sao Java In-Memory Reduction + JDBC COPY lại nhanh hơn SQL Stored Procedure nội bộ của Postgres?
+* **Trả lời 30 giây**: Vì sự phân chia đúng sở trường: Java với JIT C2 Compiler xử lý logic rẽ nhánh, sắp xếp và sinh JSON trên RAM với tốc độ nanoseconds (nhanh hơn máy ảo Bytecode PL/pgSQL 100 lần). Trong khi đó, PostgreSQL chỉ làm việc nó giỏi nhất là đọc/ghi dữ liệu theo khối qua giao thức `COPY`. Mô hình này triệt tiêu hoàn toàn hiện tượng tràn `work_mem` RAM (Disk Spill) và nghẽn CPU của Database.
 
-### ❓ Câu hỏi 2: Tại sao V19 và V21 đều dùng bảng tạm nhưng lại thất bại, còn V23 lại thành công?
-* **Trả lời 30 giây**: V19 thất bại vì tạo/xóa bảng tạm DDL hàng trăm lần làm lock Catalog PostgreSQL. V21 thất bại vì lạm dụng bảng UNLOGGED copy/delete liên tục làm bùng nổ dead tuples và phình đĩa. V23 thành công vì: (1) Ingest ghi thẳng dữ liệu phẳng không qua bảng tạm; (2) Toàn bộ đợt quét gom nhóm chỉ chạy 1 lần duy nhất; (3) Reconcile theo Unit lớn trong 1 Transaction khép kín, triệt tiêu 90% overhead DDL và lock.
+### ❓ Câu hỏi 2: Tại sao chạy "Đơn luồng tuần tự" lại nhanh hơn "Đa luồng tranh chấp" trên 1 PostgreSQL instance?
+* **Trả lời 30 giây**: Khi nhiều worker cùng ghi vào 1 database instance trên máy local, chúng phải tranh chấp 1 file WAL duy nhất và tranh chấp Row-Lock trên các bảng cha, khiến 80% CPU bị lãng phí cho Lock Waiting và Context Switching (Negative Scaling). Chạy đơn luồng theo batch tuần tự giúp ổ đĩa SSD phát huy 100% tốc độ ghi tuần tự (Sequential I/O), triệt tiêu hoàn toàn Lock Contention.
 
-### ❓ Câu hỏi 3: Làm thế nào để đảm bảo tính Idempotency khi một Unit bị Re-run (chạy lại) do mất mạng?
-* **Trả lời 30 giây**: Nhờ 3 lớp bảo vệ: (1) **Lease Fencing Token**: Chỉ Worker nào có token hợp lệ mới được ghi kết quả; (2) **Deterministic Winner Selection**: Thuật toán chọn winner dựa trên bộ ba cố định `(source_partition, source_offset, event_id)` nên dù chạy lại 100 lần vẫn ra cùng 1 kết quả; (3) **Unique Constraint trên Outbox**: Bảng Outbox có unique index `(operation_id, subject_id, event_type)` ngăn chặn hoàn toàn việc phát sinh bản tin trùng lặp.
+### ❓ Câu hỏi 3: Làm thế nào để đảm bảo tính Idempotency và Crash Recovery khi Java đang xử lý mà bị sập nguồn?
+* **Trả lời 30 giây**: Nhờ kiến trúc **Durable Checkpoint**: Mỗi unit 2.500 subjects được gán Lease Token và chỉ commit checkpoint khi toàn bộ dữ liệu đã được ghi bền vững vào Postgres trong 1 transaction. Nếu Java bị crash giữa chừng, transaction tự động rollback, Workset vẫn ở trạng thái `PENDING` và worker tiếp theo sẽ claim lại để chạy tiếp mà không sinh ra duplicate effect.
 
-### ❓ Câu hỏi 4: Tại sao cả FT-058 (16 Coarse Units) lẫn FT-059 (Logical Shard Markers) đều thất bại trong thực tế, và bài học về Transaction Granularity vs State Machine Complexity là gì?
-* **Trả lời 30 giây**: 
-  * **FT-058 thất bại vì Transaction quá to**: Gom ~6.250 subjects vào 1 transaction khiến PostgreSQL bị dính Statement Timeout 20s, rollback mất trắng cả unit và chờ đợi 100% dữ liệu tuần tự.
-  * **FT-059 thất bại vì Độ phức tạp code bùng nổ**: Đập nhỏ thành 64 Logical Shards và Paged Reconciliation là hướng đi đúng về lý thuyết, nhưng tạo ra quá nhiều State Machine, race condition giữa Data và Completion Marker, lỗi phân trang Keyset SQL và lỗi test tùm lum.
-  * **Bài học rút ra**: Ranh giới Transaction trong RDBMS không thể quá to (gây timeout) cũng không thể quá nhỏ (gây overhead WAL); và khi tối ưu, bắt buộc phải có một **Baseline đơn giản chạy đúng 100% trước (Make it work)** rồi mới thêm dần từng cơ chế tối ưu có kiểm soát thay vì nhồi nhét tất cả cùng một lúc.
+### ❓ Câu hỏi 4: Đúc kết bài học lớn nhất về kiến trúc từ chuỗi thất bại FT-054 $\to$ FT-063 là gì?
+* **Trả lời 30 giây**: Bài học lớn nhất là **"Tránh cái bẫy tối ưu hóa cục bộ và ảo tưởng về sự phức tạp"**. Không nên cực đoan hóa (hoặc đẩy hết cho ORM, hoặc đẩy hết cho SQL Stored Proc), mà phải áp dụng nguyên tắc **Separation of Concerns**: *Logic tính toán thuộc về Application RAM, Lưu trữ và quan hệ thuộc về Database Engine*. Đồng thời luôn tuân thủ nguyên tắc: *"Make it work $\to$ Make it right $\to$ Make it fast"*.
+

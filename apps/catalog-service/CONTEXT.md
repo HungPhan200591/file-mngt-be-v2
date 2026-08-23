@@ -31,6 +31,11 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   gate giữ candidate `20%`; candidate đã rollback. V28 là stable runtime hiện tại. Đây không phải
   repeated-run/1M/production qualification. Capacity debt vẫn defer tại
   [TD-023](../../docs/TECHNICAL_DEBT.md#backlog-đang-mở) cho workload đại diện, deployment budget và SLO/cost ceiling.
+- [FT-064](../../docs/features/064-catalog-hybrid-streaming-reconciliation/03-plan.md) thay raw SQL winner reduction
+  bằng full-page Java virtual-thread reduction, COPY temp staging và hai set-based persistence phase; page mặc định
+  là 2.500 subject, DB writer vẫn tuần tự. Targeted gate đạt 48/48. Combined 25K đạt `7.696 ms`; read `170 ms`,
+  reduce `34 ms`, COPY `149 ms`, SQL apply `2.203 ms`. Kết quả performance-neutral so với V28 `7.765 ms`, không
+  phải throughput/1M qualification; residual apply bottleneck tiếp tục thuộc TD-023.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
   `media.subject.changed.v2` phát final full snapshot theo operation cho Query. FT-057 data plane và FT-058

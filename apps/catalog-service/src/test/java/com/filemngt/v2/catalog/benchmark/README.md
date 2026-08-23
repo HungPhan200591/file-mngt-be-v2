@@ -7,6 +7,7 @@
 - D1 Kafka-to-stage diagnostic: [CatalogOperationKafkaPipelineBenchmarkTest](./operation/CatalogOperationKafkaPipelineBenchmarkTest.java)
 - D2 reconciliation diagnostic: [CatalogOperationMergeBenchmarkTest](./operation/CatalogOperationMergeBenchmarkTest.java)
 - Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
+- Hybrid Java/SQL 25K result: [12-ft064-hybrid-streaming-reconciliation.md](./results/12-ft064-hybrid-streaming-reconciliation.md)
 - Current physical-feasibility report: [07-ft060-bounded-upsert-parallelism.md](./results/07-ft060-bounded-upsert-parallelism.md)
 - Sequential baseline: [06-ft059-sequential-physical-feasibility.md](./results/06-ft059-sequential-physical-feasibility.md)
 - Previous combined reliability report: [05-ft058-reliability-hardening.md](./results/05-ft058-reliability-hardening.md)

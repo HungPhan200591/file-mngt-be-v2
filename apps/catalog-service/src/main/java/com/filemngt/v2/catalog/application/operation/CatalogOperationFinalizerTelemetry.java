@@ -22,6 +22,10 @@ public class CatalogOperationFinalizerTelemetry {
     private final AtomicLong totalAcquireNanos = new AtomicLong();
     private final AtomicLong totalDrainNanos = new AtomicLong();
     private final AtomicLong completeOperationNanos = new AtomicLong();
+    private final AtomicLong hybridReadNanos = new AtomicLong();
+    private final AtomicLong hybridReduceNanos = new AtomicLong();
+    private final AtomicLong hybridCopyNanos = new AtomicLong();
+    private final AtomicLong hybridApplyNanos = new AtomicLong();
     private final AtomicInteger pageCount = new AtomicInteger();
     private final AtomicLong totalSubjects = new AtomicLong();
     private final ConcurrentLinkedQueue<Long> pageLatenciesNanos = new ConcurrentLinkedQueue<>();
@@ -54,10 +58,21 @@ public class CatalogOperationFinalizerTelemetry {
         completeOperationNanos.set(completeNanos);
     }
 
+    public void recordHybridPhases(long readNanos, long reduceNanos, long copyNanos, long applyNanos) {
+        hybridReadNanos.addAndGet(readNanos);
+        hybridReduceNanos.addAndGet(reduceNanos);
+        hybridCopyNanos.addAndGet(copyNanos);
+        hybridApplyNanos.addAndGet(applyNanos);
+    }
+
     public void reset() {
         totalAcquireNanos.set(0);
         totalDrainNanos.set(0);
         completeOperationNanos.set(0);
+        hybridReadNanos.set(0);
+        hybridReduceNanos.set(0);
+        hybridCopyNanos.set(0);
+        hybridApplyNanos.set(0);
         pageCount.set(0);
         totalSubjects.set(0);
         pageLatenciesNanos.clear();
@@ -92,7 +107,11 @@ public class CatalogOperationFinalizerTelemetry {
                 p95Ms,
                 maxMs,
                 toMillis(totalDrainNanos.get()),
-                toMillis(completeOperationNanos.get()));
+                toMillis(completeOperationNanos.get()),
+                toMillis(hybridReadNanos.get()),
+                toMillis(hybridReduceNanos.get()),
+                toMillis(hybridCopyNanos.get()),
+                toMillis(hybridApplyNanos.get()));
     }
 
     private static long toMillis(long nanos) {
@@ -109,12 +128,17 @@ public class CatalogOperationFinalizerTelemetry {
             long p95PageMillis,
             long maxPageMillis,
             long drainMillis,
-            long completeOperationMillis) {
+            long completeOperationMillis,
+            long hybridReadMillis,
+            long hybridReduceMillis,
+            long hybridCopyMillis,
+            long hybridApplyMillis) {
         @Override
         public String toString() {
             return String.format(
                     "FinalizerSnapshot[units=%d, subjects=%d, acquire=%dms, unitExecTotal=%dms "
-                            + "(min=%dms, avg=%dms, p95=%dms, max=%dms), drain=%dms, completeOp=%dms]",
+                            + "(min=%dms, avg=%dms, p95=%dms, max=%dms), drain=%dms, completeOp=%dms, "
+                            + "hybrid=(read=%dms, reduce=%dms, copy=%dms, apply=%dms)]",
                     pageCount,
                     totalSubjects,
                     acquireMillis,
@@ -124,7 +148,11 @@ public class CatalogOperationFinalizerTelemetry {
                     p95PageMillis,
                     maxPageMillis,
                     drainMillis,
-                    completeOperationMillis);
+                    completeOperationMillis,
+                    hybridReadMillis,
+                    hybridReduceMillis,
+                    hybridCopyMillis,
+                    hybridApplyMillis);
         }
     }
 }

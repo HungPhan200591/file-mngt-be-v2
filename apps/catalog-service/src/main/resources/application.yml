@@ -64,7 +64,8 @@ catalog:
     seal-batch-size: ${CATALOG_OPERATION_SEAL_BATCH_SIZE:1}
     seal-delay-ms: ${CATALOG_OPERATION_SEAL_DELAY_MS:10}
     completion-shard-delay-ms: ${CATALOG_OPERATION_COMPLETION_SHARD_DELAY_MS:10}
-    subject-page-size: ${CATALOG_OPERATION_SUBJECT_PAGE_SIZE:500}
+    subject-page-size: ${CATALOG_OPERATION_SUBJECT_PAGE_SIZE:2500}
+    maximum-input-records-per-page: ${CATALOG_OPERATION_MAXIMUM_INPUT_RECORDS_PER_PAGE:25000}
     lease-seconds: ${CATALOG_OPERATION_LEASE_SECONDS:30}
     statement-timeout-ms: ${CATALOG_OPERATION_STATEMENT_TIMEOUT_MS:20000}
     maximum-unit-attempts: ${CATALOG_OPERATION_MAXIMUM_UNIT_ATTEMPTS:3}

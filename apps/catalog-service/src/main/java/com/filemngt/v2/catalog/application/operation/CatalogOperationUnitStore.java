@@ -1,39 +1,24 @@
 package com.filemngt.v2.catalog.application.operation;
 
+import com.filemngt.v2.catalog.application.operation.reconcile.CatalogHybridReconciliationService;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * FT-057 control plane: claim coarse unit; data plane reconciliation vẫn là một set-based transaction
- * có fence tại PostgreSQL. Không phân trang subject và không rebuild workset ở retry.
- */
+/** Claim durable unit; FT-064 dispatch sang bounded Java reduction và một fenced set-based transaction. */
 @Repository
 public class CatalogOperationUnitStore {
     private final JdbcTemplate jdbc;
-    private final int maximumSnapshotBytes;
-    private final long statementTimeoutMillis;
+    private final CatalogHybridReconciliationService hybridReconciliation;
 
-    public CatalogOperationUnitStore(
-            JdbcTemplate jdbc,
-            @Value("${catalog.operation.maximum-snapshot-bytes:921600}") int maximumSnapshotBytes,
-            @Value("${catalog.operation.statement-timeout-ms:20000}") long statementTimeoutMillis,
-            @Value("${catalog.operation.lease-seconds:30}") long leaseSeconds) {
+    public CatalogOperationUnitStore(JdbcTemplate jdbc, CatalogHybridReconciliationService hybridReconciliation) {
         this.jdbc = jdbc;
-        if (maximumSnapshotBytes < 1) {
-            throw new IllegalArgumentException("catalog.operation.maximum-snapshot-bytes must be positive");
-        }
-        if (statementTimeoutMillis < 1 || statementTimeoutMillis >= leaseSeconds * 1_000) {
-            throw new IllegalArgumentException("Catalog finalizer statement timeout must be positive and below lease");
-        }
-        this.maximumSnapshotBytes = maximumSnapshotBytes;
-        this.statementTimeoutMillis = statementTimeoutMillis;
+        this.hybridReconciliation = hybridReconciliation;
     }
 
     @Transactional
@@ -74,24 +59,8 @@ public class CatalogOperationUnitStore {
         return claims.stream().findFirst();
     }
 
-    @Transactional
     public int reconcile(CatalogOperationUnitClaim claim) {
-        jdbc.queryForObject("""
-                select operation_id from catalog_approval_operation
-                where operation_id = ? and status = 'RECONCILING'
-                  and processing_version in (57, 59) and deadline_at > clock_timestamp()
-                """, java.util.UUID.class, claim.operationId());
-        jdbc.queryForObject(
-                "select set_config('statement_timeout', ?, true)", String.class, Long.toString(statementTimeoutMillis));
-        Integer processed = jdbc.queryForObject(
-                "select catalog_reconcile_operation_unit(?, ?, ?, ?, ?)",
-                Integer.class,
-                claim.operationId(),
-                claim.unitId(),
-                claim.owner(),
-                claim.fenceToken(),
-                maximumSnapshotBytes);
-        return processed == null ? 0 : processed;
+        return hybridReconciliation.reconcile(claim);
     }
 
     /** Chỉ emit final watermark sau khi mọi subject snapshot của operation đã broker-ack. */

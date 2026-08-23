@@ -1,5 +1,15 @@
 # Catalog Service Benchmark Results Dashboard
 
+## FT-064 — Hybrid Java reduction and set-based persistence
+
+| Workload | Page | Pipeline | Hybrid unit | Status |
+| --- | ---: | ---: | ---: | --- |
+| 25K input / 2.500 subjects | 2.500 subjects | `7.696 ms` / `3.248 input/s` | `2.566 ms` | Exact + final ACK PASS; performance neutral |
+
+Hybrid phase: read `170 ms`, virtual-thread reduce `34 ms`, COPY `149 ms`, SQL apply `2.203 ms`. So với V28
+`7.765 ms`, chênh lệch ~`0,9%` không đủ claim throughput gain. Chi tiết:
+[12-ft064-hybrid-streaming-reconciliation.md](./results/12-ft064-hybrid-streaming-reconciliation.md).
+
 ## FT-060 — Bounded bulk-upsert parallelism
 
 | Shape | 1M total | Bulk upsert | Throughput | Status |
