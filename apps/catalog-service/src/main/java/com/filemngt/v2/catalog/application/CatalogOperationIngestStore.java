@@ -28,6 +28,7 @@ public class CatalogOperationIngestStore {
         long copyNanos = System.nanoTime() - copyStarted;
 
         long stageInsertStarted = System.nanoTime();
+        lockOperationsForIngest();
         Integer inserted = jdbc.queryForObject("""
                 with input as (
                     select event_id, operation_id, batch_id, scan_run_id,
@@ -36,22 +37,24 @@ public class CatalogOperationIngestStore {
                         display_title, base_code, part, studio_code, actress_names,
                         storage_key, relative_path, asset_role, tag_names, event_time
                     from catalog_discovery_ingest_slice
-                ), operation_lock as (
+                ), operation_state as (
                     select operation.operation_id, operation.processing_version, operation.status,
                         operation.completion_shard_count
                     from catalog_approval_operation operation
                     join (select distinct operation_id from input) requested using (operation_id)
-                    order by operation.operation_id
-                    for update of operation
-                ), rejected_operation as (
+                ), rejected_input as (
                     select input.operation_id,
-                        min(case
+                        operation.processing_version,
+                        case when operation.completion_shard_count is null then null else
+                            input.routing_bucket * operation.completion_shard_count / 4096 end
+                            as completion_shard_id,
+                        case
                             when operation.status not in ('INGESTING', 'RECONCILING')
                                 then concat('operation-status=', operation.status)
                             else concat('completion-shard-status=', coalesce(shard.status, 'MISSING'))
-                        end) as rejection_reason
+                        end as rejection_reason
                     from input
-                    join operation_lock operation using (operation_id)
+                    join operation_state operation using (operation_id)
                     left join catalog_operation_discovery_input known on known.event_id = input.event_id
                     left join catalog_operation_completion_shard shard
                       on shard.operation_id = input.operation_id
@@ -67,20 +70,32 @@ public class CatalogOperationIngestStore {
                                 and shard.status <> 'INGESTING')
                         ))
                     )
-                    group by input.operation_id
-                ), blocked as (
+                ), rejected_operation as (
+                    select operation_id, processing_version, min(rejection_reason) as rejection_reason
+                    from rejected_input
+                    group by operation_id, processing_version
+                ), blocked_legacy as (
                     update catalog_approval_operation operation
-                    set status = 'BLOCKED',
-                        failure_code = case when operation.processing_version = 59
-                            then 'CATALOG_SHARD_LATE_INPUT'
-                            else 'CATALOG_LATE_INPUT_AFTER_SEAL' end,
+                    set status = 'BLOCKED', failure_code = 'CATALOG_LATE_INPUT_AFTER_SEAL',
                         last_error_type = 'CatalogShardLateInput',
                         last_error_message = rejected.rejection_reason,
                         blocked_at = now(),
                         updated_at = now()
                     from rejected_operation rejected
                     where operation.operation_id = rejected.operation_id
+                      and rejected.processing_version = 57
                       and operation.status in ('INGESTING', 'RECONCILING')
+                ), blocked_shards as (
+                    update catalog_operation_completion_shard shard
+                    set status = 'BLOCKED', updated_at = now()
+                    from (
+                        select distinct operation_id, completion_shard_id
+                        from rejected_input
+                        where processing_version = 59 and completion_shard_id is not null
+                    ) rejected
+                    where shard.operation_id = rejected.operation_id
+                      and shard.completion_shard_id = rejected.completion_shard_id
+                      and shard.status <> 'BLOCKED'
                 ), inserted as (
                     insert into catalog_operation_discovery_input(
                         event_id, operation_id, batch_id, scan_run_id, source_partition, source_offset,
@@ -94,7 +109,7 @@ public class CatalogOperationIngestStore {
                         input.studio_code, input.actress_names, input.storage_key, input.relative_path,
                         input.asset_role, input.tag_names, input.event_time
                     from input
-                    join operation_lock operation using (operation_id)
+                    join operation_state operation using (operation_id)
                     left join catalog_operation_completion_shard shard
                       on shard.operation_id = input.operation_id
                      and operation.completion_shard_count is not null
@@ -123,36 +138,6 @@ public class CatalogOperationIngestStore {
                     set inserted_record_count = catalog_operation_ingest_partition.inserted_record_count
                             + excluded.inserted_record_count,
                         updated_at = excluded.updated_at
-                ), shard_progress as (
-                    update catalog_operation_completion_shard shard
-                    set received_record_count = shard.received_record_count + progress.inserted_record_count,
-                        updated_at = now()
-                    from (
-                        select inserted.operation_id,
-                            inserted.routing_bucket * operation.completion_shard_count / 4096
-                                as completion_shard_id,
-                            count(*) as inserted_record_count
-                        from inserted
-                        join operation_lock operation using (operation_id)
-                        where operation.processing_version = 59
-                          and operation.completion_shard_count is not null
-                        group by inserted.operation_id,
-                            inserted.routing_bucket * operation.completion_shard_count / 4096
-                    ) progress
-                    where shard.operation_id = progress.operation_id
-                      and shard.completion_shard_id = progress.completion_shard_id
-                ), operation_progress as (
-                    update catalog_approval_operation operation
-                    set received_record_count = operation.received_record_count + progress.inserted_record_count,
-                        updated_at = now()
-                    from (
-                        select inserted.operation_id, count(*) as inserted_record_count
-                        from inserted
-                        join operation_lock operation using (operation_id)
-                        where operation.processing_version = 59
-                        group by inserted.operation_id
-                    ) progress
-                    where operation.operation_id = progress.operation_id
                 )
                 select count(*)::integer from inserted
                 """, Integer.class);
@@ -160,5 +145,24 @@ public class CatalogOperationIngestStore {
         long totalNanos = System.nanoTime() - sliceStarted;
         telemetry.recordSlice(input.size(), mappingNanos, copyNanos, stageInsertNanos, totalNanos);
         return inserted == null ? 0 : inserted;
+    }
+
+    private void lockOperationsForIngest() {
+        jdbc.queryForList("""
+                select operation.operation_id
+                from catalog_approval_operation operation
+                join (select distinct operation_id from catalog_discovery_ingest_slice) requested using (operation_id)
+                where operation.processing_version = 57
+                order by operation.operation_id
+                for update of operation
+                """);
+        jdbc.queryForList("""
+                select operation.operation_id
+                from catalog_approval_operation operation
+                join (select distinct operation_id from catalog_discovery_ingest_slice) requested using (operation_id)
+                where operation.processing_version = 59
+                order by operation.operation_id
+                for share of operation
+                """);
     }
 }

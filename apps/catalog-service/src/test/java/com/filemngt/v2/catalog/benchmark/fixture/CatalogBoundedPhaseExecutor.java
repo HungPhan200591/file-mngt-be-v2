@@ -35,6 +35,27 @@ public final class CatalogBoundedPhaseExecutor {
         }
     }
 
+    public void ingestBySourcePartition(int eventCount, int workerCount) {
+        runWorkers(workerCount, worker -> ingestOwnedPartitions(eventCount, worker, workerCount));
+    }
+
+    private void ingestOwnedPartitions(int eventCount, int worker, int workerCount) {
+        var events = new ArrayList<com.filemngt.v2.contracts.events.MediaFileDiscoveredV2>(INGEST_BATCH_SIZE);
+        var coordinates = new ArrayList<CatalogOperationStageStore.RecordCoordinate>(INGEST_BATCH_SIZE);
+        for (int index = 0; index < eventCount; index++) {
+            int sourcePartition = index % 12;
+            if (sourcePartition % workerCount != worker) continue;
+            events.add(CatalogOperationBenchmarkFixture.discoveryEvent(index));
+            coordinates.add(new CatalogOperationStageStore.RecordCoordinate(sourcePartition, index / 12L));
+            if (events.size() == INGEST_BATCH_SIZE) {
+                stage.ingest(events, coordinates);
+                events = new ArrayList<>(INGEST_BATCH_SIZE);
+                coordinates = new ArrayList<>(INGEST_BATCH_SIZE);
+            }
+        }
+        if (!events.isEmpty()) stage.ingest(events, coordinates);
+    }
+
     public void bulkUpsert(int workerCount) {
         runWorkers(workerCount, worker -> {
             BucketRange range = range(worker, workerCount);

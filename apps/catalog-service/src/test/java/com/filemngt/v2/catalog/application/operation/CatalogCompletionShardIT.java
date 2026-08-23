@@ -113,13 +113,7 @@ class CatalogCompletionShardIT {
 
         assertThat(shardReceivedRecordCount(completionShardId)).isZero();
         stage.ingest(List.of(event), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 0)));
-        assertThat(shardReceivedRecordCount(completionShardId)).isEqualTo(1);
-
-        jdbc.update("""
-                update catalog_operation_completion_shard
-                set received_record_count = 0
-                where operation_id = ? and completion_shard_id = ?
-                """, event.operationId(), completionShardId);
+        assertThat(shardReceivedRecordCount(completionShardId)).isZero();
 
         assertThat(shards.sealNext(250))
                 .hasValueSatisfying(result -> assertThat(result.sealed()).isTrue());
@@ -171,8 +165,10 @@ class CatalogCompletionShardIT {
         assertThat(shardId(late)).isEqualTo(shardId(first));
         assertThat(stage.ingest(List.of(late), List.of(new CatalogOperationStageStore.RecordCoordinate(0, 1))))
                 .isZero();
+        assertThat(shardStatus(shardId(first))).isEqualTo("BLOCKED");
+        assertThat(shards.propagateBlockedShards()).isEqualTo(1);
         assertThat(operationStatus()).isEqualTo("BLOCKED");
-        assertThat(operationLastErrorMessage()).isEqualTo("completion-shard-status=RECONCILING");
+        assertThat(operationLastErrorMessage()).isEqualTo("completion-shard-status=BLOCKED");
         assertThat(typedInputCount()).isEqualTo(1);
     }
 

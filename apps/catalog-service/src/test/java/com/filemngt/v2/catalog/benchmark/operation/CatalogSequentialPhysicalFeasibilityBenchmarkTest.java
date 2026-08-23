@@ -97,41 +97,53 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
     @Test
     @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresOneMillionRecordPhysicalLowerBoundSequentially() {
-        measure(EVENT_COUNT, 1);
+        measure(EVENT_COUNT, 1, 1);
     }
 
     @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void validatesTwentyFiveThousandRecordsThreeTimesWithTwoBoundedUpsertWorkers() {
-        repeatCalibration(2);
+        repeatCalibration(1, 2);
     }
 
     @Test
     @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresOneMillionRecordsWithTwoBoundedUpsertWorkers() {
-        measure(EVENT_COUNT, 2);
+        measure(EVENT_COUNT, 1, 2);
     }
 
     @Test
     @Timeout(value = 10, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void validatesTwentyFiveThousandRecordsThreeTimesWithFourBoundedUpsertWorkers() {
-        repeatCalibration(4);
+        repeatCalibration(1, 4);
     }
 
     @Test
     @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresOneMillionRecordsWithFourBoundedUpsertWorkers() {
-        measure(EVENT_COUNT, 4);
+        measure(EVENT_COUNT, 1, 4);
     }
 
-    private void repeatCalibration(int workerCount) {
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void validatesTwentyFiveThousandRecordsThreeTimesWithFourSharedFenceIngestWorkers() {
+        repeatCalibration(4, 2);
+    }
+
+    @Test
+    @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void measuresOneMillionRecordsWithFourSharedFenceIngestWorkers() {
+        measure(EVENT_COUNT, 4, 2);
+    }
+
+    private void repeatCalibration(int ingestWorkerCount, int upsertWorkerCount) {
         for (int repetition = 0; repetition < CALIBRATION_REPETITIONS; repetition++) {
             if (repetition > 0) resetDatabase();
-            measure(CALIBRATION_EVENT_COUNT, workerCount);
+            measure(CALIBRATION_EVENT_COUNT, ingestWorkerCount, upsertWorkerCount);
         }
     }
 
-    private void measure(int eventCount, int workerCount) {
+    private void measure(int eventCount, int ingestWorkerCount, int upsertWorkerCount) {
         int subjectCount = Math.toIntExact(CatalogOperationBenchmarkFixture.expectedSubjects(eventCount));
         CatalogPhysicalFeasibilitySql.initializeOperation(
                 jdbc, CatalogOperationBenchmarkFixture.operationId(), CatalogOperationBenchmarkFixture.scanRunId());
@@ -139,7 +151,10 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         var executor = new CatalogBoundedPhaseExecutor(stage, jdbc, transactions);
         List<PhaseMeasurement> phases = new ArrayList<>();
 
-        phases.add(sampler.measure("immutable-ingest", () -> executor.ingestSequentially(eventCount)));
+        phases.add(sampler.measure("immutable-ingest", () -> {
+            if (ingestWorkerCount == 1) executor.ingestSequentially(eventCount);
+            else executor.ingestBySourcePartition(eventCount, ingestWorkerCount);
+        }));
         assertThat(count("catalog_operation_discovery_input")).isEqualTo(eventCount);
 
         phases.add(sampler.measure(
@@ -149,7 +164,7 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         assertThat(count("benchmark_catalog_subject_reduction")).isEqualTo(subjectCount);
         assertThat(count("benchmark_catalog_asset_reduction")).isEqualTo(eventCount);
 
-        phases.add(sampler.measure("bulk-upsert-subject-assets", () -> executor.bulkUpsert(workerCount)));
+        phases.add(sampler.measure("bulk-upsert-subject-assets", () -> executor.bulkUpsert(upsertWorkerCount)));
         assertThat(count("media_subject")).isEqualTo(subjectCount);
         assertThat(count("media_asset")).isEqualTo(eventCount);
 
@@ -163,7 +178,7 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         assertThat(pendingOutbox()).isZero();
         assertTelemetryClean(phases);
 
-        logResult(eventCount, subjectCount, workerCount, phases);
+        logResult(eventCount, subjectCount, ingestWorkerCount, upsertWorkerCount, phases);
     }
 
     private void relayOutboxSequentially(int expectedOutboxCount) {
@@ -221,16 +236,22 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         });
     }
 
-    private void logResult(int eventCount, int subjectCount, int workerCount, List<PhaseMeasurement> phases) {
+    private void logResult(
+            int eventCount,
+            int subjectCount,
+            int ingestWorkerCount,
+            int upsertWorkerCount,
+            List<PhaseMeasurement> phases) {
         long totalMillis =
                 phases.stream().mapToLong(PhaseMeasurement::elapsedMillis).sum();
         LOGGER.info(
-                "Catalog bounded physical feasibility: events={}, subjects={}, ingestWorkers=1, "
+                "Catalog bounded physical feasibility: events={}, subjects={}, ingestWorkers={}, "
                         + "upsertWorkers={}, processors={}, maxHeapMiB={}, totalMs={}, target90sMet={}, "
                         + "target120sMet={}\n{}",
                 eventCount,
                 subjectCount,
-                workerCount,
+                ingestWorkerCount,
+                upsertWorkerCount,
                 Runtime.getRuntime().availableProcessors(),
                 Runtime.getRuntime().maxMemory() / (1024 * 1024),
                 totalMillis,

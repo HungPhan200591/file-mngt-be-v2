@@ -124,6 +124,36 @@ public class CatalogCompletionShardStore {
         return completed == null ? 0 : completed;
     }
 
+    /** Đưa failure durable ở child shard lên parent mà không lock-upgrade transaction ingest. */
+    @Transactional
+    public int propagateBlockedShards() {
+        Integer blocked = jdbc.queryForObject("""
+                with candidates as materialized (
+                    select operation.operation_id
+                    from catalog_approval_operation operation
+                    where operation.processing_version = 59
+                      and operation.status in ('INGESTING', 'RECONCILING', 'COMMITTING')
+                      and exists (
+                          select 1 from catalog_operation_completion_shard shard
+                          where shard.operation_id = operation.operation_id and shard.status = 'BLOCKED')
+                    order by operation.updated_at, operation.operation_id
+                    for update of operation skip locked
+                    limit 64
+                ), propagated as (
+                    update catalog_approval_operation operation
+                    set status = 'BLOCKED', failure_code = 'CATALOG_SHARD_LATE_INPUT',
+                        last_error_type = 'CatalogShardLateInput', blocked_at = coalesce(blocked_at, now()),
+                        last_error_message = coalesce(last_error_message, 'completion-shard-status=BLOCKED'),
+                        updated_at = now()
+                    from candidates
+                    where operation.operation_id = candidates.operation_id
+                    returning operation.operation_id
+                )
+                select count(*)::integer from propagated
+                """, Integer.class);
+        return blocked == null ? 0 : blocked;
+    }
+
     private void ensureOperation(MediaApprovalShardCompletedV1 marker) {
         jdbc.update("""
                 insert into catalog_approval_operation(operation_id, scan_run_id, processing_version)

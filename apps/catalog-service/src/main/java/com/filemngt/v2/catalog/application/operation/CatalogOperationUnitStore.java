@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -96,11 +97,37 @@ public class CatalogOperationUnitStore {
     /** Chỉ emit final watermark sau khi mọi subject snapshot của operation đã broker-ack. */
     @Transactional
     public int beginCommittingEligibleOperations() {
-        return jdbc.update("""
+        List<UUID> candidates = jdbc.queryForList("""
+                select operation.operation_id
+                from catalog_approval_operation operation
+                where operation.processing_version in (57, 59)
+                  and operation.status = 'RECONCILING'
+                  and operation.received_record_count = operation.expected_discovery_record_count
+                  and operation.expected_removal_record_count = 0
+                  and operation.unresolved_dlt_count = 0
+                  and operation.completed_unit_count = operation.reconcile_unit_count
+                  and not exists (
+                      select 1 from catalog_operation_reconcile_unit unit
+                      where unit.operation_id = operation.operation_id
+                        and unit.status not in ('COMPLETED', 'BLOCKED'))
+                  and not exists (
+                      select 1 from catalog_outbox_event snapshot
+                      where snapshot.operation_id = operation.operation_id
+                        and snapshot.event_type = 'media.subject.changed.v2'
+                        and snapshot.published_at is null)
+                order by operation.updated_at, operation.operation_id
+                for update of operation skip locked
+                limit 64
+                """, UUID.class);
+        if (candidates.isEmpty()) return 0;
+
+        String placeholders = String.join(", ", java.util.Collections.nCopies(candidates.size(), "?"));
+        String commitSql = """
                 with completed as (
                     update catalog_approval_operation operation
                     set status = 'COMMITTING', expected_subject_count = operation.final_snapshot_count, updated_at = now()
-                    where operation.processing_version in (57, 59)
+                    where operation.operation_id in (%s)
+                      and operation.processing_version in (57, 59)
                       and operation.status = 'RECONCILING'
                       and operation.received_record_count = operation.expected_discovery_record_count
                       and operation.expected_removal_record_count = 0
@@ -176,6 +203,7 @@ public class CatalogOperationUnitStore {
                 from completed
                 on conflict (operation_id, event_type)
                     where event_type = 'media.approval.watermark.v1' do nothing
-                """);
+                """.formatted(placeholders);
+        return jdbc.update(commitSql, candidates.toArray());
     }
 }

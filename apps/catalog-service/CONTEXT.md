@@ -41,6 +41,12 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   `145.586 ms`; bốn workers scale âm thành `271.389 ms` với upsert `161.737 ms`. Parallel production ingest
   bị gate bác bỏ vì mỗi slice khóa/cập nhật cùng parent operation. Không productionize candidate; hướng tiếp theo
   là immutable ingest write + bounded progress fan-in và tối ưu create-outbox riêng.
+- FT-061 đã `IMPLEMENTED`: V59 dùng parent `FOR SHARE` ở statement riêng để các ingest transactions chạy đồng
+  thời nhưng mọi marker/seal/terminal parent update vẫn bị fence; ingest statement sau lấy fresh snapshot và
+  không cập nhật parent/shard counters theo slice. Late input block child rồi control plane propagate parent.
+  Targeted regression đạt 35/35; gate 25K x3 bốn ingest workers đạt `2.688–3.307 ms`, exact cardinality và zero
+  lock wait/deadlock. Physical 1M vượt 110 giây tại bulk-upsert synchronization nên dừng theo gate và không chạy
+  combined; đây là stable correctness baseline, chưa phải throughput qualification.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.

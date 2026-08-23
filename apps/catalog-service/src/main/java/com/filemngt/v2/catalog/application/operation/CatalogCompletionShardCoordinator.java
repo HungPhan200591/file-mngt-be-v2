@@ -33,10 +33,11 @@ public class CatalogCompletionShardCoordinator {
 
     @Scheduled(fixedDelayString = "${catalog.operation.completion-shard-delay-ms:10}")
     public void reconcileReadyShards() {
+        int blocked = shards.propagateBlockedShards();
         int sealed = sealReadyShards();
         int completed = shards.completeReadyShards();
-        if (sealed > 0 || completed > 0) {
-            LOGGER.debug("Catalog completion shards sealed={} completed={}", sealed, completed);
+        if (blocked > 0 || sealed > 0 || completed > 0) {
+            LOGGER.debug("Catalog completion shards blocked={} sealed={} completed={}", blocked, sealed, completed);
         }
     }
 
