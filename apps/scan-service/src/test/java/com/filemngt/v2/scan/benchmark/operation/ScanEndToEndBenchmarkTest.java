@@ -81,7 +81,9 @@ import org.testcontainers.utility.DockerImageName;
             "scan.bulk-decision.enabled=false",
             "scan.issue-recheck.enabled=false",
             "spring.datasource.hikari.maximum-pool-size=30",
-            "p6spy.enabled=false"
+            "p6spy.enabled=false",
+            "logging.level.org.apache.kafka=WARN",
+            "logging.level.org.springframework.kafka=WARN"
         })
 @Import(ScanEndToEndBenchmarkTopicConfiguration.class)
 class ScanEndToEndBenchmarkTest {

@@ -10,7 +10,7 @@
 > **Bản chất cốt lõi**: `catalog-service` là một **Batch Stream Processor / Aggregate Coalescer** đóng vai trò là "bộ lọc tinh chế dữ liệu": tiếp nhận 1.000.000 sự kiện phát hiện file thô từ `scan-service`, phân rã và hợp nhất (reduce) thành 100.000 cụm thực thể Subject chuẩn mực (Domain Aggregates), lưu trữ vào cơ sở dữ liệu quan hệ và phát tín hiệu thay đổi đồng bộ sang `query-service`.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph SCAN["[1] Scan Service"]
         OUT["Scan Outbox\n(1M Files)"]
     end
@@ -21,7 +21,7 @@ flowchart LR
     subgraph CATALOG["[3] Catalog Service (BT-09D)"]
         direction TB
         INGEST["Append-Only Ingest\n(COPY -> Raw Stage)"]
-        RECON["Hybrid Reconciliation\n(Java RAM + DB COPY)"]
+        RECON["Hybrid Reconcile\n(Java RAM + DB COPY)"]
         RELAY["Indexed Sliding Relay\n(Continuous Publish)"]
         INGEST --> RECON --> RELAY
     end
@@ -140,23 +140,23 @@ Dự án đã trải qua một hành trình thử-sai dài qua nhiều thế h�
 > **Ý tưởng cốt lõi**: Sử dụng ORM Hibernate truyền thống theo tư duy hướng đối tượng. Java nhận sự kiện Kafka, load thực thể `MediaSubjectEntity`, add `MediaAssetEntity` vào quan hệ `@OneToMany`, dựa vào Hibernate Dirty Checking để tự động sinh lệnh SQL xuống Database.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph INGRESS1["[1] Kafka Ingress"]
         K1["1.000.000 Raw Events"]
     end
     subgraph JVM1["[2] Java Layer (Hibernate ORM)"]
         direction TB
-        E1["Load Subject Entity Graph\n(Lazy / Eager Fetching)"]
-        E2["In-Memory Dirty Checking\n(1M Managed Objects)"]
-        E3["Tràn Hibernate Session Cache\n& GC Pauses liên tục"]
+        E1["Load Entity Graph\n(Lazy / Eager Fetch)"]
+        E2["Dirty Check 1M Entities\n(Tràn Session Cache)"]
+        E3["GC Pauses kéo dài liên tục"]
         E1 --> E2 --> E3
     end
     subgraph DB1["[3] PostgreSQL Engine"]
-        SQL1["1.000.000 câu SQL đơn lẻ\nSELECT / UPDATE row-by-row\n-> N+1 Query Hell!"]
+        SQL1["1.000.000 câu SQL đơn lẻ\nSELECT / UPDATE lẻ tẻ\n-> N+1 Query Hell!"]
     end
-    K1 --> E1
-    E3 ==>|"Hàng triệu network roundtrips"| SQL1
-    SQL1 --> DEAD1(["TIMEOUT > 5 PHÚT\n(Gãy toàn tập)"])
+    INGRESS1 --> JVM1
+    JVM1 ==>|"Hàng triệu roundtrips"| DB1
+    DB1 --> DEAD1(["TIMEOUT > 5 PHÚT\n(Gãy toàn tập)"])
     style INGRESS1 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style K1 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
     style JVM1 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
@@ -174,29 +174,23 @@ flowchart LR
 > **Ý tưởng cốt lõi**: "Move compute to data". Sợ Java chậm nên tống khứ 100% logic tính toán xuống Database. Ép PostgreSQL tự bóc tách JSON, tự so sánh Hash, tự bầu chọn Primary Video và tự dựng chuỗi JSONB Snapshot bằng Stored Procedure, CTE 700 dòng hoặc Bảng UNLOGGED.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph INGRESS2["[1] Kafka Ingress"]
         K2["1.000.000 Raw Events"]
     end
     subgraph JVM2["[2] Java Layer (Pass-Through)"]
-        J2["Không tính toán gì\nBơm nguyên bản thô xuống DB"]
+        J2["Không tính toán\nBơm thô xuống DB"]
     end
     subgraph DB2["[3] 100% PostgreSQL Stored Procedures"]
         direction TB
-        V19["V19: Tạo 7 Bảng Tạm DDL\n+ 5 lệnh ANALYZE mỗi page\n-> DDL Lock Contention!"]
-        V20["V20: 1 Câu CTE 700 dòng\nSort 1M JSONB vượt work_mem\n-> Disk Spill & OOM sập kết nối!"]
-        V21["V21: 8 Bảng UNLOGGED\nInsert/Delete liên tục\n-> Dead-Tuples bùng nổ, bloat đĩa!"]
-        V22["V22: Dual-Write lúc Ingest\n-> Ingest chậm gấp 10 lần!"]
+        V19["V19: 7 Bảng Tạm DDL\n+ 5 ANALYZE / page\n-> DDL Lock Contention!"]
+        V20["V20: 1 Câu CTE 700 dòng\nSort 1M JSONB\nvượt work_mem RAM\n-> OOM Disk Spill!"]
+        V21["V21: 8 Bảng UNLOGGED\nInsert / Delete liên tục\n-> Bùng nổ Dead-Tuples\n& Phình đĩa!"]
+        V22["V22: Dual-Write Ingest\n-> Chậm gấp 10 lần!"]
     end
-    K2 --> J2
-    J2 --> V19
-    J2 --> V20
-    J2 --> V21
-    J2 --> V22
-    V19 --> DEAD2(["TIMEOUT & OOM DISK SPILL\n(1 Core PG bị vắt kiệt)"])
-    V20 --> DEAD2
-    V21 --> DEAD2
-    V22 --> DEAD2
+    INGRESS2 --> JVM2
+    JVM2 --> DB2
+    DB2 --> DEAD2(["TIMEOUT & OOM DISK SPILL\n(1 Core PG bị vắt kiệt)"])
     style INGRESS2 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style K2 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
     style JVM2 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
@@ -217,13 +211,14 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph INGRESS3["[1] Ingress & Shard Router"]
-        K3["1M Files + Shard Completion Markers\n(media.approval.shard.completed.v1)"]
+        K3["1M Files + Markers\n(media.approval.shard.completed.v1)"]
     end
     subgraph WORKERS3["[2] Multi-Worker Concurrency (Java)"]
-        W1["Worker 1 (Claim Shard 01-16)"]
-        W2["Worker 2 (Claim Shard 17-32)"]
-        W3["Worker 3 (Claim Shard 33-48)"]
-        W4["Worker 4 (Claim Shard 49-64)"]
+        direction LR
+        W1["Worker 1\n(Shard 01-16)"]
+        W2["Worker 2\n(Shard 17-32)"]
+        W3["Worker 3\n(Shard 33-48)"]
+        W4["Worker 4\n(Shard 49-64)"]
     end
     subgraph DB3["[3] Single PostgreSQL Instance (Bottlenecks)"]
         direction TB
@@ -233,8 +228,8 @@ flowchart TD
         STATE["4. FT-059: State Machine Hell\n(Marker đến trước Data, Race Condition)"]
         LOCK --> ROW --> TO --> STATE
     end
-    K3 --> W1 & W2 & W3 & W4
-    W1 & W2 & W3 & W4 ==>|"4 Writers tranh chấp 1 DB"| DB3
+    INGRESS3 --> WORKERS3
+    WORKERS3 ==>|"4 Writers tranh chấp 1 DB"| DB3
     DB3 --> DEAD3(["NEGATIVE SCALING\n(Càng tăng luồng càng chậm!)"])
     style INGRESS3 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style K3 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
@@ -259,7 +254,7 @@ flowchart TD
 > 2. **PostgreSQL**: Không cần suy nghĩ hay tính toán logic. Chỉ làm việc ghi đĩa tuần tự nhanh nhất qua giao thức **`COPY` phẳng + 1 câu INSERT Set-based đơn giản** theo từng Page 2.500 Subjects.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph INGRESS4["[1] Kafka Ingress"]
         K4["1.000.000 Files\n(Immutable Ingest qua COPY)"]
     end
@@ -280,10 +275,10 @@ flowchart LR
     subgraph EGRESS4["[4] Outbox Relay"]
         RELAY4["Multi-Lane Sliding Window\n(Gối đầu song song với Reconcile)"]
     end
-    K4 --> FETCH4
-    STREAM4 ==>|"COPY phẳng"| COPY4
-    CHECK4 --> RELAY4
-    RELAY4 --> SUCCESS4(["HOÀN TẤT 1M TRONG 3 PHÚT 26S!\n(Exact Cardinality 100% Pass)"])
+    INGRESS4 --> HYBRID_JVM
+    HYBRID_JVM ==>|"COPY phẳng"| HYBRID_DB
+    HYBRID_DB --> EGRESS4
+    EGRESS4 --> SUCCESS4(["HOÀN TẤT 1M TRONG 3 PHÚT 26S!\n(Exact Cardinality 100% Pass)"])
     style INGRESS4 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
     style K4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
     style HYBRID_JVM fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
@@ -349,7 +344,7 @@ Bởi vì bài toán Catalog **không phải là INSERT dữ liệu phẳng**, m
 Để giải quyết tận gốc rễ vấn đề, **FT-064** và **ADR-008** thiết lập mô hình **Hybrid (Lai ghép) chuẩn mực**:
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph DBR["PostgreSQL Read Realm"]
         direction TB
         WORK[("Subject Workset\n(Durable Shard)")]
@@ -358,7 +353,7 @@ flowchart LR
     subgraph JVM["Java Application Realm (RAM)"]
         direction TB
         FETCH["Keyset Cursor Fetch\n(Page 2.500 Subjects)"]
-        REDUCE["Virtual-Thread Fan-Out\n(Winner, Primary, Tags, JSON)"]
+        REDUCE["Virtual-Thread Reducer\n(Winner, Primary, Tags, JSON)"]
         STREAM(("Flattened Batch Stream"))
         FETCH --> REDUCE --> STREAM
     end
@@ -369,9 +364,8 @@ flowchart LR
         CHECK{{"Durable Checkpoint\n(1 Transaction / Unit)"}}
         COPY --> APPLY --> CHECK
     end
-    WORK -->|"1. Claim Unit"| FETCH
-    INPUT -->|"2. Read Full Subjects"| FETCH
-    STREAM -->|"3. Stream Flat Data"| COPY
+    DBR ==>|"1. Claim & Read Workset"| JVM
+    JVM ==>|"2. Stream Flat Data"| DBW
     style DBR fill:#4A148C,stroke:#fff,stroke-width:2px,color:#fff
     style WORK fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
     style INPUT fill:#9C27B0,stroke:#fff,stroke-width:2px,color:#fff
