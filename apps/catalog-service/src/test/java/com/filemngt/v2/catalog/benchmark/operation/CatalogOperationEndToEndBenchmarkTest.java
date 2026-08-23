@@ -73,7 +73,7 @@ import tools.jackson.databind.ObjectMapper;
             "catalog.operation.worker-count=1",
             "catalog.operation.seal-batch-size=1",
             "catalog.operation.completion-shard-delay-ms=1",
-            "catalog.operation.subject-page-size=1000",
+            "catalog.operation.subject-page-size=2500",
             "catalog.operation.finalizer-delay-ms=1",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=true",

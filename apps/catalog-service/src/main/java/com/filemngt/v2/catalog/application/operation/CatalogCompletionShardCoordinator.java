@@ -27,7 +27,7 @@ public class CatalogCompletionShardCoordinator {
             @Value("${catalog.operation.seal-batch-size:1}") int batchSize) {
         this.shards = shards;
         this.metrics = metrics;
-        this.pageSize = bounded(pageSize, 1, 1_000, "subject-page-size");
+        this.pageSize = bounded(pageSize, 1, 2_500, "subject-page-size");
         this.batchSize = bounded(batchSize, 1, 64, "seal-batch-size");
     }
 
