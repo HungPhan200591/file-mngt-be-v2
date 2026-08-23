@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Enforce một deadline 120 giây xuyên INGESTING, RECONCILING và COMMITTING. */
+/** Enforce durable safety deadline xuyên INGESTING, RECONCILING và COMMITTING. */
 @Component
 @ConditionalOnProperty(
         name = {"catalog.operation.finalizer-enabled", "catalog.operation.watchdog-enabled"},
@@ -30,7 +30,7 @@ public class CatalogOperationDeadlineWatchdog {
                 update catalog_approval_operation
                 set status = 'BLOCKED', failure_code = 'CATALOG_OPERATION_DEADLINE_EXCEEDED',
                     last_error_type = 'OperationDeadlineExceeded',
-                    last_error_message = 'Catalog operation exceeded the 120-second total processing deadline',
+                    last_error_message = 'Catalog operation exceeded its configured total processing deadline',
                     blocked_at = now(), updated_at = now()
                 where status in ('INGESTING', 'RECONCILING', 'COMMITTING')
                   and deadline_at <= clock_timestamp()

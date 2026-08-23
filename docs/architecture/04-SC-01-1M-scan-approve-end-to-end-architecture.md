@@ -19,8 +19,8 @@ thế Plan của từng feature:
 | BT-09A — operation contract và watermark | [FT-044](../features/044-approve-1m-operation-contract/01-brief.md) | `DONE` |
 | BT-09B — scan decision/outbox chunking | [FT-051](../features/051-logical-approval-sharding/01-brief.md) | `IMPLEMENTED — shardCount=4 DEFAULT`; production qualification vẫn pending |
 | BT-09C — Scan outbox relay | [FT-053](../features/053-lane-fenced-outbox-data-plane/01-brief.md) | `READY`; FT-052 implementation không đạt performance gate |
-| BT-09D — Catalog bulk reconciliation | [FT-059](../features/059-catalog-logical-shard-completion/03-plan.md) | `READY — architecture/contract approved; implementation pending`; FT-058 failed 1M/120s |
-| BT-09E → BT-09G — Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | `PLANNED`; chỉ mở sau FT-059 qualification |
+| BT-09D — Catalog bulk reconciliation | [FT-061](../features/061-catalog-shared-ingest-fence/03-plan.md) | Stable correctness baseline; performance `UNQUALIFIED` theo ADR-007 |
+| BT-09E → BT-09G — Query, failure evidence, scale ladder | [SC-01 break task](../../manual/learning/use-cases/scale-capacity/sc-01-scan-one-million-filesystem-entry/04-break-task.md#bt-09--approve-1m-records-to-query_db_ready--planned) | BT-09E được phép mở; BT-09F/G tiếp tục correctness và qualification |
 
 Không có xung đột khi viết architecture trước khi các lát BT-09 triển khai. Xung đột chỉ xảy ra nếu dùng
 đề xuất ở đây để ghi đè contract/Plan hoặc tuyên bố SLO đã đạt. Khi code khác proposal (ví dụ JDBC batch
@@ -94,6 +94,7 @@ Source-of-truth liên quan:
 - [FT-045 — scan decision/outbox chunking](../features/045-scan-decision-chunking/02-design.md)
 - [FT-059 — logical shard completion](../features/059-catalog-logical-shard-completion/02-design.md)
 - [ADR-006 — logical completion shards](../adr/ADR-006-logical-completion-shards.md)
+- [ADR-007 — Catalog correctness-first capacity policy](../adr/ADR-007-catalog-correctness-first-capacity-policy.md)
 - [005 Scan approval outbox](../features/005-scan-approval-outbox/02-design.md)
 - [037 Outbox backlog capacity](../features/037-outbox-backlog-capacity/02-design.md)
 - [037 scale and cloud rollout](../features/037-outbox-backlog-capacity/05-scale-and-cloud-rollout.md)
@@ -109,7 +110,7 @@ Không đặt cùng một SLA cho mọi stage. Các con số dưới đây là *
 |---|---|---:|
 | ACCEPTED | Operation đã durable, HTTP có thể trả về | p95 < 1 giây |
 | APPROVAL_COMMITTED | Scan đã ghi đủ decision và discovery outbox | local FT-051 1M shard-4 là 30,759 giây; qualification pending |
-| CATALOG_COMMITTED | Canonical đã hội tụ và output được broker ack | release gate 1M `<= 120s`; 30K–40K/s chỉ là stretch |
+| CATALOG_COMMITTED | Canonical đã hội tụ và output được broker ack | correctness-gated; performance `UNQUALIFIED` theo ADR-007 |
 | QUERY_DB_READY | Gallery/Media Library đọc được Query DB | `UNQUALIFIED` tới BT-09E; target 60 giây cũ đã hủy |
 | SEARCH_READY | Full-text/fuzzy search đã cập nhật | slow lane, candidate 15 phút |
 | MEDIA_READY | Thumbnail/GIF/hash/technical metadata đã xong | async theo media workload |
@@ -523,7 +524,7 @@ PostgreSQL declarative partitioning là physical partitioning khác logical shar
 - Per-shard manifest/equality gate; marker/data không phụ thuộc arrival order.
 - Stable shard workset, bounded page reconciliation/checkpoint và final snapshot outbox atomic.
 - Indexed sliding Catalog relay và CATALOG_COMMITTED sau final ack.
-- Combined gate ba run 1M `<= 120s`; 30K–40K/s chỉ là stretch.
+- Combined benchmark là diagnostic/qualification tự chọn; không block functional delivery theo ADR-007.
 
 ### P4 — Query
 
@@ -566,7 +567,7 @@ Performance gate:
 
 - ACCEPTED không phụ thuộc 1M;
 - APPROVAL_COMMITTED đạt candidate p95/p99;
-- CATALOG_COMMITTED đạt ba run 1M `<= 120s` với exact shard/global cardinality và final broker ACK;
+- CATALOG_COMMITTED giữ exact shard/global cardinality và final broker ACK; elapsed giữ `UNQUALIFIED`;
 - QUERY_DB_READY đo từ acceptedAt;
 - backlog không tăng vô hạn;
 - backpressure bảo vệ interactive lane.

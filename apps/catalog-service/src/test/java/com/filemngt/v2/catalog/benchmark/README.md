@@ -1,6 +1,6 @@
 # Catalog Benchmark Suite
 
-## FT-060 — current physical candidate
+## Stable correctness mode — performance unqualified
 
 - Combined gate: [CatalogOperationEndToEndBenchmarkTest](./operation/CatalogOperationEndToEndBenchmarkTest.java)
 - D1 direct-stage diagnostic: [CatalogOperationIngestBenchmarkTest](./operation/CatalogOperationIngestBenchmarkTest.java)
@@ -13,8 +13,8 @@
 
 Combined gate chạy ba workload: **25K**, **250K**, rồi **1M input records**. Consumer được assignment ổn định
 rồi chạy liên tục trong lúc test publish discovery, đủ 64 logical-shard completion marker và global watermark
-FT-059. Phase diagnostic để tìm điểm nghẽn; chỉ combined gate được đối chiếu release deadline 1M/120 giây.
-Mức tối thiểu là 8.333 input records/s; 30K input records/s là stretch indicator.
+FT-059. Theo ADR-007, combined và phase benchmark là diagnostic/qualification tự chọn; 1M/120 giây không còn
+block functional delivery. Mọi throughput result vẫn là local evidence, không phải production SLO.
 
 `CatalogOperationEndToEndBenchmarkTest` dùng Kafka input thật, shard-completion marker, typed stage, bounded-page
 finalizer, operation relay và

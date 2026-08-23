@@ -20,8 +20,9 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   với targeted verification: logical
   completion shard theo canonical subject key, Scan transactional marker, Catalog shard equality gate và bounded
   page reconciliation; Java vẫn chỉ giữ bounded control plane, không làm 1M-row in-memory reducer.
-  Combined Catalog release gate là 1M trong tối đa 120 giây từ first receive tới final broker ack; 30K–40K
-  input records/s chỉ là stretch capacity result, không chặn release.
+  [ADR-007](../../docs/adr/ADR-007-catalog-correctness-first-capacity-policy.md) chọn stable correctness mode:
+  1M/120s không còn block functional delivery; throughput giữ `UNQUALIFIED`. Durable safety deadline mặc định là
+  30 phút, retry/DLT/cardinality/final broker-ack gates vẫn bắt buộc.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
   `media.subject.changed.v2` phát final full snapshot theo operation cho Query. FT-057 data plane và FT-058

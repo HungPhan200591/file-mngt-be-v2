@@ -19,9 +19,9 @@ Mục tiêu cốt lõi: Thông luồng và tối ưu pipeline approve **1.000.00
 Scan decision/outbox → Kafka → Catalog batch/coalesce → Kafka → Query bulk projection → QUERY_DB_READY
 ```
 
-Catalog release gate đã rebudget ngày 2026-08-22: 1M từ first receive tới final output broker ack tối đa
-`120s` (`>= 8.333 input records/s`); `30K–40K/s` chỉ là stretch. `QUERY_DB_READY` 60s cũ bị hủy và giữ
-`UNQUALIFIED` tới khi BT-09E có Query evidence.
+Theo [ADR-007](./adr/ADR-007-catalog-correctness-first-capacity-policy.md), Catalog dùng stable correctness mode;
+1M/120s không còn là blocker cho functional delivery. Throughput Catalog và `QUERY_DB_READY` đều giữ
+`UNQUALIFIED` tới khi có qualification trên deployment đại diện.
 
 ### Roadmap triển khai BT-09 theo thứ tự:
 1. **`BT-09A — Operation contract`**: **`DONE`** (Đã chốt tại [FT-044](./features/044-approve-1m-operation-contract/01-brief.md), [operation watermark](./contracts/events/media.approval.watermark.v1.md) và [subject snapshot v2](./contracts/events/media.subject.changed.v2.md)).
@@ -84,8 +84,9 @@ Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 
 ## Việc tiếp theo theo thứ tự ưu tiên (Action Plan)
 
-1. **BT-09D capacity decision (`DECISION REQUIRED`)**: FT-060–062 đã loại lần lượt worker scaling sai, ingest parent contention và mutable reduction hydration nhưng single-host local physical 1M vẫn không đạt 90 giây. Dừng micro-optimization; quyết định giữa stable sequential delivery với deadline nới rộng, tách PostgreSQL resource/deployment, hoặc thay đổi SLO trước khi mở feature mới.
+1. **BT-09E Query bulk projection (`READY TO OPEN`)**: ADR-007 đã chấp nhận Catalog stable correctness mode và bỏ 1M/120s khỏi release blocker. Tiếp tục batch consumer, staging/COPY hoặc set-based upsert, version guard và processed-event watermark; throughput vẫn `UNQUALIFIED`.
 2. **Qualification còn mở của BT-09C:** [FT-053](./features/053-lane-fenced-outbox-data-plane/03-plan.md) đã vượt isolated immediate-ack floor nhưng vẫn cần real-Kafka, representative payload, repeated-run và crash/reclaim/broker-failure evidence; giữ `TD-013` active.
-3. **Chỉ mở `BT-09E` sau khi Catalog physical lower-bound `<=90s` và combined 1M `<=120s`** với exact cardinality, zero unresolved DLT, resource bounded và final broker acknowledgement. Sau đó tiếp tục **`BT-09F`** → **`BT-09G`**; local qualification không được diễn giải thành production capacity evidence.
+3. Sau BT-09E tiếp tục **BT-09F** correctness/failure evidence rồi **BT-09G** scale qualification. Exact cardinality,
+   zero unresolved DLT và final broker acknowledgement vẫn bắt buộc; elapsed local không còn block functional flow.
 4. **Giai đoạn sau khi thông luồng SC-01:** thực hiện Hardening P0 (`TD-009` → `TD-012`), chạy Testcontainers / Flyway / DLT verification, chốt E2E Gateway/FE cutover.
 5. **Giai đoạn phát triển tính năng mới:** triển khai **Phase 4 Media Worker** ([FT-013](./features/013-media-worker-processing-foundation/03-plan.md)) → **Phase 7 Importer V1** → **Phase 8 Observability mở rộng**.
