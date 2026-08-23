@@ -52,7 +52,7 @@ import tools.jackson.databind.ObjectMapper;
  * Combined FT-059 benchmark: Kafka receive, logical-shard marker, bounded-page finalizer, operation relay và broker
  * acknowledgement.
  * Đồng hồ ổn định chạy từ lúc bắt đầu publish discovery tới final watermark broker-ack, gồm cả thời gian seed Kafka.
- * Consumer chạy liên tục sau assignment; benchmark không pause/resume container.
+ * Operation consumer được pause sau assignment và resume khi backlog đã seed xong để profile 25K đo một ingest batch.
  */
 @Tag("benchmark")
 @Testcontainers
@@ -73,15 +73,20 @@ import tools.jackson.databind.ObjectMapper;
             "catalog.operation.worker-count=1",
             "catalog.operation.seal-batch-size=1",
             "catalog.operation.completion-shard-delay-ms=1",
-            "catalog.operation.subject-page-size=500",
+            "catalog.operation.subject-page-size=1000",
             "catalog.operation.finalizer-delay-ms=1",
             "catalog.kafka.consumer.enabled=false",
             "catalog.kafka.operation-consumer.enabled=true",
             "catalog.kafka.operation-consumer.topic-provisioning-enabled=false",
             "catalog.kafka.operation-consumer.concurrency=1",
-            "catalog.kafka.operation-consumer.max-poll-records=2000",
-            "catalog.kafka.operation-consumer.slice-records=2000",
-            "spring.kafka.consumer.properties.max.poll.records=2000",
+            "catalog.kafka.operation-consumer.max-poll-records=25000",
+            "catalog.kafka.operation-consumer.slice-records=25000",
+            "catalog.kafka.operation-consumer.slice-bytes=67108864",
+            "spring.kafka.consumer.properties.max.poll.records=25000",
+            "spring.kafka.consumer.properties.max.partition.fetch.bytes=67108864",
+            "spring.kafka.consumer.properties.fetch.max.bytes=67108864",
+            "spring.kafka.consumer.properties.fetch.min.bytes=33554432",
+            "spring.kafka.consumer.properties.fetch.max.wait.ms=100",
             "catalog.kafka.dlt-observer.enabled=false",
             "spring.datasource.hikari.maximum-pool-size=30",
             "p6spy.enabled=false"
@@ -159,6 +164,7 @@ class CatalogOperationEndToEndBenchmarkTest {
                 COMPLETION_TOPIC,
                 DISCOVERY_PARTITIONS,
                 ASSIGNMENT_TIMEOUT);
+        CatalogOperationKafkaConsumerControl.pauseGroup(listenerRegistry(), OPERATION_GROUP, ASSIGNMENT_TIMEOUT);
         long pipelineStarted = System.nanoTime();
         long discoverySeedMs = CatalogOperationKafkaBenchmarkSupport.seedDiscoveries(
                 kafka, json, DISCOVERY_TOPIC, eventCount, PRODUCE_BATCH_SIZE);
@@ -166,6 +172,7 @@ class CatalogOperationEndToEndBenchmarkTest {
                 kafka, json, COMPLETION_TOPIC, eventCount);
         long watermarkSeedMs = CatalogOperationKafkaBenchmarkSupport.seedApprovalCommittedWatermark(
                 kafka, json, WATERMARK_TOPIC, eventCount);
+        CatalogOperationKafkaConsumerControl.resumeGroup(listenerRegistry(), OPERATION_GROUP);
 
         awaitAllInputPersisted(eventCount, completionTimeout);
         awaitCatalogCommitted(completionTimeout);

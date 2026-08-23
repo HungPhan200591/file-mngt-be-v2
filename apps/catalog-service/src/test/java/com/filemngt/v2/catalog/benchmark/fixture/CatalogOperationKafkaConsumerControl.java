@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.listener.MessageListenerContainer;
 
 /** Xác nhận consumer assignment ổn định trước khi combined benchmark bắt đầu publish workload. */
 public final class CatalogOperationKafkaConsumerControl {
@@ -36,6 +38,31 @@ public final class CatalogOperationKafkaConsumerControl {
                     assertThat(assignedPartitions(registry, completionGroup, completionTopic))
                             .isEqualTo(completionPartitions);
                 });
+    }
+
+    public static void pauseGroup(KafkaListenerEndpointRegistry registry, String groupId, Duration timeout) {
+        var containers = containersForGroup(registry, groupId);
+        assertThat(containers).isNotEmpty();
+        containers.forEach(MessageListenerContainer::pause);
+        await().alias("Catalog benchmark consumer group paused without rebalance")
+                .pollInterval(Duration.ofMillis(20))
+                .atMost(timeout)
+                .untilAsserted(() -> assertThat(containers).allMatch(MessageListenerContainer::isContainerPaused));
+    }
+
+    public static void resumeGroup(KafkaListenerEndpointRegistry registry, String groupId) {
+        containersForGroup(registry, groupId).forEach(MessageListenerContainer::resume);
+    }
+
+    private static java.util.List<MessageListenerContainer> containersForGroup(
+            KafkaListenerEndpointRegistry registry, String groupId) {
+        var containers = new ArrayList<MessageListenerContainer>();
+        for (var container : registry.getListenerContainers()) {
+            if (groupId.equals(container.getGroupId())) {
+                containers.add(container);
+            }
+        }
+        return containers;
     }
 
     private static int assignedPartitions(KafkaListenerEndpointRegistry registry, String groupId, String topic) {

@@ -14,7 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /** Fixture deterministic cho ingest/merge benchmark Catalog (synthetic sạch, 10 asset/subject). */
 public final class CatalogOperationBenchmarkFixture {
     public static final int ASSETS_PER_SUBJECT = 10;
-    public static final int COMPLETION_SHARD_COUNT = 64;
+    public static final int COMPLETION_SHARD_COUNT = 1;
     public static final String STORAGE_KEY = "benchmark-catalog-legacy";
     public static final int WARM_UP_EVENTS = 1_000;
     private static final Instant EVENT_BASE_TIME = Instant.parse("2026-01-01T00:00:00Z");
