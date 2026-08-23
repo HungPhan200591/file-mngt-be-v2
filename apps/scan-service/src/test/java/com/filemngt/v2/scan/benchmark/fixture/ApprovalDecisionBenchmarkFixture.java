@@ -10,7 +10,8 @@ public final class ApprovalDecisionBenchmarkFixture {
     private ApprovalDecisionBenchmarkFixture() {}
 
     public static void reset(JdbcTemplate jdbcTemplate) {
-        jdbcTemplate.execute("TRUNCATE TABLE scan_run, scan_approval_operation CASCADE");
+        jdbcTemplate.execute(
+                "TRUNCATE TABLE scan_outbox_event, scan_decision, scan_approval_operation, scan_proposal, scan_run CASCADE");
     }
 
     public static UUID seed(JdbcTemplate jdbcTemplate, int proposalCount) {
@@ -29,7 +30,7 @@ public final class ApprovalDecisionBenchmarkFixture {
                        'JOKE_VIDEO', 'VIDEO',
                        'CODE-' || lpad(value::text, 8, '0'),
                        'Title-' || lpad(value::text, 8, '0'),
-                       'PRIMARY_VIDEO', '{}'
+                       'VIDEO', '{}'
                 FROM generate_series(1, ?) AS value
                 """, runId, proposalCount);
         return runId;

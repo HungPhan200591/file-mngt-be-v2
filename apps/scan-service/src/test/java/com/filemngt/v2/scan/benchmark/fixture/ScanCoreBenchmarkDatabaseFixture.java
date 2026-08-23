@@ -60,6 +60,7 @@ public final class ScanCoreBenchmarkDatabaseFixture {
                 TRUNCATE TABLE
                     scan_outbox_event,
                     scan_decision,
+                    scan_approval_operation,
                     scan_proposal,
                     scan_issue,
                     scan_file_inventory,
@@ -67,6 +68,10 @@ public final class ScanCoreBenchmarkDatabaseFixture {
                     scan_inventory_stage,
                     scan_run
                 CASCADE
+                """);
+        jdbcTemplate.update("""
+                UPDATE scan_outbox_relay_lane
+                SET lease_owner = NULL, lease_until = NULL, last_heartbeat_at = NULL
                 """);
     }
 

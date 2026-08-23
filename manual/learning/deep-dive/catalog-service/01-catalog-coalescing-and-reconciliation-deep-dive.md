@@ -130,35 +130,173 @@ Dự án đã trải qua một hành trình thử-sai dài qua nhiều thế h�
 | **FT-059** | **100% PostgreSQL** *(Stored Proc V25)* | **100% PostgreSQL** *(64 Shards)* | **FAIL IMPLEMENTATION** | **State Machine Hell**: Bùng nổ độ phức tạp code (Data đến trước Marker, Keyset pagination race, DLT isolation). |
 | **FT-060 $\to$ FT-063** | **100% PostgreSQL** *(SQL bulkUpsert)* | **100% PostgreSQL** *(Multi-workers)* | **NEGATIVE SCALING** | **Single DB Contention**: Càng tăng worker thì DB càng chậm do tranh chấp CPU, Lock và WAL trên 1 instance. |
 | **Fallback Baseline** | Java tuần tự cơ bản | PostgreSQL JDBC Batch | **$\approx 30\text{s}$ / 25k ($833\text{ rec/s}$)** | **Make it work**: Chấp nhận chạy chậm nhưng 100% đúng đắn để làm mốc đối chứng (Ground Truth). |
-| **🔥 FT-064 (ĐÍCH)** | **JAVA (RAM / Virtual Threads)** | **POSTGRESQL (Set-based COPY)** | **$\approx 45 - 90\text{s}$ / 1M (Target)** | **LẦN ĐẦU TIÊN HYBRID**: Java gánh 100% Logic trên RAM, Postgres chỉ làm nhiệm vụ ghi nhận dữ liệu phẳng qua `COPY`. |
+| **🔥 FT-064 (ĐÍCH)** | **JAVA (RAM / Virtual Threads)** | **POSTGRESQL (Set-based COPY)** | **$\approx 3\text{m}26\text{s}$ / 1M ($4.445\text{ rec/s}$)** | **LẦN ĐẦU TIÊN HYBRID**: Java gánh 100% Logic trên RAM, Postgres chỉ làm nhiệm vụ ghi nhận dữ liệu phẳng qua `COPY`. |
+
+---
+
+### 🏛️ Sơ Đồ Kiến Trúc & Ý Tưởng Qua 4 Kỷ Nguyên Tiến Hóa:
+
+#### 1. Kỷ Nguyên 1: Thái Cực 1 — JPA / Hibernate Ngây Thơ (FT-054)
+> **Ý tưởng cốt lõi**: Sử dụng ORM Hibernate truyền thống theo tư duy hướng đối tượng. Java nhận sự kiện Kafka, load thực thể `MediaSubjectEntity`, add `MediaAssetEntity` vào quan hệ `@OneToMany`, dựa vào Hibernate Dirty Checking để tự động sinh lệnh SQL xuống Database.
+
+```mermaid
+flowchart LR
+    subgraph INGRESS1["[1] Kafka Ingress"]
+        K1["1.000.000 Raw Events"]
+    end
+    subgraph JVM1["[2] Java Layer (Hibernate ORM)"]
+        direction TB
+        E1["Load Subject Entity Graph\n(Lazy / Eager Fetching)"]
+        E2["In-Memory Dirty Checking\n(1M Managed Objects)"]
+        E3["Tràn Hibernate Session Cache\n& GC Pauses liên tục"]
+        E1 --> E2 --> E3
+    end
+    subgraph DB1["[3] PostgreSQL Engine"]
+        SQL1["1.000.000 câu SQL đơn lẻ\nSELECT / UPDATE row-by-row\n-> N+1 Query Hell!"]
+    end
+    K1 --> E1
+    E3 ==>|"Hàng triệu network roundtrips"| SQL1
+    SQL1 --> DEAD1(["TIMEOUT > 5 PHÚT\n(Gãy toàn tập)"])
+    style INGRESS1 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style K1 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
+    style JVM1 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style E1 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style E2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style E3 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DB1 fill:#311B92,stroke:#fff,stroke-width:2px,color:#fff
+    style SQL1 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DEAD1 fill:#B71C1C,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+---
+
+#### 2. Kỷ Nguyên 2: Thái Cực 2 — Ép 100% Logic Xuống PostgreSQL (FT-056 V19 $\to$ V22)
+> **Ý tưởng cốt lõi**: "Move compute to data". Sợ Java chậm nên tống khứ 100% logic tính toán xuống Database. Ép PostgreSQL tự bóc tách JSON, tự so sánh Hash, tự bầu chọn Primary Video và tự dựng chuỗi JSONB Snapshot bằng Stored Procedure, CTE 700 dòng hoặc Bảng UNLOGGED.
+
+```mermaid
+flowchart LR
+    subgraph INGRESS2["[1] Kafka Ingress"]
+        K2["1.000.000 Raw Events"]
+    end
+    subgraph JVM2["[2] Java Layer (Pass-Through)"]
+        J2["Không tính toán gì\nBơm nguyên bản thô xuống DB"]
+    end
+    subgraph DB2["[3] 100% PostgreSQL Stored Procedures"]
+        direction TB
+        V19["V19: Tạo 7 Bảng Tạm DDL\n+ 5 lệnh ANALYZE mỗi page\n-> DDL Lock Contention!"]
+        V20["V20: 1 Câu CTE 700 dòng\nSort 1M JSONB vượt work_mem\n-> Disk Spill & OOM sập kết nối!"]
+        V21["V21: 8 Bảng UNLOGGED\nInsert/Delete liên tục\n-> Dead-Tuples bùng nổ, bloat đĩa!"]
+        V22["V22: Dual-Write lúc Ingest\n-> Ingest chậm gấp 10 lần!"]
+    end
+    K2 --> J2
+    J2 --> V19
+    J2 --> V20
+    J2 --> V21
+    J2 --> V22
+    V19 --> DEAD2(["TIMEOUT & OOM DISK SPILL\n(1 Core PG bị vắt kiệt)"])
+    V20 --> DEAD2
+    V21 --> DEAD2
+    V22 --> DEAD2
+    style INGRESS2 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style K2 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
+    style JVM2 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style J2 fill:#9E9E9E,stroke:#fff,stroke-width:2px,color:#fff
+    style DB2 fill:#311B92,stroke:#fff,stroke-width:2px,color:#fff
+    style V19 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style V20 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style V21 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style V22 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DEAD2 fill:#B71C1C,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+---
+
+#### 3. Kỷ Nguyên 3: Vòng Xoáy Sharding, 16 Coarse Units & Multi-Writers (FT-057 $\to$ FT-063)
+> **Ý tưởng cốt lõi**: Cố gắng cứu vãn Stored Procedure bằng cách chia nhỏ thành **16 Coarse Units** hoặc **64 Logical Shards**, dùng nhiều Worker ảo tranh chấp Lease Fencing để ghi DB song song.
 
 ```mermaid
 flowchart TD
-    subgraph FAIL["Biên Niên Sử Thất Bại & Vòng Xoáy Thử-Sai"]
-        direction TB
-        F1["FT-054 (JPA Ngây Thơ)\n-> N+1 Query & Tràn Heap RAM"]
-        F2["FT-056 V19-V22 (100% SQL Stored Proc)\n-> DDL Lock, Spill work_mem & Dead Tuples"]
-        F3["FT-058 (16 Coarse Units)\n-> Statement Timeout 20s & Mất Pipeline Overlap"]
-        F4["FT-059-063 (64 Shards & Multi-Writers)\n-> State Machine Hell & Negative Scaling"]
+    subgraph INGRESS3["[1] Ingress & Shard Router"]
+        K3["1M Files + Shard Completion Markers\n(media.approval.shard.completed.v1)"]
     end
-    subgraph SOLUTION["Đột Phá Kiến Trúc Cuối Cùng (FT-064)"]
-        direction TB
-        S1["[1] Bóc tách Compute khỏi DB:\nJava xử lý 100% Logic trên RAM"]
-        S2["[2] Triệt tiêu Lock Contention:\n1 Claimed Unit = 1 DB Transaction"]
-        S3["[3] Tối ưu hóa I/O:\nPostgreSQL nhận dữ liệu qua COPY phẳng"]
-        S4["[4] Triết lý Kent Beck:\nMake it work -> Make it right -> Make it fast"]
+    subgraph WORKERS3["[2] Multi-Worker Concurrency (Java)"]
+        W1["Worker 1 (Claim Shard 01-16)"]
+        W2["Worker 2 (Claim Shard 17-32)"]
+        W3["Worker 3 (Claim Shard 33-48)"]
+        W4["Worker 4 (Claim Shard 49-64)"]
     end
-    FAIL ==> SOLUTION
-    style FAIL fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
-    style F1 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style F2 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style F3 fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
-    style F4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
-    style SOLUTION fill:#1A237E,stroke:#fff,stroke-width:2px,color:#fff
-    style S1 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style S2 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style S3 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
-    style S4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    subgraph DB3["[3] Single PostgreSQL Instance (Bottlenecks)"]
+        direction TB
+        LOCK["1. Tranh chấp WALWriteLock\n(80% CPU chờ ghi 1 file WAL)"]
+        ROW["2. Tranh chấp Khóa Dòng (Row-Lock)\ntrên bảng cha media_subject"]
+        TO["3. FT-058: 1 Unit ~6.250 subjects\ndính Statement Timeout 20s!"]
+        STATE["4. FT-059: State Machine Hell\n(Marker đến trước Data, Race Condition)"]
+        LOCK --> ROW --> TO --> STATE
+    end
+    K3 --> W1 & W2 & W3 & W4
+    W1 & W2 & W3 & W4 ==>|"4 Writers tranh chấp 1 DB"| DB3
+    DB3 --> DEAD3(["NEGATIVE SCALING\n(Càng tăng luồng càng chậm!)"])
+    style INGRESS3 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style K3 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
+    style WORKERS3 fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style W1 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style W2 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style W3 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style W4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style DB3 fill:#311B92,stroke:#fff,stroke-width:2px,color:#fff
+    style LOCK fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style ROW fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style TO fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style STATE fill:#E91E63,stroke:#fff,stroke-width:2px,color:#fff
+    style DEAD3 fill:#B71C1C,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+---
+
+#### 4. Kỷ Nguyên 4: Đột Phá Kiến Trúc Hybrid Chuẩn Mực (FT-064 & ADR-008)
+> **Ý tưởng cốt lõi**: **Phân công đúng sở trường (Separation of Concerns)**:
+> 1. **Java RAM (20 CPU Cores / Virtual Threads)**: Gánh 100% logic phức tạp (Bầu chọn Primary, kế thừa Tag, so sánh Hash, dựng JSON Snapshot) $\to$ **Xong trong 0.39s**!
+> 2. **PostgreSQL**: Không cần suy nghĩ hay tính toán logic. Chỉ làm việc ghi đĩa tuần tự nhanh nhất qua giao thức **`COPY` phẳng + 1 câu INSERT Set-based đơn giản** theo từng Page 2.500 Subjects.
+
+```mermaid
+flowchart LR
+    subgraph INGRESS4["[1] Kafka Ingress"]
+        K4["1.000.000 Files\n(Immutable Ingest qua COPY)"]
+    end
+    subgraph HYBRID_JVM["[2] Java Application Realm (RAM)"]
+        direction TB
+        FETCH4["Keyset Cursor Fetch\n(Page 2.500 Subjects / 40 Pages)"]
+        REDUCE4["Virtual-Thread Fan-Out Reducer\n(Winner, Primary, Hash, JSONB)\n⚡ 0.39s CHO TOÀN BỘ 1M RECORDS!"]
+        STREAM4(("Flattened Batch Stream"))
+        FETCH4 --> REDUCE4 --> STREAM4
+    end
+    subgraph HYBRID_DB["[3] PostgreSQL Persistence Realm"]
+        direction TB
+        COPY4[/"Transactional COPY\n(tmp_staging table - 0ms WAL)"/]
+        APPLY4["Set-Based SQL Mutation\n(Insert Canonical + Outbox)"]
+        CHECK4{{"Durable Checkpoint\n(1 Transaction / Unit, ~2.5s)"}}
+        COPY4 --> APPLY4 --> CHECK4
+    end
+    subgraph EGRESS4["[4] Outbox Relay"]
+        RELAY4["Multi-Lane Sliding Window\n(Gối đầu song song với Reconcile)"]
+    end
+    K4 --> FETCH4
+    STREAM4 ==>|"COPY phẳng"| COPY4
+    CHECK4 --> RELAY4
+    RELAY4 --> SUCCESS4(["HOÀN TẤT 1M TRONG 3 PHÚT 26S!\n(Exact Cardinality 100% Pass)"])
+    style INGRESS4 fill:#004D40,stroke:#fff,stroke-width:2px,color:#fff
+    style K4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style HYBRID_JVM fill:#263238,stroke:#fff,stroke-width:2px,color:#fff
+    style FETCH4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style REDUCE4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style STREAM4 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
+    style HYBRID_DB fill:#311B92,stroke:#fff,stroke-width:2px,color:#fff
+    style COPY4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style APPLY4 fill:#FF9800,stroke:#fff,stroke-width:2px,color:#fff
+    style CHECK4 fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff
+    style EGRESS4 fill:#006064,stroke:#fff,stroke-width:2px,color:#fff
+    style RELAY4 fill:#00BCD4,stroke:#fff,stroke-width:2px,color:#fff
+    style SUCCESS4 fill:#1B5E20,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ---

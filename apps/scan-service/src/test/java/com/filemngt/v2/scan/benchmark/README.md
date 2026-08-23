@@ -22,6 +22,9 @@ com.filemngt.v2.scan.benchmark/
 ├── approval/                              <-- Scan approval decision/outbox
 │   └── ApprovalDecisionChunkingBenchmarkTest.java <-- FT-045 bounded chunk candidate
 │
+├── operation/                             <-- Combined internal E2E
+│   └── ScanEndToEndBenchmarkTest.java     <-- Scan core → approval → real Kafka ACK
+│
 ├── outbox/                                <-- FT-052 outbox relay
 │   └── ScanOutboxWaveBaselineBenchmarkTest.java <-- Legacy wave baseline
 │   └── ScanOutboxContinuousDrainBenchmarkTest.java <-- Continuous-drain candidate
@@ -35,6 +38,7 @@ com.filemngt.v2.scan.benchmark/
 │   └── 05-legacy-approval-decision-batch-baseline.md
 │   └── 06-ft052-legacy-outbox-wave-baseline.md
 │   └── 07-ft053-lane-fenced-outbox-relay.md
+│   └── 08-scan-end-to-end-pipeline.md
 │
 ├── BENCHMARK_RESULTS.md                   <-- Dashboard tổng hợp chỉ số của tất cả các lần đo
 └── README.md                              <-- Chỉ mục điều hướng & CLI cheat sheet
@@ -112,3 +116,22 @@ Sau FT-052, thay test bằng `ScanOutboxContinuousDrainBenchmarkTest` và giữ 
 FT-053 dùng 64 lane logic nhưng chỉ 4 worker mặc định; profile hiện hành dùng immediate acknowledgement để đo
 application/PostgreSQL data plane. Đọc `results/07-ft053-lane-fenced-outbox-relay.md` trước khi suy ra Kafka
 capacity hoặc production SLO.
+
+### 🔗 7. Combined Scan E2E: scan core → approval → Kafka broker ACK
+
+```powershell
+$env:JAVA_HOME = 'C:\Users\Admin\.jdks\corretto-25.0.4'
+$mavenArgs = @(
+  '-Pbenchmark',
+  '-pl', 'apps/scan-service',
+  '-am',
+  '-Dtest=ScanEndToEndBenchmarkTest',
+  '-Dsurefire.failIfNoSpecifiedTests=false',
+  'test'
+)
+& .\mvnw.cmd @mavenArgs
+```
+
+Class có ba method độc lập cho 25K, 250K và 1M. Benchmark dùng production Spring beans/schedulers và Kafka
+Testcontainer thật; chỉ filesystem cursor và Catalog HTTP được thay bằng deterministic test doubles.
+Deadline approval production 120 giây vẫn được giữ nguyên; timeout benchmark 5 phút chỉ để thu diagnostics đầy đủ.

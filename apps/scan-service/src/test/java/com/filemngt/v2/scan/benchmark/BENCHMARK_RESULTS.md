@@ -6,6 +6,23 @@ Mọi số liệu trong dashboard đều có bằng chứng thực nghiệm đ�
 
 ---
 
+## Combined End-to-End Scan Pipeline
+
+Benchmark cũ `ScanApprovalPipelineBenchmarkTest` chỉ đo approval + relay, thiếu workload 250K, dùng immediate-ack
+publisher và có outbox cardinality stale sau FT-059. Nó đã được thay bằng
+[`ScanEndToEndBenchmarkTest`](./operation/ScanEndToEndBenchmarkTest.java): clock liên tục từ production scan core
+tới durable Kafka broker ACK, với ba workload 25K/250K/1M.
+
+| Workload | Boundary | Broker | Status |
+| ---: | --- | --- | --- |
+| 25K | `ScanService.start` → scan/reconcile → approval → relay → `published_at` | Kafka Testcontainer thật | `PENDING` |
+| 250K | Cùng một code path và gate | Kafka Testcontainer thật | `PENDING` |
+| 1M | Cùng một code path và gate | Kafka Testcontainer thật | `PENDING` |
+
+Chi tiết benchmark contract và lệnh chạy: [08-scan-end-to-end-pipeline.md](./results/08-scan-end-to-end-pipeline.md).
+
+---
+
 ## 1. Bảng Tổng hợp Toàn cảnh theo từng Bước Pipeline (Master Matrix)
 
 ```text
@@ -112,4 +129,4 @@ Thế hệ 3 (FT-053 Lane Relay) █ 0.52s                                      
 5. 🧱 **[05-legacy-approval-decision-batch-baseline.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/05-legacy-approval-decision-batch-baseline.md)**: So sánh Legacy JPA vs FT-045 Bounded Chunking (25k trong 4.139s; 1M trong 148.794s; legacy 1M crash do bind parameters).
 6. 📤 **[06-ft052-legacy-outbox-wave-baseline.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/06-ft052-legacy-outbox-wave-baseline.md)**: So sánh Legacy Outbox Wave Baseline (25k: 6.579s ~ 3.800 rec/s; 1M aborted) vs Candidate FT-052 Continuous Drain (25k: 4.641s ~ 5.387 rec/s).
 7. 📤 **[07-ft053-lane-fenced-outbox-relay.md](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/results/07-ft053-lane-fenced-outbox-relay.md)**: FT-053 native lane relay (25k: 522ms ~ 47.893 rec/s; 1M: 8.264s ~ 121.007 rec/s, immediate-ack only).
-8. 🚀 **[`ScanApprovalPipelineBenchmarkTest.java`](file:///d:/Personal/file-management/v2/file-mngt-be-v2/apps/scan-service/src/test/java/com/filemngt/v2/scan/benchmark/approval/ScanApprovalPipelineBenchmarkTest.java)**: Benchmark trọn gói End-to-End Approval Pipeline (Duyệt proposals 4 shards song song + Outbox Relay 64 lanes bắn gối đầu sang Kafka) cho cả 25k và 1M workload.
+8. 🔗 **[08-scan-end-to-end-pipeline.md](./results/08-scan-end-to-end-pipeline.md)**: Combined internal Scan pipeline từ synthetic cursor qua production scan/reconciliation, approval và lane relay tới Kafka broker ACK cho 25K/250K/1M.
