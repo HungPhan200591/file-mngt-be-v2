@@ -25,7 +25,8 @@ pipeline ổn định nhưng chậm hơn, giữ deadline này sẽ block operati
 - Retry exhaustion, DLT, exact cardinality, shard equality, idempotency và final broker acknowledgement vẫn là
   correctness gates bắt buộc.
 - Dừng chuỗi FT tối ưu local sau FT-062. Chỉ mở lại performance work khi có thay đổi capacity/deployment/SLO
-  rõ ràng, không mở candidate SQL kế tiếp theo kiểu thử-sai.
+  rõ ràng, không mở candidate SQL kế tiếp theo kiểu thử-sai. Backlog owner là
+  [TD-023](../TECHNICAL_DEBT.md#backlog-đang-mở).
 
 ## Alternatives
 

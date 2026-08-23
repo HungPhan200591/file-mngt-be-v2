@@ -23,6 +23,8 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   [ADR-007](../../docs/adr/ADR-007-catalog-correctness-first-capacity-policy.md) chọn stable correctness mode:
   1M/120s không còn block functional delivery; throughput giữ `UNQUALIFIED`. Durable safety deadline mặc định là
   30 phút, retry/DLT/cardinality/final broker-ack gates vẫn bắt buộc.
+  Catalog capacity optimization được defer tại [TD-023](../../docs/TECHNICAL_DEBT.md#backlog-đang-mở); không
+  mở lại nếu chưa có representative workload, deployment budget và SLO/cost ceiling.
 - Asset locator canonical gồm `storageKey + relativePath`; `storageKey` có thể thiếu với asset legacy/manual chưa gắn root.
 - Subject materialize `baseCode`, `part`, `studioCode`, `actressNames` và `tagNames` từ discovery v2; snapshot
   `media.subject.changed.v2` phát final full snapshot theo operation cho Query. FT-057 data plane và FT-058

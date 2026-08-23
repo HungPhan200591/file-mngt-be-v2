@@ -78,7 +78,7 @@ Sau khi hoàn tất toàn bộ pipeline SC-01 BT-09 (từ BT-09A đến BT-09G),
 Xem chi tiết tại [TECHNICAL_DEBT.md](./TECHNICAL_DEBT.md).
 - **P0**: `TD-009` (Security/network boundary) → `TD-010` (Scan restart recovery) → `TD-011` (Walker liveness) → `TD-012` (Job lease fencing).
 - **P1**: `TD-013` (Outbox throughput) → `TD-014` (Gateway operations route) → `TD-015` (Query DLT observer) → `TD-016` (N+1 query/lock) → `TD-017` (Deep pagination cursor).
-- **P2**: `TD-018` đến `TD-022` (Clean code, config provider, retention purge, split classes).
+- **P2**: `TD-018` đến `TD-023` (Clean code, config provider, retention, split classes và Catalog capacity debt).
 
 ---
 

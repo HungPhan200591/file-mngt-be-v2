@@ -1,6 +1,6 @@
 # Nợ kỹ thuật Backend V2
 
-Updated: 2026-08-12
+Updated: 2026-08-23
 
 Chi tiết evidence, condition, impact và remediation nằm trong
 [báo cáo review quality/architecture/production readiness](./reviews/2026-08-12-backend-quality-architecture-production-readiness.md).
@@ -29,10 +29,11 @@ File này chỉ giữ snapshot backlog còn mở; không ghi lại lịch sử D
 | `TD-020` | `platform/operations` | MEDIUM | Có dashboard nhưng thiếu alert rules, SLO/error budget, runbook restart/replay/rollback và backup/restore drill. | Chốt SLO/capacity, alert backlog age/DLT/lease/terminal latency và chạy operational game day. |
 | `TD-021` | `platform/data`, các service | MEDIUM | Chưa thấy retention/purge/archive cho outbox, processed-event, DLT và candidate index; dữ liệu có thể tăng vô hạn. | Chốt retention/audit window, archive/purge idempotent, quota và metric data age. |
 | `TD-022` | `scan-service`, `query-service`, `catalog-service` | MEDIUM | Đã tách mapping view khỏi `ScanQueryService` (297 → 250 dòng) và tách batch decision khỏi `ScanDecisionService` (255 → 196 dòng). Còn 5 class >250 dòng và 8 package >8 type; chưa tuyên bố toàn bộ debt đã trả. | Tiếp tục tách theo capability cho `ScanChunkCommitter`, `ScanExecutor`, `MasterDataImportService`, `MasterDataController`, `ScanController`; sau đó giảm package vượt ngưỡng. Chạy formatter/compile/static gate khi được phép và ghi exception trong Plan nếu cần. |
+| `TD-023` | `catalog-service`, `platform/data` | MEDIUM | [ADR-007](./adr/ADR-007-catalog-correctness-first-capacity-policy.md) chấp nhận FT-061 stable mode nhưng Catalog throughput còn `UNQUALIFIED`; FT-060–062 không đưa local physical 1M xuống dưới 90–120 giây. | Chỉ mở lại khi có workload đại diện, deployment/resource budget, SLO và cost ceiling được chốt. Profile theo phase trên môi trường đó, chọn một bottleneck có bounded hypothesis, rồi qualify exact cardinality, final broker ACK, lock/WAL/I/O và repeated 1M; không tiếp tục micro-optimize query local hoặc tăng worker mù. |
 
 ## Thứ tự xử lý
 
 - **P0:** `TD-009` → `TD-010` → `TD-011` → `TD-012`.
 - **P1:** `TD-013` → `TD-014` → `TD-015` → `TD-016` → `TD-017`.
-- **P2:** `TD-018` → `TD-019` → `TD-020` → `TD-021` → `TD-022`, cùng các mục
+- **P2:** `TD-018` → `TD-019` → `TD-020` → `TD-021` → `TD-022` → `TD-023`, cùng các mục
   `TD-004`/`TD-005` khi chạm contract observability/event.
