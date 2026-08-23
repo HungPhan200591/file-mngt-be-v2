@@ -37,6 +37,10 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   ingest `68.472 ms`, reduction `17.768 ms`, bulk upsert `62.902 ms`, create outbox `17.083 ms`, relay
   immediate-ack `5.646 ms`. Zero lock wait/deadlock và heap/GC thấp: không chạy tiếp combined scale ladder trên
   serial shape; chỉ thử bounded intra-phase parallelism với correctness gate trước.
+- FT-060 bounded upsert đã đo xong: hai workers đạt exact cardinality và zero lock wait/deadlock nhưng mất
+  `145.586 ms`; bốn workers scale âm thành `271.389 ms` với upsert `161.737 ms`. Parallel production ingest
+  bị gate bác bỏ vì mỗi slice khóa/cập nhật cùng parent operation. Không productionize candidate; hướng tiếp theo
+  là immutable ingest write + bounded progress fan-in và tối ưu create-outbox riêng.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.

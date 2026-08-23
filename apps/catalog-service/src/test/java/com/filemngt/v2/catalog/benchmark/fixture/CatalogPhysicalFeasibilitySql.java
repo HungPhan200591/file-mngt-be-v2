@@ -7,11 +7,22 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public final class CatalogPhysicalFeasibilitySql {
     private CatalogPhysicalFeasibilitySql() {}
 
+    public static void initializeOperation(JdbcTemplate jdbc, UUID operationId, UUID scanRunId) {
+        jdbc.update("""
+                insert into catalog_approval_operation(operation_id, scan_run_id, processing_version)
+                values (?, ?, 59)
+                on conflict (operation_id) do nothing
+                """, operationId, scanRunId);
+    }
+
     public static void initializeScratch(JdbcTemplate jdbc) {
+        jdbc.execute("drop table if exists benchmark_catalog_asset_reduction");
+        jdbc.execute("drop table if exists benchmark_catalog_subject_reduction");
         jdbc.execute("""
                 create unlogged table benchmark_catalog_subject_reduction (
                     subject_key varchar(700) primary key,
                     subject_id uuid,
+                    routing_bucket integer not null,
                     region varchar(16) not null,
                     subject_type varchar(16) not null,
                     identity_key varchar(512) not null,
@@ -25,6 +36,7 @@ public final class CatalogPhysicalFeasibilitySql {
         jdbc.execute("""
                 create unlogged table benchmark_catalog_asset_reduction (
                     subject_key varchar(700) not null,
+                    routing_bucket integer not null,
                     storage_key varchar(128),
                     relative_path varchar(2048) not null,
                     asset_role varchar(32) not null,
@@ -48,10 +60,10 @@ public final class CatalogPhysicalFeasibilitySql {
         jdbc.update("truncate benchmark_catalog_subject_reduction, benchmark_catalog_asset_reduction");
         jdbc.update("""
                 insert into benchmark_catalog_subject_reduction(
-                    subject_key, region, subject_type, identity_key, display_title,
+                    subject_key, routing_bucket, region, subject_type, identity_key, display_title,
                     base_code, part, studio_code, actress_names)
                 select distinct on (input.subject_key)
-                    input.subject_key, input.region, input.subject_type, input.identity_key,
+                    input.subject_key, input.routing_bucket, input.region, input.subject_type, input.identity_key,
                     input.display_title, input.base_code, input.part, input.studio_code, input.actress_names
                 from catalog_operation_discovery_input input
                 where input.operation_id = ?
@@ -60,12 +72,12 @@ public final class CatalogPhysicalFeasibilitySql {
                 """, operationId);
         jdbc.update("""
                 insert into benchmark_catalog_asset_reduction(
-                    subject_key, storage_key, relative_path, asset_role, tag_names,
+                    subject_key, routing_bucket, storage_key, relative_path, asset_role, tag_names,
                     source_partition, source_offset)
                 select distinct on (
                     input.subject_key, input.storage_key is null,
                     coalesce(input.storage_key, ''), input.relative_path)
-                    input.subject_key, input.storage_key, input.relative_path,
+                    input.subject_key, input.routing_bucket, input.storage_key, input.relative_path,
                     input.asset_role, input.tag_names, input.source_partition, input.source_offset
                 from catalog_operation_discovery_input input
                 where input.operation_id = ?
@@ -77,7 +89,7 @@ public final class CatalogPhysicalFeasibilitySql {
                 """, operationId);
     }
 
-    public static void bulkUpsert(JdbcTemplate jdbc) {
+    public static void bulkUpsertRange(JdbcTemplate jdbc, int bucketStart, int bucketEnd) {
         jdbc.update("""
                 insert into media_subject(
                     id, subject_type, region, identity_key, display_title,
@@ -86,6 +98,7 @@ public final class CatalogPhysicalFeasibilitySql {
                     reduced.display_title, reduced.base_code, reduced.part, reduced.studio_code,
                     1, now(), now()
                 from benchmark_catalog_subject_reduction reduced
+                where reduced.routing_bucket >= ? and reduced.routing_bucket < ?
                 on conflict (region, subject_type, identity_key) do update
                 set display_title = excluded.display_title,
                     base_code = excluded.base_code,
@@ -93,7 +106,7 @@ public final class CatalogPhysicalFeasibilitySql {
                     studio_code = excluded.studio_code,
                     version = media_subject.version + 1,
                     updated_at = now()
-                """);
+                """, bucketStart, bucketEnd);
         jdbc.update("""
                 update benchmark_catalog_subject_reduction reduced
                 set subject_id = subject.id
@@ -101,7 +114,8 @@ public final class CatalogPhysicalFeasibilitySql {
                 where subject.region = reduced.region
                   and subject.subject_type = reduced.subject_type
                   and subject.identity_key = reduced.identity_key
-                """);
+                  and reduced.routing_bucket >= ? and reduced.routing_bucket < ?
+                """, bucketStart, bucketEnd);
         jdbc.update("""
                 with ranked as materialized (
                     select reduced.*, subject.subject_id,
@@ -111,6 +125,7 @@ public final class CatalogPhysicalFeasibilitySql {
                                 reduced.relative_path) as asset_rank
                     from benchmark_catalog_asset_reduction reduced
                     join benchmark_catalog_subject_reduction subject using (subject_key)
+                    where subject.routing_bucket >= ? and subject.routing_bucket < ?
                 )
                 insert into media_asset(id, subject_id, role, relative_path, storage_key, created_at)
                 select uuidv7(), ranked.subject_id,
@@ -118,7 +133,7 @@ public final class CatalogPhysicalFeasibilitySql {
                     ranked.relative_path, ranked.storage_key, now()
                 from ranked
                 on conflict do nothing
-                """);
+                """, bucketStart, bucketEnd);
         jdbc.update("""
                 insert into media_asset_tag(asset_id, display_name)
                 select distinct asset.id, btrim(tag.value)
@@ -129,25 +144,32 @@ public final class CatalogPhysicalFeasibilitySql {
                  and asset.storage_key is not distinct from reduced.storage_key
                  and asset.relative_path = reduced.relative_path
                 cross join lateral jsonb_array_elements_text(reduced.tag_names) tag(value)
-                where btrim(tag.value) <> ''
+                where subject.routing_bucket >= ? and subject.routing_bucket < ?
+                  and btrim(tag.value) <> ''
                 on conflict do nothing
-                """);
+                """, bucketStart, bucketEnd);
         jdbc.update("""
                 insert into media_subject_actress(subject_id, display_name)
                 select distinct reduced.subject_id, btrim(name.value)
                 from benchmark_catalog_subject_reduction reduced
                 cross join lateral jsonb_array_elements_text(reduced.actress_names) name(value)
-                where btrim(name.value) <> ''
+                where reduced.routing_bucket >= ? and reduced.routing_bucket < ?
+                  and btrim(name.value) <> ''
                 on conflict do nothing
-                """);
+                """, bucketStart, bucketEnd);
         jdbc.update("""
                 insert into media_subject_tag(subject_id, display_name)
                 select distinct asset.subject_id, tag.display_name
                 from media_asset asset
                 join media_asset_tag tag on tag.asset_id = asset.id
-                where asset.role = 'PRIMARY_VIDEO'
+                join benchmark_catalog_subject_reduction reduced on reduced.subject_id = asset.subject_id
+                where reduced.routing_bucket >= ? and reduced.routing_bucket < ?
+                  and asset.role = 'PRIMARY_VIDEO'
                 on conflict do nothing
-                """);
+                """, bucketStart, bucketEnd);
+    }
+
+    public static void synchronizeMasterData(JdbcTemplate jdbc) {
         jdbc.update("""
                 with inserted as (
                     insert into actress(region, display_name, normalized_name, active, created_at)

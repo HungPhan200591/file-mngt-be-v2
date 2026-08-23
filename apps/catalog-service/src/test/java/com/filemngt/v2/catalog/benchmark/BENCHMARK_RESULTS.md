@@ -1,5 +1,16 @@
 # Catalog Service Benchmark Results Dashboard
 
+## FT-060 — Bounded bulk-upsert parallelism
+
+| Shape | 1M total | Bulk upsert | Throughput | Status |
+| --- | ---: | ---: | ---: | --- |
+| 1 ingest / 2 upsert workers | `145.586 ms` | `42.572 ms` | `6.869 input/s` | Best measured; **FEASIBILITY_FAILED** 120s |
+| 1 ingest / 4 upsert workers | `271.389 ms` | `161.737 ms` | `3.685 input/s` | Rejected; negative scaling |
+
+Cả hai candidate đạt exact cardinality và zero deadlock/lock waiter/sampler failure. Parallel production ingest
+bị 25K gate bác bỏ do per-slice parent `FOR UPDATE`; candidate cuối giữ ingest tuần tự. Chi tiết:
+[07-ft060-bounded-upsert-parallelism.md](./results/07-ft060-bounded-upsert-parallelism.md).
+
 ## FT-059 — Sequential physical-feasibility lower-bound
 
 | Workload | Boundary | Result | Status |

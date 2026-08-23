@@ -6,6 +6,7 @@ import com.filemngt.v2.catalog.adapter.out.persistence.outbox.operation.CatalogO
 import com.filemngt.v2.catalog.application.CatalogOperationStageStore;
 import com.filemngt.v2.catalog.application.CatalogOutboxMetrics;
 import com.filemngt.v2.catalog.application.outbox.operation.CatalogOutboxRelayCoordinator;
+import com.filemngt.v2.catalog.benchmark.fixture.CatalogBoundedPhaseExecutor;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogOperationBenchmarkFixture;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogPhysicalFeasibilitySql;
 import com.filemngt.v2.catalog.benchmark.fixture.CatalogPhysicalResourceSampler;
@@ -52,8 +53,8 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(CatalogSequentialPhysicalFeasibilityBenchmarkTest.class);
     private static final int EVENT_COUNT = 1_000_000;
-    private static final int SUBJECT_COUNT = 100_000;
-    private static final int INGEST_SLICE_SIZE = 5_000;
+    private static final int CALIBRATION_EVENT_COUNT = 25_000;
+    private static final int CALIBRATION_REPETITIONS = 3;
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:18.0-alpine"))
@@ -96,57 +97,86 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
     @Test
     @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     void measuresOneMillionRecordPhysicalLowerBoundSequentially() {
+        measure(EVENT_COUNT, 1);
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void validatesTwentyFiveThousandRecordsThreeTimesWithTwoBoundedUpsertWorkers() {
+        repeatCalibration(2);
+    }
+
+    @Test
+    @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void measuresOneMillionRecordsWithTwoBoundedUpsertWorkers() {
+        measure(EVENT_COUNT, 2);
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void validatesTwentyFiveThousandRecordsThreeTimesWithFourBoundedUpsertWorkers() {
+        repeatCalibration(4);
+    }
+
+    @Test
+    @Timeout(value = 30, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    void measuresOneMillionRecordsWithFourBoundedUpsertWorkers() {
+        measure(EVENT_COUNT, 4);
+    }
+
+    private void repeatCalibration(int workerCount) {
+        for (int repetition = 0; repetition < CALIBRATION_REPETITIONS; repetition++) {
+            if (repetition > 0) resetDatabase();
+            measure(CALIBRATION_EVENT_COUNT, workerCount);
+        }
+    }
+
+    private void measure(int eventCount, int workerCount) {
+        int subjectCount = Math.toIntExact(CatalogOperationBenchmarkFixture.expectedSubjects(eventCount));
+        CatalogPhysicalFeasibilitySql.initializeOperation(
+                jdbc, CatalogOperationBenchmarkFixture.operationId(), CatalogOperationBenchmarkFixture.scanRunId());
         var sampler = new CatalogPhysicalResourceSampler(jdbc);
+        var executor = new CatalogBoundedPhaseExecutor(stage, jdbc, transactions);
         List<PhaseMeasurement> phases = new ArrayList<>();
 
-        phases.add(sampler.measure("immutable-ingest", this::ingestSequentially));
-        assertThat(count("catalog_operation_discovery_input")).isEqualTo(EVENT_COUNT);
+        phases.add(sampler.measure("immutable-ingest", () -> executor.ingestSequentially(eventCount)));
+        assertThat(count("catalog_operation_discovery_input")).isEqualTo(eventCount);
 
         phases.add(sampler.measure(
                 "aggregate-reduction",
                 () -> inTransaction(() ->
                         CatalogPhysicalFeasibilitySql.reduce(jdbc, CatalogOperationBenchmarkFixture.operationId()))));
-        assertThat(count("benchmark_catalog_subject_reduction")).isEqualTo(SUBJECT_COUNT);
-        assertThat(count("benchmark_catalog_asset_reduction")).isEqualTo(EVENT_COUNT);
+        assertThat(count("benchmark_catalog_subject_reduction")).isEqualTo(subjectCount);
+        assertThat(count("benchmark_catalog_asset_reduction")).isEqualTo(eventCount);
 
-        phases.add(sampler.measure(
-                "bulk-upsert-subject-assets",
-                () -> inTransaction(() -> CatalogPhysicalFeasibilitySql.bulkUpsert(jdbc))));
-        assertThat(count("media_subject")).isEqualTo(SUBJECT_COUNT);
-        assertThat(count("media_asset")).isEqualTo(EVENT_COUNT);
+        phases.add(sampler.measure("bulk-upsert-subject-assets", () -> executor.bulkUpsert(workerCount)));
+        assertThat(count("media_subject")).isEqualTo(subjectCount);
+        assertThat(count("media_asset")).isEqualTo(eventCount);
 
         phases.add(sampler.measure(
                 "create-outbox",
                 () -> inTransaction(() -> CatalogPhysicalFeasibilitySql.createOutbox(
                         jdbc, CatalogOperationBenchmarkFixture.operationId()))));
-        assertThat(pendingOutbox()).isEqualTo(SUBJECT_COUNT);
+        assertThat(pendingOutbox()).isEqualTo(subjectCount);
 
-        phases.add(sampler.measure("relay-outbox-immediate-ack", this::relayOutboxSequentially));
+        phases.add(sampler.measure("relay-outbox-immediate-ack", () -> relayOutboxSequentially(subjectCount)));
         assertThat(pendingOutbox()).isZero();
+        assertTelemetryClean(phases);
 
-        logResult(phases);
+        logResult(eventCount, subjectCount, workerCount, phases);
     }
 
-    private void ingestSequentially() {
-        for (int start = 0; start < EVENT_COUNT; start += INGEST_SLICE_SIZE) {
-            int count = Math.min(INGEST_SLICE_SIZE, EVENT_COUNT - start);
-            stage.ingest(
-                    CatalogOperationBenchmarkFixture.sliceEvents(start, count),
-                    CatalogOperationBenchmarkFixture.sliceCoordinates(start, count));
-        }
-    }
-
-    private void relayOutboxSequentially() {
+    private void relayOutboxSequentially(int expectedOutboxCount) {
         CatalogOutboxRelayProperties properties = relayProperties();
         var coordinator = new CatalogOutboxRelayCoordinator(
                 relayStore, (topic, key, payload) -> {}, properties, outboxMetrics, tracer, propagator);
         try {
             int published = 0;
             int maximumLanePasses = properties.getLaneCount() * 4;
-            for (int pass = 0; pass < maximumLanePasses && published < SUBJECT_COUNT; pass++) {
+            for (int pass = 0; pass < maximumLanePasses && published < expectedOutboxCount; pass++) {
                 published += coordinator.drainTimeSlice();
             }
-            assertThat(published).isEqualTo(SUBJECT_COUNT);
+            assertThat(published).isEqualTo(expectedOutboxCount);
         } finally {
             coordinator.close();
         }
@@ -179,15 +209,32 @@ class CatalogSequentialPhysicalFeasibilityBenchmarkTest {
         return count == null ? 0 : count;
     }
 
-    private void logResult(List<PhaseMeasurement> phases) {
+    private void assertTelemetryClean(List<PhaseMeasurement> phases) {
+        assertThat(phases).allSatisfy(phase -> {
+            assertThat(phase.deadlocks()).as(phase.phase() + " deadlocks").isZero();
+            assertThat(phase.maximumLockWaiters())
+                    .as(phase.phase() + " lock waiters")
+                    .isZero();
+            assertThat(phase.samplingFailures())
+                    .as(phase.phase() + " sampling failures")
+                    .isZero();
+        });
+    }
+
+    private void logResult(int eventCount, int subjectCount, int workerCount, List<PhaseMeasurement> phases) {
         long totalMillis =
                 phases.stream().mapToLong(PhaseMeasurement::elapsedMillis).sum();
         LOGGER.info(
-                "Catalog 1M sequential physical feasibility: processors={}, maxHeapMiB={}, totalMs={}, "
+                "Catalog bounded physical feasibility: events={}, subjects={}, ingestWorkers=1, "
+                        + "upsertWorkers={}, processors={}, maxHeapMiB={}, totalMs={}, target90sMet={}, "
                         + "target120sMet={}\n{}",
+                eventCount,
+                subjectCount,
+                workerCount,
                 Runtime.getRuntime().availableProcessors(),
                 Runtime.getRuntime().maxMemory() / (1024 * 1024),
                 totalMillis,
+                totalMillis <= Duration.ofSeconds(90).toMillis(),
                 totalMillis <= Duration.ofMinutes(2).toMillis(),
                 phases.stream().map(Object::toString).collect(java.util.stream.Collectors.joining("\n")));
     }
