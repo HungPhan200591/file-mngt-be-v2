@@ -105,7 +105,7 @@ public class ApprovalOperationShardJdbcRepository {
                         FROM scan_approval_operation_shard shard
                         WHERE shard.operation_id = operation.id)
                 WHERE operation.status = 'RUNNING'
-                  AND operation.processing_version = 57
+                  AND operation.processing_version IN (57, 59)
                   AND NOT EXISTS (
                       SELECT 1 FROM scan_approval_operation_shard shard
                       WHERE shard.operation_id = operation.id AND shard.status <> 'COMPLETED')
@@ -113,6 +113,10 @@ public class ApprovalOperationShardJdbcRepository {
                       SELECT coalesce(sum(shard.committed_record_count), 0)
                       FROM scan_approval_operation_shard shard
                       WHERE shard.operation_id = operation.id)
+                  AND (operation.expected_discovery_record_count IS NULL OR operation.expected_discovery_record_count = (
+                      SELECT coalesce(sum(shard.committed_discovery_record_count), 0)
+                      FROM scan_approval_operation_shard shard
+                      WHERE shard.operation_id = operation.id))
                 """);
     }
 
