@@ -7,7 +7,8 @@
 - D1 Kafka-to-stage diagnostic: [CatalogOperationKafkaPipelineBenchmarkTest](./operation/CatalogOperationKafkaPipelineBenchmarkTest.java)
 - D2 reconciliation diagnostic: [CatalogOperationMergeBenchmarkTest](./operation/CatalogOperationMergeBenchmarkTest.java)
 - Dashboard: [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md)
-- Current run report: [05-ft058-reliability-hardening.md](./results/05-ft058-reliability-hardening.md)
+- Current physical-feasibility report: [06-ft059-sequential-physical-feasibility.md](./results/06-ft059-sequential-physical-feasibility.md)
+- Previous combined reliability report: [05-ft058-reliability-hardening.md](./results/05-ft058-reliability-hardening.md)
 
 Combined gate chạy ba workload: **25K**, **250K**, rồi **1M input records**. Consumer được assignment ổn định
 rồi chạy liên tục trong lúc test publish discovery, đủ 64 logical-shard completion marker và global watermark
@@ -26,6 +27,11 @@ Chỉ assignment ban đầu nằm ngoài throughput. Benchmark không pause/resu
 consumer, một finalizer worker, một shard seal mỗi tick để ưu tiên liveness có thể lặp lại. Mỗi run dùng
 Testcontainers mới; PostgreSQL chạy cấu hình durability mặc định. Vì vậy không so kết quả này với D1/D2 diagnostic
 dùng `fsync=off`.
+
+`CatalogSequentialPhysicalFeasibilityBenchmarkTest` là diagnostic 1M riêng: production ingest, benchmark-only
+set-based reduction/materialization, full outbox snapshot và production relay immediate-ack chạy tuần tự. Nó thu
+PostgreSQL WAL/I/O/temp/lock cùng host CPU và JVM heap/GC để phân biệt physical ceiling với orchestration contention;
+không thay combined gate và không phải production SQL qualification.
 
 Reset của combined benchmark dùng ordered `DELETE`, không dùng `TRUNCATE ... CASCADE`: scheduler vẫn hoạt động
 khi `@BeforeEach` chạy, còn `TRUNCATE` cần `AccessExclusiveLock` và có thể deadlock với function completion đang

@@ -102,6 +102,11 @@ Agent không tự chạy build/test/migration/Docker khi chưa được người
 - Test-harness reset đã bỏ `TRUNCATE ... CASCADE` sau khi xác nhận relation-lock deadlock với scheduler completion;
   ordered `DELETE` giữ reset tương thích với runtime scheduler. Lượt 25K xác nhận sau sửa đạt `35.353 ms`, không
   còn scheduled-task error; con số này chỉ là regression evidence, không thay thế ba lượt baseline phía trên.
+- Sequential physical-feasibility 1M ngày 2026-08-23 đạt correctness nhưng mất `171.871 ms`: ingest `68.472 ms`,
+  reduction `17.768 ms`, bulk upsert `62.902 ms`, create outbox `17.083 ms`, immediate-ack relay `5.646 ms`.
+  Zero deadlock/lock waiter và heap/GC thấp cho thấy serial execution shape không đạt 120 giây nhưng chưa chứng
+  minh local hardware hết capacity. Evidence chi tiết ở
+  [report 06](../../../apps/catalog-service/src/test/java/com/filemngt/v2/catalog/benchmark/results/06-ft059-sequential-physical-feasibility.md).
 
 ## Rollout và rollback
 

@@ -1,5 +1,15 @@
 # Catalog Service Benchmark Results Dashboard
 
+## FT-059 — Sequential physical-feasibility lower-bound
+
+| Workload | Boundary | Result | Status |
+| --- | --- | ---: | --- |
+| 1M input / 100K subject | Ingest → reduction → bulk upsert → create outbox → immediate-ack relay; tuần tự, không scheduler/Kafka | `171.871 ms` / `5.818 input/s` | **LOCAL SERIAL SHAPE INFEASIBLE** cho 1M/120s |
+
+Ingest `68.472 ms` + bulk upsert `62.902 ms` đã vượt 120 giây; toàn run có zero lock wait/deadlock và
+CPU directional sample thấp, nên evidence chỉ tới serial execution shape, không kết luận phần cứng local đã hết
+capacity. Chi tiết resource/WAL/temp/GC: [06-ft059-sequential-physical-feasibility.md](./results/06-ft059-sequential-physical-feasibility.md).
+
 ## FT-058 — Combined Catalog reliability gate
 
 | Workload | Clock | Target | Result | Status |

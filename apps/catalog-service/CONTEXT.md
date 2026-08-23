@@ -33,6 +33,10 @@ Nguồn chuẩn cho `media_subject`, `media_asset`, Actress, Studio, Tag và cá
   combined 25K tới final broker acknowledgement đã đạt 3/3 lượt độc lập trong `25.492–31.407 ms`. Race
   marker/data dưới PostgreSQL `READ COMMITTED` đã có IT khóa lại. Đây là correctness baseline chậm, chưa phải
   throughput hoặc scale qualification.
+- Physical-feasibility 1M tuần tự (không scheduler/Kafka/overlap) đạt exact cardinality nhưng mất `171.871 ms`:
+  ingest `68.472 ms`, reduction `17.768 ms`, bulk upsert `62.902 ms`, create outbox `17.083 ms`, relay
+  immediate-ack `5.646 ms`. Zero lock wait/deadlock và heap/GC thấp: không chạy tiếp combined scale ladder trên
+  serial shape; chỉ thử bounded intra-phase parallelism với correctness gate trước.
 - Catalog bầu đúng một `PRIMARY_VIDEO`: video đầu tiên thắng khi chưa có primary; video không tag ưu tiên hơn
   video có tag; cùng priority giữ primary hiện tại. Tags được lưu theo video asset và subject `tagNames` phản ánh
   primary đang được bầu. Xóa primary kích hoạt election lại từ các video còn lại.
