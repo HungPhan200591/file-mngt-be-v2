@@ -70,6 +70,7 @@ import org.testcontainers.utility.DockerImageName;
             "scan.approval-operation.fixed-delay-ms=1",
             "scan.approval-operation.completion-shard-count=64",
             "scan.approval-operation.worker-concurrency=16",
+            "scan.approval-operation.total-deadline-seconds=400",
             "scan.outbox.enabled=true",
             "scan.outbox.lane-relay-enabled=true",
             "scan.outbox.scheduler-delay-ms=1",
