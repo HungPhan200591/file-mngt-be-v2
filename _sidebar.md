@@ -6,6 +6,7 @@
     * [Guide vận hành với AI Agent](/manual/ai-agent/operating-guide.md)
   * **learning**
     * [Lộ trình study Microservices nâng cao — Senior Java](/manual/learning/ADVANCED_MICROSERVICES_STUDY_ROADMAP.md)
+    * [🏛️ 4 Trụ cột Senior Java Backend & Chiến lược AI](/manual/learning/SENIOR_JAVA_BACKEND_CORE_PILLARS.md)
     * [Learning hub — Senior Java / Microservices](/manual/learning/README.md)
     * [📖 Từ vựng Nghiệp vụ & Kỹ thuật Dự án (Technical & Domain Glossary)](/manual/learning/technical-glossary.md)
     * **deep-dive**

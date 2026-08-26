@@ -10,6 +10,7 @@
 
 ## Tài liệu theo loại
 
+- [🏛️ 4 Trụ cột Senior Java Backend & Chiến lược AI](./SENIOR_JAVA_BACKEND_CORE_PILLARS.md): bản đồ năng lực cốt lõi (JVM, Database, Event-Driven, Observability) và kịch bản luyện tập với AI.
 - [Technical glossary](./technical-glossary.md): thuật ngữ ngắn, không thay deep-dive.
 - [`deep-dive/`](./deep-dive/): giải thích cơ chế, failure model và trade-off có evidence.
 - [`use-cases/`](./use-cases/): UC/SC study pack; thứ tự, trạng thái và dependency do roadmap sở hữu.
